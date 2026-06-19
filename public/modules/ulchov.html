@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEG KIP — Ўлчов воситалари</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050d1a;
+      --bg2: #0a1628;
+      --panel: #0d1f35;
+      --panel2: #112540;
+      --border: #1a3a5c;
+      --accent: #00d4ff;
+      --accent2: #0066ff;
+      --glow: rgba(0, 212, 255, 0.15);
+      --text: #e0f0ff;
+      --text2: #7aa8cc;
+      --wika: #00aaff;
+      --fiztex: #00cc66;
+      --polit: #ffaa00;
+      --rosma: #ff4444;
+      --metran: #aa44ff;
+      --tempu: #ff6600;
+      --oven: #44ddaa;
+      --other: #aaaaaa;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Exo 2', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* BACKGROUND GRID */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* PAGES */
+    .page {
+      display: none;
+      position: relative;
+      z-index: 1;
+    }
+
+    .page.active {
+      display: block;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      background: linear-gradient(135deg, #050d1a 0%, #0a1f3a 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .logo {
+      font-family: 'Orbitron', monospace;
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--accent);
+      text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text2);
+      flex: 1;
+      flex-wrap: wrap;
+    }
+
+    .breadcrumb span {
+      color: var(--accent);
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .breadcrumb span:hover {
+      color: white;
+    }
+
+    .breadcrumb .sep {
+      color: var(--border);
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: var(--text2);
+    }
+
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-num {
+      color: var(--accent);
+      font-weight: 700;
+      font-family: 'Orbitron', monospace;
+      font-size: 13px;
+    }
+
+    /* ===== MAIN MENU ===== */
+    #page-main {
+      padding: 40px 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .main-title {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    .main-title h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(24px, 5vw, 48px);
+      font-weight: 900;
+      background: linear-gradient(135deg, #00d4ff, #0066ff, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+      letter-spacing: 3px;
+    }
+
+    .main-title p {
+      color: var(--text2);
+      font-size: 14px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .menu-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 24px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      text-align: center;
+    }
+
+    .menu-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent, var(--glow));
+      opacity: 0;
+      transition: 0.3s;
+    }
+
+    .menu-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
+    }
+
+    .menu-card:hover::before {
+      opacity: 1;
+    }
+
+    .menu-icon {
+      font-size: 52px;
+      margin-bottom: 16px;
+      display: block;
+      filter: drop-shadow(0 0 12px rgba(0, 212, 255, 0.4));
+    }
+
+    .menu-card h2 {
+      font-family: 'Orbitron', monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .menu-card p {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.5;
+    }
+
+    .menu-count {
+      display: inline-block;
+      background: rgba(0, 212, 255, 0.1);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      color: var(--accent);
+      font-size: 11px;
+      padding: 2px 10px;
+      border-radius: 20px;
+      margin-top: 12px;
+      font-family: 'Orbitron', monospace;
+    }
+
+    /* ===== SUBMENU PAGE ===== */
+    #page-submenu {
+      padding: 40px 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: 0.2s;
+      margin-bottom: 32px;
+      font-family: 'Exo 2', sans-serif;
+    }
+
+    .back-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .submenu-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 22px;
+      color: var(--accent);
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+    }
+
+    .submenu-subtitle {
+      color: var(--text2);
+      font-size: 13px;
+      margin-bottom: 32px;
+    }
+
+    .submenu-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .sub-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 20px;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sub-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      transform: scaleX(0);
+      transition: 0.3s;
+    }
+
+    .sub-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 24px rgba(0, 212, 255, 0.15);
+    }
+
+    .sub-card:hover::after {
+      transform: scaleX(1);
+    }
+
+    .sub-icon {
+      font-size: 40px;
+      filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.3));
+    }
+
+    .sub-card h3 {
+      font-family: 'Orbitron', monospace;
+      font-size: 13px;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    .sub-card p {
+      font-size: 11px;
+      color: var(--text2);
+      line-height: 1.5;
+    }
+
+    /* ===== PASPORT PAGE ===== */
+    #page-pasport {
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .pasport-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      flex-wrap: gap;
+      gap: 12px;
+    }
+
+    .pasport-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 20px;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    .action-btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Exo 2', sans-serif;
+      transition: 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: white;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.85;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* SEARCH BAR */
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .search-input {
+      flex: 1;
+      min-width: 200px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Exo 2', sans-serif;
+      outline: none;
+      transition: 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.1);
+    }
+
+    .search-input::placeholder {
+      color: var(--text2);
+    }
+
+    .filter-select {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Exo 2', sans-serif;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .filter-select:focus {
+      border-color: var(--accent);
+    }
+
+    .filter-select option {
+      background: var(--panel2);
+    }
+
+    /* SUMMARY ROW */
+    .summary-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .summary-chip {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chip-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .summary-chip .num {
+      font-family: 'Orbitron', monospace;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* CARDS GRID */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .instrument-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .instrument-card:hover {
+      border-color: var(--card-color, var(--accent));
+      transform: translateY(-3px);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+    }
+
+    .card-top {
+      padding: 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, var(--panel2), var(--panel));
+    }
+
+    .pos-badge {
+      font-family: 'Orbitron', monospace;
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--card-color, var(--accent));
+      text-shadow: 0 0 12px var(--card-color, var(--accent));
+      line-height: 1;
+    }
+
+    .pos-label {
+      font-size: 9px;
+      color: var(--text2);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .device-icon {
+      font-size: 36px;
+      filter: drop-shadow(0 0 6px var(--card-color, rgba(0, 212, 255, 0.4)));
+    }
+
+    .card-brand {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-badge {
+      background: var(--card-color, var(--accent));
+      color: #000;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: 'Orbitron', monospace;
+      letter-spacing: 1px;
+    }
+
+    .card-body {
+      padding: 14px 16px;
+    }
+
+    .card-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    .card-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+
+    .info-label {
+      font-size: 9px;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+
+    .info-value {
+      font-size: 12px;
+      color: var(--text);
+      font-weight: 600;
+      font-family: 'Exo 2', sans-serif;
+    }
+
+    .serial-row {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .serial-label {
+      font-size: 9px;
+      color: var(--text2);
+      letter-spacing: 2px;
+    }
+
+    .serial-val {
+      font-family: 'Orbitron', monospace;
+      font-size: 12px;
+      color: var(--card-color, var(--accent));
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    .location-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(0, 212, 255, 0.08);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .work-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+
+    .work-to2 {
+      background: rgba(0, 204, 100, 0.1);
+      border: 1px solid rgba(0, 204, 100, 0.3);
+      color: #00cc66;
+    }
+
+    .work-akt {
+      background: rgba(255, 170, 0, 0.1);
+      border: 1px solid rgba(255, 170, 0, 0.3);
+      color: #ffaa00;
+    }
+
+    .pdf-btn {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(0, 102, 255, 0.2), rgba(0, 212, 255, 0.2));
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      color: var(--accent);
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Exo 2', sans-serif;
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .pdf-btn:hover {
+      background: linear-gradient(135deg, rgba(0, 102, 255, 0.4), rgba(0, 212, 255, 0.4));
+    }
+
+    /* CARD COLOR SIDE */
+    .instrument-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--card-color, var(--accent));
+      border-radius: 14px 0 0 14px;
+    }
+
+    /* EMPTY STATE */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text2);
+      grid-column: 1/-1;
+    }
+
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* COMING SOON */
+    .coming-soon {
+      text-align: center;
+      padding: 80px 24px;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .coming-soon .cs-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+
+    .coming-soon h2 {
+      font-family: 'Orbitron', monospace;
+      font-size: 20px;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .coming-soon p {
+      color: var(--text2);
+      font-size: 14px;
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+      animation: fadeIn 0.2s;
+    }
+
+    .modal {
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .modal h3 {
+      font-family: 'Orbitron', monospace;
+      color: var(--accent);
+      margin-bottom: 20px;
+      font-size: 16px;
+    }
+
+    .modal input,
+    .modal select {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Exo 2', sans-serif;
+      margin-bottom: 12px;
+      outline: none;
+    }
+
+    .modal input:focus,
+    .modal select:focus {
+      border-color: var(--accent);
+    }
+
+    .modal-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .modal-btns .btn {
+      flex: 1;
+      justify-content: center;
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent);
+    }
+    .umumiy{
+      width: 400px;
+      height:200px;
+      background:#c5cbd6;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 600px) {
+      .header {
+        padding: 12px;
+        flex-wrap: wrap;
+      }
+
+      .logo {
+        font-size: 14px;
+      }
+
+      .cards-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .pasport-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">⚡ SANEK/4</div>
+    <div class="breadcrumb" id="breadcrumb">
+      <span onclick="goHome()">Бош меню</span>
+    </div>
+    <div class="stats-bar">
+      <div class="stat">🔧 <span class="stat-num">251</span> та аслоб</div>
+      <div class="stat">📍 <span class="stat-num">19</span> та ҳудуд</div>
+    </div>
+  </div>
+
+  <!-- PAGE: MAIN MENU -->
+  <div id="page-main" class="page">
+    <div id="main-content">
+      <div class="main-title">
+        <h1>БОШҚАРУВ ТИЗИМИ</h1>
+        <p>Neft-gaz sanoati · O'lchov vositalari</p>
+      </div>
+      <div class="menu-grid">
+        <div class="menu-card" onclick="goPage('submenu')">
+          <span class="menu-icon">⚙️</span>
+          <h2>ЎЛЧОВ ВОСИТАЛАРИ</h2>
+          <p>Барча ўлчов асбоблари рўйхати, пасспортлар ва техник хизмат маълумотлари</p>
+          <div class="menu-count">251 та аслоб</div>
+        </div>
+        <div class="menu-card" onclick="alert('Тез орада...')">
+          <span class="menu-icon">📊</span>
+          <h2>ҲИСОБОТЛАР</h2>
+          <p>Техник хизмат кўрсатиш ҳисоботлари ва статистика маълумотлари</p>
+          <div class="menu-count">Тез орада</div>
+        </div>
+        <div class="menu-card" onclick="alert('Тез орада...')">
+          <span class="menu-icon">🗺️</span>
+          <h2>ҲУДУДЛАР ХАРИТАЛАРИ</h2>
+          <p>Барча ҳудудлар ва объектлар жойлашуви ва уларнинг ҳолати</p>
+          <div class="menu-count">19 та ҳудуд</div>
+        </div>
+        <div class="menu-card" onclick="alert('Тез орада...')">
+          <span class="menu-icon">⚠️</span>
+          <h2>ОГОҲЛАНТИРИШЛАР</h2>
+          <p>Муддати ўтган ва тезда хизмат кўрсатиш зарур асбоблар</p>
+          <div class="menu-count">Тез орада</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: SUBMENU -->
+  <div id="page-submenu" class="page active">
+    <div id="submenu-content" style="padding:40px 24px; max-width:900px; margin:0 auto;">
+      <button class="back-btn" onclick="goHome()">← Бош менюга қайтиш</button>
+      <div class="submenu-title">⚙️ ЎЛЧОВ ВОСИТАЛАРИ</div>
+      <div class="submenu-subtitle">Бўлимни танланг</div>
+      <div class="submenu-grid">
+        <div class="sub-card" onclick="goPasport()">
+          <div class="sub-icon">📋</div>
+          <h3>ПАСПОРТ МАНОМЕТР</h3>
+          <p>Барча аслоблар паспортлари, инфографик кўринишда. Қидириш ва ҳужжат қўшиш имкони.</p>
+        </div>
+        <a href="telemexanika_formulyar.html">
+          <div class="sub-card" onclick="goComingSoon('Телемеханика Формуляр')">
+            <div class="sub-icon">📡</div>
+
+            <h3>ТЕЛЕМЕХАНИКА ФОРМУЛЯР</h3>
+            <p>Телемеханика тизими формулярлари ва техник ҳужжатлар.</p>
+          </div>
+        </a>
+        <a href="formulyar.html">
+          <div class="sub-card" onclick="goComingSoon('Формуляр')">
+            <div class="sub-icon">📄</div>
+
+            <h3>ФОРМУЛЯР</h3>
+
+            <p>Умумий формулярлар ва техник хизмат кўрсатиш журнали.</p>
+          </div>
+        </a>
+        <div class="umumiy">
+            <h1>Umumiy bo'lim</h1>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: PASPORT -->
+  <div id="page-pasport" class="page">
+    <div style="padding:20px 24px 0;">
+      <button class="back-btn" onclick="goPage('submenu')">← Ўлчов воситалари</button>
+      <div class="pasport-header">
+        <div>
+          <div class="pasport-title">📋 ПАСПОРТ МАНОМЕТР</div>
+          <div style="color:var(--text2);font-size:12px;margin-top:4px">Барча аслоблар — <span id="total-count"
+              style="color:var(--accent)">251</span> та</div>
+        </div>
+        <div class="action-btns">
+          <button class="btn btn-secondary" onclick="openSearch()">🔍 Қидириш</button>
+          <button class="btn btn-primary" onclick="openAddModal()">📎 Ҳужжат қўшиш</button>
+        </div>
+      </div>
+
+      <!-- SEARCH BAR -->
+      <div class="search-bar" id="search-bar">
+        <input class="search-input" id="search-input" type="text"
+          placeholder="🔍 Завод рақами, аслоб номи бўйича қидириш..." oninput="filterCards()">
+        <select class="filter-select" id="filter-brand" onchange="filterCards()">
+          <option value="">Барча брендлар</option>
+          <option value="WIKA">WIKA</option>
+          <option value="Физтех">Физтех</option>
+          <option value="Полит">Полит</option>
+          <option value="РОСМА">РОСМА</option>
+          <option value="Метран">Метран</option>
+          <option value="Овен">Овен</option>
+          <option value="ТЕМПУ">ТЕМПУ</option>
+          <option value="Vega">Vega</option>
+          <option value="Quvvat">Quvvat</option>
+        </select>
+        <select class="filter-select" id="filter-location" onchange="filterCards()">
+          <option value="">Барча ҳудудлар</option>
+          <option value="Цен. Аввал УППГ">Цен. Аввал УППГ</option>
+          <option value="Аввал">Аввал</option>
+          <option value="В.Аввал">В.Аввал</option>
+          <option value="Аввал БВН">Аввал БВН</option>
+          <option value="УУГ ТЭС">УУГ ТЭС</option>
+          <option value="УУГ ФНПЗ">УУГ ФНПЗ</option>
+          <option value="Хонкиз УПН">Хонкиз УПН</option>
+          <option value="Хонкиз">Хонкиз</option>
+          <option value="Хонкиз Газ">Хонкиз Газ</option>
+          <option value="Ст. Чимен">Ст. Чимен</option>
+          <option value="Кашкақир">Кашкақир</option>
+          <option value="Кашкақир сеп">Кашкақир сеп</option>
+          <option value="Кашкақир ПРД">Кашкақир ПРД</option>
+          <option value="Ворух УПН">Ворух УПН</option>
+          <option value="Ворух">Ворух</option>
+          <option value="Ворух ст">Ворух ст</option>
+          <option value="Ворух сеп">Ворух сеп</option>
+          <option value="Шурсув">Шурсув</option>
+          <option value="Шурсув сеп">Шурсув сеп</option>
+        </select>
+      </div>
+
+      <!-- SUMMARY -->
+      <div class="summary-row" id="summary-row"></div>
+
+      <!-- CARDS -->
+      <div class="cards-grid" id="cards-grid"></div>
+    </div>
+  </div>
+
+  <!-- PAGE: COMING SOON -->
+  <div id="page-coming" class="page">
+    <div class="coming-soon">
+      <button class="back-btn" onclick="goPage('submenu')" style="margin:0 auto 32px;">← Қайтиш</button>
+      <div class="cs-icon">🔧</div>
+      <h2 id="coming-title">ТЕЗ ОРАДА</h2>
+      <p>Ушбу бўлим ишланмоқда. Яқин орада фойдаланишга топширилади.</p>
+    </div>
+  </div>
+
+  <!-- ADD MODAL -->
+  <div class="modal-overlay" id="add-modal">
+    <div class="modal">
+      <h3>📎 ЯНГИ ҲУЖЖАТ ҚЎШ</h3>
+      <input type="text" placeholder="Завод рақами" id="new-serial">
+      <input type="text" placeholder="Аслоб номи (Манометр, Термометр...)" id="new-name">
+      <select id="new-brand">
+        <option value="">Брендни танланг</option>
+        <option>WIKA</option>
+        <option>Физтех</option>
+        <option>Полит</option>
+        <option>РОСМА</option>
+        <option>Метран</option>
+        <option>Овен</option>
+        <option>ТЕМПУ</option>
+        <option>Vega</option>
+        <option>Quvvat</option>
+      </select>
+      <select id="new-location">
+        <option value="">Ҳудудни танланг</option>
+        <option>Цен. Аввал УППГ</option>
+        <option>Аввал</option>
+        <option>В.Аввал</option>
+        <option>УУГ ТЭС</option>
+        <option>УУГ ФНПЗ</option>
+        <option>Хонкиз УПН</option>
+        <option>Хонкиз</option>
+        <option>Ворух УПН</option>
+        <option>Ворух</option>
+        <option>Шурсув</option>
+        <option>Кашкақир</option>
+      </select>
+      <input type="text" placeholder="Ўлчов диапазони (0-1.6 МПа)" id="new-range">
+      <div class="modal-btns">
+        <button class="btn btn-secondary" onclick="closeModal()">Бекор қилиш</button>
+        <button class="btn btn-primary" onclick="addInstrument()">✅ Қўшиш</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== DATA =====
+    const rawData = [{ "pos": "1", "name": "Манометр", "brand": "Физтех", "serial": "А0269788", "range": "0-1.6 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "2", "name": "Манометр", "brand": "WIKA", "serial": "8972FODL", "range": "0-4 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "3", "name": "Термометр", "brand": "Физтех", "serial": "3016578", "range": "0-100°С", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "4", "name": "Манометр", "brand": "WIKA", "serial": "89729YBB", "range": "0-6 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "5", "name": "Термометр", "brand": "Физтех", "serial": "3016588", "range": "0-100°С", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "6", "name": "ЭКМ", "brand": "Физтех", "serial": "2245650", "range": "0-4 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "7", "name": "Манометр", "brand": "WIKA", "serial": "8972BGK7", "range": "0-2.5 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "8", "name": "Манометр", "brand": "WIKA", "serial": "8972BGL6", "range": "0-2.5 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "9", "name": "Манометр", "brand": "WIKA", "serial": "8972BGO1", "range": "0-2.5 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "10", "name": "Манометр", "brand": "WIKA", "serial": "8972BGS7", "range": "0-2.5 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "11", "name": "Манометр", "brand": "Физтех", "serial": "2247474", "range": "0-2.5 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "12", "name": "Манометр", "brand": "WIKA", "serial": "8972BQ0P", "range": "0-2.5 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "13", "name": "Манометр", "brand": "WIKA", "serial": "8972BGRU", "range": "0-2.5 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "14", "name": "Манометр", "brand": "WIKA", "serial": "8972BGQE", "range": "0-2.5 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "15", "name": "Манометр", "brand": "WIKA", "serial": "8972CLQE", "range": "0-4 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "16", "name": "Дат. дав", "brand": "Полит", "serial": "221562", "range": "0-6 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "17", "name": "Дат. темп", "brand": "Метран", "serial": "2456815", "range": "-50...+100°С", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "18", "name": "Дат. дав", "brand": "Полит", "serial": "221550", "range": "0-6 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "19", "name": "Дат. темп", "brand": "Метран", "serial": "2459096", "range": "-50...+100°С", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "20", "name": "Дат. дав", "brand": "Полит", "serial": "221567", "range": "0-6 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "21", "name": "Дат. темп", "brand": "Метран", "serial": "2451368", "range": "-50...+100°С", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "22", "name": "Маг. указ. уров", "brand": "ТЕМПУ", "serial": "0023-1-3", "range": "0-1500 мм", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "23", "name": "Маг. указ. уров", "brand": "ТЕМПУ", "serial": "2861-4-4", "range": "0-1200 мм", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "24", "name": "Манометр", "brand": "РОСМА", "serial": "15106192", "range": "0-6 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "25", "name": "Уровнемер", "brand": "Vega", "serial": "64933806", "range": "0-2800 мм", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "26", "name": "Уровнемер", "brand": "Vega", "serial": "64933807", "range": "0-2800 мм", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "27", "name": "Манометр", "brand": "WIKA", "serial": "8972C8BQ", "range": "0-1.6 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "28", "name": "Манометр", "brand": "WIKA", "serial": "8972BGU8", "range": "0-2.5 МПа", "location": "Цен. Аввал УППГ", "work": "ТО-2" }, { "pos": "29", "name": "Дат. дав", "brand": "Полит", "serial": "233626", "range": "0-16 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "30", "name": "Дат. дав", "brand": "Полит", "serial": "24656", "range": "0-16 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "31", "name": "Дат. дав", "brand": "Полит", "serial": "233652", "range": "0-6.3 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "32", "name": "Дат. темп", "brand": "Полит", "serial": "2303551", "range": "0-100°С", "location": "Аввал", "work": "ТО-2" }, { "pos": "33", "name": "Манометр", "brand": "WIKA", "serial": "8972C8IIK", "range": "0-1.6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "34", "name": "Манометр", "brand": "WIKA", "serial": "8972CE96", "range": "0-1 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "35", "name": "Манометр", "brand": "WIKA", "serial": "8972BGQR", "range": "0-2.5 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "36", "name": "Дат. дав", "brand": "Полит", "serial": "233651", "range": "0-6.3 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "37", "name": "Дат. дав", "brand": "Полит", "serial": "233623", "range": "0-16 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "38", "name": "Дат. дав", "brand": "Полит", "serial": "233614", "range": "0-16 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "39", "name": "Дат. дав. темп", "brand": "Полит", "serial": "2303553", "range": "0-100°С", "location": "Аввал", "work": "ТО-2" }, { "pos": "40", "name": "Манометр", "brand": "WIKA", "serial": "14265", "range": "0-2.5 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "41", "name": "Дат. дав", "brand": "Полит", "serial": "24861", "range": "0-16 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "42", "name": "Дат. дав", "brand": "Полит", "serial": "241051", "range": "0-6.3 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "43", "name": "Дат. дав", "brand": "Полит", "serial": "24862", "range": "0-1.6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "44", "name": "Дат. темп", "brand": "Полит", "serial": "2401124", "range": "0-100°С", "location": "Аввал", "work": "ТО-2" }, { "pos": "45", "name": "Манометр", "brand": "WIKA", "serial": "8972 CLOR", "range": "0-4 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "46", "name": "Манометр", "brand": "WIKA", "serial": "8972 F0DY", "range": "0-10 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "47", "name": "Манометр", "brand": "WIKA", "serial": "89729YBB", "range": "0-6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "48", "name": "Манометр", "brand": "WIKA", "serial": "8972C8JE", "range": "0-1.6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "49", "name": "Манометр", "brand": "WIKA", "serial": "8972C8F1", "range": "0-1.6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "50", "name": "Манометр", "brand": "WIKA", "serial": "8972C8HP", "range": "0-1.6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "51", "name": "Манометр", "brand": "Физтех", "serial": "2247955", "range": "0-25 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "52", "name": "Дат. темп", "brand": "Полит", "serial": "2303552", "range": "0-100°С", "location": "Аввал", "work": "ТО-2" }, { "pos": "53", "name": "Дат. дав", "brand": "Полит", "serial": "233657", "range": "0-16 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "54", "name": "Дат. дав", "brand": "Полит", "serial": "233621", "range": "0-16 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "55", "name": "Дат. дав", "brand": "Полит", "serial": "233638", "range": "0-6.3 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "56", "name": "Манометр", "brand": "WIKA", "serial": "89729YBA", "range": "0-6 МПа", "location": "Аввал БВН", "work": "ТО-2" }, { "pos": "57", "name": "Манометр", "brand": "Физтех", "serial": "14851", "range": "0-6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "58", "name": "Манометр", "brand": "Физтех", "serial": "23035773", "range": "0-60 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "59", "name": "Манометр", "brand": "Физтех", "serial": "10201479", "range": "0-60 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "60", "name": "Манометр", "brand": "WIKA", "serial": "89722FODY", "range": "0-10 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "61", "name": "Манометр", "brand": "Физтех", "serial": "23078404", "range": "0-6.3 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "62", "name": "Манометр", "brand": "Физтех", "serial": "347496", "range": "0-60 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "63", "name": "Манометр", "brand": "Физтех", "serial": "007269", "range": "0-1.6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "64", "name": "Дат. дав", "brand": "Полит", "serial": "233631", "range": "0-16 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "65", "name": "Дат. дав", "brand": "Полит", "serial": "233634", "range": "0-16 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "66", "name": "Дат. дав", "brand": "Полит", "serial": "233656", "range": "0-6.3 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "67", "name": "Дат. темп", "brand": "Полит", "serial": "2303562", "range": "0-100°С", "location": "Аввал", "work": "ТО-2" }, { "pos": "68", "name": "Манометр", "brand": "Физтех", "serial": "2345436", "range": "0-2.5 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "69", "name": "Манометр", "brand": "WIKA", "serial": "8972CE99", "range": "0-16 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "70", "name": "Манометр", "brand": "WIKA", "serial": "8972CE3H", "range": "0-1 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "71", "name": "Манометр", "brand": "WIKA", "serial": "8972BGP8", "range": "0-2.5 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "72", "name": "Манометр", "brand": "WIKA", "serial": "8972BGBA", "range": "0-2.5 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "73", "name": "Манометр", "brand": "WIKA", "serial": "8972BGK6", "range": "0-2.5 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "74", "name": "Дат. дав", "brand": "Полит", "serial": "24865", "range": "0-1.6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "75", "name": "Дат. дав", "brand": "Полит", "serial": "241053", "range": "0-6.3 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "76", "name": "Дат. темп", "brand": "Полит", "serial": "2401126", "range": "0-100°С", "location": "Аввал", "work": "ТО-2" }, { "pos": "77", "name": "Дат. дав", "brand": "Полит", "serial": "24866", "range": "0-1.6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "78", "name": "Манометр", "brand": "WIKA", "serial": "8972C8C9", "range": "0-1.6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "79", "name": "Манометр", "brand": "Физтех", "serial": "A0269693", "range": "0-1.6 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "80", "name": "Манометр", "brand": "WIKA", "serial": "A8972BGSO", "range": "0-2.5 МПа", "location": "Аввал", "work": "ТО-2" }, { "pos": "200", "name": "Манометр", "brand": "WIKA", "serial": "8972CE94", "range": "0-1 МПа", "location": "Хонкиз УПН", "work": "ТО-2" }, { "pos": "201", "name": "ЭКМ", "brand": "Физтех", "serial": "2245686", "range": "0-1.6 МПа", "location": "Хонкиз УПН", "work": "ТО-2" }, { "pos": "207", "name": "Манометр", "brand": "РОСМА", "serial": "1249193", "range": "0-1 МПа", "location": "Хонкиз УПН", "work": "ТО-2" }, { "pos": "300", "name": "ЭКМ", "brand": "Физтех", "serial": "2245693", "range": "0-1.6 МПа", "location": "Ворух УПН", "work": "ТО-2" }, { "pos": "301", "name": "Манометр", "brand": "WIKA", "serial": "8972CE8Q", "range": "0-1 МПа", "location": "Ворух УПН", "work": "ТО-2" }, { "pos": "330", "name": "Манометр", "brand": "WIKA", "serial": "8972CE8R", "range": "0-1 МПа", "location": "Шурсув", "work": "ТО-2" }, { "pos": "360", "name": "Манометр", "brand": "WIKA", "serial": "8972CE8B", "range": "0-1 МПа", "location": "Ворух", "work": "ТО-2" }, { "pos": "361", "name": "Манометр", "brand": "WIKA", "serial": "8972CEA6", "range": "0-1 МПа", "location": "Ворух", "work": "ТО-2" }, { "pos": "270", "name": "Манометр", "brand": "WIKA", "serial": "8972BGTQ", "range": "0-2.5 МПа", "location": "Кашкақир", "work": "ТО-2" }, { "pos": "271", "name": "Манометр", "brand": "WIKA", "serial": "8372 CLOM", "range": "0-4 МПа", "location": "Кашкақир", "work": "ТО-2" }];
+
+    let allData = [...rawData];
+
+    // ===== BRAND CONFIG =====
+    const brandConfig = {
+      'WIKA': { color: '#00aaff', icon: '🔵' },
+      'Физтех': { color: '#00cc66', icon: '🟢' },
+      'Полит': { color: '#ffaa00', icon: '🟡' },
+      'РОСМА': { color: '#ff4444', icon: '🔴' },
+      'Метран': { color: '#aa44ff', icon: '🟣' },
+      'ТЕМПУ': { color: '#ff6600', icon: '🟠' },
+      'Овен': { color: '#44ddaa', icon: '🩵' },
+      'Vega': { color: '#ff44aa', icon: '🩷' },
+      'Quvvat': { color: '#ffdd00', icon: '⭐' },
+      'EMERSON': { color: '#00ccff', icon: '💠' },
+      'РОСЕМАУНТ': { color: '#ff8800', icon: '🔶' },
+    };
+
+    const deviceIcons = {
+      'Манометр': '🔘', 'Термометр': '🌡️', 'ЭКМ': '⚡',
+      'Дат. дав': '📡', 'Дат. темп': '🌡️', 'Уровнемер': '📊',
+      'ULTRAMER': '📏', 'Счетчик': '🔢', 'СКЖ': '💧',
+      'FLOBOSS': '🖥️', 'Термопреоб': '🔌', 'Преоб. дав': '📡',
+      'Маг. указ. уров': '📊', 'Дат. дав. темп': '📡',
+    };
+
+    function getBrandColor(brand) {
+      return brandConfig[brand]?.color || '#aaaaaa';
+    }
+    function getBrandIcon(brand) {
+      return brandConfig[brand]?.icon || '⚪';
+    }
+    function getDeviceIcon(name) {
+      for (const [key, icon] of Object.entries(deviceIcons)) {
+        if (name.includes(key)) return icon;
+      }
+      return '🔧';
+    }
+
+    // ===== NAVIGATION =====
+    function goPage(pageId) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + pageId).classList.add('active');
+      updateBreadcrumb(pageId);
+      window.scrollTo(0, 0);
+    }
+
+    function goHome() { goPage('submenu'); }
+
+    function goPage_submenu() { goPage('submenu'); }
+
+    function goPasport() {
+      goPage('pasport');
+      renderSummary();
+      renderCards(allData);
+    }
+
+    function goComingSoon(title) {
+      document.getElementById('coming-title').textContent = title.toUpperCase();
+      goPage('coming');
+    }
+
+    function updateBreadcrumb(pageId) {
+      const bc = document.getElementById('breadcrumb');
+      if (pageId === 'main') {
+        bc.innerHTML = '<span onclick="goHome()">Бош меню</span>';
+      } else if (pageId === 'submenu') {
+        bc.innerHTML = '<span onclick="goHome()">Бош меню</span><span class="sep">›</span><span>Ўлчов воситалари</span>';
+      } else if (pageId === 'pasport') {
+        bc.innerHTML = '<span onclick="goHome()">Бош меню</span><span class="sep">›</span><span onclick="goPage(\'submenu\')">Ўлчов воситалари</span><span class="sep">›</span><span>Паспорт манометр</span>';
+      } else if (pageId === 'coming') {
+        bc.innerHTML = '<span onclick="goHome()">Бош меню</span><span class="sep">›</span><span onclick="goPage(\'submenu\')">Ўлчов воситалари</span><span class="sep">›</span><span>' + document.getElementById('coming-title').textContent + '</span>';
+      }
+    }
+
+    // ===== RENDER SUMMARY =====
+    function renderSummary() {
+      const counts = {};
+      allData.forEach(d => { counts[d.brand] = (counts[d.brand] || 0) + 1; });
+      const row = document.getElementById('summary-row');
+      const topBrands = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+      row.innerHTML = topBrands.map(([brand, cnt]) => `
+    <div class="summary-chip">
+      <div class="chip-dot" style="background:${getBrandColor(brand)}"></div>
+      <span>${brand}</span>
+      <span class="num" style="color:${getBrandColor(brand)}">${cnt}</span>
+    </div>
+  `).join('');
+    }
+
+    // ===== RENDER CARDS =====
+    function renderCards(data) {
+      const grid = document.getElementById('cards-grid');
+      document.getElementById('total-count').textContent = data.length;
+
+      if (data.length === 0) {
+        grid.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><p>Ҳеч нарса топилмади. Қидирув шартларини ўзгартиринг.</p></div>`;
+        return;
+      }
+
+      grid.innerHTML = data.map(d => {
+        const color = getBrandColor(d.brand);
+        const brandIcon = getBrandIcon(d.brand);
+        const devIcon = getDeviceIcon(d.name);
+        const workClass = d.work === 'ТО-2' ? 'work-to2' : 'work-akt';
+        const serial = d.serial || '—';
+        const driveUrl = `https://drive.google.com/drive/search?q=${encodeURIComponent(serial)}`;
+
+        return `
+    <div class="instrument-card" style="--card-color:${color}">
+      <div class="card-top">
+        <div>
+          <div class="pos-label">ПОЗИЦИЯ</div>
+          <div class="pos-badge">${d.pos || '—'}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:32px">${devIcon}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="card-brand">
+            <div class="brand-badge" style="background:${color}">${d.brand}</div>
+          </div>
+          <div style="font-size:18px;margin-top:4px">${brandIcon}</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-name">${d.name}</div>
+        <div class="serial-row">
+          <div class="serial-label">ЗАВОД РАҚАМИ</div>
+          <div class="serial-val">${serial}</div>
+        </div>
+        <div class="card-info">
+          <div class="info-item">
+            <div class="info-label">Ўлчов диап.</div>
+            <div class="info-value">${d.range || '—'}</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Хизмат тури</div>
+            <div class="info-value">${d.work || '—'}</div>
+          </div>
+        </div>
+        <div>
+          <span class="location-tag">📍 ${d.location}</span>
+          <span class="work-tag ${workClass}">${d.work}</span>
+        </div>
+        <div style="height:10px"></div>
+        <a href="${driveUrl}" target="_blank" class="pdf-btn">📄 Паспортни кўриш</a>
+      </div>
+    </div>`;
+      }).join('');
+    }
+
+    // ===== FILTER =====
+    function filterCards() {
+      const q = document.getElementById('search-input').value.toLowerCase();
+      const brand = document.getElementById('filter-brand').value;
+      const loc = document.getElementById('filter-location').value;
+
+      const filtered = allData.filter(d => {
+        const matchQ = !q || d.serial.toLowerCase().includes(q) || d.name.toLowerCase().includes(q) || d.pos.toLowerCase().includes(q);
+        const matchBrand = !brand || d.brand === brand;
+        const matchLoc = !loc || d.location.includes(loc);
+        return matchQ && matchBrand && matchLoc;
+      });
+
+      renderCards(filtered);
+    }
+
+    function openSearch() {
+      document.getElementById('search-input').focus();
+      document.getElementById('search-input').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ===== ADD MODAL =====
+    function openAddModal() {
+      document.getElementById('add-modal').classList.add('open');
+    }
+    function closeModal() {
+      document.getElementById('add-modal').classList.remove('open');
+    }
+    function addInstrument() {
+      const serial = document.getElementById('new-serial').value.trim();
+      const name = document.getElementById('new-name').value.trim();
+      const brand = document.getElementById('new-brand').value;
+      const location = document.getElementById('new-location').value;
+      const range = document.getElementById('new-range').value.trim();
+
+      if (!serial || !name || !brand || !location) {
+        alert('Барча майдонларни тўлдиринг!');
+        return;
+      }
+
+      const newItem = {
+        pos: String(allData.length + 1),
+        name, brand, serial, range, location, work: 'ТО-2'
+      };
+
+      allData.unshift(newItem);
+      closeModal();
+      renderSummary();
+      renderCards(allData);
+
+      document.getElementById('new-serial').value = '';
+      document.getElementById('new-name').value = '';
+      document.getElementById('new-brand').value = '';
+      document.getElementById('new-location').value = '';
+      document.getElementById('new-range').value = '';
+    }
+
+    // Close modal on overlay click
+    document.getElementById('add-modal').addEventListener('click', function (e) {
+      if (e.target === this) closeModal();
+    });
+  </script>
+
+  <script>
+    function closeUlchovVositalari() {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'SEG_CLOSE_ULCHOV' }, '*');
+      } else {
+        history.back();
+      }
+    }
+  </script>
+</body>
+
+</html>

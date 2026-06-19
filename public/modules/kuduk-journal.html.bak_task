@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SEG KIP — Quduqlar ro‘yxati jurnali</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root{--bg:#020817;--panel:rgba(2,14,28,.92);--panel2:rgba(7,24,42,.96);--line:rgba(34,211,238,.22);--cyan:#22d3ee;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--muted:#9fb7c7;--white:#f8fafc}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 10%,rgba(34,211,238,.16),transparent 32%),linear-gradient(135deg,#020817,#071a2f 45%,#020817);color:var(--white);font-family:Arial,Helvetica,sans-serif}.wrap{padding:20px}.top{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:16px}.title h1{margin:0;font-size:24px}.title p{margin:6px 0 0;color:var(--muted)}.status{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:12px 16px;min-width:220px}.status b{font-size:22px}.ready{color:var(--green)}.offline{color:var(--orange)}.error{color:var(--red)}.panel{border:1px solid var(--line);background:var(--panel);border-radius:20px;padding:16px;margin-bottom:16px;box-shadow:0 18px 60px rgba(0,0,0,.28)}.grid{display:grid;grid-template-columns:160px 1.5fr 1fr 150px auto auto;gap:10px;align-items:end}.label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}.input,.select,textarea{width:100%;background:rgba(2,8,23,.88);border:1px solid rgba(34,211,238,.32);border-radius:12px;padding:11px;color:var(--white);outline:none}.input:focus,.select:focus,textarea:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.13)}.btn{border:0;border-radius:13px;padding:11px 14px;font-weight:800;cursor:pointer;color:white;background:#334155}.btn.primary{background:linear-gradient(135deg,#0891b2,#22d3ee);color:#00111b}.btn.green{background:linear-gradient(135deg,#059669,#10b981)}.btn.red{background:linear-gradient(135deg,#dc2626,#ef4444)}.btn.orange{background:linear-gradient(135deg,#d97706,#f59e0b);color:#111827}.msg{margin-top:10px;color:var(--muted);font-size:13px}.routes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}.card{border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(2,8,23,.94));border-radius:18px;padding:15px;cursor:pointer;transition:.18s}.card:hover{transform:translateY(-2px);border-color:var(--cyan)}.card.active{outline:2px solid var(--cyan)}.card h3{margin:0 0 8px}.badge{display:inline-flex;padding:6px 10px;border-radius:999px;background:rgba(34,211,238,.12);border:1px solid var(--line);color:var(--cyan);font-weight:800}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.toolbar .input{max-width:380px}.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:18px;background:var(--panel)}table{width:100%;border-collapse:collapse;min-width:1100px}th,td{padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.14);text-align:left;vertical-align:top}th{position:sticky;top:0;background:#071a2f;color:#67e8f9;z-index:1}tr:hover td{background:rgba(34,211,238,.04)}.small{font-size:12px;color:var(--muted)}.actions{white-space:nowrap}.actions .btn{padding:7px 9px;margin:2px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}.modal.show{display:flex}.modalbox{width:min(820px,100%);max-height:92vh;overflow:auto;background:#071a2f;border:1px solid var(--line);border-radius:20px;padding:18px}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.empty{padding:24px;text-align:center;color:var(--muted)}@media(max-width:980px){.grid{grid-template-columns:1fr}.top{display:block}.status{margin-top:12px}.formgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="title"><h1>📍 ҚУДУҚЛАР РЎЙХАТИ ЖУРНАЛИ</h1><p>SEG KIP AI Platform ichidagi ichki modul. Har bir sex alohida Google Sheets va Service Account bilan ishlaydi.</p></div>
+    <div class="status"><div class="small">Tizim holati</div><b id="statusText" class="offline">OFFLINE</b><div id="statusSub" class="small">Backend tekshirilmoqda...</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="grid">
+      <div><label class="label">Sex ID</label><input id="sexId" class="input" value="sex_4" placeholder="sex_4"></div>
+      <div><label class="label">Google Sheets ssilkasi yoki ID</label><input id="sheetUrl" class="input" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
+      <div><label class="label">Asosiy varoq nomi</label><input id="menuSheet" class="input" value="кудук руйхати"></div>
+      <div><label class="label">Auto sync sekund</label><input id="syncSeconds" class="input" type="number" min="10" value="30"></div>
+      <button class="btn primary" onclick="saveAndConnect()">🔐 SAQLASH & ULASH</button>
+      <button class="btn red" onclick="clearMemory()">🧹 XOTIRANI TOZALASH</button>
+    </div>
+    <div style="margin-top:10px"><label class="label">Service Account JSON</label><input id="serviceFile" class="input" type="file" accept=".json,application/json"></div>
+    <div id="message" class="msg">Ma’lumotlar sex ID bo‘yicha alohida saqlanadi. Masalan: sex_4 boshqa sex konfiguratsiyasiga tegmaydi.</div>
+  </div>
+
+  <div id="menuView">
+    <div class="panel">
+      <div class="toolbar">
+        <button class="btn orange" onclick="syncNow()">🔄 LIVE SYNC</button>
+        <input id="search" class="input" placeholder="Qidirish: hudud yoki ЖУРНАЛ..." oninput="renderRoutes()">
+        <select id="routeSelect" class="select" style="max-width:300px" onchange="selectRoute(this.value)"></select>
+      </div>
+    </div>
+    <div id="routes" class="routes"></div>
+  </div>
+
+  <div id="journalView" style="display:none">
+    <div class="panel">
+      <div class="toolbar">
+        <button class="btn" onclick="backToMenu()">← Menyuga qaytish</button>
+        <button class="btn orange" onclick="syncNow()">🔄 LIVE SYNC</button>
+        <button class="btn green" onclick="openEditor('add')">➕ Yangi yozuv</button>
+        <input id="journalSearch" class="input" placeholder="Qidirish: nom, poz, zavod raqami, Место установки, skv..." oninput="renderRows()">
+      </div>
+    </div>
+    <div id="journalTitle" class="panel"><b>Журнал</b></div>
+    <div id="tableArea"></div>
+  </div>
+</div>
+
+<div id="modal" class="modal">
+  <div class="modalbox">
+    <h2 id="modalTitle">Yozuv</h2>
+    <div class="formgrid" id="formFields"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:15px">
+      <button class="btn" onclick="closeEditor()">Bekor qilish</button>
+      <button class="btn green" onclick="saveRow()">💾 Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const FIELDS = [
+  ['date','Дата'], ['pos','Поз номер'], ['name','Наименование СИ'], ['brand','Тип, марка'],
+  ['serial','Заводской номер'], ['range','Предел измерения'], ['location','Место установки'], ['skv','СКВ'],
+  ['work','Перечень в/р'], ['executor','Исполнитель работ'], ['signature','Подпись']
+];
+let state = { connected:false, routes:[], sheets:{}, statuses:{}, sexId:'sex_4', currentView:'menu', selectedRoute:null, rows:[], metadata:{ installationPlaces:[], deviceTypes:[], workTypes:[] } };
+let metadataLoadedFor = '';
+let socket = null;
+let currentSheet = '';
+let editing = null;
+
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const api = p => '/api/kuduk' + p;
+function sexId(){ return ($('sexId').value || 'sex_default').trim().replace(/[^a-zA-Z0-9_-]+/g,'_') || 'sex_default'; }
+function msg(text, type='info'){ $('message').innerHTML = esc(text); $('message').className = 'msg ' + type; }
+function setStatus(text, type='offline', sub=''){ $('statusText').textContent = text; $('statusText').className = type; $('statusSub').textContent = sub || ''; }
+function currentRoute(){ return (state.routes||[]).find(r => r.sheet === currentSheet) || state.selectedRoute || null; }
+function isMasterRoute(route){ return Boolean(route?.isMasterJournal || route?.kind === 'master-journal' || String(route?.title||'').trim().toLowerCase() === 'журнал'); }
+
+function connectSocket(){
+  if(socket) socket.disconnect();
+  socket = io({ query:{ sexId: sexId() } });
+  socket.on('connect', () => msg('Backend bilan aloqa bor. Socket.IO ulandi.', 'ok'));
+  socket.on('connect_error', e => { setStatus('ERROR','error','Backend bilan aloqa yo‘q'); msg('Backend bilan aloqa yo‘q: ' + e.message, 'err'); });
+  socket.on('kuduk-data-update', s => {
+    const keepSheet = currentSheet;
+    const keepView = state.currentView || 'menu';
+    state = { ...state, ...s, metadata: state.metadata || {}, currentView: keepView, selectedRoute: state.selectedRoute, rows: state.rows || [] };
+    if(keepSheet) currentSheet = keepSheet;
+    hydrateFromState(); renderAll();
+  });
+  socket.on('kuduk-log', l => msg(l.message || '', l.level === 'error' ? 'err' : 'ok'));
+}
+async function request(path, opts={}){
+  const res = await fetch(api(path), { headers:{'Content-Type':'application/json'}, ...opts });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error || data.message || ('HTTP ' + res.status));
+  return data;
+}
+function hydrateFromState(){
+  if(state.sexId) $('sexId').value = state.sexId;
+  if(state.spreadsheetUrl) $('sheetUrl').value = state.spreadsheetUrl;
+  if(state.menuSheet) $('menuSheet').value = state.menuSheet;
+  if(state.syncSeconds) $('syncSeconds').value = state.syncSeconds;
+  if(state.connected) setStatus('READY','ready', 'Sex: '+state.sexId+' | '+(state.updatedAt||'')); else setStatus('OFFLINE','offline','Ulanish sozlanmagan');
+}
+async function loadMetadata(force=false){
+  if(!force && metadataLoadedFor === sexId() && state.metadata && (state.metadata.installationPlaces||[]).length) return state.metadata;
+  const md = await request('/metadata?sexId=' + encodeURIComponent(sexId()));
+  state.metadata = {
+    installationPlaces: md.installationPlaces || [],
+    deviceTypes: md.deviceTypes || [],
+    workTypes: md.workTypes || []
+  };
+  metadataLoadedFor = sexId();
+  return state.metadata;
+}
+function optionsForField(key){
+  if(key === 'location') return state.metadata?.installationPlaces || [];
+  if(key === 'brand') return state.metadata?.deviceTypes || [];
+  if(key === 'work') return state.metadata?.workTypes || [];
+  return [];
+}
+function renderFieldEditor(key, label, value=''){
+  const options = optionsForField(key);
+  if(['location','brand','work'].includes(key) && options.length){
+    const current = String(value || '').trim();
+    const hasCurrent = !current || options.some(o => String(o).trim().toLowerCase() === current.toLowerCase());
+    const opts = [
+      '<option value="">Tanlang...</option>',
+      ...(!hasCurrent ? [`<option value="${esc(current)}" selected>${esc(current)} (Sheets ro‘yxatida yo‘q)</option>`] : []),
+      ...options.map(o => `<option value="${esc(o)}" ${String(o)===current?'selected':''}>${esc(o)}</option>`)
+    ].join('');
+    return `<div><label class="label">${esc(label)}</label><select class="input" id="f_${key}" required>${opts}</select></div>`;
+  }
+  return `<div><label class="label">${esc(label)}</label><input class="input" id="f_${key}" value="${esc(value)}"></div>`;
+}
+async function fetchState(){
+  try { state = { ...state, ...(await request('/state?sexId=' + encodeURIComponent(sexId()))) }; if(state.connected) await loadMetadata(true); hydrateFromState(); renderAll(); }
+  catch(e){ setStatus('ERROR','error','Failed to fetch'); msg('Backend bilan aloqa yo‘q: ' + e.message, 'err'); }
+}
+async function readJsonFile(input){
+  const file = input.files?.[0];
+  if(!file) throw new Error('Service Account JSON fayl tanlanmagan.');
+  return JSON.parse(await file.text());
+}
+async function saveAndConnect(){
+  try{
+    setStatus('CONNECTING','offline','Google Sheets tekshirilmoqda...');
+    const service = await readJsonFile($('serviceFile'));
+    state = { ...state, ...(await request('/config', { method:'POST', body:JSON.stringify({ sexId:sexId(), spreadsheetUrl:$('sheetUrl').value, menuSheet:$('menuSheet').value, syncSeconds:$('syncSeconds').value, service }) })) };
+    state.currentView = 'menu'; currentSheet = ''; state.selectedRoute = null;
+    connectSocket(); await loadMetadata(true); hydrateFromState(); renderAll(); msg('Ulanish muvaffaqiyatli. Status: READY', 'ok');
+  }catch(e){ setStatus('ERROR','error','Ulanish xatosi'); msg(e.message, 'err'); }
+}
+async function clearMemory(){
+  if(!confirm('Faqat '+sexId()+' sex xotirasi butunlay o‘chiriladi. Davom etasizmi?')) return;
+  try{ state = { ...state, ...(await request('/config/' + encodeURIComponent(sexId()), { method:'DELETE' })), currentView:'menu', selectedRoute:null, rows:[] }; currentSheet=''; hydrateFromState(); renderAll(); msg('Faqat joriy sex xotirasi tozalandi.', 'ok'); }
+  catch(e){ msg(e.message, 'err'); }
+}
+async function syncNow(){
+  try{
+    state = { ...state, ...(await request('/sync', { method:'POST', body:JSON.stringify({ sexId:sexId() }) })) };
+    if(state.connected) await loadMetadata(true); hydrateFromState(); renderAll(); msg(state.currentView === 'journal' ? 'Tanlangan jurnal live sync qilindi.' : 'Menyu live sync qilindi.', 'ok');
+  }catch(e){ msg(e.message,'err'); }
+}
+function selectRoute(sheet){
+  const route = (state.routes||[]).find(r => r.sheet === sheet);
+  if(!route){ msg('Tanlangan route topilmadi.', 'err'); return; }
+  currentSheet = sheet;
+  state.currentView = 'journal';
+  state.selectedRoute = route;
+  state.rows = state.sheets?.[sheet] || [];
+  renderAll();
+}
+function backToMenu(){
+  state.currentView = 'menu';
+  state.selectedRoute = null;
+  state.rows = [];
+  currentSheet = '';
+  renderAll();
+}
+function renderViews(){
+  $('menuView').style.display = state.currentView === 'journal' ? 'none' : 'block';
+  $('journalView').style.display = state.currentView === 'journal' ? 'block' : 'none';
+}
+function renderRoutes(){
+  const el = $('routes');
+  const sel = $('routeSelect');
+  const q = ($('search')?.value || '').toLowerCase();
+  const routes = (state.routes||[]).filter(r => !q || [r.title, r.sheet, r.sourceCell].join(' ').toLowerCase().includes(q));
+  sel.innerHTML = '<option value="">Hudud yoki ЖУРНАЛ tanlang...</option>' + routes.map(r => `<option value="${esc(r.sheet)}">${esc(r.title)} — ${esc(r.sheet)}</option>`).join('');
+  if(!state.routes?.length){ el.innerHTML = '<div class="panel empty">Dynamic Route Map topilmadi. Asosiy varoqdagi C9:Q49 blokida HYPERLINK yoki varoq nomi bo‘lishi kerak.</div>'; return; }
+  if(!routes.length){ el.innerHTML = '<div class="panel empty">Qidiruv bo‘yicha menyu topilmadi.</div>'; return; }
+  el.innerHTML = routes.map(r => {
+    const master = isMasterRoute(r);
+    const title = master ? '📘 ЖУРНАЛ' : r.title;
+    const sub = master ? 'Умумий журнал: База' : 'Варақ: <b>'+esc(r.sheet)+'</b>';
+    return `<div class="card ${r.sheet===currentSheet?'active':''}" onclick="selectRoute('${esc(r.sheet)}')"><h3>${esc(title)}</h3><div class="small">${sub}</div><div style="margin-top:10px"><span class="badge">${r.count||0} ta yozuv</span></div><div class="small" style="margin-top:8px">${esc(r.status||'')}</div></div>`;
+  }).join('');
+}
+function rows(){ return state.sheets?.[currentSheet] || state.rows || []; }
+function filtered(){ const q = ($('journalSearch')?.value||'').toLowerCase(); return rows().filter(r => !q || Object.values(r).join(' ').toLowerCase().includes(q)); }
+function renderRows(){
+  const route = currentRoute();
+  const data = filtered();
+  if(!currentSheet){ $('tableArea').innerHTML = '<div class="panel empty">Avval hudud yoki ЖУРНАЛ kartochkasini tanlang.</div>'; return; }
+  const title = isMasterRoute(route) ? '📘 ОБЩИЙ ЖУРНАЛ / БАЗА' : `${esc(route?.title || currentSheet)} — Журнал`;
+  $('journalTitle').innerHTML = `<b>${title}</b><div class="small">Manba: <b>${esc(currentSheet)}</b> · ${data.length} ta yozuv</div>`;
+  if(!data.length){ $('tableArea').innerHTML = '<div class="panel empty">0 ta yozuv. Ulanish va varoq sxemasini tekshiring.</div>'; return; }
+  $('tableArea').innerHTML = `<div class="tablewrap"><table><thead><tr>${FIELDS.map(f=>`<th>${esc(f[1])}</th>`).join('')}<th>Amal</th></tr></thead><tbody>${data.map(r=>`<tr>${FIELDS.map(f=>`<td>${esc(r[f[0]])}</td>`).join('')}<td class="actions"><button class="btn orange" onclick='openEditor("edit", ${JSON.stringify(r).replace(/'/g,"&#39;")})'>✏️</button><button class="btn red" onclick="removeRow(${Number(r._rowNumber)})">🗑</button></td></tr>`).join('')}</tbody></table></div>`;
+}
+function renderAll(){ renderViews(); if(state.currentView === 'journal'){ renderRows(); } else { renderRoutes(); } }
+async function openEditor(mode, row=null){
+  if(state.currentView !== 'journal' || !currentSheet){ msg('Avval jurnal sahifasini oching.', 'err'); return; }
+  try{ await loadMetadata(false); } catch(e){ msg('Dropdown metadata yuklanmadi: ' + e.message, 'err'); }
+  editing = { mode, row };
+  $('modalTitle').textContent = mode === 'add' ? 'Yangi yozuv qo‘shish' : 'Yozuvni tahrirlash';
+  $('formFields').innerHTML = FIELDS.map(([k,label]) => renderFieldEditor(k, label, row?.[k] || '')).join('');
+  $('modal').classList.add('show');
+}
+function closeEditor(){ $('modal').classList.remove('show'); editing=null; }
+function formValues(){ const v={}; for(const [k] of FIELDS) v[k] = $('f_'+k).value; return v; }
+async function saveRow(){
+  try{
+    const values = formValues();
+    if(editing.mode === 'add') state = { ...state, ...(await request('/rows', { method:'POST', body:JSON.stringify({ sexId:sexId(), sheet:currentSheet, values }) })) };
+    else state = { ...state, ...(await request('/rows', { method:'PUT', body:JSON.stringify({ sexId:sexId(), sheet:currentSheet, rowNumber:editing.row._rowNumber, values }) })) };
+    closeEditor(); hydrateFromState(); renderAll(); msg('Yozuv База varog‘ida saqlandi va live sync qilindi.', 'ok');
+  }catch(e){ msg(e.message, 'err'); }
+}
+async function removeRow(rowNumber){
+  if(!confirm('Ushbu qator База manbasidan o‘chiriladi. Davom etasizmi?')) return;
+  try{ state = { ...state, ...(await request(`/rows?sexId=${encodeURIComponent(sexId())}&sheet=${encodeURIComponent(currentSheet)}&rowNumber=${rowNumber}`, { method:'DELETE' })) }; hydrateFromState(); renderAll(); msg('Qator База varog‘idan o‘chirildi va Google Sheets yangilandi.', 'ok'); }
+  catch(e){ msg(e.message, 'err'); }
+}
+$('sexId').addEventListener('change', () => { currentSheet=''; state.currentView='menu'; connectSocket(); fetchState(); });
+window.addEventListener('load', () => { connectSocket(); fetchState(); });
+</script>
+</body>
+</html>
