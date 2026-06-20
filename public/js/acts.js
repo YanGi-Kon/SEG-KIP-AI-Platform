@@ -133,7 +133,15 @@
   }
   function viewDoc(actNo){ if(!actNo) return; alert(`${actNo} ҳужжати АКТЛАР_КУНЛИК варағида сақланган. Тўлиқ кўриш учун Excel очилади.`); openExcel(); }
   function sendDoc(actNo){ alert(`${actNo} ҳужжати PDF → E-IMZO → Архив жараёнига кейинги босқичда юборилади.`); }
+  function placeDonutInMarkedArea(){
+    if(document.getElementById('actsDonutPositionOverride')) return;
+    const style = document.createElement('style');
+    style.id = 'actsDonutPositionOverride';
+    style.textContent = `.side-donut-box{position:absolute!important;top:78px!important;right:158px!important;width:178px!important;margin:0!important;z-index:8!important}.side-donut-box .donut{width:94px!important;height:94px!important}@media(max-width:1200px){.side-donut-box{position:static!important;width:auto!important;margin:14px 0 18px!important}}`;
+    document.head.appendChild(style);
+  }
   function bind(){
+    placeDonutInMarkedArea();
     $('serviceFile')?.addEventListener('change', async e => {
       const file = e.target.files && e.target.files[0]; if(!file) return;
       try{
