@@ -5,6 +5,7 @@ import { buildProjectContext } from "../services/projectContextService.js";
 const router = express.Router();
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_MESSAGE_LENGTH = 4000;
+const MAX_VISIBLE_TEXT_LENGTH = 10000;
 
 function getApiKey() {
   return String(
@@ -33,7 +34,8 @@ Soha: neft-gaz, KIP, o‘lchov vositalari, manometr, termometr, sarf o‘lchagic
 Korxona konteksti: СП ООО "SANOAT ENERGETIKA GURUHI", ТПП "АНДИЖАН".
 Vazifa: foydalanuvchiga KIP platforma, Excel baza, PDF pasport, qidiruv, filtr, hisobot va texnik tahlilda aniq yordam berish.
 Muhim qoida: foydalanuvchi bilan oldingi suhbat kontekstini hisobga oling. Agar foydalanuvchi "oldingi", "shu", "uni", "davom ettir" desa, oldingi xabarlar asosida javob bering.
-Agar joriy oyna/modul contexti berilsa, foydalanuvchi qaysi oynada turganini hisobga olib javob bering.
+Agar joriy oyna/modul contexti berilsa, foydalanuvchi qaysi oynada turganini va o‘sha oynadagi ko‘rinayotgan jadval/matn ma’lumotlarini hisobga olib javob bering.
+Agar foydalanuvchi "nechta", "soni", "sanab ber" desa, joriy oyna matni/jadvalidagi ma’lumotlarni sanashga harakat qiling. Ma’lumot yetarli bo‘lmasa, aniq qaysi ma’lumot yetishmayotganini ayting.
 Loyiha fayllari konteksti berilsa, uni tahlil qiling, lekin maxfiy kalit yoki .env mazmunini so‘ramang va ko‘rsatmang.
 Javoblar qisqa, aniq, professional va amaliy bo‘lsin.`,
   };
@@ -76,9 +78,12 @@ function currentPageMessage(body) {
     module: String(page.module || "").slice(0, 80),
     title: String(page.title || "").slice(0, 160),
     subtitle: String(page.subtitle || "").slice(0, 240),
+    activeMenu: String(page.activeMenu || "").slice(0, 160),
     path: String(page.path || "").slice(0, 240),
     frameSrc: String(page.frameSrc || "").slice(0, 240),
     url: String(page.url || "").slice(0, 240),
+    visibleText: String(page.visibleText || "").slice(0, MAX_VISIBLE_TEXT_LENGTH),
+    tableText: String(page.tableText || "").slice(0, MAX_VISIBLE_TEXT_LENGTH),
   };
   return {
     role: "system",
@@ -87,9 +92,12 @@ function currentPageMessage(body) {
       `- module: ${safe.module || "unknown"}\n` +
       `- title: ${safe.title || "unknown"}\n` +
       `- subtitle: ${safe.subtitle || ""}\n` +
+      `- active menu: ${safe.activeMenu || ""}\n` +
       `- iframe/module path: ${safe.frameSrc || safe.path || ""}\n` +
-      `- browser url: ${safe.url || ""}\n` +
-      "Agar foydalanuvchi 'shu oyna', 'bu bo‘lim', 'hozir qayerdaman' desa, shu ma’lumotga asoslaning.",
+      `- browser url: ${safe.url || ""}\n\n` +
+      "Joriy oynada ko‘rinayotgan jadval/matn snapshoti:\n" +
+      `${safe.tableText || safe.visibleText || "[visible data topilmadi]"}\n\n` +
+      "Agar foydalanuvchi 'shu oyna', 'bu bo‘lim', 'hozir qayerdaman', 'nechta datchik' desa, yuqoridagi snapshotdan foydalaning.",
   };
 }
 
@@ -135,6 +143,7 @@ router.get("/", (_req, res) => {
     model: getModel(),
     context: "enabled",
     pageContext: "enabled",
+    visibleDataContext: "enabled",
     projectContext: "enabled",
     maxHistoryMessages: MAX_HISTORY_MESSAGES,
   });
