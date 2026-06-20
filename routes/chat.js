@@ -33,6 +33,7 @@ Soha: neft-gaz, KIP, o‘lchov vositalari, manometr, termometr, sarf o‘lchagic
 Korxona konteksti: СП ООО "SANOAT ENERGETIKA GURUHI", ТПП "АНДИЖАН".
 Vazifa: foydalanuvchiga KIP platforma, Excel baza, PDF pasport, qidiruv, filtr, hisobot va texnik tahlilda aniq yordam berish.
 Muhim qoida: foydalanuvchi bilan oldingi suhbat kontekstini hisobga oling. Agar foydalanuvchi "oldingi", "shu", "uni", "davom ettir" desa, oldingi xabarlar asosida javob bering.
+Agar joriy oyna/modul contexti berilsa, foydalanuvchi qaysi oynada turganini hisobga olib javob bering.
 Loyiha fayllari konteksti berilsa, uni tahlil qiling, lekin maxfiy kalit yoki .env mazmunini so‘ramang va ko‘rsatmang.
 Javoblar qisqa, aniq, professional va amaliy bo‘lsin.`,
   };
@@ -68,6 +69,30 @@ async function projectContextMessage(text, body) {
   }
 }
 
+function currentPageMessage(body) {
+  const page = body?.currentPage || body?.pageContext;
+  if (!page || typeof page !== "object") return null;
+  const safe = {
+    module: String(page.module || "").slice(0, 80),
+    title: String(page.title || "").slice(0, 160),
+    subtitle: String(page.subtitle || "").slice(0, 240),
+    path: String(page.path || "").slice(0, 240),
+    frameSrc: String(page.frameSrc || "").slice(0, 240),
+    url: String(page.url || "").slice(0, 240),
+  };
+  return {
+    role: "system",
+    content:
+      "Joriy foydalanuvchi oynasi/moduli contexti:\n" +
+      `- module: ${safe.module || "unknown"}\n` +
+      `- title: ${safe.title || "unknown"}\n` +
+      `- subtitle: ${safe.subtitle || ""}\n` +
+      `- iframe/module path: ${safe.frameSrc || safe.path || ""}\n` +
+      `- browser url: ${safe.url || ""}\n` +
+      "Agar foydalanuvchi 'shu oyna', 'bu bo‘lim', 'hozir qayerdaman' desa, shu ma’lumotga asoslaning.",
+  };
+}
+
 function cleanMessage(item) {
   const role = item?.role === "assistant" ? "assistant" : item?.role === "user" ? "user" : null;
   const content = String(item?.content || "").trim().slice(0, MAX_MESSAGE_LENGTH);
@@ -75,7 +100,7 @@ function cleanMessage(item) {
   return { role, content };
 }
 
-function buildConversationMessages(body, extraContext = null) {
+function buildConversationMessages(body, extraContext = null, pageContext = null) {
   const incomingHistory = Array.isArray(body?.messages)
     ? body.messages.map(cleanMessage).filter(Boolean)
     : [];
@@ -89,6 +114,7 @@ function buildConversationMessages(body, extraContext = null) {
 
   const lastUserMessage = [...history].reverse().find((msg) => msg.role === "user")?.content || "";
   const messages = [systemPrompt()];
+  if (pageContext) messages.push(pageContext);
   if (extraContext) messages.push(extraContext);
   messages.push(...history);
 
@@ -97,6 +123,7 @@ function buildConversationMessages(body, extraContext = null) {
     lastUserMessage,
     contextMessages: history.length,
     projectContextAttached: Boolean(extraContext),
+    pageContextAttached: Boolean(pageContext),
   };
 }
 
@@ -107,6 +134,7 @@ router.get("/", (_req, res) => {
     ai: getApiKey() ? "configured" : "missing_api_key",
     model: getModel(),
     context: "enabled",
+    pageContext: "enabled",
     projectContext: "enabled",
     maxHistoryMessages: MAX_HISTORY_MESSAGES,
   });
@@ -114,8 +142,9 @@ router.get("/", (_req, res) => {
 
 router.post("/", async (req, res) => {
   const userText = String(req.body?.message || "").trim();
+  const pageContext = currentPageMessage(req.body);
   const extraContext = await projectContextMessage(userText, req.body);
-  const { messages, lastUserMessage, contextMessages, projectContextAttached } = buildConversationMessages(req.body, extraContext);
+  const { messages, lastUserMessage, contextMessages, projectContextAttached, pageContextAttached } = buildConversationMessages(req.body, extraContext, pageContext);
 
   if (!lastUserMessage) {
     return res.status(400).json({ error: "Savol bo‘sh bo‘lmasin." });
@@ -135,6 +164,7 @@ router.post("/", async (req, res) => {
       missing: "OPENAI_API_KEY",
       contextMessages,
       projectContextAttached,
+      pageContextAttached,
     });
   }
 
@@ -146,7 +176,7 @@ router.post("/", async (req, res) => {
     });
 
     const answer = completion.choices?.[0]?.message?.content || "AI javob qaytarmadi.";
-    res.json({ answer, mode: "ai", model: getModel(), contextMessages, projectContextAttached });
+    res.json({ answer, mode: "ai", model: getModel(), contextMessages, projectContextAttached, pageContextAttached });
   } catch (error) {
     const status = error?.status || error?.response?.status || 500;
     const message = error?.message || "Noma’lum xato";
@@ -157,6 +187,7 @@ router.post("/", async (req, res) => {
       status,
       contextMessages,
       projectContextAttached,
+      pageContextAttached,
     });
   }
 });
