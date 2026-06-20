@@ -1,5 +1,6 @@
 import express from "express";
 import OpenAI from "openai";
+import { buildProjectContext } from "../services/projectContextService.js";
 
 const router = express.Router();
 const MAX_HISTORY_MESSAGES = 20;
@@ -32,8 +33,39 @@ Soha: neft-gaz, KIP, o‘lchov vositalari, manometr, termometr, sarf o‘lchagic
 Korxona konteksti: СП ООО "SANOAT ENERGETIKA GURUHI", ТПП "АНДИЖАН".
 Vazifa: foydalanuvchiga KIP platforma, Excel baza, PDF pasport, qidiruv, filtr, hisobot va texnik tahlilda aniq yordam berish.
 Muhim qoida: foydalanuvchi bilan oldingi suhbat kontekstini hisobga oling. Agar foydalanuvchi "oldingi", "shu", "uni", "davom ettir" desa, oldingi xabarlar asosida javob bering.
+Loyiha fayllari konteksti berilsa, uni tahlil qiling, lekin maxfiy kalit yoki .env mazmunini so‘ramang va ko‘rsatmang.
 Javoblar qisqa, aniq, professional va amaliy bo‘lsin.`,
   };
+}
+
+function shouldAttachProjectContext(text, body) {
+  if (body?.includeProjectContext === true) return true;
+  if (body?.includeProjectContext === false) return false;
+  const lower = String(text || "").toLowerCase();
+  return [
+    "loyiha", "loixa", "project", "fayl", "file", "kod", "code", "route", "server", "github",
+    "tahlil", "analiz", "xato", "error", "module", "modul", "struktur", "api", "endpoint"
+  ].some((word) => lower.includes(word));
+}
+
+async function projectContextMessage(text, body) {
+  if (!shouldAttachProjectContext(text, body)) return null;
+  try {
+    const context = await buildProjectContext({ maxFiles: 18, maxCharsPerFile: 1400 });
+    return {
+      role: "system",
+      content:
+        "Quyida SEG KIP loyihasining xavfsiz project contexti berilgan. " +
+        "Maxfiy fayllar (.env, service-account.json, node_modules) chiqarib tashlangan. " +
+        "Foydalanuvchi loyihaga oid savol bersa, shu contextdan foydalaning.\n\n" +
+        context.contextText,
+    };
+  } catch (error) {
+    return {
+      role: "system",
+      content: `Project context olishda xatolik: ${error?.message || "noma’lum xato"}`,
+    };
+  }
 }
 
 function cleanMessage(item) {
@@ -43,7 +75,7 @@ function cleanMessage(item) {
   return { role, content };
 }
 
-function buildConversationMessages(body) {
+function buildConversationMessages(body, extraContext = null) {
   const incomingHistory = Array.isArray(body?.messages)
     ? body.messages.map(cleanMessage).filter(Boolean)
     : [];
@@ -56,11 +88,15 @@ function buildConversationMessages(body) {
   }
 
   const lastUserMessage = [...history].reverse().find((msg) => msg.role === "user")?.content || "";
+  const messages = [systemPrompt()];
+  if (extraContext) messages.push(extraContext);
+  messages.push(...history);
 
   return {
-    messages: [systemPrompt(), ...history],
+    messages,
     lastUserMessage,
     contextMessages: history.length,
+    projectContextAttached: Boolean(extraContext),
   };
 }
 
@@ -71,12 +107,15 @@ router.get("/", (_req, res) => {
     ai: getApiKey() ? "configured" : "missing_api_key",
     model: getModel(),
     context: "enabled",
+    projectContext: "enabled",
     maxHistoryMessages: MAX_HISTORY_MESSAGES,
   });
 });
 
 router.post("/", async (req, res) => {
-  const { messages, lastUserMessage, contextMessages } = buildConversationMessages(req.body);
+  const userText = String(req.body?.message || "").trim();
+  const extraContext = await projectContextMessage(userText, req.body);
+  const { messages, lastUserMessage, contextMessages, projectContextAttached } = buildConversationMessages(req.body, extraContext);
 
   if (!lastUserMessage) {
     return res.status(400).json({ error: "Savol bo‘sh bo‘lmasin." });
@@ -95,6 +134,7 @@ router.post("/", async (req, res) => {
       mode: "demo",
       missing: "OPENAI_API_KEY",
       contextMessages,
+      projectContextAttached,
     });
   }
 
@@ -106,7 +146,7 @@ router.post("/", async (req, res) => {
     });
 
     const answer = completion.choices?.[0]?.message?.content || "AI javob qaytarmadi.";
-    res.json({ answer, mode: "ai", model: getModel(), contextMessages });
+    res.json({ answer, mode: "ai", model: getModel(), contextMessages, projectContextAttached });
   } catch (error) {
     const status = error?.status || error?.response?.status || 500;
     const message = error?.message || "Noma’lum xato";
@@ -116,6 +156,7 @@ router.post("/", async (req, res) => {
       details: message,
       status,
       contextMessages,
+      projectContextAttached,
     });
   }
 });
