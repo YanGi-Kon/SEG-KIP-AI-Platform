@@ -1,5 +1,5 @@
 import express from 'express';
-import { readSheetRows, countDailyReports, getDailyReports, writeActDocument, listSheets, validateServiceAccount } from '../services/googleSheetsService.js';
+import { readSheetRows, getDailyReports, writeActDocument, listSheets, validateServiceAccount } from '../services/googleSheetsService.js';
 
 const router = express.Router();
 
@@ -15,8 +15,13 @@ function isDataRow(row) {
   return Boolean(row[1] || row[2] || row[8]);
 }
 
-function mapRow(row, index) {
-  return {
+function makeSourceKey({ sheetName, rowNumber, positionNo, serialNo, deviceName, measureRange, place }) {
+  const serialOrFallback = String(serialNo || `${positionNo || ''}-${deviceName || ''}-${measureRange || ''}-${place || ''}`).trim();
+  return [sheetName, rowNumber, positionNo || '', serialOrFallback].map(v => String(v || '').trim()).join('::');
+}
+
+function mapRow(row, index, sheetName, completedByKey = new Map()) {
+  const mapped = {
     rowNumber: index + 1,
     date: row[0] || '',
     positionNo: row[1] || '',
@@ -27,8 +32,16 @@ function mapRow(row, index) {
     place: row[6] || '',
     suv: row[7] || '',
     workType: row[8] || '',
-    executor: row[9] || ''
+    executor: row[9] || '',
+    sourceSheet: sheetName,
+    sourceRowNumber: index + 1
   };
+  mapped.sourceKey = makeSourceKey(mapped);
+  const completed = completedByKey.get(mapped.sourceKey);
+  mapped.isCompleted = Boolean(completed);
+  mapped.actNo = completed?.actNo || '';
+  mapped.status = mapped.isCompleted ? 'Хужат якунланди' : 'Хужат яратиш';
+  return mapped;
 }
 
 function getPayload(req) {
@@ -50,9 +63,15 @@ router.post('/monthly-analysis', async (req, res) => {
   try {
     const { spreadsheetUrl, sheetName, serviceAccount } = getPayload(req);
     const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:J' });
+    const reports = await getDailyReports({ spreadsheetUrl, serviceAccount });
+    const completedByKey = new Map(
+      reports
+        .filter(r => String(r.sourceKey || '').trim())
+        .map(r => [String(r.sourceKey).trim(), r])
+    );
     const dataRows = rows.map((row, index) => ({ row, index })).filter(x => isDataRow(x.row));
-    const matched = dataRows.filter(x => isTargetWork(x.row[8])).map(x => mapRow(x.row, x.index));
-    const createdDocuments = await countDailyReports({ spreadsheetUrl, serviceAccount });
+    const matched = dataRows.filter(x => isTargetWork(x.row[8])).map(x => mapRow(x.row, x.index, sheetName, completedByKey));
+    const createdDocuments = matched.filter(row => row.isCompleted).length || reports.length;
     const completionPercentage = matched.length ? Math.min(100, Math.round((createdDocuments / matched.length) * 100)) : 0;
     res.json({
       totalRows: dataRows.length,
