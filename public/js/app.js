@@ -18,6 +18,7 @@ const SHEET_LINK_KEYS = [
 ];
 const AI_HISTORY_KEY = 'seg_kip_ai_chat_history';
 const AI_MAX_HISTORY_MESSAGES = 20;
+const AI_VISIBLE_TEXT_LIMIT = 10000;
 let activeModuleName = 'journal';
 let lastServerSheetUrl = '';
 let aiHistory = loadAiHistory();
@@ -219,13 +220,50 @@ function setAiInputDisabled(disabled) {
   if (analyzeButton) analyzeButton.disabled = disabled;
 }
 
+function getVisibleFrame() {
+  const genericPage = document.getElementById('genericModulePage');
+  const ulchovPage = document.getElementById('ulchovIntegratedPage');
+  if (genericPage?.classList.contains('active')) return document.getElementById('genericModuleFrame');
+  if (ulchovPage?.classList.contains('active')) return document.getElementById('claUlchovFrame');
+  return null;
+}
+
+function normalizeVisibleText(text, limit = AI_VISIBLE_TEXT_LIMIT) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, limit);
+}
+
+function getFrameSnapshot(frame) {
+  try {
+    const doc = frame?.contentDocument || frame?.contentWindow?.document;
+    if (!doc) return { visibleText: '', tableText: '' };
+
+    const tableRows = Array.from(doc.querySelectorAll('table tr')).slice(0, 250).map((row) => {
+      return Array.from(row.querySelectorAll('th,td')).map((cell) => cell.textContent.trim()).filter(Boolean).join(' | ');
+    }).filter(Boolean);
+
+    const cardTexts = Array.from(doc.querySelectorAll('[data-ai-context], .card, .module-card, .stat, .row, .item, .device, .table-row'))
+      .slice(0, 120)
+      .map((el) => el.textContent.trim())
+      .filter(Boolean);
+
+    return {
+      visibleText: normalizeVisibleText(doc.body?.innerText || ''),
+      tableText: normalizeVisibleText([...tableRows, ...cardTexts].join('\n')),
+    };
+  } catch (_) {
+    return { visibleText: '', tableText: '' };
+  }
+}
+
 function getCurrentPageContext() {
   const topTitle = document.querySelector('.topbar h2')?.textContent?.trim() || document.title || '';
   const topSubtitle = document.querySelector('.topbar p')?.textContent?.trim() || '';
   const activeMenu = document.querySelector('.menu-item.active .menu-title')?.textContent?.trim() || '';
-  const frame = document.getElementById('genericModuleFrame');
-  const ulchovFrame = document.getElementById('claUlchovFrame');
-  const visibleFrame = frame?.src ? frame : ulchovFrame;
+  const visibleFrame = getVisibleFrame();
+  const snapshot = getFrameSnapshot(visibleFrame);
 
   return {
     module: activeModuleName || 'unknown',
@@ -235,6 +273,8 @@ function getCurrentPageContext() {
     frameSrc: visibleFrame?.getAttribute('src') || '',
     url: window.location.href,
     path: window.location.pathname,
+    visibleText: snapshot.visibleText,
+    tableText: snapshot.tableText,
   };
 }
 
