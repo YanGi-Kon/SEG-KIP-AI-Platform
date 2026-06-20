@@ -133,15 +133,12 @@
   }
   function viewDoc(actNo){ if(!actNo) return; alert(`${actNo} ҳужжати АКТЛАР_КУНЛИК варағида сақланган. Тўлиқ кўриш учун Excel очилади.`); openExcel(); }
   function sendDoc(actNo){ alert(`${actNo} ҳужжати PDF → E-IMZO → Архив жараёнига кейинги босқичда юборилади.`); }
-  function placeDonutInMarkedArea(){
-    if(document.getElementById('actsDonutPositionOverride')) return;
-    const style = document.createElement('style');
-    style.id = 'actsDonutPositionOverride';
-    style.textContent = `.side-donut-box{position:fixed!important;top:18px!important;right:300px!important;width:158px!important;padding:10px!important;margin:0!important;z-index:16!important;transform:none!important;will-change:auto!important}.side-donut-box h4{font-size:11px!important;margin:0 0 4px!important;line-height:1.18!important}.side-donut-box .donut{width:76px!important;height:76px!important;margin:6px auto!important}.side-donut-box .donut:before{inset:12px!important}.side-donut-box .donut span{font-size:18px!important}.side-donut-box .note{font-size:11px!important;line-height:1.25!important}@media(max-width:1200px){.side-donut-box{position:fixed!important;top:14px!important;right:185px!important;width:150px!important}}@media(max-width:760px){.side-donut-box{position:static!important;width:auto!important;margin:14px 0 18px!important}}`;
-    document.head.appendChild(style);
+  function clearLegacyDonutOverrides(){
+    const legacy = document.getElementById('actsDonutPositionOverride');
+    if(legacy) legacy.remove();
   }
   function bind(){
-    placeDonutInMarkedArea();
+    clearLegacyDonutOverrides();
     $('serviceFile')?.addEventListener('change', async e => {
       const file = e.target.files && e.target.files[0]; if(!file) return;
       try{
