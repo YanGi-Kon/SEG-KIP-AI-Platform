@@ -7,6 +7,7 @@ import { Server } from "socket.io";
 import healthRouter from "./routes/health.js";
 import chatRouter from "./routes/chat.js";
 import analysisRouter from "./routes/analysis.js";
+import projectRouter from "./routes/project.js";
 import baseRouter from "./routes/base.js";
 import workbookRouter from "./routes/workbook.js";
 import menuRouter from "./routes/menu.js";
@@ -27,6 +28,7 @@ app.use(express.static("public"));
 app.use("/api/health", healthRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/analysis", analysisRouter);
+app.use("/api/project", projectRouter);
 app.use("/api/base", baseRouter);
 app.use("/api/workbook", workbookRouter);
 app.use("/api/menu", menuRouter);
@@ -36,7 +38,7 @@ app.use("/api/kuduk", createKudukRouter(io));
 initKudukRealtime(io);
 
 server.listen(PORT, () => {
-  const hasApiKey = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith("sk-"));
+  const aiReady = Boolean(process.env.OPENAI_API_KEY);
   console.log(`SEG KIP AI Platform integrated: http://localhost:${PORT}`);
-  console.log(hasApiKey ? "AI rejim: ulangan" : "AI rejim: demo, API key yo‘q");
+  console.log(aiReady ? "AI rejim: ulangan" : "AI rejim: demo");
 });
