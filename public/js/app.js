@@ -18,6 +18,7 @@ const SHEET_LINK_KEYS = [
 ];
 let activeModuleName = 'journal';
 let lastServerSheetUrl = '';
+let aiHistory = [];
 
 function normalizeSpreadsheetUrl(value) {
   const raw = String(value || '').trim();
@@ -75,8 +76,6 @@ function showExcelButton(visible = true) {
     btn.style.display = visible ? 'inline-flex' : 'none';
   });
 }
-
-
 
 function setGlobalOnlineStatus(status) {
   const normalized = String(status || '').toUpperCase();
@@ -168,39 +167,85 @@ function openModulePage(moduleName, title) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function getAiPanelMessage() {
+  return document.querySelector('.seg-ai-msg');
+}
+
+function setAiMessage(text) {
+  const panelMsg = getAiPanelMessage();
+  if (panelMsg) panelMsg.textContent = text;
+}
+
+function setAiInputDisabled(disabled) {
+  const aiInput = document.querySelector('.seg-ai-input input');
+  const aiButton = document.querySelector('#segAiSendButton');
+  const analyzeButton = document.querySelector('#segAiAnalyzeButton');
+  if (aiInput) aiInput.disabled = disabled;
+  if (aiButton) aiButton.disabled = disabled;
+  if (analyzeButton) analyzeButton.disabled = disabled;
+}
+
 async function sendAiMessage(message) {
   const text = String(message || '').trim();
   if (!text) return;
-  const panelMsg = document.querySelector('.seg-ai-msg');
-  if (panelMsg) panelMsg.textContent = 'AI жавоб тайёрлаяпти...';
+
+  aiHistory.push({ role: 'user', content: text });
+  setAiInputDisabled(true);
+  setAiMessage('AI жавоб тайёрлаяпти...');
+
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text }),
     });
-    const data = await res.json();
-    if (panelMsg) panelMsg.textContent = data.answer || data.error || 'Жавоб келмади.';
+    const data = await res.json().catch(() => ({}));
+    const answer = data.answer || data.error || data.details || 'AI жавоб қайтармади.';
+    aiHistory.push({ role: 'assistant', content: answer });
+    setAiMessage(answer);
   } catch (err) {
-    if (panelMsg) panelMsg.textContent = 'AI серверга уланишда хато: ' + err.message;
+    setAiMessage('AI серверга уланишда хато: ' + (err?.message || 'номаълум хато'));
+  } finally {
+    setAiInputDisabled(false);
+    const aiInput = document.querySelector('.seg-ai-input input');
+    if (aiInput) {
+      aiInput.value = '';
+      aiInput.focus();
+    }
   }
 }
 
 async function sendAiAnalysis(message) {
   const text = String(message || '').trim() ||
     'Iltimos, loyiha fayllari va Google Sheets ma\'lumotlari asosida umumiy tahlil va taklif bering.';
-  const panelMsg = document.querySelector('.seg-ai-msg');
-  if (panelMsg) panelMsg.textContent = 'AI tahlil qilinyapti...';
+  setAiInputDisabled(true);
+  setAiMessage('AI tahlil qilinyapti...');
   try {
     const res = await fetch('/api/analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: text }),
     });
-    const data = await res.json();
-    if (panelMsg) panelMsg.textContent = data.analysis || data.error || 'AI тahlil javobi kelmadi.';
+    const data = await res.json().catch(() => ({}));
+    setAiMessage(data.analysis || data.error || data.details || 'AI tahlil javobi kelmadi.');
   } catch (err) {
-    if (panelMsg) panelMsg.textContent = 'AI serverga uланишда xато: ' + err.message;
+    setAiMessage('AI serverga ulanishda xato: ' + (err?.message || 'noma\'lum xato'));
+  } finally {
+    setAiInputDisabled(false);
+  }
+}
+
+async function checkAiStatus() {
+  try {
+    const res = await fetch('/api/chat');
+    const data = await res.json().catch(() => ({}));
+    if (data.ai === 'missing_api_key') {
+      setAiMessage('AI yordamchi ulandi, lekin Railway Variables ichida OPENAI_API_KEY hali yo‘q. Kalit qo‘shilgandan keyin real ChatGPT javob beradi.');
+    } else if (data.ai === 'configured') {
+      setAiMessage('AI yordamchi tayyor. Savolingizni yozing.');
+    }
+  } catch (_) {
+    setAiMessage('AI yordamchi server bilan bog‘lana olmadi. Sahifani yangilang yoki deploy loglarini tekshiring.');
   }
 }
 
@@ -219,6 +264,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (analyzeButton && aiInput) {
     analyzeButton.addEventListener('click', () => sendAiAnalysis(aiInput.value));
   }
+
+  checkAiStatus();
 });
 
 window.addEventListener('message', (event) => {
