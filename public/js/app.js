@@ -219,6 +219,25 @@ function setAiInputDisabled(disabled) {
   if (analyzeButton) analyzeButton.disabled = disabled;
 }
 
+function getCurrentPageContext() {
+  const topTitle = document.querySelector('.topbar h2')?.textContent?.trim() || document.title || '';
+  const topSubtitle = document.querySelector('.topbar p')?.textContent?.trim() || '';
+  const activeMenu = document.querySelector('.menu-item.active .menu-title')?.textContent?.trim() || '';
+  const frame = document.getElementById('genericModuleFrame');
+  const ulchovFrame = document.getElementById('claUlchovFrame');
+  const visibleFrame = frame?.src ? frame : ulchovFrame;
+
+  return {
+    module: activeModuleName || 'unknown',
+    title: topTitle,
+    subtitle: topSubtitle,
+    activeMenu,
+    frameSrc: visibleFrame?.getAttribute('src') || '',
+    url: window.location.href,
+    path: window.location.pathname,
+  };
+}
+
 async function sendAiMessage(message) {
   const text = String(message || '').trim();
   if (!text) return;
@@ -234,6 +253,7 @@ async function sendAiMessage(message) {
       body: JSON.stringify({
         message: text,
         messages: aiHistory.slice(-AI_MAX_HISTORY_MESSAGES),
+        currentPage: getCurrentPageContext(),
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -261,7 +281,11 @@ async function sendAiAnalysis(message) {
     const res = await fetch('/api/analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: text, messages: aiHistory.slice(-AI_MAX_HISTORY_MESSAGES) }),
+      body: JSON.stringify({
+        query: text,
+        messages: aiHistory.slice(-AI_MAX_HISTORY_MESSAGES),
+        currentPage: getCurrentPageContext(),
+      }),
     });
     const data = await res.json().catch(() => ({}));
     setAiMessage(data.analysis || data.error || data.details || 'AI tahlil javobi kelmadi.');
@@ -320,3 +344,4 @@ window.addEventListener('message', (event) => {
 });
 
 window.clearSegAiHistory = clearAiHistory;
+window.getSegCurrentPageContext = getCurrentPageContext;
