@@ -137,7 +137,7 @@
     if(document.getElementById('actsDonutPositionOverride')) return;
     const style = document.createElement('style');
     style.id = 'actsDonutPositionOverride';
-    style.textContent = `.side-donut-box{position:absolute!important;top:78px!important;right:158px!important;width:178px!important;margin:0!important;z-index:8!important}.side-donut-box .donut{width:94px!important;height:94px!important}@media(max-width:1200px){.side-donut-box{position:static!important;width:auto!important;margin:14px 0 18px!important}}`;
+    style.textContent = `.side-donut-box{position:fixed!important;top:112px!important;right:190px!important;width:176px!important;margin:0!important;z-index:30!important;transform:none!important;will-change:auto!important}.side-donut-box .donut{width:94px!important;height:94px!important}@media(max-width:1200px){.side-donut-box{position:fixed!important;top:98px!important;right:24px!important;width:160px!important}}@media(max-width:760px){.side-donut-box{position:static!important;width:auto!important;margin:14px 0 18px!important}}`;
     document.head.appendChild(style);
   }
   function bind(){
