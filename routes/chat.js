@@ -3,10 +3,32 @@ import OpenAI from "openai";
 
 const router = express.Router();
 
-function getClient() {
-  const hasApiKey = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith("sk-"));
-  return hasApiKey ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+function getApiKey() {
+  return String(
+    process.env.OPENAI_API_KEY ||
+    process.env.OPENAI_KEY ||
+    process.env.OPEN_AI_API_KEY ||
+    ""
+  ).trim().replace(/^['\"]|['\"]$/g, "");
 }
+
+function getModel() {
+  return String(process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
+}
+
+function getClient() {
+  const apiKey = getApiKey();
+  return apiKey ? new OpenAI({ apiKey }) : null;
+}
+
+router.get("/", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "SEG KIP AI Assistant",
+    ai: getApiKey() ? "configured" : "missing_api_key",
+    model: getModel(),
+  });
+});
 
 router.post("/", async (req, res) => {
   const userMessage = String(req.body?.message || "").trim();
@@ -17,17 +39,22 @@ router.post("/", async (req, res) => {
 
   const client = getClient();
   if (!client) {
-    return res.json({
+    return res.status(200).json({
       answer:
-        "Demo rejim: OpenAI API key .env faylga kiritilmagan.\n\n" +
-        "AI to‘liq ishlashi uchun .env fayl yarating yoki Railway Variables ichiga OPENAI_API_KEY qo‘shing.\n" +
-        "Hozircha TAG qidiruv va lokal baza ishlaydi.",
+        "AI yordamchi hozir demo rejimda. Railway → Variables bo‘limiga OPENAI_API_KEY qo‘shilmagan yoki noto‘g‘ri nom bilan kiritilgan.\n\n" +
+        "To‘g‘ri sozlash:\n" +
+        "1) Railway → SEG-KIP-AI-Platform → Variables\n" +
+        "2) OPENAI_API_KEY = sizning OpenAI API kalitingiz\n" +
+        "3) OPENAI_MODEL = gpt-4o-mini yoki gpt-4.1-mini\n" +
+        "4) Deploy/Redeploy qiling.",
+      mode: "demo",
+      missing: "OPENAI_API_KEY",
     });
   }
 
   try {
     const completion = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      model: getModel(),
       temperature: 0.35,
       messages: [
         {
@@ -44,12 +71,15 @@ Javoblar qisqa, aniq, professional va amaliy bo‘lsin.`,
     });
 
     const answer = completion.choices?.[0]?.message?.content || "AI javob qaytarmadi.";
-    res.json({ answer });
+    res.json({ answer, mode: "ai", model: getModel() });
   } catch (error) {
-    console.error("OPENAI_ERROR:", error?.message || error);
+    const status = error?.status || error?.response?.status || 500;
+    const message = error?.message || "Noma’lum xato";
+    console.error("OPENAI_ERROR:", status, message);
     res.status(500).json({
-      error: "AI ulanishida xatolik. OPENAI_API_KEY, internet, billing yoki model nomini tekshiring.",
-      details: error?.message || "Noma’lum xato",
+      error: "AI ulanishida xatolik. Railway Variables ichidagi OPENAI_API_KEY, OPENAI_MODEL va OpenAI billing holatini tekshiring.",
+      details: message,
+      status,
     });
   }
 });
