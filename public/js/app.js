@@ -16,9 +16,11 @@ const SHEET_LINK_KEYS = [
   'googleSheetUrl',
   'kuduk_spreadsheet_url'
 ];
+const AI_HISTORY_KEY = 'seg_kip_ai_chat_history';
+const AI_MAX_HISTORY_MESSAGES = 20;
 let activeModuleName = 'journal';
 let lastServerSheetUrl = '';
-let aiHistory = [];
+let aiHistory = loadAiHistory();
 
 function normalizeSpreadsheetUrl(value) {
   const raw = String(value || '').trim();
@@ -167,6 +169,38 @@ function openModulePage(moduleName, title) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function loadAiHistory() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(AI_HISTORY_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(msg => ['user', 'assistant'].includes(msg?.role) && String(msg?.content || '').trim())
+      .slice(-AI_MAX_HISTORY_MESSAGES);
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveAiHistory() {
+  try {
+    localStorage.setItem(AI_HISTORY_KEY, JSON.stringify(aiHistory.slice(-AI_MAX_HISTORY_MESSAGES)));
+  } catch (_) {}
+}
+
+function pushAiHistory(role, content) {
+  const text = String(content || '').trim();
+  if (!text || !['user', 'assistant'].includes(role)) return;
+  aiHistory.push({ role, content: text });
+  aiHistory = aiHistory.slice(-AI_MAX_HISTORY_MESSAGES);
+  saveAiHistory();
+}
+
+function clearAiHistory() {
+  aiHistory = [];
+  saveAiHistory();
+  setAiMessage('Suhbat tarixi tozalandi. Yangi suhbat boshlashingiz mumkin.');
+}
+
 function getAiPanelMessage() {
   return document.querySelector('.seg-ai-msg');
 }
@@ -189,7 +223,7 @@ async function sendAiMessage(message) {
   const text = String(message || '').trim();
   if (!text) return;
 
-  aiHistory.push({ role: 'user', content: text });
+  pushAiHistory('user', text);
   setAiInputDisabled(true);
   setAiMessage('AI жавоб тайёрлаяпти...');
 
@@ -197,11 +231,14 @@ async function sendAiMessage(message) {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({
+        message: text,
+        messages: aiHistory.slice(-AI_MAX_HISTORY_MESSAGES),
+      }),
     });
     const data = await res.json().catch(() => ({}));
     const answer = data.answer || data.error || data.details || 'AI жавоб қайтармади.';
-    aiHistory.push({ role: 'assistant', content: answer });
+    pushAiHistory('assistant', answer);
     setAiMessage(answer);
   } catch (err) {
     setAiMessage('AI серверга уланишда хато: ' + (err?.message || 'номаълум хато'));
@@ -224,7 +261,7 @@ async function sendAiAnalysis(message) {
     const res = await fetch('/api/analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: text }),
+      body: JSON.stringify({ query: text, messages: aiHistory.slice(-AI_MAX_HISTORY_MESSAGES) }),
     });
     const data = await res.json().catch(() => ({}));
     setAiMessage(data.analysis || data.error || data.details || 'AI tahlil javobi kelmadi.');
@@ -242,7 +279,8 @@ async function checkAiStatus() {
     if (data.ai === 'missing_api_key') {
       setAiMessage('AI yordamchi ulandi, lekin Railway Variables ichida OPENAI_API_KEY hali yo‘q. Kalit qo‘shilgandan keyin real ChatGPT javob beradi.');
     } else if (data.ai === 'configured') {
-      setAiMessage('AI yordamchi tayyor. Savolingizni yozing.');
+      const historyNote = aiHistory.length ? ` Avvalgi suhbat tarixi: ${aiHistory.length} ta xabar.` : '';
+      setAiMessage('AI yordamchi tayyor. Savolingizni yozing.' + historyNote);
     }
   } catch (_) {
     setAiMessage('AI yordamchi server bilan bog‘lana olmadi. Sahifani yangilang yoki deploy loglarini tekshiring.');
@@ -280,3 +318,5 @@ window.addEventListener('message', (event) => {
     openDashboard();
   }
 });
+
+window.clearSegAiHistory = clearAiHistory;
