@@ -1,9 +1,11 @@
 (function(){
   const KEYS = { url:'acts_sheet_url', sheet:'acts_sheet_name', service:'acts_service_account' };
-  const state = { analysisRows: [], selected: null, completion: 0 };
+  const state = { analysisRows: [], dailyRows: [], selected: null, saving: false };
 
   function $(id){ return document.getElementById(id); }
   function esc(v){ return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function ref(v){ return encodeURIComponent(String(v || '')); }
+  function unref(v){ try { return decodeURIComponent(String(v || '')); } catch(_) { return String(v || ''); } }
   function settings(){
     let serviceAccount = null;
     try { serviceAccount = JSON.parse(localStorage.getItem(KEYS.service) || 'null'); } catch(_) {}
@@ -11,9 +13,16 @@
   }
   function hasSettings(){ const s=settings(); return Boolean(s.spreadsheetUrl && s.sheetName && s.serviceAccount); }
   function setStatus(text, cls=''){ const el=$('actsStatus'); if(el) el.innerHTML = `Ҳолат: <span class="${cls}">${esc(text)}</span>`; }
-  function parentOnline(status){
-    try { parent.postMessage({ type:'SEG_ACTS_STATUS', status }, '*'); } catch(_) {}
+  function parentOnline(status){ try { parent.postMessage({ type:'SEG_ACTS_STATUS', status }, '*'); } catch(_) {} }
+
+  function injectStyles(){
+    if(document.getElementById('actsWorkflowStyles')) return;
+    const style=document.createElement('style');
+    style.id='actsWorkflowStyles';
+    style.textContent='.btn.done{background:linear-gradient(135deg,#16a34a,#86efac)!important;color:#052e16!important;border:0!important;box-shadow:0 0 18px rgba(34,197,94,.35)!important}.btn.saving{opacity:.9!important;pointer-events:none!important;background:linear-gradient(135deg,#f59e0b,#facc15)!important;color:#1f1300!important;border:0!important}.btn.saved{background:linear-gradient(135deg,#16a34a,#22c55e,#86efac)!important;color:#022c22!important;border:0!important;box-shadow:0 0 20px rgba(34,197,94,.55)!important}.btn:active{transform:scale(.97)}.acts-a4-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:40;display:none;align-items:center;justify-content:center;padding:18px}.acts-a4-modal.show{display:flex}.acts-a4-wrap{max-height:95vh;overflow:auto}.acts-a4-toolbar{display:flex;gap:10px;justify-content:center;margin-bottom:10px}.acts-a4-toolbar button{padding:10px 16px;border:0;border-radius:10px;font-weight:800;cursor:pointer}.a4-preview{width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:18mm;font-family:"Times New Roman",serif;box-shadow:0 0 30px rgba(0,0,0,.35)}.a4-preview p{font-size:15px;line-height:1.45}.a4-preview .act-head{text-align:center;font-weight:700}.a4-preview .right{text-align:right;color:#00f;font-size:14px;margin-bottom:15px}.a4-preview .act-title{text-align:center;font-size:18px;font-weight:900;margin:10px 0}.a4-preview .signs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:25px;margin-top:32px;text-align:center;font-size:12px}@media print{.acts-a4-toolbar{display:none}.acts-a4-modal{position:static;display:block;background:#fff;padding:0}.a4-preview{box-shadow:none}}';
+    document.head.appendChild(style);
   }
+
   function setDonut(pct){
     const v = Math.max(0, Math.min(100, Number(pct) || 0));
     const d = $('completionDonut');
@@ -26,132 +35,78 @@
     $('kpiSheet').textContent = data.sheetName || settings().sheetName || '—';
     setDonut(data.completionPercentage || 0);
   }
-  function formatWorkPlace(row){
-    return `${row.deviceName || ''} ${row.typeMark || ''}, завод рақами ${row.serialNo || ''},\nўлчаш чегараси ${row.measureRange || ''},\n${row.place || ''}, поз. №${row.positionNo || ''}`.replace(/ +,/g, ',').trim();
-  }
-  function today(){
-    const d = new Date();
-    return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
-  }
+  function formatWorkPlace(row){ return `${row.deviceName || ''} ${row.typeMark || ''}, завод рақами ${row.serialNo || ''},\nўлчаш чегараси ${row.measureRange || ''},\n${row.place || ''}, поз. №${row.positionNo || ''}`.replace(/ +,/g, ',').trim(); }
+  function today(){ const d=new Date(); return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; }
+
   function renderRows(rows){
-    const tb = $('analysisRows');
-    if(!rows || !rows.length){ tb.innerHTML = '<tr><td colspan="11">ТО-2 / АКТ қаторлари топилмади.</td></tr>'; return; }
-    tb.innerHTML = rows.map((r,i)=>`<tr>
-      <td>${i+1}</td><td>${esc(r.date)}</td><td>${esc(r.positionNo)}</td><td>${esc(r.deviceName)}</td><td>${esc(r.typeMark)}</td><td>${esc(r.serialNo)}</td><td>${esc(r.measureRange)}</td><td>${esc(r.place)}</td><td class="icol">${esc(r.workType)}</td><td>${esc(r.executor)}</td>
-      <td><button class="btn green" onclick="ActsUI.fillDoc(${i})">Хужат яратиш</button></td>
-    </tr>`).join('');
+    const tb=$('analysisRows');
+    if(!rows || !rows.length){ tb.innerHTML='<tr><td colspan="11">ТО-2 / АКТ қаторлари топилмади.</td></tr>'; return; }
+    tb.innerHTML=rows.map((r,i)=>{
+      const action = r.isCompleted ? `<button class="btn done" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Хужат якунланди</button>` : `<button class="btn green" onclick="ActsUI.fillDoc(${i})">Хужат яратиш</button>`;
+      return `<tr data-source-key="${esc(r.sourceKey || '')}"><td>${i+1}</td><td>${esc(r.date)}</td><td>${esc(r.positionNo)}</td><td>${esc(r.deviceName)}</td><td>${esc(r.typeMark)}</td><td>${esc(r.serialNo)}</td><td>${esc(r.measureRange)}</td><td>${esc(r.place)}</td><td class="icol">${esc(r.workType)}</td><td>${esc(r.executor)}</td><td>${action}</td></tr>`;
+    }).join('');
   }
-  async function postJson(url, body){
-    const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-    const data = await res.json().catch(()=>({}));
-    if(!res.ok || data.error) throw new Error(data.error || 'API хатоси');
-    return data;
-  }
+  async function postJson(url, body){ const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const data=await res.json().catch(()=>({})); if(!res.ok||data.error) throw new Error(data.error||'API хатоси'); return data; }
   async function loadAnalysis(){
-    if(!hasSettings()){ openSettings(); setStatus('Google Sheets созламалари киритилмаган.', 'bad'); return; }
-    const s = settings();
-    try{
-      setStatus('Google Sheets билан синхронланмоқда...', 'sync'); parentOnline('SYNCING');
-      const data = await postJson('/api/acts/monthly-analysis', s);
-      state.analysisRows = data.rows || [];
-      updateKpi(data); renderRows(state.analysisRows);
-      setStatus('Google Sheets уланди. Маълумотлар янгиланди.', 'ok'); parentOnline('ONLINE');
-    }catch(err){
-      setStatus(err.message, 'bad'); parentOnline('OFFLINE');
-    }
+    if(!hasSettings()){ openSettings(); setStatus('Google Sheets созламалари киритилмаган.','bad'); return; }
+    try{ setStatus('Google Sheets билан синхронланмоқда...','sync'); parentOnline('SYNCING'); const data=await postJson('/api/acts/monthly-analysis',settings()); state.analysisRows=data.rows||[]; updateKpi(data); renderRows(state.analysisRows); setStatus('Google Sheets уланди. Маълумотлар янгиланди.','ok'); parentOnline('ONLINE'); }
+    catch(err){ setStatus(err.message,'bad'); parentOnline('OFFLINE'); }
   }
   async function loadReports(){
-    const tb = $('dailyRows');
-    if(!hasSettings()){ tb.innerHTML='<tr><td colspan="9">Google Sheets созламалари киритилмаган.</td></tr>'; return; }
-    try{
-      const data = await postJson('/api/acts/reports/daily', settings());
-      const rows = data.rows || [];
-      if(!rows.length){ tb.innerHTML='<tr><td colspan="9">Кунлик ҳисоботда ҳужжатлар йўқ.</td></tr>'; return; }
-      tb.innerHTML = rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.actNo)}</td><td>${esc(r.date)}</td><td>${esc(r.device)}</td><td>${esc(r.serial)}</td><td>${esc(r.place)}</td><td>${esc(r.executor)}</td><td>${esc(r.status)}</td><td><button class="btn primary" onclick="ActsUI.viewDoc('${esc(r.actNo)}')">Хужатни кўриш</button> <button class="btn orange" onclick="ActsUI.sendDoc('${esc(r.actNo)}')">Хужатни юбориш</button></td></tr>`).join('');
-    }catch(err){ tb.innerHTML = `<tr><td colspan="9">${esc(err.message)}</td></tr>`; }
+    const tb=$('dailyRows');
+    if(!hasSettings()){ tb.innerHTML='<tr><td colspan="9">Google Sheets созламалари киритилмаган.</td></tr>'; return []; }
+    try{ const data=await postJson('/api/acts/reports/daily',settings()); const rows=data.rows||[]; state.dailyRows=rows; if(!rows.length){ tb.innerHTML='<tr><td colspan="9">Кунлик ҳисоботда ҳужжатлар йўқ.</td></tr>'; return rows; } tb.innerHTML=rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.actNo)}</td><td>${esc(r.date)}</td><td>${esc(r.device)}</td><td>${esc(r.serial)}</td><td>${esc(r.place)}</td><td>${esc(r.executor)}</td><td>${esc(r.status)}</td><td><button class="btn primary" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Хужатни кўриш</button> <button class="btn orange" onclick="ActsUI.sendDoc('${ref(r.actNo)}')">Хужатни юбориш</button></td></tr>`).join(''); return rows; }
+    catch(err){ tb.innerHTML=`<tr><td colspan="9">${esc(err.message)}</td></tr>`; return []; }
   }
+
+  function resetSaveButton(){ const b=$('saveActBtn'); if(!b) return; b.classList.remove('saving','saved'); b.textContent='Сақлаш'; }
+  function saveButton(mode){ const b=$('saveActBtn'); if(!b) return; b.classList.remove('saving','saved'); if(mode==='saving'){b.classList.add('saving');b.textContent='⏳ Сақланмоқда...';b.disabled=true;return;} if(mode==='saved'){b.classList.add('saved');b.textContent='Сақланди ✓';b.disabled=true;return;} resetSaveButton(); }
+
   function fillDoc(index){
-    const row = state.analysisRows[index]; if(!row) return;
-    state.selected = row;
-    $('workPlace').value = formatWorkPlace(row);
-    $('actDate').value = row.date || today();
-    $('actNo').value = '';
-    ['failureText','impactText','reasonText','actionText','conclusion'].forEach(id => { if($(id)) $(id).value = ''; });
-    showView('create', $('tab-create'));
-    validateDoc();
+    const row=state.analysisRows[index]; if(!row) return;
+    if(row.isCompleted){ viewDoc(ref(row.actNo)); return; }
+    state.selected=row; $('workPlace').value=formatWorkPlace(row); $('actDate').value=row.date||today(); $('actNo').value='';
+    ['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>{ if($(id)) $(id).value=''; });
+    resetSaveButton(); showView('create',$('tab-create')); validateDoc();
   }
-  function collectAct(){
-    const r = state.selected || {};
-    return {
-      actNo: $('actNo').value.trim(), date: $('actDate').value.trim(), workPlace: $('workPlace').value.trim(),
-      deviceName: r.deviceName || '', serialNo: r.serialNo || '', place: r.place || '', executor: r.executor || '',
-      person1:$('person1').value, position1:$('position1').value, department1:$('department1').value,
-      person2:$('person2').value, position2:$('position2').value, department2:$('department2').value,
-      person3:$('person3').value, position3:$('position3').value, department3:$('department3').value,
-      failureText:$('failureText').value.trim(), impactText:$('impactText').value.trim(), reasonText:$('reasonText').value.trim(), actionText:$('actionText').value.trim(), conclusion:$('conclusion').value.trim()
-    };
+  function collectActBase(){
+    const r=state.selected||{};
+    return { actNo:$('actNo').value.trim(), date:$('actDate').value.trim(), workPlace:$('workPlace').value.trim(), deviceName:r.deviceName||'', serialNo:r.serialNo||'', place:r.place||'', executor:r.executor||'', person1:$('person1').value, position1:$('position1').value, department1:$('department1').value, person2:$('person2').value, position2:$('position2').value, department2:$('department2').value, person3:$('person3').value, position3:$('position3').value, department3:$('department3').value, failureText:$('failureText').value.trim(), impactText:$('impactText').value.trim(), reasonText:$('reasonText').value.trim(), actionText:$('actionText').value.trim(), conclusion:$('conclusion').value.trim(), sourceSheet:r.sourceSheet||'', sourceRowNumber:r.sourceRowNumber||'', sourceKey:r.sourceKey||'' };
   }
+  function buildA4ActHtml(a){
+    const sign='<div class="signs"><div>_________________<br>(Лавозими)</div><div>_________________<br>(Имзо)</div><div>_________________<br>(Ф.И.Ш.)</div></div>';
+    return `<div class="a4-preview"><div class="act-head"><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича</div><div style="text-align:right;font-weight:400">ТПП «Андижан»</div><div class="act-title">ДАЛОЛАТНОМА № ${esc(a.actNo||'')}</div><div>Ўлчов воситасининг бузилиши</div></div><p><b>Сана:</b> ${esc(a.date)}</p><p><b>1. Ў.В. Ишлаш жойи:</b><br>${esc(a.workPlace).replace(/\n/g,'<br>')}</p><p><b>2. Рад этиш мазмуни, санаси, вақти:</b><br>${esc(a.failureText)}</p><p><b>3. Носозликнинг технологик оқибатлари:</b><br>${esc(a.impactText)}</p><p><b>4. Рад этиш сабаби:</b><br>${esc(a.reasonText)}</p><p><b>5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</b><br>${esc(a.actionText)}</p><p><b>Хулоса:</b><br>${esc(a.conclusion)}</p><p><b>Имзолар:</b></p>${sign}${sign}</div>`;
+  }
+  function collectAct(){ const base=collectActBase(); return { ...base, a4Html:buildA4ActHtml(base), a4Json:JSON.stringify(base) }; }
   function validateDoc(){
-    const a = collectAct();
-    const required = ['date','workPlace','failureText','impactText','reasonText','actionText','conclusion'];
-    const done = required.filter(k => a[k]).length;
-    const pct = Math.round(done / required.length * 100);
-    $('fillBar').style.width = pct + '%'; $('fillText').textContent = `Тўлдирилиш: ${pct}%`;
-    $('saveActBtn').disabled = pct < 100 || !state.selected;
-    return pct >= 100;
+    const a=collectActBase(); const required=['date','workPlace','failureText','impactText','reasonText','actionText','conclusion']; const done=required.filter(k=>a[k]).length; const pct=Math.round(done/required.length*100);
+    $('fillBar').style.width=pct+'%'; $('fillText').textContent=`Тўлдирилиш: ${pct}%`;
+    const b=$('saveActBtn'); if(b && !state.saving && !b.classList.contains('saved')) b.disabled=pct<100||!state.selected;
+    return pct>=100;
   }
+  function markCompleted(actNo){ const key=state.selected?.sourceKey; if(!key) return; state.analysisRows=state.analysisRows.map(r=>r.sourceKey===key?{...r,isCompleted:true,actNo,status:'Хужат якунланди'}:r); renderRows(state.analysisRows); }
   async function saveAct(){
-    if(!validateDoc()) { setStatus('Мажбурий майдонларни тўлдиринг.', 'bad'); return; }
-    try{
-      setStatus('Ҳужжат Google Sheets га сақланмоқда...', 'sync');
-      const result = await postJson('/api/acts/create', { ...settings(), act: collectAct() });
-      $('actNo').value = result.actNo || '';
-      setStatus(`Ҳужжат сақланди: ${result.actNo}. Маълумот АКТЛАР_КУНЛИК варағига қўшилди.`, 'ok');
-      await loadReports(); await loadAnalysis(); showView('reports', $('tab-reports'));
-    }catch(err){ setStatus(err.message, 'bad'); }
+    if(state.saving) return; if(!validateDoc()){ setStatus('Мажбурий майдонларни тўлдиринг.','bad'); return; }
+    state.saving=true; saveButton('saving');
+    try{ setStatus('Ҳужжат Google Sheets га сақланмоқда...','sync'); const result=await postJson('/api/acts/create',{...settings(),act:collectAct()}); $('actNo').value=result.actNo||''; saveButton('saved'); markCompleted(result.actNo||''); setStatus(result.duplicate?`Ҳужжат аввал якунланган: ${result.actNo}`:`Ҳужжат сақланди: ${result.actNo}. Маълумот АКТЛАР_КУНЛИК варағига қўшилди.`,'ok'); await loadReports(); await loadAnalysis(); setTimeout(()=>{ showView('analysis',$('tab-analysis')); state.saving=false; },900); }
+    catch(err){ state.saving=false; resetSaveButton(); validateDoc(); setStatus(err.message,'bad'); }
   }
-  function showView(id, btn){
-    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); $(id).classList.add('active');
-    document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active');
-    if(id === 'reports') loadReports();
-  }
-  function showReport(id, btn){ document.querySelectorAll('.report-view').forEach(v=>v.classList.remove('active')); $(id).classList.add('active'); document.querySelectorAll('.subtabs button').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); }
-  function openExcel(){ const url=settings().spreadsheetUrl; if(!url){ alert('Google Sheets ҳаволаси киритилмаган.'); return; } window.open(url, '_blank', 'noopener,noreferrer'); }
+  function showView(id,btn){ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); $(id).classList.add('active'); document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); if(id==='reports') loadReports(); }
+  function showReport(id,btn){ document.querySelectorAll('.report-view').forEach(v=>v.classList.remove('active')); $(id).classList.add('active'); document.querySelectorAll('.subtabs button').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); }
+  function openExcel(){ const url=settings().spreadsheetUrl; if(!url){ alert('Google Sheets ҳаволаси киритилмаган.'); return; } window.open(url,'_blank','noopener,noreferrer'); }
   function openSettings(){ const s=settings(); $('sheetUrl').value=s.spreadsheetUrl; $('sheetName').value=s.sheetName; $('settingsModal').classList.add('show'); }
   function closeSettings(){ $('settingsModal').classList.remove('show'); }
-  async function saveSettings(){
-    const spreadsheetUrl = $('sheetUrl').value.trim(); const sheetName = $('sheetName').value.trim();
-    let serviceAccount = settings().serviceAccount;
-    if(!spreadsheetUrl || !sheetName){ $('settingsMsg').innerHTML='<span class="bad">Google Sheets силкаси ва ASOSIY VAROQ киритилиши шарт.</span>'; return; }
-    if(!serviceAccount){ $('settingsMsg').innerHTML='<span class="bad">SERVICE ACCOUNT JSON файлини танланг.</span>'; return; }
-    try{
-      $('settingsMsg').innerHTML='<span class="sync">Уланиш текширилмоқда...</span>';
-      await postJson('/api/acts/settings/test', { spreadsheetUrl, serviceAccount });
-      localStorage.setItem(KEYS.url, spreadsheetUrl); localStorage.setItem(KEYS.sheet, sheetName); localStorage.setItem(KEYS.service, JSON.stringify(serviceAccount));
-      closeSettings(); setStatus('Созламалар сақланди.', 'ok'); await loadAnalysis();
-    }catch(err){ $('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`; }
+  async function saveSettings(){ const spreadsheetUrl=$('sheetUrl').value.trim(); const sheetName=$('sheetName').value.trim(); let serviceAccount=settings().serviceAccount; if(!spreadsheetUrl||!sheetName){ $('settingsMsg').innerHTML='<span class="bad">Google Sheets силкаси ва ASOSIY VAROQ киритилиши шарт.</span>'; return; } if(!serviceAccount){ $('settingsMsg').innerHTML='<span class="bad">SERVICE ACCOUNT JSON файлини танланг.</span>'; return; } try{ $('settingsMsg').innerHTML='<span class="sync">Уланиш текширилмоқда...</span>'; await postJson('/api/acts/settings/test',{spreadsheetUrl,serviceAccount}); localStorage.setItem(KEYS.url,spreadsheetUrl); localStorage.setItem(KEYS.sheet,sheetName); localStorage.setItem(KEYS.service,JSON.stringify(serviceAccount)); closeSettings(); setStatus('Созламалар сақланди.','ok'); await loadAnalysis(); }catch(err){ $('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`; } }
+
+  async function findReport(actNo){ const no=unref(actNo); if(!state.dailyRows.length) await loadReports(); return state.dailyRows.find(r=>String(r.actNo||'')===no); }
+  function ensureA4Modal(){
+    let modal=$('actsA4Modal'); if(modal) return modal;
+    modal=document.createElement('div'); modal.id='actsA4Modal'; modal.className='acts-a4-modal'; modal.innerHTML='<div class="acts-a4-wrap"><div class="acts-a4-toolbar"><button onclick="window.print()">PDF / Print</button><button onclick="document.getElementById(\'actsA4Modal\').classList.remove(\'show\')">Yopish</button></div><div id="actsA4Content"></div></div>'; document.body.appendChild(modal); return modal;
   }
-  function viewDoc(actNo){ if(!actNo) return; alert(`${actNo} ҳужжати АКТЛАР_КУНЛИК варағида сақланган. Тўлиқ кўриш учун Excel очилади.`); openExcel(); }
-  function sendDoc(actNo){ alert(`${actNo} ҳужжати PDF → E-IMZO → Архив жараёнига кейинги босқичда юборилади.`); }
-  function clearLegacyDonutOverrides(){
-    const legacy = document.getElementById('actsDonutPositionOverride');
-    if(legacy) legacy.remove();
-  }
-  function bind(){
-    clearLegacyDonutOverrides();
-    $('serviceFile')?.addEventListener('change', async e => {
-      const file = e.target.files && e.target.files[0]; if(!file) return;
-      try{
-        const json = JSON.parse(await file.text());
-        if(!json.client_email || !json.private_key || !json.project_id) throw new Error('client_email, private_key ёки project_id топилмади');
-        localStorage.setItem(KEYS.service, JSON.stringify(json));
-        $('serviceFileName').innerHTML = `${esc(file.name)} ✓`;
-        $('settingsMsg').innerHTML = '<span class="ok">SERVICE ACCOUNT JSON юкланди.</span>';
-      }catch(err){ $('settingsMsg').innerHTML = `<span class="bad">${esc(err.message)}</span>`; }
-    });
-    ['failureText','impactText','reasonText','actionText','conclusion'].forEach(id => $(id)?.addEventListener('input', validateDoc));
-    if(!hasSettings()) openSettings(); else loadAnalysis();
-  }
-  window.ActsUI = { showView, showReport, openSettings, closeSettings, saveSettings, loadAnalysis, fillDoc, saveAct, openExcel, setStatus, viewDoc, sendDoc };
-  document.addEventListener('DOMContentLoaded', bind);
+  async function viewDoc(actNo){ const report=await findReport(actNo); if(!report){ alert('Ҳужжат топилмади. Excel очилади.'); openExcel(); return; } let act=null; try{ act=JSON.parse(report.a4Json||'null'); }catch(_){} const html=buildA4ActHtml(act||{actNo:report.actNo,date:report.date,workPlace:report.workPlace,failureText:report.failureText,impactText:report.impactText,reasonText:report.reasonText,actionText:report.actionText,conclusion:report.conclusion}); ensureA4Modal(); $('actsA4Content').innerHTML=html; $('actsA4Modal').classList.add('show'); }
+  function sendDoc(actNo){ alert(`${unref(actNo)} ҳужжати PDF → E-IMZO → Архив жараёнига кейинги босқичда юборилади.`); }
+  function clearLegacyDonutOverrides(){ const legacy=document.getElementById('actsDonutPositionOverride'); if(legacy) legacy.remove(); }
+  function bind(){ injectStyles(); clearLegacyDonutOverrides(); $('serviceFile')?.addEventListener('change',async e=>{ const file=e.target.files&&e.target.files[0]; if(!file) return; try{ const json=JSON.parse(await file.text()); if(!json.client_email||!json.private_key||!json.project_id) throw new Error('client_email, private_key ёки project_id топилмади'); localStorage.setItem(KEYS.service,JSON.stringify(json)); $('serviceFileName').innerHTML=`${esc(file.name)} ✓`; $('settingsMsg').innerHTML='<span class="ok">SERVICE ACCOUNT JSON юкланди.</span>'; }catch(err){ $('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`; } }); ['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>$(id)?.addEventListener('input',validateDoc)); if(!hasSettings()) openSettings(); else loadAnalysis(); }
+  window.ActsUI={showView,showReport,openSettings,closeSettings,saveSettings,loadAnalysis,fillDoc,saveAct,openExcel,setStatus,viewDoc,sendDoc};
+  document.addEventListener('DOMContentLoaded',bind);
 })();
