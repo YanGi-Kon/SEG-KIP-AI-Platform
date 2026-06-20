@@ -24,7 +24,12 @@ const DAILY_HEADERS = [
   'Ф.И.Ш. 3',
   'Лавозими 3',
   'Цех ва м/р 3',
-  'Яратилган вақт'
+  'Яратилган вақт',
+  'Source Sheet',
+  'Source Row Number',
+  'Source Key',
+  'A4 HTML',
+  'A4 JSON'
 ];
 
 export function extractSpreadsheetId(input = '') {
@@ -117,8 +122,9 @@ async function ensureDailySheet({ spreadsheetUrl, serviceAccount }) {
     spreadsheetId,
     range: `${q(DAILY_SHEET_NAME)}!A1:${lastCol}1`
   }).catch(() => ({ data: { values: [] } }));
-  const headerExists = current.data.values?.[0]?.some(v => String(v || '').trim());
-  if (!headerExists) {
+  const header = current.data.values?.[0] || [];
+  const headerNeedsUpdate = DAILY_HEADERS.some((h, i) => String(header[i] || '').trim() !== h);
+  if (headerNeedsUpdate) {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${q(DAILY_SHEET_NAME)}!A1:${lastCol}1`,
@@ -150,6 +156,7 @@ export async function countDailyReports({ spreadsheetUrl, serviceAccount }) {
 
 export async function getDailyReports({ spreadsheetUrl, serviceAccount }) {
   try {
+    await ensureDailySheet({ spreadsheetUrl, serviceAccount });
     const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName: DAILY_SHEET_NAME, range: `A:${colLetter(DAILY_HEADERS.length)}` });
     return rows.slice(1).filter(r => r.some(c => String(c || '').trim())).map((r, idx) => ({
       no: idx + 1,
@@ -167,6 +174,11 @@ export async function getDailyReports({ spreadsheetUrl, serviceAccount }) {
       actionText: r[11] || '',
       conclusion: r[12] || '',
       createdAt: r[22] || '',
+      sourceSheet: r[23] || '',
+      sourceRowNumber: r[24] || '',
+      sourceKey: r[25] || '',
+      a4Html: r[26] || '',
+      a4Json: r[27] || '',
       rowNumber: idx + 2
     }));
   } catch (_) {
@@ -188,6 +200,18 @@ function nextActNo(existingRows) {
 export async function writeActDocument({ spreadsheetUrl, serviceAccount, act }) {
   const { sheets, spreadsheetId } = await ensureDailySheet({ spreadsheetUrl, serviceAccount });
   const existingRows = await getDailyReports({ spreadsheetUrl, serviceAccount });
+  const sourceKey = String(act.sourceKey || '').trim();
+  if (sourceKey) {
+    const duplicate = existingRows.find(r => String(r.sourceKey || '').trim() === sourceKey);
+    if (duplicate) {
+      return {
+        actNo: duplicate.actNo,
+        duplicate: true,
+        reportSheetName: DAILY_SHEET_NAME,
+        message: 'Бу қатор учун ҳужжат аввал якунланган.'
+      };
+    }
+  }
   const actNo = act.actNo || nextActNo(existingRows);
   const row = [
     actNo,
@@ -196,7 +220,7 @@ export async function writeActDocument({ spreadsheetUrl, serviceAccount, act }) 
     act.serialNo || '',
     act.place || '',
     act.executor || '',
-    'Сақланди',
+    'Хужат якунланди',
     act.workPlace || '',
     act.failureText || '',
     act.impactText || '',
@@ -212,7 +236,12 @@ export async function writeActDocument({ spreadsheetUrl, serviceAccount, act }) 
     act.person3 || '',
     act.position3 || '',
     act.department3 || '',
-    new Date().toISOString()
+    new Date().toISOString(),
+    act.sourceSheet || '',
+    act.sourceRowNumber || '',
+    sourceKey,
+    act.a4Html || '',
+    act.a4Json || ''
   ];
   const lastCol = colLetter(DAILY_HEADERS.length);
   await sheets.spreadsheets.values.append({
@@ -222,5 +251,5 @@ export async function writeActDocument({ spreadsheetUrl, serviceAccount, act }) 
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [row] }
   });
-  return { actNo, reportSheetName: DAILY_SHEET_NAME, message: 'Ҳужжат АКТЛАР_КУНЛИК варағига янги қатор сифатида сақланди.' };
+  return { actNo, duplicate: false, reportSheetName: DAILY_SHEET_NAME, message: 'Ҳужжат АКТЛАР_КУНЛИК варағига янги қатор сифатида сақланди.' };
 }
