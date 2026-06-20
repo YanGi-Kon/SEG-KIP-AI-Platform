@@ -1,5 +1,6 @@
 import express from 'express';
-import { readSheetRows, getDailyReports, writeActDocument, listSheets, validateServiceAccount } from '../services/googleSheetsService.js';
+import { readSheetRows, listSheets, validateServiceAccount } from '../services/googleSheetsService.js';
+import { getDailyReports, writeActDocument } from '../services/actBlankSheetService.js';
 
 const router = express.Router();
 
@@ -40,6 +41,7 @@ function mapRow(row, index, sheetName, completedByKey = new Map()) {
   const completed = completedByKey.get(mapped.sourceKey);
   mapped.isCompleted = Boolean(completed);
   mapped.actNo = completed?.actNo || '';
+  mapped.rowStart = completed?.rowStart || '';
   mapped.status = mapped.isCompleted ? 'Хужат якунланди' : 'Хужат яратиш';
   return mapped;
 }
