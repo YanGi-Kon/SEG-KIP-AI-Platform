@@ -540,9 +540,11 @@ export async function sendDocumentForApproval(configInput, input, req) {
   if (!signers.length) throw new Error('ИМЗО_ЧЕКУВЧИЛАР варағида имзоловчилар йўқ');
   const baseUrl = baseUrlFromRequest(req);
   const { transporter, from } = transportConfig();
+  const existingApprovals = await listApprovals(config, actNo);
   const results = [];
   for (const signer of signers) {
-    const approvalId = randomId('APR');
+    const existingApproval = existingApprovals.find((item) => item.signerId === signer.id);
+    const approvalId = existingApproval?.id || randomId('APR');
     const token = signApprovalToken({ approvalId, actNo, signerId: signer.id, email: signer.gmail });
     const link = `${baseUrl}/api/document/approve/${encodeURIComponent(token)}`;
     const approval = await upsertApproval(config, {
