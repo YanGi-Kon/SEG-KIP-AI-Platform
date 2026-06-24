@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+service-account.json
+service_account.json
+*service-account*.json
+*service_account*.json
+secrets/
+
+# Runtime files
+uploads/
+tmp/
+.temp/
+logs/
+*.log
+
+# Test and coverage
+coverage/
+.nyc_output/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local database/export artifacts
+*.sql.gz
+*.dump
+*.backup
