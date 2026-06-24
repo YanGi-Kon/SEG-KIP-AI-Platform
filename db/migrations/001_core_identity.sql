@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS citext;
 
@@ -94,5 +92,3 @@ DROP TRIGGER IF EXISTS workspace_members_set_updated_at ON workspace_members;
 CREATE TRIGGER workspace_members_set_updated_at
 BEFORE UPDATE ON workspace_members
 FOR EACH ROW EXECUTE FUNCTION seg_kip_set_updated_at();
-
-COMMIT;
