@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE IF NOT EXISTS signers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -145,5 +143,3 @@ DROP TRIGGER IF EXISTS outbox_jobs_set_updated_at ON outbox_jobs;
 CREATE TRIGGER outbox_jobs_set_updated_at
 BEFORE UPDATE ON outbox_jobs
 FOR EACH ROW EXECUTE FUNCTION seg_kip_set_updated_at();
-
-COMMIT;
