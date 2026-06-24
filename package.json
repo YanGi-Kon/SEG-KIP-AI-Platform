@@ -1,13 +1,21 @@
 {
   "name": "seg-kip-ai-platform-integrated",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
-  "scripts": { "start": "node server.js", "dev": "node server.js" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node --check server.js && node --check routes/signatures.js && node --check services/signatureApprovalService.js && node --check public/js/acts.js"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "latest",
     "express": "latest",
     "googleapis": "^171.0.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "nodemailer": "^9.0.1",
     "openai": "latest",
     "socket.io": "^4.7.5"
   }
