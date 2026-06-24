@@ -14,12 +14,11 @@ import workbookRouter from "./routes/workbook.js";
 import menuRouter from "./routes/menu.js";
 import actsRouter from "./routes/acts.js";
 import signaturesRouter from "./routes/signatures.js";
+import authRouter from "./routes/auth.js";
+import workspacesRouter from "./routes/workspaces.js";
 import { createKudukRouter, initKudukRealtime } from "./routes/kuduk.js";
 
 dotenv.config();
-if (!process.env.GOOGLE_SPREADSHEET_URL && process.env.GOOGLE_SHEETS_ID) {
-  process.env.GOOGLE_SPREADSHEET_URL = process.env.GOOGLE_SHEETS_ID;
-}
 
 const app = express();
 const server = http.createServer(app);
@@ -34,6 +33,8 @@ app.use(express.urlencoded({ extended: false, limit: "2mb" }));
 app.use(express.static("public"));
 
 app.use("/api/health", healthRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/workspaces", workspacesRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/analysis", analysisRouter);
 app.use("/api/project", projectRouter);
