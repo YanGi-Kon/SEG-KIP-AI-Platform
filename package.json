@@ -1,11 +1,15 @@
 {
   "name": "seg-kip-ai-platform-integrated",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "check": "node --check server.js && node --check routes/signatures.js && node --check services/signatureApprovalService.js && node --check public/js/acts.js"
+    "check": "node --check server.js && node --check config/env.js && node --check db/pool.js && node --check db/migrate.js && node --check routes/signatures.js && node --check services/signatureApprovalService.js && node --check public/js/acts.js",
+    "test": "node --test",
+    "ci": "npm run check && npm test",
+    "db:migrate": "node db/migrate.js",
+    "db:migrate:dry": "node db/migrate.js --dry-run"
   },
   "dependencies": {
     "cors": "^2.8.5",
