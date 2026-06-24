@@ -17,6 +17,9 @@ import signaturesRouter from "./routes/signatures.js";
 import { createKudukRouter, initKudukRealtime } from "./routes/kuduk.js";
 
 dotenv.config();
+if (!process.env.GOOGLE_SPREADSHEET_URL && process.env.GOOGLE_SHEETS_ID) {
+  process.env.GOOGLE_SPREADSHEET_URL = process.env.GOOGLE_SHEETS_ID;
+}
 
 const app = express();
 const server = http.createServer(app);
