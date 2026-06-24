@@ -17,6 +17,7 @@
     "multer": "^2.0.2",
     "nodemailer": "^9.0.1",
     "openai": "latest",
+    "pg": "8.13.1",
     "socket.io": "^4.7.5"
   }
 }
