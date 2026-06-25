@@ -7,7 +7,7 @@ const REQUIRED_ACT_TABS = [
   'ИМЗО_ЧЕКУВЧИЛАР',
 ];
 
-export async function testWorkspaceSheetConnection(workspace) {
+export function resolveWorkspaceGoogleConfig(workspace) {
   if (!workspace?.spreadsheetUrl || !workspace?.mainSheetName) {
     throw new Error('Workspace Google Sheets configuration is incomplete');
   }
@@ -16,8 +16,17 @@ export async function testWorkspaceSheetConnection(workspace) {
     { spreadsheetUrl: workspace.spreadsheetUrl },
     { requireServer: false },
   );
-  const sheets = await getSheetsClient(platformConfig.serviceAccount);
-  const spreadsheetId = extractSpreadsheetId(workspace.spreadsheetUrl);
+
+  return {
+    ...platformConfig,
+    spreadsheetUrl: workspace.spreadsheetUrl,
+  };
+}
+
+export async function testWorkspaceSheetConnection(workspace) {
+  const config = resolveWorkspaceGoogleConfig(workspace);
+  const sheets = await getSheetsClient(config.serviceAccount);
+  const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
 
   const response = await sheets.spreadsheets.get({
     spreadsheetId,
