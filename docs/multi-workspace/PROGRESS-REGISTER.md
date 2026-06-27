@@ -73,9 +73,9 @@ Completed in stage 5:
 - Verified `/api/auth/refresh` rotates the refresh session and returns a new access token plus active user.
 - Verified `/api/auth/logout` returns `ok: true`, `revoked: true`.
 - Verified refresh after logout is rejected with `REFRESH_TOKEN_REQUIRED`.
+- Disabled temporary self-registration in staging and verified `/api/auth/register` rejects new registration with `SELF_REGISTRATION_DISABLED`.
 
 Required before completion:
-- Disable temporary self-registration after user bootstrap is complete.
 - Create a real test Workspace.
 - Test Workspace CRUD with real PostgreSQL.
 - Test Service Account access to the user's real Google Sheet.
