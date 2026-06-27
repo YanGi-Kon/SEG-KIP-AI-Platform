@@ -62,9 +62,17 @@ Started:
 - Workspace mode is enabled in staging.
 - Readiness endpoint confirms Workspace mode and PostgreSQL connectivity.
 
+Completed in stage 5:
+- Enabled temporary self-registration in staging.
+- Verified weak-password validation returns `INVALID_PASSWORD` instead of generic server failure.
+- Created the first staging user through `/api/auth/register`.
+- Verified `/api/auth/me` with Bearer access token returns the authenticated active user.
+
 Required before completion:
-- Bootstrap first administrator.
-- Test login, access token, refresh rotation and logout.
+- Test login with the created user.
+- Test refresh token rotation.
+- Test logout/revocation.
+- Disable temporary self-registration after user bootstrap is complete.
 - Create a real test Workspace.
 - Test Workspace CRUD with real PostgreSQL.
 - Test Service Account access to the user's real Google Sheet.
