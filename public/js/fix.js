@@ -111,10 +111,16 @@ function isDateRow(v){
 })();
 
 (function loadWorkspaceUi(){
-  if (document.getElementById('segWorkspaceUiScript')) return;
-  const script = document.createElement('script');
-  script.id = 'segWorkspaceUiScript';
-  script.src = 'js/workspace-ui.js?v=stage6';
-  script.defer = true;
-  document.head.appendChild(script);
+  function appendScript(id, src){
+    if (document.getElementById(id)) return;
+    const script = document.createElement('script');
+    script.id = id;
+    script.src = src;
+    script.async = false;
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
+  appendScript('segWorkspaceUiScript', 'js/workspace-ui.js?v=stage6');
+  appendScript('segWorkspaceSessionCleanupScript', 'js/workspace-session-cleanup.js?v=stage6a');
 })();
