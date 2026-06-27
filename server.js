@@ -13,6 +13,7 @@ import baseRouter from "./routes/base.js";
 import workbookRouter from "./routes/workbook.js";
 import menuRouter from "./routes/menu.js";
 import actsRouter from "./routes/acts.js";
+import ulchovRouter from "./routes/ulchov.js";
 import signaturesRouter from "./routes/signatures.js";
 import authRouter from "./routes/auth.js";
 import workspacesRouter from "./routes/workspaces.js";
@@ -42,6 +43,7 @@ app.use("/api/base", baseRouter);
 app.use("/api/workbook", workbookRouter);
 app.use("/api/menu", menuRouter);
 app.use("/api/acts", actsRouter);
+app.use("/api/ulchov", ulchovRouter);
 app.use("/api", signaturesRouter);
 app.use("/api/kuduk", createKudukRouter(io));
 
