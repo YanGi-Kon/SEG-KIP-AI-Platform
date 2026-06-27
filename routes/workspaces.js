@@ -10,6 +10,12 @@ import {
   getWorkspaceMembers,
   updateWorkspace,
 } from '../services/workspaceService.js';
+import {
+  createSignerForWorkspace,
+  deleteSignerForWorkspace,
+  getWorkspaceSignerList,
+  updateSignerForWorkspace,
+} from '../services/workspaceSignerService.js';
 import { testWorkspaceSheetConnection } from '../services/workspaceGoogleService.js';
 
 const router = express.Router();
@@ -85,6 +91,43 @@ router.get('/:workspaceId/members', requireWorkspacePermission('members:read'), 
   try {
     const rows = await getWorkspaceMembers(req.params.workspaceId);
     res.json({ rows });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.get('/:workspaceId/signers', requireWorkspacePermission('signers:read'), async (req, res) => {
+  try {
+    const includeInactive = String(req.query.includeInactive || '').toLowerCase() === 'true';
+    const rows = await getWorkspaceSignerList(req.params.workspaceId, { includeInactive });
+    res.json({ rows });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/signers', requireWorkspacePermission('signers:create'), async (req, res) => {
+  try {
+    const signer = await createSignerForWorkspace(req.params.workspaceId, req.body || {}, req.auth.userId);
+    res.status(201).json({ ok: true, signer });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.put('/:workspaceId/signers/:signerId', requireWorkspacePermission('signers:update'), async (req, res) => {
+  try {
+    const signer = await updateSignerForWorkspace(req.params.workspaceId, req.params.signerId, req.body || {}, req.auth.userId);
+    res.json({ ok: true, signer });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.delete('/:workspaceId/signers/:signerId', requireWorkspacePermission('signers:delete'), async (req, res) => {
+  try {
+    const result = await deleteSignerForWorkspace(req.params.workspaceId, req.params.signerId, req.auth.userId);
+    res.json({ ok: true, ...result });
   } catch (error) {
     handleError(res, error);
   }
