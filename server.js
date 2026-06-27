@@ -18,6 +18,8 @@ import signaturesRouter from "./routes/signatures.js";
 import authRouter from "./routes/auth.js";
 import workspacesRouter from "./routes/workspaces.js";
 import { createKudukRouter, initKudukRealtime } from "./routes/kuduk.js";
+import { isDatabaseConfigured } from "./db/pool.js";
+import { runMigrations } from "./db/migrate.js";
 
 dotenv.config();
 
@@ -49,8 +51,24 @@ app.use("/api/kuduk", createKudukRouter(io));
 
 initKudukRealtime(io);
 
-server.listen(PORT, () => {
-  const aiReady = Boolean(process.env.OPENAI_API_KEY);
-  console.log(`SEG KIP AI Platform integrated: http://localhost:${PORT}`);
-  console.log(aiReady ? "AI rejim: ulangan" : "AI rejim: demo");
+async function startServer() {
+  if (isDatabaseConfigured() && String(process.env.DB_AUTO_MIGRATE ?? "true") !== "false") {
+    const report = await runMigrations();
+    if (report.applied.length) {
+      console.log(`[database] migrations applied: ${report.applied.join(", ")}`);
+    } else {
+      console.log("[database] migrations up to date");
+    }
+  }
+
+  server.listen(PORT, () => {
+    const aiReady = Boolean(process.env.OPENAI_API_KEY);
+    console.log(`SEG KIP AI Platform integrated: http://localhost:${PORT}`);
+    console.log(aiReady ? "AI rejim: ulangan" : "AI rejim: demo");
+  });
+}
+
+startServer().catch((error) => {
+  console.error("[startup]", error.message);
+  process.exit(1);
 });
