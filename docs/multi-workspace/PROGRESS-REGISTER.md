@@ -81,9 +81,9 @@ Completed in stage 5:
 - Verified `GET /api/workspaces/:workspaceId/members` returns the owner membership with active user status.
 - Added and deployed `POST /api/workspaces/:workspaceId/test` for Workspace Sheet connection checks.
 - Verified Service Account read access to the real Workspace Google Sheet: `accessVerified: true`, `mainSheetExists: true`, and no missing required ACT tabs.
+- Activated the staging Workspace and verified the update response returns `status: active`.
 
 Required before completion:
-- Activate the real test Workspace.
 - Re-read the Workspace after activation.
 
 ### 6. Frontend login and Workspace settings UI — ⬜ Not started
