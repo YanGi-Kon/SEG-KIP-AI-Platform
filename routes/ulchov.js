@@ -7,6 +7,28 @@ function clean(value) {
   return String(value ?? '').trim();
 }
 
+function safeJsonParse(value, fallback = null) {
+  try {
+    return JSON.parse(value);
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function parseServerGoogleCredential() {
+  const raw = clean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_BASE64);
+  if (!raw) return null;
+  const direct = safeJsonParse(raw);
+  if (direct) return direct;
+  try {
+    return JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+  } catch (_) {
+    const error = new Error('Railway Google credential parsing failed');
+    error.code = 'GOOGLE_CREDENTIAL_PARSE_FAILED';
+    throw error;
+  }
+}
+
 function normalize(value) {
   return clean(value)
     .toLowerCase()
@@ -34,15 +56,15 @@ function resolveConfig(input = {}) {
   return {
     spreadsheetUrl,
     sheetName,
-    serviceAccount: validateServiceAccount(input.serviceAccount),
+    serviceAccount: validateServiceAccount(input.serviceAccount || parseServerGoogleCredential()),
   };
 }
 
 const FIELD_ALIASES = {
-  pos: ['№', 'n', 'no', 'номер', 'позномер', 'позномер', 'позиция', 'позицияномер', 'poz', 'pos', 'position', 'pozitsiya', 'тартиб'],
+  pos: ['№', 'n', 'no', 'номер', 'позномер', 'позиция', 'позицияномер', 'poz', 'pos', 'position', 'pozitsiya', 'тартиб'],
   name: ['наименованиеси', 'наименование', 'наименованиеcи', 'асбобноми', 'асбоб', 'прибор', 'си', 'name', 'device', 'devicename', 'nomi'],
   brand: ['типмарка', 'типимарка', 'тип', 'марка', 'бренд', 'brand', 'model', 'type', 'turimarka'],
-  serial: ['заводскойномер', 'заводраками', 'заводраками', 'заводрақами', 'серия', 'серийныйномер', 'serial', 'serialno', 'serialnumber'],
+  serial: ['заводскойномер', 'заводраками', 'заводрақами', 'серия', 'серийныйномер', 'serial', 'serialno', 'serialnumber'],
   range: ['пределизмерения', 'предел', 'диапазон', 'улчовдиапазони', 'олшовдиапазони', 'range', 'measure', 'measurementrange'],
   location: ['местоустановки', 'жой', 'жойлашув', 'урнатилганжой', 'объект', 'худуд', 'location', 'place'],
   work: ['переченьвр', 'перечень', 'иштури', 'работа', 'хизматтури', 'work', 'worktype', 'to2', 'то2'],
