@@ -76,9 +76,11 @@ Completed in stage 5:
 - Disabled temporary self-registration in staging and verified `/api/auth/register` rejects new registration with `SELF_REGISTRATION_DISABLED`.
 - Created staging Workspace `KIP Staging Test` with slug `kip-staging-test`, status `draft`, and the authenticated user as `owner`.
 - Corrected the Workspace main Sheet name after PowerShell encoding produced an invalid Cyrillic value.
+- Verified `GET /api/workspaces` returns the created Workspace with `memberRole: owner` and `memberStatus: active`.
 
 Required before completion:
-- Test Workspace list/read/update endpoints with real PostgreSQL.
+- Test Workspace read endpoint by ID.
+- Test Workspace members endpoint.
 - Test Service Account access to the user's real Google Sheet.
 - Create and activate a real test Workspace.
 
