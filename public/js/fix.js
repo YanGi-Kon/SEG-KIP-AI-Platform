@@ -123,4 +123,5 @@ function isDateRow(v){
 
   appendScript('segWorkspaceUiScript', 'js/workspace-ui.js?v=stage6');
   appendScript('segWorkspaceSessionCleanupScript', 'js/workspace-session-cleanup.js?v=stage6a');
+  appendScript('segWorkspaceArchiveActionScript', 'js/workspace-archive-action.js?v=stage6b');
 })();
