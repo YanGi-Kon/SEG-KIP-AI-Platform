@@ -70,9 +70,9 @@ Completed in stage 5:
 - Verified `/api/auth/me` with Bearer access token returns the authenticated active user.
 - Verified `/api/auth/login` with the created staging user returns an access token and active user.
 - Re-verified `/api/auth/me` after login returns `fullName: Bobur Baxromovich`, `platformRole: user`, and `status: active`.
+- Verified `/api/auth/refresh` rotates the refresh session and returns a new access token plus active user.
 
 Required before completion:
-- Test refresh token rotation.
 - Test logout/revocation.
 - Disable temporary self-registration after user bootstrap is complete.
 - Create a real test Workspace.
