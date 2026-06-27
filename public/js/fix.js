@@ -136,6 +136,42 @@ function isDateRow(v){
   window.clearActsHiddenLegacySettings = clearHiddenLegacyActsSettings;
 })();
 
+(function injectUlchovSheetsModule(){
+  function inject(frame){
+    try {
+      const doc = frame.contentDocument || frame.contentWindow?.document;
+      if (!doc || doc.getElementById('segUlchovSheetsScript')) return;
+      const script = doc.createElement('script');
+      script.id = 'segUlchovSheetsScript';
+      script.src = '/js/ulchov-sheets.js?v=stage6c';
+      script.defer = true;
+      doc.head.appendChild(script);
+    } catch (_) {}
+  }
+
+  function bind(){
+    const frame = document.getElementById('claUlchovFrame');
+    if (!frame) return;
+    if (frame.dataset.ulchovSheetsBound !== 'true') {
+      frame.dataset.ulchovSheetsBound = 'true';
+      frame.addEventListener('load', () => inject(frame));
+    }
+    inject(frame);
+  }
+
+  function setup(){
+    bind();
+    const observer = new MutationObserver(bind);
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
+})();
+
 (function loadWorkspaceUi(){
   function appendScript(id, src){
     if (document.getElementById(id)) return;
