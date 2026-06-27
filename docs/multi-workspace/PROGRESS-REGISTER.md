@@ -79,10 +79,12 @@ Completed in stage 5:
 - Verified `GET /api/workspaces` returns the created Workspace with `memberRole: owner` and `memberStatus: active`.
 - Verified `GET /api/workspaces/:workspaceId` returns the created Workspace with `memberRole: owner` and `memberStatus: active`.
 - Verified `GET /api/workspaces/:workspaceId/members` returns the owner membership with active user status.
+- Added and deployed `POST /api/workspaces/:workspaceId/test` for Workspace Sheet connection checks.
+- Verified Service Account read access to the real Workspace Google Sheet: `accessVerified: true`, `mainSheetExists: true`, and no missing required ACT tabs.
 
 Required before completion:
-- Test Service Account access to the user's real Google Sheet.
-- Create and activate a real test Workspace.
+- Activate the real test Workspace.
+- Re-read the Workspace after activation.
 
 ### 6. Frontend login and Workspace settings UI — ⬜ Not started
 
