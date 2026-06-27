@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { getAppConfig } from '../config/env.js';
 import { withTransaction } from '../db/pool.js';
-import { hashPassword, verifyPassword } from './passwordService.js';
+import { hashPassword } from './passwordService.js';
 import {
   createUser,
   findUserByEmail,
@@ -25,6 +25,10 @@ function authError(message, code = 'AUTHENTICATION_FAILED', statusCode = 401) {
   error.code = code;
   error.statusCode = statusCode;
   return error;
+}
+
+function isPasswordValidationError(error) {
+  return String(error?.message || '').startsWith('Password must ');
 }
 
 export function normalizeEmail(value) {
@@ -105,7 +109,15 @@ export async function registerUser(input, context = {}) {
     throw authError('Full name must contain 2-200 characters', 'INVALID_FULL_NAME', 400);
   }
   const email = normalizeEmail(input.email);
-  const passwordHash = await hashPassword(input.password);
+  let passwordHash;
+  try {
+    passwordHash = await hashPassword(input.password);
+  } catch (error) {
+    if (isPasswordValidationError(error)) {
+      throw authError(error.message, 'INVALID_PASSWORD', 400);
+    }
+    throw error;
+  }
 
   try {
     return await withTransaction(async (client) => {
@@ -125,7 +137,7 @@ export async function registerUser(input, context = {}) {
 export async function loginUser(input, context = {}) {
   const email = normalizeEmail(input.email);
   const user = await findUserByEmail(email);
-  const valid = user ? await verifyPassword(input.password, user.passwordHash) : false;
+  const valid = user ? await import('./passwordService.js').then(({ verifyPassword }) => verifyPassword(input.password, user.passwordHash)) : false;
   if (!user || !valid) {
     throw authError('Email or password is incorrect');
   }
