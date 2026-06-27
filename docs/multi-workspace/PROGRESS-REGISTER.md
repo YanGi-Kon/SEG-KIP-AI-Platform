@@ -78,9 +78,9 @@ Completed in stage 5:
 - Corrected the Workspace main Sheet name after PowerShell encoding produced an invalid Cyrillic value.
 - Verified `GET /api/workspaces` returns the created Workspace with `memberRole: owner` and `memberStatus: active`.
 - Verified `GET /api/workspaces/:workspaceId` returns the created Workspace with `memberRole: owner` and `memberStatus: active`.
+- Verified `GET /api/workspaces/:workspaceId/members` returns the owner membership with active user status.
 
 Required before completion:
-- Test Workspace members endpoint.
 - Test Service Account access to the user's real Google Sheet.
 - Create and activate a real test Workspace.
 
