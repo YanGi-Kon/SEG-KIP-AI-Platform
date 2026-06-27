@@ -110,6 +110,32 @@ function isDateRow(v){
   }
 })();
 
+(function preventActsLegacyCacheLeak(){
+  const hiddenLegacyKeys = ['acts_service_account', 'seg_kip_admin_jwt'];
+
+  function clearHiddenLegacyActsSettings(){
+    hiddenLegacyKeys.forEach((key) => {
+      try { localStorage.removeItem(key); } catch (_) {}
+      try { sessionStorage.removeItem(key); } catch (_) {}
+    });
+  }
+
+  function install(){
+    const original = window.openModulePage;
+    if (typeof original !== 'function' || original.__actsLegacyCacheGuard) return;
+    function guardedOpenModulePage(moduleName, ...args){
+      if (moduleName === 'acts') clearHiddenLegacyActsSettings();
+      return original.call(this, moduleName, ...args);
+    }
+    guardedOpenModulePage.__actsLegacyCacheGuard = true;
+    window.openModulePage = guardedOpenModulePage;
+  }
+
+  clearHiddenLegacyActsSettings();
+  install();
+  window.clearActsHiddenLegacySettings = clearHiddenLegacyActsSettings;
+})();
+
 (function loadWorkspaceUi(){
   function appendScript(id, src){
     if (document.getElementById(id)) return;
