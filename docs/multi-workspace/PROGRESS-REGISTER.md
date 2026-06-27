@@ -71,9 +71,10 @@ Completed in stage 5:
 - Verified `/api/auth/login` with the created staging user returns an access token and active user.
 - Re-verified `/api/auth/me` after login returns `fullName: Bobur Baxromovich`, `platformRole: user`, and `status: active`.
 - Verified `/api/auth/refresh` rotates the refresh session and returns a new access token plus active user.
+- Verified `/api/auth/logout` returns `ok: true`, `revoked: true`.
+- Verified refresh after logout is rejected with `REFRESH_TOKEN_REQUIRED`.
 
 Required before completion:
-- Test logout/revocation.
 - Disable temporary self-registration after user bootstrap is complete.
 - Create a real test Workspace.
 - Test Workspace CRUD with real PostgreSQL.
