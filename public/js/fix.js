@@ -109,3 +109,12 @@ function isDateRow(v){
     setup();
   }
 })();
+
+(function loadWorkspaceUi(){
+  if (document.getElementById('segWorkspaceUiScript')) return;
+  const script = document.createElement('script');
+  script.id = 'segWorkspaceUiScript';
+  script.src = 'js/workspace-ui.js?v=stage6';
+  script.defer = true;
+  document.head.appendChild(script);
+})();
