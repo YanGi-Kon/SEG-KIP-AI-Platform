@@ -66,8 +66,10 @@ Completed in stage 5:
 - Enabled temporary self-registration in staging.
 - Verified weak-password validation returns `INVALID_PASSWORD` instead of generic server failure.
 - Created the first staging user through `/api/auth/register`.
+- Corrected the staging user's `full_name` to Latin text: `Bobur Baxromovich`.
 - Verified `/api/auth/me` with Bearer access token returns the authenticated active user.
 - Verified `/api/auth/login` with the created staging user returns an access token and active user.
+- Re-verified `/api/auth/me` after login returns `fullName: Bobur Baxromovich`, `platformRole: user`, and `status: active`.
 
 Required before completion:
 - Test refresh token rotation.
