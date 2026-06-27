@@ -74,10 +74,11 @@ Completed in stage 5:
 - Verified `/api/auth/logout` returns `ok: true`, `revoked: true`.
 - Verified refresh after logout is rejected with `REFRESH_TOKEN_REQUIRED`.
 - Disabled temporary self-registration in staging and verified `/api/auth/register` rejects new registration with `SELF_REGISTRATION_DISABLED`.
+- Created staging Workspace `KIP Staging Test` with slug `kip-staging-test`, status `draft`, and the authenticated user as `owner`.
+- Corrected the Workspace main Sheet name after PowerShell encoding produced an invalid Cyrillic value.
 
 Required before completion:
-- Create a real test Workspace.
-- Test Workspace CRUD with real PostgreSQL.
+- Test Workspace list/read/update endpoints with real PostgreSQL.
 - Test Service Account access to the user's real Google Sheet.
 - Create and activate a real test Workspace.
 
