@@ -1,6 +1,6 @@
 # SEG-KIP-AI Multi-Workspace Progress Register
 
-Last updated: 2026-06-25
+Last updated: 2026-06-27
 Tracking issue: #2
 Draft PR: #3
 Working branch: `feature/multi-workspace-architecture`
@@ -39,11 +39,11 @@ Completed:
 - Added staging feature flags.
 - Added `GOOGLE_SERVICE_ACCOUNT_BASE64`.
 - Removed conflicting `GOOGLE_SERVICE_ACCOUNT_JSON` from staging.
-- Kept `WORKSPACE_MODE_ENABLED=false` until validation.
+- Kept Workspace mode disabled until validation, then enabled it only in staging.
 
-### 4. Workspace backend and Sheet isolation — 🟡 In progress
+### 4. Workspace backend and Sheet isolation — ✅ Completed
 
-Completed in code:
+Completed:
 - Workspace domain validation.
 - Workspace CRUD foundation.
 - Membership and role permission matrix.
@@ -51,20 +51,23 @@ Completed in code:
 - Workspace-scoped Google Sheet test service.
 - Fixed global `GOOGLE_SPREADSHEET_URL` from overriding `workspace.spreadsheetUrl`.
 - Latest CI passed.
+- Confirmed latest staging deployment uses the multi-workspace branch.
+- Enabled `WORKSPACE_MODE_ENABLED=true` only in Railway staging.
+- Verified `/api/health/readiness` returns `ok: true`, `mode: workspace`, `databaseRequired: true`, `database.configured: true`, `database.connected: true`.
 
-Remaining before stage completion:
-- Confirm latest staging deployment uses the isolation fix.
-- Enable Workspace mode only in staging.
-- Run readiness, login, Workspace CRUD and real Sheet connection tests.
+### 5. Staging activation, bootstrap admin and API validation — 🟡 In progress
 
-### 5. Staging activation, bootstrap admin and API validation — ⬜ Not started
+Started:
+- Railway staging public domain is available.
+- Workspace mode is enabled in staging.
+- Readiness endpoint confirms Workspace mode and PostgreSQL connectivity.
 
-Required:
-- Generate staging public domain.
-- Set `WORKSPACE_MODE_ENABLED=true` in staging only.
-- Verify `/api/health/readiness`.
+Required before completion:
 - Bootstrap first administrator.
 - Test login, access token, refresh rotation and logout.
+- Create a real test Workspace.
+- Test Workspace CRUD with real PostgreSQL.
+- Test Service Account access to the user's real Google Sheet.
 - Create and activate a real test Workspace.
 
 ### 6. Frontend login and Workspace settings UI — ⬜ Not started
@@ -130,7 +133,7 @@ For every stage, the working conversation and GitHub tracking must explicitly an
 
 ## Current position
 
-- Completed: stages 1, 2 and 3.
-- Active: stage 4.
-- Next after stage 4: stage 5.
+- Completed: stages 1, 2, 3 and 4.
+- Active: stage 5.
+- Next after stage 5: stage 6.
 - Production remains unchanged; PR #3 is still draft and unmerged.
