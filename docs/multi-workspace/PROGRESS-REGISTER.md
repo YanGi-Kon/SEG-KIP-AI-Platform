@@ -67,9 +67,9 @@ Completed in stage 5:
 - Verified weak-password validation returns `INVALID_PASSWORD` instead of generic server failure.
 - Created the first staging user through `/api/auth/register`.
 - Verified `/api/auth/me` with Bearer access token returns the authenticated active user.
+- Verified `/api/auth/login` with the created staging user returns an access token and active user.
 
 Required before completion:
-- Test login with the created user.
 - Test refresh token rotation.
 - Test logout/revocation.
 - Disable temporary self-registration after user bootstrap is complete.
