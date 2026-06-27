@@ -10,6 +10,7 @@ import {
   getWorkspaceMembers,
   updateWorkspace,
 } from '../services/workspaceService.js';
+import { testWorkspaceSheetConnection } from '../services/workspaceGoogleService.js';
 
 const router = express.Router();
 
@@ -66,6 +67,15 @@ router.delete('/:workspaceId', requireWorkspacePermission('workspace:archive'), 
   try {
     const workspace = await archiveWorkspace(req.auth.userId, req.params.workspaceId);
     res.json({ ok: true, workspace });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/test', requireWorkspacePermission('workspace:test'), async (req, res) => {
+  try {
+    const result = await testWorkspaceSheetConnection(req.workspace);
+    res.json({ ok: result.ok, result });
   } catch (error) {
     handleError(res, error);
   }
