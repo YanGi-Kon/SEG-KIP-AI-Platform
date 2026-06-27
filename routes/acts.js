@@ -1,6 +1,10 @@
 import express from 'express';
+import { requireAccessToken } from '../middleware/auth.js';
+import { requireWorkspaceMode } from '../middleware/featureGate.js';
+import { requireWorkspacePermission } from '../middleware/workspaceAccess.js';
 import { readSheetRows, listSheets, validateServiceAccount } from '../services/googleSheetsService.js';
 import { getDailyReports, writeActDocument } from '../services/actBlankSheetService.js';
+import { resolveWorkspaceGoogleConfig } from '../services/workspaceGoogleService.js';
 
 const router = express.Router();
 
@@ -50,6 +54,28 @@ function getPayload(req) {
   return { ...req.query, ...req.body };
 }
 
+async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount }) {
+  const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:J' });
+  const reports = await getDailyReports({ spreadsheetUrl, serviceAccount });
+  const completedByKey = new Map(
+    reports
+      .filter(r => String(r.sourceKey || '').trim())
+      .map(r => [String(r.sourceKey).trim(), r])
+  );
+  const dataRows = rows.map((row, index) => ({ row, index })).filter(x => isDataRow(x.row));
+  const matched = dataRows.filter(x => isTargetWork(x.row[8])).map(x => mapRow(x.row, x.index, sheetName, completedByKey));
+  const createdDocuments = matched.filter(row => row.isCompleted).length || reports.length;
+  const completionPercentage = matched.length ? Math.min(100, Math.round((createdDocuments / matched.length) * 100)) : 0;
+  return {
+    totalRows: dataRows.length,
+    plannedDocuments: matched.length,
+    createdDocuments,
+    completionPercentage,
+    sheetName,
+    rows: matched
+  };
+}
+
 router.post('/settings/test', async (req, res) => {
   try {
     const { spreadsheetUrl, serviceAccount } = req.body || {};
@@ -61,28 +87,37 @@ router.post('/settings/test', async (req, res) => {
   }
 });
 
+router.post('/workspaces/:workspaceId/monthly-analysis', requireWorkspaceMode, requireAccessToken, requireWorkspacePermission('workspace:read'), async (req, res) => {
+  try {
+    const workspace = req.workspace;
+    if (!workspace?.spreadsheetUrl || !workspace?.mainSheetName) {
+      return res.status(400).json({
+        error: 'Workspace Google Sheets configuration is incomplete',
+        code: 'WORKSPACE_SHEET_CONFIG_INCOMPLETE',
+      });
+    }
+    const config = resolveWorkspaceGoogleConfig(workspace);
+    const data = await buildMonthlyAnalysis({
+      spreadsheetUrl: config.spreadsheetUrl,
+      serviceAccount: config.serviceAccount,
+      sheetName: workspace.mainSheetName,
+    });
+    res.json({
+      ...data,
+      workspaceId: workspace.id,
+      workspaceName: workspace.name,
+      workspaceStatus: workspace.status,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.post('/monthly-analysis', async (req, res) => {
   try {
     const { spreadsheetUrl, sheetName, serviceAccount } = getPayload(req);
-    const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:J' });
-    const reports = await getDailyReports({ spreadsheetUrl, serviceAccount });
-    const completedByKey = new Map(
-      reports
-        .filter(r => String(r.sourceKey || '').trim())
-        .map(r => [String(r.sourceKey).trim(), r])
-    );
-    const dataRows = rows.map((row, index) => ({ row, index })).filter(x => isDataRow(x.row));
-    const matched = dataRows.filter(x => isTargetWork(x.row[8])).map(x => mapRow(x.row, x.index, sheetName, completedByKey));
-    const createdDocuments = matched.filter(row => row.isCompleted).length || reports.length;
-    const completionPercentage = matched.length ? Math.min(100, Math.round((createdDocuments / matched.length) * 100)) : 0;
-    res.json({
-      totalRows: dataRows.length,
-      plannedDocuments: matched.length,
-      createdDocuments,
-      completionPercentage,
-      sheetName,
-      rows: matched
-    });
+    const data = await buildMonthlyAnalysis({ spreadsheetUrl, serviceAccount, sheetName });
+    res.json(data);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
