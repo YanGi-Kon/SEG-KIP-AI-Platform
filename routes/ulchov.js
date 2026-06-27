@@ -7,28 +7,6 @@ function clean(value) {
   return String(value ?? '').trim();
 }
 
-function safeJsonParse(value, fallback = null) {
-  try {
-    return JSON.parse(value);
-  } catch (_) {
-    return fallback;
-  }
-}
-
-function parseServerGoogleCredential() {
-  const raw = clean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_BASE64);
-  if (!raw) return null;
-  const direct = safeJsonParse(raw);
-  if (direct) return direct;
-  try {
-    return JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
-  } catch (_) {
-    const error = new Error('Railway Google credential parsing failed');
-    error.code = 'GOOGLE_CREDENTIAL_PARSE_FAILED';
-    throw error;
-  }
-}
-
 function normalize(value) {
   return clean(value)
     .toLowerCase()
@@ -56,8 +34,28 @@ function resolveConfig(input = {}) {
   return {
     spreadsheetUrl,
     sheetName,
-    serviceAccount: validateServiceAccount(input.serviceAccount || parseServerGoogleCredential()),
+    serviceAccount: validateServiceAccount(input.serviceAccount),
   };
+}
+
+function normalizeMenuItems(input = []) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => ({
+      menuName: clean(item?.menuName || item?.name),
+      sheetName: clean(item?.sheetName || item?.sheet),
+    }))
+    .filter((item) => item.menuName || item.sheetName);
+}
+
+function validateMenuItems(menuItems = []) {
+  for (const [index, item] of menuItems.entries()) {
+    if (!item.menuName || !item.sheetName) {
+      const error = new Error(`Menyular ro'yxati ${index + 1}-qatorida Menyu nomi yoki Sheet varoq nomi to'ldirilmagan`);
+      error.code = 'MENU_ITEM_INCOMPLETE';
+      throw error;
+    }
+  }
 }
 
 const FIELD_ALIASES = {
@@ -168,18 +166,28 @@ function summarize(instruments) {
   };
 }
 
+function missingSheets(sheets, names) {
+  return names.filter((name) => !sheets.includes(name));
+}
+
 router.post('/settings/test', async (req, res) => {
   try {
     const config = resolveConfig(req.body || {});
+    const menuItems = normalizeMenuItems(req.body?.menuItems);
+    validateMenuItems(menuItems);
     const sheets = await listSheets(config);
-    const sheetExists = sheets.includes(config.sheetName);
-    res.json({
-      ok: sheetExists,
-      sheetExists,
-      sheetName: config.sheetName,
-      sheets,
-      error: sheetExists ? undefined : `ASOSIY VAROQ топилмади: ${config.sheetName}`,
-    });
+    const requiredNames = [config.sheetName, ...menuItems.map((item) => item.sheetName)];
+    const missing = missingSheets(sheets, requiredNames);
+    if (missing.length) {
+      return res.status(400).json({
+        ok: false,
+        error: `Қуйидаги варақлар топилмади: ${missing.join(', ')}`,
+        code: 'SHEET_NAMES_NOT_FOUND',
+        missingSheets: missing,
+        sheets,
+      });
+    }
+    res.json({ ok: true, sheetExists: true, sheetName: config.sheetName, menuItems, sheets });
   } catch (error) {
     res.status(400).json({ ok: false, error: error.message, code: error.code || 'ULCHOV_SETTINGS_TEST_FAILED' });
   }
