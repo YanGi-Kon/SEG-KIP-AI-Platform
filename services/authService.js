@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { getAppConfig } from '../config/env.js';
 import { withTransaction } from '../db/pool.js';
-import { hashPassword } from './passwordService.js';
+import { hashPassword, verifyPassword } from './passwordService.js';
 import {
   createUser,
   findUserByEmail,
@@ -137,7 +137,7 @@ export async function registerUser(input, context = {}) {
 export async function loginUser(input, context = {}) {
   const email = normalizeEmail(input.email);
   const user = await findUserByEmail(email);
-  const valid = user ? await import('./passwordService.js').then(({ verifyPassword }) => verifyPassword(input.password, user.passwordHash)) : false;
+  const valid = user ? await verifyPassword(input.password, user.passwordHash) : false;
   if (!user || !valid) {
     throw authError('Email or password is incorrect');
   }
