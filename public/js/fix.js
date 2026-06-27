@@ -143,7 +143,7 @@ function isDateRow(v){
       if (!doc || doc.getElementById('segUlchovSheetsScript')) return;
       const script = doc.createElement('script');
       script.id = 'segUlchovSheetsScript';
-      script.src = '/js/ulchov-sheets.js?v=stage6c';
+      script.src = '/js/ulchov-sheets.js?v=stage6e';
       script.defer = true;
       doc.head.appendChild(script);
     } catch (_) {}
