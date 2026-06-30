@@ -11,6 +11,15 @@ import {
   updateWorkspaceRecord,
 } from '../repositories/workspaceRepository.js';
 
+const DEFAULT_WORKSPACE = Object.freeze({
+  name: process.env.DEFAULT_WORKSPACE_NAME || 'Fargona №-4-Цех',
+  slug: process.env.DEFAULT_WORKSPACE_SLUG || 'fargona-4-cex',
+  spreadsheetUrl: process.env.DEFAULT_WORKSPACE_SHEET_URL || 'https://docs.google.com/spreadsheets/d/191RWU_J2IxqfwdwCbvopVtcb4WhRkPM1UQppVbgiLhs/edit',
+  mainSheetName: process.env.DEFAULT_WORKSPACE_MAIN_SHEET || 'База',
+  driveFolderId: process.env.DEFAULT_WORKSPACE_DRIVE_FOLDER_ID || '',
+  timeZone: process.env.DEFAULT_WORKSPACE_TIME_ZONE || 'Asia/Tashkent',
+});
+
 function serviceError(message, code, statusCode) {
   const error = new Error(message);
   error.code = code;
@@ -21,6 +30,16 @@ function serviceError(message, code, statusCode) {
 function uniqueSlug(baseSlug, attempt) {
   if (attempt === 0) return baseSlug;
   return `${baseSlug.slice(0, 70).replace(/-+$/g, '')}-${crypto.randomBytes(3).toString('hex')}`;
+}
+
+function shouldBootstrapDefaultWorkspace() {
+  return String(process.env.DEFAULT_WORKSPACE_BOOTSTRAP ?? 'true').toLowerCase() !== 'false';
+}
+
+async function bootstrapDefaultWorkspace(userId) {
+  const workspace = await createWorkspace(userId, DEFAULT_WORKSPACE);
+  const active = await updateWorkspace(userId, workspace.id, { ...DEFAULT_WORKSPACE, status: 'active' });
+  return active;
 }
 
 export async function createWorkspace(userId, input) {
@@ -61,6 +80,10 @@ export async function createWorkspace(userId, input) {
 }
 
 export async function getUserWorkspaces(userId) {
+  const rows = await listUserWorkspaces(userId);
+  if (rows.length || !shouldBootstrapDefaultWorkspace()) return rows;
+
+  await bootstrapDefaultWorkspace(userId);
   return listUserWorkspaces(userId);
 }
 
