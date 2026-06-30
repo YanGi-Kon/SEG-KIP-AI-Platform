@@ -209,19 +209,20 @@ function isDateRow(v){
   }
 })();
 
-(function loadWorkspaceUi(){
-  function appendScript(id, src){
-    if (document.getElementById(id)) return;
-    const script = document.createElement('script');
-    script.id = id;
-    script.src = src;
-    script.async = false;
-    script.defer = true;
-    document.head.appendChild(script);
+(function removeWorkspaceSettingsUi(){
+  function removeExistingUi(){
+    document.querySelectorAll('.seg-workspace-menu, #workspaceSettingsPage, #workspaceSignersPanel').forEach((node) => node.remove());
   }
 
-  appendScript('segWorkspaceUiScript', 'js/workspace-ui.js?v=stage6');
-  appendScript('segWorkspaceSignersUiScript', 'js/workspace-signers-ui.js?v=stage7a');
-  appendScript('segWorkspaceSessionCleanupScript', 'js/workspace-session-cleanup.js?v=stage6a');
-  appendScript('segWorkspaceArchiveActionScript', 'js/workspace-archive-action.js?v=stage6b');
+  function setup(){
+    removeExistingUi();
+    const observer = new MutationObserver(removeExistingUi);
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
 })();
