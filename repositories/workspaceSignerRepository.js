@@ -1,5 +1,46 @@
 import { query } from '../db/pool.js';
 
+let signerSchemaReady = false;
+
+async function ensureWorkspaceSignersSchema() {
+  if (signerSchemaReady) return;
+  await query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+  await query(`CREATE TABLE IF NOT EXISTS signers (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id uuid REFERENCES workspaces(id) ON DELETE CASCADE,
+    position text NOT NULL DEFAULT '',
+    full_name text NOT NULL DEFAULT '',
+    email text NOT NULL DEFAULT '',
+    signature_file_id text,
+    signature_url text,
+    status text NOT NULL DEFAULT 'active',
+    created_by uuid REFERENCES users(id),
+    updated_by uuid REFERENCES users(id),
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    updated_at timestamptz NOT NULL DEFAULT NOW()
+  )`);
+  await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS workspace_id uuid REFERENCES workspaces(id) ON DELETE CASCADE');
+  await query("ALTER TABLE signers ADD COLUMN IF NOT EXISTS position text NOT NULL DEFAULT ''");
+  await query("ALTER TABLE signers ADD COLUMN IF NOT EXISTS full_name text NOT NULL DEFAULT ''");
+  await query("ALTER TABLE signers ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT ''");
+  await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS signature_file_id text');
+  await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS signature_url text');
+  await query("ALTER TABLE signers ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active'");
+  await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES users(id)');
+  await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS updated_by uuid REFERENCES users(id)');
+  await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT NOW()');
+  await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT NOW()');
+  await query(`CREATE INDEX IF NOT EXISTS idx_signers_workspace_status
+    ON signers (workspace_id, status, created_at DESC)`);
+  await query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_signers_workspace_email_active
+    ON signers (workspace_id, lower(email))
+    WHERE status <> 'deleted' AND workspace_id IS NOT NULL AND email <> ''`);
+  await query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_signers_workspace_name_position_active
+    ON signers (workspace_id, lower(full_name), lower(position))
+    WHERE status <> 'deleted' AND workspace_id IS NOT NULL AND full_name <> '' AND position <> ''`);
+  signerSchemaReady = true;
+}
+
 function mapSigner(row) {
   if (!row) return null;
   return {
@@ -19,6 +60,7 @@ function mapSigner(row) {
 }
 
 export async function listWorkspaceSigners(workspaceId, { includeInactive = false } = {}) {
+  await ensureWorkspaceSignersSchema();
   const result = await query(
     `SELECT id, workspace_id, position, full_name, email, signature_file_id,
             signature_url, status, created_by, updated_by, created_at, updated_at
@@ -34,6 +76,7 @@ export async function listWorkspaceSigners(workspaceId, { includeInactive = fals
 }
 
 export async function getWorkspaceSigner(workspaceId, signerId) {
+  await ensureWorkspaceSignersSchema();
   const result = await query(
     `SELECT id, workspace_id, position, full_name, email, signature_file_id,
             signature_url, status, created_by, updated_by, created_at, updated_at
@@ -46,6 +89,7 @@ export async function getWorkspaceSigner(workspaceId, signerId) {
 }
 
 export async function createWorkspaceSigner(workspaceId, input) {
+  await ensureWorkspaceSignersSchema();
   const result = await query(
     `INSERT INTO signers
        (workspace_id, position, full_name, email, signature_file_id, signature_url,
@@ -68,6 +112,7 @@ export async function createWorkspaceSigner(workspaceId, input) {
 }
 
 export async function updateWorkspaceSigner(workspaceId, signerId, input) {
+  await ensureWorkspaceSignersSchema();
   const result = await query(
     `UPDATE signers
      SET position = COALESCE($3, position),
@@ -97,6 +142,7 @@ export async function updateWorkspaceSigner(workspaceId, signerId, input) {
 }
 
 export async function deleteWorkspaceSigner(workspaceId, signerId, actorUserId = null) {
+  await ensureWorkspaceSignersSchema();
   const result = await query(
     `UPDATE signers
      SET status = 'deleted', updated_by = $3, updated_at = NOW()
