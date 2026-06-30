@@ -180,7 +180,7 @@ function isDateRow(v){
       if (!doc || doc.getElementById('segActsWorkspaceSignersScript') || !src.includes('acts')) return;
       const script = doc.createElement('script');
       script.id = 'segActsWorkspaceSignersScript';
-      script.src = '/js/acts-workspace-signers.js?v=stage7b';
+      script.src = '/js/acts-workspace-signers.js?v=stage7d';
       script.defer = true;
       doc.head.appendChild(script);
     } catch (_) {}
