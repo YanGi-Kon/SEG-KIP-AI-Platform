@@ -18,7 +18,10 @@ import {
   updateSignerForWorkspace,
 } from '../services/workspaceSignerService.js';
 import { testWorkspaceSheetConnection } from '../services/workspaceGoogleService.js';
-import { uploadWorkspaceSignaturePng } from '../services/workspaceSignatureService.js';
+import {
+  getWorkspaceSignaturePng,
+  uploadWorkspaceSignaturePng,
+} from '../services/workspaceSignatureService.js';
 
 const router = express.Router();
 const upload = multer({
@@ -112,9 +115,33 @@ router.get('/:workspaceId/signers', requireWorkspacePermission('signers:read'), 
   }
 });
 
+router.put('/:workspaceId/signers/signature-folder', requireWorkspacePermission('signers:update'), async (req, res) => {
+  try {
+    const driveFolderUrl = req.body?.driveFolderUrl ?? req.body?.driveFolderId ?? '';
+    const workspace = await updateWorkspace(req.auth.userId, req.params.workspaceId, {
+      driveFolderUrl,
+      status: req.workspace.status,
+    });
+    res.json({ ok: true, workspace, driveFolderId: workspace.driveFolderId || '' });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.get('/:workspaceId/signers/signature/:signatureId', requireWorkspacePermission('signers:read'), async (req, res) => {
+  try {
+    const image = await getWorkspaceSignaturePng(req.params.workspaceId, req.params.signatureId);
+    res.setHeader('Content-Type', image.mimeType || 'image/png');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(image.fileName || 'signature.png')}"`);
+    res.end(image.buffer);
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
 router.post('/:workspaceId/signers/signature', requireWorkspacePermission('signers:create'), upload.single('signature'), async (req, res) => {
   try {
-    const result = await uploadWorkspaceSignaturePng(req.workspace, req.file);
+    const result = await uploadWorkspaceSignaturePng(req.workspace, req.file, { actorUserId: req.auth.userId });
     res.status(201).json({ ok: true, ...result });
   } catch (error) {
     handleError(res, error);
