@@ -161,10 +161,12 @@ async function saveSignatureToDatabase(workspace, file, actorUserId = null, fall
       webViewLink: `/api/workspaces/${encodeURIComponent(workspace.id)}/signers/signature/${encodeURIComponent(saved.id)}`,
       storage: 'database',
       storageLabel: 'Ichki xavfsiz saqlash',
-      fallbackReason: fallback.message || fallback.fallbackReason || 'Google Drive API disabled or unavailable',
-      driveErrorCode: fallback.code || 'DRIVE_FALLBACK_USED',
+      driveStatus: fallback.driveStatus || (fallback.code ? 'failed' : 'not_configured'),
+      fallbackReason: fallback.message || fallback.fallbackReason || '',
+      driveErrorCode: fallback.code || '',
       driveErrorMessage: fallback.message || '',
       recommendedFix: fallback.recommendedFix || '',
+      safeStorageAvailable: true,
     };
   } catch (error) {
     if (error?.code === '42P01' || /workspace_signature_store/i.test(error?.message || '')) {
@@ -178,6 +180,30 @@ async function saveSignatureToDatabase(workspace, file, actorUserId = null, fall
       'WORKSPACE_SIGNATURE_DATABASE_FALLBACK_FAILED',
     );
   }
+}
+
+async function createDriveCopy(workspace, file, folderId, name) {
+  const { drive, serviceAccountEmail, serviceAccountProjectId, credentialSource, credentialConflict } = await createDriveClient(workspace);
+  const result = await drive.files.create({
+    requestBody: { name, mimeType: 'image/png', parents: [folderId] },
+    media: { mimeType: 'image/png', body: Readable.from(file.buffer) },
+    fields: 'id,name,mimeType,webViewLink,parents,driveId',
+    supportsAllDrives: true,
+  });
+  const fileId = result.data.id;
+  return {
+    fileId,
+    name: result.data.name || name,
+    webViewLink: result.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
+    folderId,
+    driveId: result.data.driveId || '',
+    storage: 'drive',
+    storageLabel: result.data.driveId ? 'Google Drive — Shared Drive' : 'Google Drive',
+    serviceAccountEmail,
+    serviceAccountProjectId,
+    credentialSource,
+    credentialConflict,
+  };
 }
 
 export async function testWorkspaceSignatureFolder(workspace, { writeTest = true } = {}) {
@@ -197,6 +223,7 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
     const folderDiagnostic = {
       folderId: data.id || folderId,
       folderName: data.name || '',
+      mimeType: data.mimeType || '',
       folderMimeType: data.mimeType || '',
       folderUrl: data.webViewLink || '',
       driveId: data.driveId || '',
@@ -204,6 +231,7 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
       spaces: data.spaces || [],
       canAddChildren: Boolean(data.capabilities?.canAddChildren),
       canEdit: Boolean(data.capabilities?.canEdit),
+      uploadStrategy: data.driveId ? 'service_account_shared_drive' : 'service_account_my_drive',
     };
     if (data.mimeType !== DRIVE_FOLDER_MIME) {
       throw makeError('Киритилган ID Google Drive папка эмас.', 'DRIVE_FOLDER_NOT_A_FOLDER', 400, {
@@ -225,7 +253,7 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
             parents: [folderId],
           },
           media: { mimeType: 'text/plain', body: Readable.from('SEG KIP Drive write test') },
-          fields: 'id,name',
+          fields: 'id,name,driveId',
           supportsAllDrives: true,
         });
         writeTestFileId = testFile.data?.id || '';
@@ -243,6 +271,7 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
           driveErrorMessage: classified.message,
           recommendedFix: classified.recommendedFix || '',
           folderDiagnostic,
+          safeStorageAvailable: true,
         });
       }
     }
@@ -269,45 +298,50 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
       serviceAccountEmail: classified.serviceAccountEmail,
       serviceAccountProjectId: classified.serviceAccountProjectId,
       recommendedFix: classified.recommendedFix || '',
+      safeStorageAvailable: true,
     });
   }
 }
 
 export async function uploadWorkspaceSignaturePng(workspace, file, { actorUserId = null, position = '', fullName = '' } = {}) {
   validatePngFile(file);
+  const internal = await saveSignatureToDatabase(workspace, file, actorUserId, {
+    driveStatus: 'not_configured',
+  });
   const folderId = resolveFolderId(workspace);
   if (!folderId) {
-    return saveSignatureToDatabase(workspace, file, actorUserId, {
-      code: 'DRIVE_FOLDER_ID_REQUIRED',
-      message: 'Drive папка ID киритилмаган.',
-    });
+    return {
+      ...internal,
+      driveStatus: 'not_configured',
+      fallbackReason: 'Drive папка ID киритилмаган. Imzo ichki xavfsiz saqlashda saqlandi.',
+      driveErrorCode: 'DRIVE_FOLDER_ID_REQUIRED',
+      driveErrorMessage: 'Drive папка ID киритилмаган.',
+    };
   }
-  const name = makeDriveSignatureName(workspace, { position, fullName });
 
   try {
-    const { drive, serviceAccountEmail, serviceAccountProjectId, credentialSource, credentialConflict } = await createDriveClient(workspace);
-    const result = await drive.files.create({
-      requestBody: { name, mimeType: 'image/png', parents: [folderId] },
-      media: { mimeType: 'image/png', body: Readable.from(file.buffer) },
-      fields: 'id,name,mimeType,webViewLink,parents',
-      supportsAllDrives: true,
-    });
-    const fileId = result.data.id;
+    const name = makeDriveSignatureName(workspace, { position, fullName });
+    const driveCopy = await createDriveCopy(workspace, file, folderId, name);
     return {
-      fileId,
-      name: result.data.name || name,
-      webViewLink: result.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
-      folderId,
-      storage: 'drive',
-      storageLabel: 'Google Drive',
-      serviceAccountEmail,
-      serviceAccountProjectId,
-      credentialSource,
-      credentialConflict,
+      ...internal,
+      driveStatus: 'ready',
+      driveCopy,
+      driveCopyUrl: driveCopy.webViewLink,
+      driveCopyFileId: driveCopy.fileId,
+      driveErrorCode: '',
+      driveErrorMessage: '',
+      fallbackReason: '',
     };
   } catch (error) {
     const classified = classifyDriveError(error);
-    return saveSignatureToDatabase(workspace, file, actorUserId, classified);
+    return {
+      ...internal,
+      driveStatus: classified.code === 'SERVICE_ACCOUNT_NO_STORAGE_QUOTA' ? 'quota_limited' : 'failed',
+      fallbackReason: classified.message,
+      driveErrorCode: classified.code,
+      driveErrorMessage: classified.message,
+      recommendedFix: classified.recommendedFix || '',
+    };
   }
 }
 
