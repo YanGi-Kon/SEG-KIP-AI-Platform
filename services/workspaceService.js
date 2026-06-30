@@ -107,6 +107,7 @@ export async function updateWorkspace(userId, workspaceId, input) {
       slug: input.slug ?? current.slug,
       spreadsheetUrl: input.spreadsheetUrl ?? current.spreadsheetUrl,
       mainSheetName: input.mainSheetName ?? current.mainSheetName,
+      driveFolderUrl: input.driveFolderUrl,
       driveFolderId: input.driveFolderId ?? current.driveFolderId,
       timeZone: input.timeZone ?? current.timeZone,
     });
