@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import { requireAccessToken } from '../middleware/auth.js';
 import { requireWorkspaceMode } from '../middleware/featureGate.js';
 import { requireWorkspacePermission } from '../middleware/workspaceAccess.js';
@@ -17,8 +18,13 @@ import {
   updateSignerForWorkspace,
 } from '../services/workspaceSignerService.js';
 import { testWorkspaceSheetConnection } from '../services/workspaceGoogleService.js';
+import { uploadSignaturePng } from '../services/signatureApprovalService.js';
 
 const router = express.Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+});
 
 function handleError(res, error) {
   const knownStatus = Number(error.statusCode);
@@ -101,6 +107,23 @@ router.get('/:workspaceId/signers', requireWorkspacePermission('signers:read'), 
     const includeInactive = String(req.query.includeInactive || '').toLowerCase() === 'true';
     const rows = await getWorkspaceSignerList(req.params.workspaceId, { includeInactive });
     res.json({ rows });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/signers/signature', requireWorkspacePermission('signers:create'), upload.single('signature'), async (req, res) => {
+  try {
+    const result = await uploadSignaturePng(
+      { spreadsheetUrl: req.workspace.spreadsheetUrl },
+      req.file,
+      {
+        actor: req.auth.user?.fullName || req.auth.user?.email || 'Workspace user',
+        ip: req.ip,
+        userAgent: req.get('user-agent') || '',
+      },
+    );
+    res.status(201).json({ ok: true, ...result });
   } catch (error) {
     handleError(res, error);
   }
