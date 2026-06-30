@@ -22,6 +22,10 @@ async function ensureWorkspaceSignersSchema() {
     email text NOT NULL DEFAULT '',
     signature_file_id text,
     signature_url text,
+    lavozimi text NOT NULL DEFAULT '',
+    fio text NOT NULL DEFAULT '',
+    gmail text NOT NULL DEFAULT '',
+    imzo_png text NOT NULL DEFAULT '',
     status text NOT NULL DEFAULT 'active',
     created_by uuid REFERENCES users(id),
     updated_by uuid REFERENCES users(id),
@@ -34,11 +38,26 @@ async function ensureWorkspaceSignersSchema() {
   await query("ALTER TABLE signers ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT ''");
   await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS signature_file_id text');
   await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS signature_url text');
+  await query("ALTER TABLE signers ADD COLUMN IF NOT EXISTS lavozimi text NOT NULL DEFAULT ''");
+  await query("ALTER TABLE signers ADD COLUMN IF NOT EXISTS fio text NOT NULL DEFAULT ''");
+  await query("ALTER TABLE signers ADD COLUMN IF NOT EXISTS gmail text NOT NULL DEFAULT ''");
+  await query("ALTER TABLE signers ADD COLUMN IF NOT EXISTS imzo_png text NOT NULL DEFAULT ''");
   await query("ALTER TABLE signers ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active'");
   await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES users(id)');
   await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS updated_by uuid REFERENCES users(id)');
   await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT NOW()');
   await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT NOW()');
+  await query("ALTER TABLE signers ALTER COLUMN position SET DEFAULT ''");
+  await query("ALTER TABLE signers ALTER COLUMN full_name SET DEFAULT ''");
+  await query("ALTER TABLE signers ALTER COLUMN email SET DEFAULT ''");
+  await query("ALTER TABLE signers ALTER COLUMN lavozimi SET DEFAULT ''");
+  await query("ALTER TABLE signers ALTER COLUMN fio SET DEFAULT ''");
+  await query("ALTER TABLE signers ALTER COLUMN gmail SET DEFAULT ''");
+  await query("ALTER TABLE signers ALTER COLUMN imzo_png SET DEFAULT ''");
+  await query("UPDATE signers SET position = COALESCE(NULLIF(position, ''), lavozimi, '') WHERE position IS NULL OR position = ''");
+  await query("UPDATE signers SET full_name = COALESCE(NULLIF(full_name, ''), fio, '') WHERE full_name IS NULL OR full_name = ''");
+  await query("UPDATE signers SET email = COALESCE(NULLIF(email, ''), gmail, '') WHERE email IS NULL OR email = ''");
+  await query("UPDATE signers SET signature_url = COALESCE(NULLIF(signature_url, ''), imzo_png, '') WHERE signature_url IS NULL OR signature_url = ''");
   await trySchemaQuery(`CREATE INDEX IF NOT EXISTS idx_signers_workspace_status
     ON signers (workspace_id, status, created_at DESC)`);
   await trySchemaQuery(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_signers_workspace_email_active
@@ -55,11 +74,11 @@ function mapSigner(row) {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
-    position: row.position || '',
-    fullName: row.full_name || '',
-    email: row.email || '',
+    position: row.position || row.lavozimi || '',
+    fullName: row.full_name || row.fio || '',
+    email: row.email || row.gmail || '',
     signatureFileId: row.signature_file_id || '',
-    signatureUrl: row.signature_url || '',
+    signatureUrl: row.signature_url || row.imzo_png || '',
     status: row.status || 'active',
     createdBy: row.created_by || null,
     updatedBy: row.updated_by || null,
@@ -72,7 +91,8 @@ export async function listWorkspaceSigners(workspaceId, { includeInactive = fals
   await ensureWorkspaceSignersSchema();
   const result = await query(
     `SELECT id, workspace_id, position, full_name, email, signature_file_id,
-            signature_url, status, created_by, updated_by, created_at, updated_at
+            signature_url, lavozimi, fio, gmail, imzo_png, status,
+            created_by, updated_by, created_at, updated_at
      FROM signers
      WHERE workspace_id = $1
        AND status <> 'deleted'
@@ -88,7 +108,8 @@ export async function getWorkspaceSigner(workspaceId, signerId) {
   await ensureWorkspaceSignersSchema();
   const result = await query(
     `SELECT id, workspace_id, position, full_name, email, signature_file_id,
-            signature_url, status, created_by, updated_by, created_at, updated_at
+            signature_url, lavozimi, fio, gmail, imzo_png, status,
+            created_by, updated_by, created_at, updated_at
      FROM signers
      WHERE workspace_id = $1 AND id = $2 AND status <> 'deleted'
      LIMIT 1`,
@@ -102,10 +123,12 @@ export async function createWorkspaceSigner(workspaceId, input) {
   const result = await query(
     `INSERT INTO signers
        (workspace_id, position, full_name, email, signature_file_id, signature_url,
-        status, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, $8, $8)
+        lavozimi, fio, gmail, imzo_png, status, created_by, updated_by)
+     VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''),
+             $2, $3, $4, $6, $7, $8, $8)
      RETURNING id, workspace_id, position, full_name, email, signature_file_id,
-               signature_url, status, created_by, updated_by, created_at, updated_at`,
+               signature_url, lavozimi, fio, gmail, imzo_png, status,
+               created_by, updated_by, created_at, updated_at`,
     [
       workspaceId,
       input.position,
@@ -129,12 +152,17 @@ export async function updateWorkspaceSigner(workspaceId, signerId, input) {
          email = COALESCE($5, email),
          signature_file_id = CASE WHEN $6::text IS NULL THEN signature_file_id ELSE NULLIF($6, '') END,
          signature_url = CASE WHEN $7::text IS NULL THEN signature_url ELSE NULLIF($7, '') END,
+         lavozimi = COALESCE($3, lavozimi),
+         fio = COALESCE($4, fio),
+         gmail = COALESCE($5, gmail),
+         imzo_png = CASE WHEN $7::text IS NULL THEN imzo_png ELSE COALESCE($7, '') END,
          status = COALESCE($8, status),
          updated_by = $9,
          updated_at = NOW()
      WHERE workspace_id = $1 AND id = $2 AND status <> 'deleted'
      RETURNING id, workspace_id, position, full_name, email, signature_file_id,
-               signature_url, status, created_by, updated_by, created_at, updated_at`,
+               signature_url, lavozimi, fio, gmail, imzo_png, status,
+               created_by, updated_by, created_at, updated_at`,
     [
       workspaceId,
       signerId,
@@ -157,7 +185,8 @@ export async function deleteWorkspaceSigner(workspaceId, signerId, actorUserId =
      SET status = 'deleted', updated_by = $3, updated_at = NOW()
      WHERE workspace_id = $1 AND id = $2 AND status <> 'deleted'
      RETURNING id, workspace_id, position, full_name, email, signature_file_id,
-               signature_url, status, created_by, updated_by, created_at, updated_at`,
+               signature_url, lavozimi, fio, gmail, imzo_png, status,
+               created_by, updated_by, created_at, updated_at`,
     [workspaceId, signerId, actorUserId],
   );
   return mapSigner(result.rows[0]);
