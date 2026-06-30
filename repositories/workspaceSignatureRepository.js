@@ -67,3 +67,15 @@ export async function getWorkspaceSignatureImage(workspaceId, signatureId) {
   );
   return mapSignature(result.rows[0]);
 }
+
+export async function getWorkspaceSignatureImageById(signatureId) {
+  await ensureWorkspaceSignatureStore();
+  const result = await query(
+    `SELECT id, workspace_id, file_name, mime_type, image_base64, image_sha256, size_bytes, created_by, created_at
+     FROM workspace_signature_store
+     WHERE id = $1::uuid
+     LIMIT 1`,
+    [signatureId],
+  );
+  return mapSignature(result.rows[0]);
+}
