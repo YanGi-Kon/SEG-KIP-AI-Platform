@@ -18,7 +18,7 @@ import {
   updateSignerForWorkspace,
 } from '../services/workspaceSignerService.js';
 import { testWorkspaceSheetConnection } from '../services/workspaceGoogleService.js';
-import { uploadSignaturePng } from '../services/signatureApprovalService.js';
+import { uploadWorkspaceSignaturePng } from '../services/workspaceSignatureService.js';
 
 const router = express.Router();
 const upload = multer({
@@ -114,15 +114,7 @@ router.get('/:workspaceId/signers', requireWorkspacePermission('signers:read'), 
 
 router.post('/:workspaceId/signers/signature', requireWorkspacePermission('signers:create'), upload.single('signature'), async (req, res) => {
   try {
-    const result = await uploadSignaturePng(
-      { spreadsheetUrl: req.workspace.spreadsheetUrl },
-      req.file,
-      {
-        actor: req.auth.user?.fullName || req.auth.user?.email || 'Workspace user',
-        ip: req.ip,
-        userAgent: req.get('user-agent') || '',
-      },
-    );
+    const result = await uploadWorkspaceSignaturePng(req.workspace, req.file);
     res.status(201).json({ ok: true, ...result });
   } catch (error) {
     handleError(res, error);
