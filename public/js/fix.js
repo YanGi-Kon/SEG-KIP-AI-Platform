@@ -172,25 +172,31 @@ function isDateRow(v){
   }
 })();
 
-(function injectActsWorkspaceSignersModule(){
+(function injectActsWorkspaceModules(){
+  function appendScript(doc, id, src){
+    if (!doc || doc.getElementById(id)) return;
+    const script = doc.createElement('script');
+    script.id = id;
+    script.src = src;
+    script.defer = true;
+    doc.head.appendChild(script);
+  }
+
   function inject(frame){
     try {
       const doc = frame.contentDocument || frame.contentWindow?.document;
       const src = String(frame.getAttribute('src') || frame.contentWindow?.location?.pathname || '');
-      if (!doc || doc.getElementById('segActsWorkspaceSignersScript') || !src.includes('acts')) return;
-      const script = doc.createElement('script');
-      script.id = 'segActsWorkspaceSignersScript';
-      script.src = '/js/acts-workspace-signers.js?v=stage7d';
-      script.defer = true;
-      doc.head.appendChild(script);
+      if (!doc || !src.includes('acts')) return;
+      appendScript(doc, 'segActsWorkspaceSignersScript', '/js/acts-workspace-signers.js?v=stage7e');
+      appendScript(doc, 'segActsWorkspaceDocumentsScript', '/js/acts-workspace-documents.js?v=stage8a');
     } catch (_) {}
   }
 
   function bind(){
     const frame = document.getElementById('genericModuleFrame');
     if (!frame) return;
-    if (frame.dataset.actsWorkspaceSignersBound !== 'true') {
-      frame.dataset.actsWorkspaceSignersBound = 'true';
+    if (frame.dataset.actsWorkspaceModulesBound !== 'true') {
+      frame.dataset.actsWorkspaceModulesBound = 'true';
       frame.addEventListener('load', () => inject(frame));
     }
     inject(frame);
