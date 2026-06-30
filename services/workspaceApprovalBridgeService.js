@@ -20,8 +20,15 @@ function signatureValue(signer) {
   return clean(signer.signatureUrl);
 }
 
+function pinLegacyApprovalToWorkspace(config) {
+  // The legacy approval service reads GOOGLE_SPREADSHEET_URL for public approval links.
+  // In workspace mode, keep it pinned to the selected workspace sheet to avoid stale env sheet IDs.
+  if (config?.spreadsheetUrl) process.env.GOOGLE_SPREADSHEET_URL = config.spreadsheetUrl;
+}
+
 async function syncWorkspaceSignersToSheet(workspace) {
   const config = resolveWorkspaceGoogleConfig(workspace);
+  pinLegacyApprovalToWorkspace(config);
   const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
   const sheets = await getSheetsClient(config.serviceAccount);
   await ensureSheet({ ...config, sheetName: SIGNERS_SHEET });
@@ -59,15 +66,23 @@ async function syncWorkspaceSignersToSheet(workspace) {
 export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
   const { config, signersCount } = await syncWorkspaceSignersToSheet(workspace);
   if (!signersCount) throw new Error('Бу объект учун актив имзо чекувчилар йўқ');
-  const result = await sendDocumentForApproval({
-    spreadsheetUrl: config.spreadsheetUrl,
-    serviceAccount: config.serviceAccount,
-  }, input, req);
-  return {
-    ...result,
-    workspaceId: workspace.id,
-    workspaceName: workspace.name,
-    signersSource: 'workspace_signers',
-    signersSynced: signersCount,
-  };
+  pinLegacyApprovalToWorkspace(config);
+  try {
+    const result = await sendDocumentForApproval({
+      spreadsheetUrl: config.spreadsheetUrl,
+      serviceAccount: config.serviceAccount,
+    }, input, req);
+    return {
+      ...result,
+      workspaceId: workspace.id,
+      workspaceName: workspace.name,
+      signersSource: 'workspace_signers',
+      signersSynced: signersCount,
+    };
+  } catch (error) {
+    if (/Requested entity was not found/i.test(error?.message || '')) {
+      throw new Error('Workspace Google Sheet topilmadi yoki Railway GOOGLE_SPREADSHEET_URL eskirgan. Sahifani Ctrl+F5 qiling va qayta urinib ko‘ring.');
+    }
+    throw error;
+  }
 }
