@@ -1,6 +1,7 @@
 // SEG KIP ACTS workspace document-send bridge.
 (function(){
   const AK='seg_kip_workspace_access_token', WK='seg_kip_selected_workspace_id';
+  const SEND_TIMEOUT_MS=35000;
   const pget=(s,k)=>{try{return parent?.[s]?.getItem(k)||'';}catch{return'';}};
   const wid=()=>localStorage.getItem(WK)||pget('localStorage',WK)||'';
   const tok=()=>sessionStorage.getItem(AK)||pget('sessionStorage',AK)||'';
@@ -10,7 +11,23 @@
   function setStatus(text, cls=''){ if(window.ActsUI?.setStatus) window.ActsUI.setStatus(text,cls); else { const el=document.getElementById('actsStatus'); if(el) el.innerHTML='Ҳолат: <span class="'+cls+'">'+esc(text)+'</span>'; } }
   async function read(r){const t=await r.text(); if(!t)return{}; try{return JSON.parse(t)}catch{return{raw:t}}}
   async function refresh(){const r=await fetch('/api/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include'});const d=await read(r);if(!r.ok)throw new Error(d.error||'Session yangilanmadi');if(d.accessToken){sessionStorage.setItem(AK,d.accessToken);try{parent.sessionStorage.setItem(AK,d.accessToken)}catch{}}}
-  async function api(path,opt={},retry=true){const h=new Headers(opt.headers||{});if(opt.body&&!h.has('Content-Type'))h.set('Content-Type','application/json');const t=tok();if(t)h.set('Authorization','Bearer '+t);const r=await fetch(path,{...opt,headers:h,credentials:'include'});const d=await read(r);if(r.status===401&&retry){await refresh();return api(path,opt,false)}if(!r.ok||d.error)throw new Error(d.error||('HTTP '+r.status));return d}
+  async function api(path,opt={},retry=true){
+    const h=new Headers(opt.headers||{});
+    if(opt.body&&!h.has('Content-Type'))h.set('Content-Type','application/json');
+    const t=tok();if(t)h.set('Authorization','Bearer '+t);
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),SEND_TIMEOUT_MS);
+    try{
+      const r=await fetch(path,{...opt,headers:h,credentials:'include',signal:controller.signal});
+      const d=await read(r);
+      if(r.status===401&&retry){await refresh();return api(path,opt,false)}
+      if(!r.ok||d.error)throw new Error(d.error||('HTTP '+r.status));
+      return d;
+    }catch(e){
+      if(e?.name==='AbortError')throw new Error('Email yuborish juda uzoq davom etdi. Email yuborish sozlamalarini tekshiring.');
+      throw e;
+    }finally{clearTimeout(timer)}
+  }
   async function sendDoc(actNo){
     const no=unref(actNo);
     if(!no)return setStatus('Акт рақами топилмади.','bad');
