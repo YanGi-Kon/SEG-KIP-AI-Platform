@@ -17,6 +17,7 @@ import {
   getWorkspaceSignerList,
   updateSignerForWorkspace,
 } from '../services/workspaceSignerService.js';
+import { verifySafeEmailTransport } from '../services/emailDiagnosticsService.js';
 import { testWorkspaceSheetConnection } from '../services/workspaceGoogleService.js';
 import { sendWorkspaceDocumentForApproval } from '../services/workspaceApprovalBridgeService.js';
 import {
@@ -117,6 +118,15 @@ router.post('/:workspaceId/documents/send', requireWorkspacePermission('document
   try {
     const result = await sendWorkspaceDocumentForApproval(req.workspace, req.body || {}, req);
     res.json({ ok: true, ...result });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/documents/email/test', requireWorkspacePermission('documents:send'), async (req, res) => {
+  try {
+    const result = await verifySafeEmailTransport();
+    res.status(result.ok ? 200 : 400).json(result);
   } catch (error) {
     handleError(res, error);
   }
