@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { Readable } from 'stream';
 import { google } from 'googleapis';
-import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
+import { resolvePlatformGoogleConfig } from './googleCredentialService.js';
 import {
   getWorkspaceSignatureImage,
   saveWorkspaceSignatureImage,
@@ -59,12 +59,14 @@ function classifyDriveError(error) {
       rawReason: reason,
     };
   }
-  if (/invalid_grant|invalid_credentials|private key|service account|credentials|configuration/i.test(text)) {
+  if (/invalid_grant|invalid_credentials|private key|service account|credentials|configuration|GOOGLE_SERVICE_ACCOUNT/i.test(text)) {
     return {
-      code: 'GOOGLE_SERVICE_ACCOUNT_INVALID',
-      message: 'Google service account созламаси нотўғри ёки private key эскирган.',
+      code: error?.code || 'GOOGLE_SERVICE_ACCOUNT_INVALID',
+      message: error?.message || 'Google service account созламаси нотўғри ёки private key эскирган.',
       statusCode: 400,
       rawReason: reason,
+      serviceAccountEmail: error?.clientEmail || error?.serviceAccountEmail || '',
+      serviceAccountProjectId: error?.projectId || error?.serviceAccountProjectId || '',
     };
   }
   if (status === 404 || /File not found|notFound/i.test(text)) {
@@ -103,12 +105,14 @@ function resolveFolderId(workspace) {
 }
 
 async function createDriveClient(workspace) {
-  const config = resolveWorkspaceGoogleConfig(workspace);
+  const config = resolvePlatformGoogleConfig({ spreadsheetUrl: workspace?.spreadsheetUrl });
   const auth = driveAuth(config.serviceAccount);
   await auth.authorize();
   return {
     drive: google.drive({ version: 'v3', auth }),
     serviceAccount: config.serviceAccount,
+    credentialSource: config.credentialSource,
+    credentialConflict: config.credentialConflict,
     ...serviceAccountPublicInfo(config.serviceAccount),
   };
 }
@@ -171,7 +175,7 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
   }
 
   try {
-    const { drive, serviceAccountEmail, serviceAccountProjectId } = await createDriveClient(workspace);
+    const { drive, serviceAccountEmail, serviceAccountProjectId, credentialSource, credentialConflict } = await createDriveClient(workspace);
     const folder = await drive.files.get({
       fileId: folderId,
       fields: 'id,name,mimeType,webViewLink,owners(emailAddress),capabilities(canAddChildren,canEdit)',
@@ -182,6 +186,8 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
       throw makeError('Киритилган ID Google Drive папка эмас.', 'DRIVE_FOLDER_NOT_A_FOLDER', 400, {
         serviceAccountEmail,
         serviceAccountProjectId,
+        credentialSource,
+        credentialConflict,
       });
     }
 
@@ -207,6 +213,8 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
         throw makeError(classified.message, 'DRIVE_WRITE_PERMISSION_DENIED', classified.statusCode, {
           serviceAccountEmail,
           serviceAccountProjectId,
+          credentialSource,
+          credentialConflict,
           driveErrorCode: classified.code,
           driveErrorMessage: classified.message,
         });
@@ -221,6 +229,8 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
       folderUrl: data.webViewLink || '',
       serviceAccountEmail,
       serviceAccountProjectId,
+      credentialSource,
+      credentialConflict,
       driveApiEnabled: true,
       folderAccessible: true,
       writeTest: Boolean(writeTest),
@@ -233,6 +243,8 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
       driveErrorCode: classified.code,
       driveErrorMessage: classified.message,
       rawReason: classified.rawReason,
+      serviceAccountEmail: classified.serviceAccountEmail,
+      serviceAccountProjectId: classified.serviceAccountProjectId,
     });
   }
 }
@@ -249,7 +261,7 @@ export async function uploadWorkspaceSignaturePng(workspace, file, { actorUserId
   const name = makeDriveSignatureName(workspace, { position, fullName });
 
   try {
-    const { drive, serviceAccountEmail, serviceAccountProjectId } = await createDriveClient(workspace);
+    const { drive, serviceAccountEmail, serviceAccountProjectId, credentialSource, credentialConflict } = await createDriveClient(workspace);
     const result = await drive.files.create({
       requestBody: { name, mimeType: 'image/png', parents: [folderId] },
       media: { mimeType: 'image/png', body: Readable.from(file.buffer) },
@@ -265,6 +277,8 @@ export async function uploadWorkspaceSignaturePng(workspace, file, { actorUserId
       storage: 'drive',
       serviceAccountEmail,
       serviceAccountProjectId,
+      credentialSource,
+      credentialConflict,
     };
   } catch (error) {
     const classified = classifyDriveError(error);
