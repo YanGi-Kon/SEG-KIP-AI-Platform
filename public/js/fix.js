@@ -172,6 +172,43 @@ function isDateRow(v){
   }
 })();
 
+(function injectActsWorkspaceSignersModule(){
+  function inject(frame){
+    try {
+      const doc = frame.contentDocument || frame.contentWindow?.document;
+      const src = String(frame.getAttribute('src') || frame.contentWindow?.location?.pathname || '');
+      if (!doc || doc.getElementById('segActsWorkspaceSignersScript') || !src.includes('acts')) return;
+      const script = doc.createElement('script');
+      script.id = 'segActsWorkspaceSignersScript';
+      script.src = '/js/acts-workspace-signers.js?v=stage7b';
+      script.defer = true;
+      doc.head.appendChild(script);
+    } catch (_) {}
+  }
+
+  function bind(){
+    const frame = document.getElementById('genericModuleFrame');
+    if (!frame) return;
+    if (frame.dataset.actsWorkspaceSignersBound !== 'true') {
+      frame.dataset.actsWorkspaceSignersBound = 'true';
+      frame.addEventListener('load', () => inject(frame));
+    }
+    inject(frame);
+  }
+
+  function setup(){
+    bind();
+    const observer = new MutationObserver(bind);
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
+})();
+
 (function loadWorkspaceUi(){
   function appendScript(id, src){
     if (document.getElementById(id)) return;
