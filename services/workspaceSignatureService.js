@@ -2,6 +2,10 @@ import crypto from 'crypto';
 import { Readable } from 'stream';
 import { google } from 'googleapis';
 import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
+import {
+  getWorkspaceSignatureImage,
+  saveWorkspaceSignatureImage,
+} from '../repositories/workspaceSignatureRepository.js';
 
 function clean(value) {
   return String(value ?? '').trim();
@@ -38,19 +42,43 @@ function driveAuth(serviceAccount) {
   });
 }
 
-export async function uploadWorkspaceSignaturePng(workspace, file) {
+function isDriveApiDisabled(error) {
+  const text = `${error?.message || ''} ${JSON.stringify(error?.errors || [])}`;
+  return /drive api has not been used|accessNotConfigured|SERVICE_DISABLED|disabled|not enabled|403/i.test(text);
+}
+
+async function saveSignatureToDatabase(workspace, file, actorUserId = null) {
+  const imageSha256 = crypto.createHash('sha256').update(file.buffer).digest('hex');
+  const saved = await saveWorkspaceSignatureImage(workspace.id, {
+    fileName: clean(file.originalname) || 'signature.png',
+    mimeType: 'image/png',
+    imageBase64: file.buffer.toString('base64'),
+    imageSha256,
+    sizeBytes: file.size,
+    createdBy: actorUserId,
+  });
+  const fileId = `db:${saved.id}`;
+  return {
+    fileId,
+    name: saved.fileName,
+    webViewLink: `/api/workspaces/${encodeURIComponent(workspace.id)}/signers/signature/${encodeURIComponent(saved.id)}`,
+    storage: 'database',
+    fallbackReason: 'Google Drive API disabled or unavailable',
+  };
+}
+
+export async function uploadWorkspaceSignaturePng(workspace, file, { actorUserId = null } = {}) {
   validatePngFile(file);
   const config = resolveWorkspaceGoogleConfig(workspace);
   const auth = driveAuth(config.serviceAccount);
-  await auth.authorize();
-
-  const drive = google.drive({ version: 'v3', auth });
   const folderId = clean(workspace?.driveFolderId) || clean(process.env.SIGNATURE_DRIVE_FOLDER_ID);
   const name = `SEG-KIP-workspace-${clean(workspace?.id).slice(0, 8) || 'signature'}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.png`;
-  const requestBody = { name, mimeType: 'image/png' };
-  if (folderId) requestBody.parents = [folderId];
 
   try {
+    await auth.authorize();
+    const drive = google.drive({ version: 'v3', auth });
+    const requestBody = { name, mimeType: 'image/png' };
+    if (folderId) requestBody.parents = [folderId];
     const result = await drive.files.create({
       requestBody,
       media: { mimeType: 'image/png', body: Readable.from(file.buffer) },
@@ -62,11 +90,25 @@ export async function uploadWorkspaceSignaturePng(workspace, file) {
       name: result.data.name || name,
       webViewLink: result.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
       folderId: folderId || '',
+      storage: 'drive',
     };
   } catch (error) {
     if (folderId && /File not found|notFound|404/i.test(error.message || '')) {
       throw makeError('Workspace Drive folder ID topilmadi yoki service account bu papkaga kira olmaydi', 'WORKSPACE_DRIVE_FOLDER_NOT_ACCESSIBLE');
     }
-    throw makeError(error.message || 'Workspace signature upload failed');
+    if (isDriveApiDisabled(error)) {
+      return saveSignatureToDatabase(workspace, file, actorUserId);
+    }
+    return saveSignatureToDatabase(workspace, file, actorUserId);
   }
+}
+
+export async function getWorkspaceSignaturePng(workspaceId, signatureId) {
+  const row = await getWorkspaceSignatureImage(workspaceId, signatureId);
+  if (!row) throw makeError('Workspace signature image topilmadi', 'WORKSPACE_SIGNATURE_NOT_FOUND', 404);
+  return {
+    fileName: row.fileName,
+    mimeType: row.mimeType,
+    buffer: Buffer.from(row.imageBase64, 'base64'),
+  };
 }
