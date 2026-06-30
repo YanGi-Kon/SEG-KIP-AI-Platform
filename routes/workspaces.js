@@ -20,6 +20,7 @@ import {
 import { testWorkspaceSheetConnection } from '../services/workspaceGoogleService.js';
 import {
   getWorkspaceSignaturePng,
+  testWorkspaceSignatureFolder,
   uploadWorkspaceSignaturePng,
 } from '../services/workspaceSignatureService.js';
 
@@ -38,6 +39,11 @@ function handleError(res, error) {
   res.status(status).json({
     error: message,
     code: error.code || (status >= 500 ? 'WORKSPACE_SERVICE_ERROR' : 'WORKSPACE_REQUEST_FAILED'),
+    driveErrorCode: error.driveErrorCode || undefined,
+    driveErrorMessage: error.driveErrorMessage || undefined,
+    rawReason: error.rawReason || undefined,
+    serviceAccountEmail: error.serviceAccountEmail || undefined,
+    serviceAccountProjectId: error.serviceAccountProjectId || undefined,
   });
 }
 
@@ -129,6 +135,15 @@ router.put('/:workspaceId/signers/signature-folder', requireWorkspacePermission(
   }
 });
 
+router.post('/:workspaceId/signers/signature-folder/test', requireWorkspacePermission('signers:update'), async (req, res) => {
+  try {
+    const result = await testWorkspaceSignatureFolder(req.workspace, { writeTest: true });
+    res.json({ ok: true, result });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
 router.get('/:workspaceId/signers/signature/:signatureId', requireWorkspacePermission('signers:read'), async (req, res) => {
   try {
     const image = await getWorkspaceSignaturePng(req.params.workspaceId, req.params.signatureId);
@@ -142,7 +157,11 @@ router.get('/:workspaceId/signers/signature/:signatureId', requireWorkspacePermi
 
 router.post('/:workspaceId/signers/signature', requireWorkspacePermission('signers:create'), upload.single('signature'), async (req, res) => {
   try {
-    const result = await uploadWorkspaceSignaturePng(req.workspace, req.file, { actorUserId: req.auth.userId });
+    const result = await uploadWorkspaceSignaturePng(req.workspace, req.file, {
+      actorUserId: req.auth.userId,
+      position: req.body?.position || '',
+      fullName: req.body?.fullName || req.body?.fio || '',
+    });
     res.status(201).json({ ok: true, ...result });
   } catch (error) {
     handleError(res, error);
