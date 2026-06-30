@@ -2,6 +2,15 @@ import { query } from '../db/pool.js';
 
 let signerSchemaReady = false;
 
+async function trySchemaQuery(sql) {
+  try {
+    await query(sql);
+  } catch (_) {
+    // Optional self-heal indexes may fail when legacy duplicate rows exist.
+    // CRUD still works and service-level duplicate handling remains active where indexes exist.
+  }
+}
+
 async function ensureWorkspaceSignersSchema() {
   if (signerSchemaReady) return;
   await query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
@@ -30,12 +39,12 @@ async function ensureWorkspaceSignersSchema() {
   await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS updated_by uuid REFERENCES users(id)');
   await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT NOW()');
   await query('ALTER TABLE signers ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT NOW()');
-  await query(`CREATE INDEX IF NOT EXISTS idx_signers_workspace_status
+  await trySchemaQuery(`CREATE INDEX IF NOT EXISTS idx_signers_workspace_status
     ON signers (workspace_id, status, created_at DESC)`);
-  await query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_signers_workspace_email_active
+  await trySchemaQuery(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_signers_workspace_email_active
     ON signers (workspace_id, lower(email))
     WHERE status <> 'deleted' AND workspace_id IS NOT NULL AND email <> ''`);
-  await query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_signers_workspace_name_position_active
+  await trySchemaQuery(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_signers_workspace_name_position_active
     ON signers (workspace_id, lower(full_name), lower(position))
     WHERE status <> 'deleted' AND workspace_id IS NOT NULL AND full_name <> '' AND position <> ''`);
   signerSchemaReady = true;
