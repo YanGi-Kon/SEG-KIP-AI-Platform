@@ -18,6 +18,7 @@ import {
   updateSignerForWorkspace,
 } from '../services/workspaceSignerService.js';
 import { testWorkspaceSheetConnection } from '../services/workspaceGoogleService.js';
+import { sendWorkspaceDocumentForApproval } from '../services/workspaceApprovalBridgeService.js';
 import {
   getWorkspaceSignaturePng,
   testWorkspaceSignatureFolder,
@@ -107,6 +108,15 @@ router.get('/:workspaceId/members', requireWorkspacePermission('members:read'), 
   try {
     const rows = await getWorkspaceMembers(req.params.workspaceId);
     res.json({ rows });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/documents/send', requireWorkspacePermission('documents:send'), async (req, res) => {
+  try {
+    const result = await sendWorkspaceDocumentForApproval(req.workspace, req.body || {}, req);
+    res.json({ ok: true, ...result });
   } catch (error) {
     handleError(res, error);
   }
