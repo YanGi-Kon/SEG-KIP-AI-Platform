@@ -31,11 +31,12 @@ const upload = multer({
 
 function handleError(res, error) {
   const knownStatus = Number(error.statusCode);
-  const status = Number.isInteger(knownStatus) && knownStatus >= 400 && knownStatus < 600
-    ? knownStatus
-    : 500;
+  let status = Number.isInteger(knownStatus) && knownStatus >= 400 && knownStatus < 600 ? knownStatus : 500;
+  if (error?.code === '23505') status = 409;
+  if (error?.code === '23503' || error?.code === '42P01' || error?.code === '42703') status = 400;
+  const message = String(error?.message || '').trim() || 'Workspace request failed';
   res.status(status).json({
-    error: status >= 500 ? 'Workspace service error' : error.message,
+    error: message,
     code: error.code || (status >= 500 ? 'WORKSPACE_SERVICE_ERROR' : 'WORKSPACE_REQUEST_FAILED'),
   });
 }
