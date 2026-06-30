@@ -209,6 +209,16 @@ function isDateRow(v){
   }
 })();
 
+(function loadEntryLoginGate(){
+  if (document.getElementById('segEntryLoginScript')) return;
+  const script = document.createElement('script');
+  script.id = 'segEntryLoginScript';
+  script.src = 'js/app-login-ui.js?v=stage7c';
+  script.async = false;
+  script.defer = true;
+  document.head.appendChild(script);
+})();
+
 (function removeWorkspaceSettingsUi(){
   function removeExistingUi(){
     document.querySelectorAll('.seg-workspace-menu, #workspaceSettingsPage, #workspaceSignersPanel').forEach((node) => node.remove());
