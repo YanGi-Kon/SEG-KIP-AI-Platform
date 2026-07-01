@@ -41,6 +41,27 @@
       setStatus(no+': '+sent+' ta Gmail yuborildi'+(failed?', '+failed+' ta xatolik':'')+synced+'. Ҳолат: '+(result.status||'Кутилмоқда'),failed?'sync':'ok');
     }catch(e){setStatus(e.message,'bad')}
   }
-  function patch(){ if(!window.ActsUI||window.ActsUI.__workspaceDocumentsPatched)return false; window.ActsUI.sendDoc=sendDoc; window.ActsUI.__workspaceDocumentsPatched=true; return true; }
+  function cellText(row,index){return String(row?.children?.[index]?.innerText||'').trim()}
+  function exportReportsExcel(){
+    const table=document.querySelector('#reports table');
+    const rows=Array.from(document.querySelectorAll('#dailyRows tr')).filter(tr=>!tr.querySelector('td[colspan]'));
+    if(!table||!rows.length){setStatus('Экспорт учун ҳисоботлар рўйхати йўқ. Аввал Хисоботлар бўлимини янгиланг.','bad');return;}
+    const headers=['№','Akt raqami','Sana','Asbob nomi','Zavod raqami','Joy','Ijrochi','Holat'];
+    const body=rows.map((tr,i)=>[i+1,cellText(tr,1),cellText(tr,2),cellText(tr,3),cellText(tr,4),cellText(tr,5),cellText(tr,6),cellText(tr,7)]);
+    const html='<html><head><meta charset="UTF-8"></head><body><table border="1"><thead><tr>'+headers.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+body.map(r=>'<tr>'+r.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></body></html>';
+    const blob=new Blob(['\ufeff',html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='SEG-KIP-Aktlar-Hisobotlar-'+new Date().toISOString().slice(0,10)+'.xls';
+    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+    setStatus('Excel ҳисобот экспорт қилинди.','ok');
+  }
+  function patch(){
+    if(!window.ActsUI||window.ActsUI.__workspaceDocumentsPatched)return false;
+    window.ActsUI.sendDoc=sendDoc;
+    window.ActsUI.openExcel=exportReportsExcel;
+    window.ActsUI.__workspaceDocumentsPatched=true;
+    return true;
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{if(!patch()){const t=setInterval(()=>{if(patch())clearInterval(t)},100);setTimeout(()=>clearInterval(t),8000)}});else{if(!patch()){const t=setInterval(()=>{if(patch())clearInterval(t)},100);setTimeout(()=>clearInterval(t),8000)}}
 })();
