@@ -54,7 +54,7 @@ function signApprovalToken(payload) {
 
 function baseUrlFromRequest(req) {
   const configured = clean(process.env.PUBLIC_BASE_URL).replace(/\/$/, '');
-  if (configured) return configured;
+  if (configured && !/your-app/i.test(configured)) return configured;
   const proto = clean(req.headers['x-forwarded-proto']).split(',')[0] || req.protocol || 'https';
   return `${proto}://${req.get('host')}`;
 }
