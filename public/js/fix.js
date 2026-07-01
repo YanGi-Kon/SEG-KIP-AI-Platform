@@ -188,7 +188,7 @@ function isDateRow(v){
       const src = String(frame.getAttribute('src') || frame.contentWindow?.location?.pathname || '');
       if (!doc || !src.includes('acts')) return;
       appendScript(doc, 'segActsWorkspaceSignersScript', '/js/acts-workspace-signers.js?v=stage7e');
-      appendScript(doc, 'segActsWorkspaceDocumentsScript', '/js/acts-workspace-documents.js?v=stage8a');
+      appendScript(doc, 'segActsWorkspaceDocumentsScript', '/js/acts-workspace-documents.js?v=stage8c');
     } catch (_) {}
   }
 
