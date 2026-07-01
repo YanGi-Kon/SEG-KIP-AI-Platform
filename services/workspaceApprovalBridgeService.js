@@ -155,7 +155,7 @@ async function writeApproval(config, input) {
   const existing = (await readApprovalRows(config, input.actNo)).find((row) => row.signerId === input.signerId);
   const { sheets, spreadsheetId } = await ensureApprovalSheet(config);
   const row = [
-    existing?.id || input.id,
+    input.id,
     input.actNo,
     input.signerId,
     input.position,
@@ -213,11 +213,13 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
   if (!actNo) throw new Error('Акт рақами киритилмаган');
   if (!signersCount) throw new Error('Бу объект учун актив имзо чекувчилар йўқ');
   const document = await findDocument(config, actNo);
+  const existingApprovals = await readApprovalRows(config, actNo);
   const baseUrl = baseUrlFromRequest(req);
   const links = [];
   const results = [];
   for (const signer of signers) {
-    const approvalId = randomId('APR');
+    const existing = existingApprovals.find((row) => row.signerId === signer.id);
+    const approvalId = existing?.id || randomId('APR');
     const token = signApprovalToken({ approvalId, actNo, signerId: signer.id, email: signer.email });
     const link = `${baseUrl}/api/document/approve/${encodeURIComponent(token)}`;
     links.push(link);
