@@ -28,6 +28,22 @@
       throw e;
     }finally{clearTimeout(timer)}
   }
+  function emailCodeMessage(code){
+    const map={
+      EMAIL_INVALID_RECIPIENT:'Gmail manzil noto‘g‘ri yoki to‘liq emas.',
+      EMAIL_PROVIDER_RECIPIENT_NOT_ALLOWED:'Resend test rejimi bu qabul qiluvchiga yuborishga ruxsat bermadi.',
+      EMAIL_DOMAIN_NOT_VERIFIED:'Email domen tasdiqlanmagan. Resend’da domain verification qiling.',
+      EMAIL_AUTH_FAILED:'Email provider kaliti noto‘g‘ri yoki bekor qilingan.',
+      EMAIL_SEND_TIMEOUT:'Email provider javob bermadi.',
+      EMAIL_HTTP_FAILED:'Email provider xatosi.'
+    };
+    return map[code]||'';
+  }
+  function failedText(item){
+    const who=[item.signer,item.gmail].filter(Boolean).join(' / ');
+    const reason=emailCodeMessage(item.code)||item.error||'Email yuborishda xatolik.';
+    return (who?who+' — ':'')+reason;
+  }
   async function sendDoc(actNo){
     const no=unref(actNo);
     if(!no)return setStatus('Акт рақами топилмади.','bad');
@@ -35,10 +51,19 @@
     try{
       setStatus(no+' имзоловчиларга юборилмоқда...','sync');
       const result=await api(root()+'/documents/send',{method:'POST',body:JSON.stringify({actNo:no,sentBy:'KIP Administrator'})});
-      const sent=(result.results||[]).filter(x=>x.status==='sent').length;
-      const failed=(result.results||[]).filter(x=>x.status==='email-failed').length;
+      const results=result.results||[];
+      const sent=Number.isFinite(Number(result.sent))?Number(result.sent):results.filter(x=>x.status==='sent').length;
+      const failed=Number.isFinite(Number(result.failed))?Number(result.failed):results.filter(x=>x.status==='email-failed').length;
+      const firstFailed=results.find(x=>x.status==='email-failed');
       const synced=result.signersSynced?(' · '+result.signersSynced+' imzolovchi sinxronlandi'):'';
-      setStatus(no+': '+sent+' ta Gmail yuborildi'+(failed?', '+failed+' ta xatolik':'')+synced+'. Ҳолат: '+(result.status||'Кутилмоқда'),failed?'sync':'ok');
+      if(sent===0&&failed>0){
+        setStatus(no+': email yuborilmadi. '+failedText(firstFailed)+synced+'. Ҳолат: '+(result.status||'Email xatosi'),'bad');
+        await window.ActsUI?.loadReports?.();
+        return;
+      }
+      const detail=failed&&firstFailed?(' · Xato: '+failedText(firstFailed)):'';
+      setStatus(no+': '+sent+' ta Gmail yuborildi'+(failed?', '+failed+' ta xatolik':'')+synced+detail+'. Ҳолат: '+(result.status||'Кутилмоқда'),failed?'sync':'ok');
+      await window.ActsUI?.loadReports?.();
     }catch(e){setStatus(e.message,'bad')}
   }
   function cellText(row,index){return String(row?.children?.[index]?.innerText||'').trim()}
