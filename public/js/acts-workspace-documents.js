@@ -28,21 +28,27 @@
       throw e;
     }finally{clearTimeout(timer)}
   }
-  function emailCodeMessage(code){
+  function emailCodeMessage(item){
+    const code=item?.code||'';
+    const raw=String(item?.error||'').toLowerCase();
+    const providerStatus=String(item?.providerStatus||'');
+    if(code==='EMAIL_AUTH_FAILED'&&providerStatus==='403')return 'Resend ruxsat bermadi: onboarding@resend.dev test senderi bu qabul qiluvchiga yubora olmasligi yoki domen tasdiqlanmagan bo‘lishi mumkin.';
+    if(code==='EMAIL_AUTH_FAILED'&&/(domain|verify|testing|recipient|from)/i.test(raw))return 'Resend ruxsat bermadi: domen/recipient tasdiqlanishi kerak.';
     const map={
       EMAIL_INVALID_RECIPIENT:'Gmail manzil noto‘g‘ri yoki to‘liq emas.',
       EMAIL_PROVIDER_RECIPIENT_NOT_ALLOWED:'Resend test rejimi bu qabul qiluvchiga yuborishga ruxsat bermadi.',
       EMAIL_DOMAIN_NOT_VERIFIED:'Email domen tasdiqlanmagan. Resend’da domain verification qiling.',
-      EMAIL_AUTH_FAILED:'Email provider kaliti noto‘g‘ri yoki bekor qilingan.',
+      EMAIL_AUTH_FAILED:'Resend API key noto‘g‘ri yoki bekor qilingan.',
       EMAIL_SEND_TIMEOUT:'Email provider javob bermadi.',
       EMAIL_HTTP_FAILED:'Email provider xatosi.'
     };
     return map[code]||'';
   }
   function failedText(item){
-    const who=[item.signer,item.gmail].filter(Boolean).join(' / ');
-    const reason=emailCodeMessage(item.code)||item.error||'Email yuborishda xatolik.';
-    return (who?who+' — ':'')+reason;
+    const who=[item?.signer,item?.gmail].filter(Boolean).join(' / ');
+    const reason=emailCodeMessage(item)||item?.error||'Email yuborishda xatolik.';
+    const raw=item?.error&&reason!==item.error?' Batafsil: '+item.error:'';
+    return (who?who+' — ':'')+reason+raw;
   }
   async function sendDoc(actNo){
     const no=unref(actNo);
