@@ -1,9 +1,10 @@
-name: Signers Module CI
+name: SEG-KIP Platform CI
 
 on:
   push:
     branches:
-      - feature/signers-approval-module
+      - main
+      - feature/multi-workspace-architecture
   pull_request:
     branches:
       - main
@@ -11,7 +12,7 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,8 +27,8 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Syntax checks
-        run: npm run check
+      - name: Syntax and unit tests
+        run: npm run ci
 
       - name: Production dependency audit
         run: npm audit --omit=dev --audit-level=high

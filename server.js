@@ -13,13 +13,15 @@ import baseRouter from "./routes/base.js";
 import workbookRouter from "./routes/workbook.js";
 import menuRouter from "./routes/menu.js";
 import actsRouter from "./routes/acts.js";
+import ulchovRouter from "./routes/ulchov.js";
 import signaturesRouter from "./routes/signatures.js";
+import authRouter from "./routes/auth.js";
+import workspacesRouter from "./routes/workspaces.js";
 import { createKudukRouter, initKudukRealtime } from "./routes/kuduk.js";
+import { isDatabaseConfigured } from "./db/pool.js";
+import { runMigrations } from "./db/migrate.js";
 
 dotenv.config();
-if (!process.env.GOOGLE_SPREADSHEET_URL && process.env.GOOGLE_SHEETS_ID) {
-  process.env.GOOGLE_SPREADSHEET_URL = process.env.GOOGLE_SHEETS_ID;
-}
 
 const app = express();
 const server = http.createServer(app);
@@ -34,6 +36,8 @@ app.use(express.urlencoded({ extended: false, limit: "2mb" }));
 app.use(express.static("public"));
 
 app.use("/api/health", healthRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/workspaces", workspacesRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/analysis", analysisRouter);
 app.use("/api/project", projectRouter);
@@ -41,13 +45,30 @@ app.use("/api/base", baseRouter);
 app.use("/api/workbook", workbookRouter);
 app.use("/api/menu", menuRouter);
 app.use("/api/acts", actsRouter);
+app.use("/api/ulchov", ulchovRouter);
 app.use("/api", signaturesRouter);
 app.use("/api/kuduk", createKudukRouter(io));
 
 initKudukRealtime(io);
 
-server.listen(PORT, () => {
-  const aiReady = Boolean(process.env.OPENAI_API_KEY);
-  console.log(`SEG KIP AI Platform integrated: http://localhost:${PORT}`);
-  console.log(aiReady ? "AI rejim: ulangan" : "AI rejim: demo");
+async function startServer() {
+  if (isDatabaseConfigured() && String(process.env.DB_AUTO_MIGRATE ?? "true") !== "false") {
+    const report = await runMigrations();
+    if (report.applied.length) {
+      console.log(`[database] migrations applied: ${report.applied.join(", ")}`);
+    } else {
+      console.log("[database] migrations up to date");
+    }
+  }
+
+  server.listen(PORT, () => {
+    const aiReady = Boolean(process.env.OPENAI_API_KEY);
+    console.log(`SEG KIP AI Platform integrated: http://localhost:${PORT}`);
+    console.log(aiReady ? "AI rejim: ulangan" : "AI rejim: demo");
+  });
+}
+
+startServer().catch((error) => {
+  console.error("[startup]", error.message);
+  process.exit(1);
 });

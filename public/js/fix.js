@@ -109,3 +109,136 @@ function isDateRow(v){
     setup();
   }
 })();
+
+(function preventActsLegacyCacheLeak(){
+  const hiddenLegacyKeys = ['acts_service_account', 'seg_kip_admin_jwt'];
+
+  function clearHiddenLegacyActsSettings(){
+    hiddenLegacyKeys.forEach((key) => {
+      try { localStorage.removeItem(key); } catch (_) {}
+      try { sessionStorage.removeItem(key); } catch (_) {}
+    });
+  }
+
+  function install(){
+    const original = window.openModulePage;
+    if (typeof original !== 'function' || original.__actsLegacyCacheGuard) return;
+    function guardedOpenModulePage(moduleName, ...args){
+      if (moduleName === 'acts') clearHiddenLegacyActsSettings();
+      return original.call(this, moduleName, ...args);
+    }
+    guardedOpenModulePage.__actsLegacyCacheGuard = true;
+    window.openModulePage = guardedOpenModulePage;
+  }
+
+  clearHiddenLegacyActsSettings();
+  install();
+  window.clearActsHiddenLegacySettings = clearHiddenLegacyActsSettings;
+})();
+
+(function injectUlchovSheetsModule(){
+  function inject(frame){
+    try {
+      const doc = frame.contentDocument || frame.contentWindow?.document;
+      if (!doc || doc.getElementById('segUlchovSheetsScript')) return;
+      const script = doc.createElement('script');
+      script.id = 'segUlchovSheetsScript';
+      script.src = '/js/ulchov-sheets.js?v=stage6e';
+      script.defer = true;
+      doc.head.appendChild(script);
+    } catch (_) {}
+  }
+
+  function bind(){
+    const frame = document.getElementById('claUlchovFrame');
+    if (!frame) return;
+    if (frame.dataset.ulchovSheetsBound !== 'true') {
+      frame.dataset.ulchovSheetsBound = 'true';
+      frame.addEventListener('load', () => inject(frame));
+    }
+    inject(frame);
+  }
+
+  function setup(){
+    bind();
+    const observer = new MutationObserver(bind);
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
+})();
+
+(function injectActsWorkspaceModules(){
+  function appendScript(doc, id, src){
+    if (!doc || doc.getElementById(id)) return;
+    const script = doc.createElement('script');
+    script.id = id;
+    script.src = src;
+    script.defer = true;
+    doc.head.appendChild(script);
+  }
+
+  function inject(frame){
+    try {
+      const doc = frame.contentDocument || frame.contentWindow?.document;
+      const src = String(frame.getAttribute('src') || frame.contentWindow?.location?.pathname || '');
+      if (!doc || !src.includes('acts')) return;
+      appendScript(doc, 'segActsWorkspaceSignersScript', '/js/acts-workspace-signers.js?v=stage7e');
+      appendScript(doc, 'segActsWorkspaceDocumentsScript', '/js/acts-workspace-documents.js?v=stage8c');
+    } catch (_) {}
+  }
+
+  function bind(){
+    const frame = document.getElementById('genericModuleFrame');
+    if (!frame) return;
+    if (frame.dataset.actsWorkspaceModulesBound !== 'true') {
+      frame.dataset.actsWorkspaceModulesBound = 'true';
+      frame.addEventListener('load', () => inject(frame));
+    }
+    inject(frame);
+  }
+
+  function setup(){
+    bind();
+    const observer = new MutationObserver(bind);
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
+})();
+
+(function loadEntryLoginGate(){
+  if (document.getElementById('segEntryLoginScript')) return;
+  const script = document.createElement('script');
+  script.id = 'segEntryLoginScript';
+  script.src = 'js/app-login-ui.js?v=stage7c';
+  script.async = false;
+  script.defer = true;
+  document.head.appendChild(script);
+})();
+
+(function removeWorkspaceSettingsUi(){
+  function removeExistingUi(){
+    document.querySelectorAll('.seg-workspace-menu, #workspaceSettingsPage, #workspaceSignersPanel').forEach((node) => node.remove());
+  }
+
+  function setup(){
+    removeExistingUi();
+    const observer = new MutationObserver(removeExistingUi);
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
+})();
