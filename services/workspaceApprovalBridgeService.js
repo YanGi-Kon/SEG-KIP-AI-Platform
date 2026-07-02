@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { ensureSheet, extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
 import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
 import { sendDocumentForApproval } from './signatureApprovalService.js';
-import { hasHttpEmailProvider, sendHttpEmail } from './httpEmailService.js';
+import { getHttpEmailSummary, hasHttpEmailProvider, sendHttpEmail } from './httpEmailService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
 
 const SIGNERS_SHEET = 'ИМЗО_ЧЕКУВЧИЛАР';
@@ -213,6 +213,7 @@ async function updateWaitingState(document, signers, links, status = 'Кутил
 
 async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
   const { config, signers, signersCount } = synced;
+  const provider = getHttpEmailSummary();
   const actNo = clean(input.actNo);
   if (!actNo) throw new Error('Акт рақами киритилмаган');
   if (!signersCount) throw new Error('Бу объект учун актив имзо чекувчилар йўқ');
@@ -223,7 +224,7 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
   const results = [];
   for (const signer of signers) {
     if (!isValidEmail(signer.email)) {
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', code: 'EMAIL_INVALID_RECIPIENT', error: `Email manzil noto‘g‘ri yoki to‘liq emas: ${clean(signer.email)}` });
+      results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', approvalLinkCreated: false, code: 'EMAIL_INVALID_RECIPIENT', error: `Email manzil noto‘g‘ri yoki to‘liq emas: ${clean(signer.email)}` });
       continue;
     }
     const existing = existingApprovals.find((row) => row.signerId === signer.id);
@@ -244,7 +245,7 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
       signatureFileId: signatureValue(signer),
     });
     if (approval.status === 'Тасдиқланди') {
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'already-approved' });
+      results.push({ signer: signer.fullName, gmail: signer.email, status: 'already-approved', approvalLinkCreated: true });
       continue;
     }
     try {
@@ -254,17 +255,17 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
         text: `Hujjat: ${actNo}\nTasdiqlash havolasi: ${link}`,
         html: `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto"><h2>Hujjatni tasdiqlash talab qilinadi</h2><p><b>Obyekt:</b> ${escapeHtml(workspace.name)}</p><p><b>Hujjat:</b> ${escapeHtml(actNo)}</p><p><b>Imzolovchi:</b> ${escapeHtml(signer.fullName)}</p><p><a href="${link}" style="display:inline-block;padding:12px 20px;background:#0891b2;color:#fff;text-decoration:none;border-radius:8px">Hujjatni ochish va tasdiqlash</a></p></div>`,
       });
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: 'http' });
+      results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: provider.provider, approvalLinkCreated: true });
     } catch (error) {
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', code: error.code || 'EMAIL_HTTP_FAILED', error: error.message, providerStatus: error.providerStatus || '' });
+      results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', approvalLinkCreated: true, code: error.code || 'EMAIL_HTTP_FAILED', error: error.message, providerStatus: error.providerStatus || '', providerMessage: error.providerMessage || '' });
     }
   }
   const sent = results.filter((item) => item.status === 'sent').length;
   const failed = results.filter((item) => item.status === 'email-failed').length;
   const approved = results.filter((item) => item.status === 'already-approved').length;
-  const status = sent > 0 || approved > 0 ? 'Кутилмоқда' : 'Email xatosi';
+  const status = signersCount > 0 && approved === signersCount && failed === 0 && sent === 0 ? 'Тасдиқланди' : (sent > 0 || approved > 0 ? 'Кутилмоқда' : 'Email xatosi');
   await updateWaitingState(document, signers, links, status);
-  return { actNo, status, sent, failed, approved, total: signersCount, results, provider: 'http', workspaceId: workspace.id, workspaceName: workspace.name, signersSource: 'workspace_signers', signersSynced: signersCount };
+  return { actNo, status, sent, failed, approved, total: signersCount, results, provider: provider.provider, fromMode: provider.fromMode, warning: provider.warning || '', recommendedFix: provider.recommendedFix || '', workspaceId: workspace.id, workspaceName: workspace.name, signersSource: 'workspace_signers', signersSynced: signersCount };
 }
 
 export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
