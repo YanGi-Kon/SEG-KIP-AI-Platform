@@ -37,6 +37,10 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
 
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean(value));
+}
+
 function approvalSecret() {
   const secret = clean(process.env.APPROVAL_JWT_SECRET);
   if (!secret || secret.length < 32) throw new Error('APPROVAL_JWT_SECRET камида 32 белгидан иборат бўлиши шарт');
@@ -190,19 +194,19 @@ async function writeApproval(config, input) {
   return { id: row[0], status: row[6] };
 }
 
-async function updateWaitingState(document, signers, links) {
+async function updateWaitingState(document, signers, links, status = 'Кутилмоқда') {
   await document.sheets.spreadsheets.values.update({
     spreadsheetId: document.spreadsheetId,
     range: `${q(REGISTRY_SHEET)}!E${document.rowNumber}`,
     valueInputOption: 'RAW',
-    requestBody: { values: [['Кутилмоқда']] },
+    requestBody: { values: [[status]] },
   });
   if (document.rowStart) {
     await document.sheets.spreadsheets.values.update({
       spreadsheetId: document.spreadsheetId,
       range: `${q(DAILY_SHEET)}!K${document.rowStart}:O${document.rowStart + 1}`,
       valueInputOption: 'RAW',
-      requestBody: { values: [['Status', 'Imzolovchi', 'Gmail', 'ApprovalLink', 'CreatedDate'], ['Кутилмоқда', signers.map((s) => s.fullName).join(', '), signers.map((s) => s.email).join(', '), links.join('\n'), nowIso()]] },
+      requestBody: { values: [['Status', 'Imzolovchi', 'Gmail', 'ApprovalLink', 'CreatedDate'], [status, signers.map((s) => s.fullName).join(', '), signers.map((s) => s.email).join(', '), links.join('\n'), nowIso()]] },
     }).catch(() => {});
   }
 }
@@ -218,6 +222,10 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
   const links = [];
   const results = [];
   for (const signer of signers) {
+    if (!isValidEmail(signer.email)) {
+      results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', code: 'EMAIL_INVALID_RECIPIENT', error: `Email manzil noto‘g‘ri yoki to‘liq emas: ${clean(signer.email)}` });
+      continue;
+    }
     const existing = existingApprovals.find((row) => row.signerId === signer.id);
     const approvalId = existing?.id || randomId('APR');
     const token = signApprovalToken({ approvalId, actNo, signerId: signer.id, email: signer.email });
@@ -248,11 +256,15 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
       });
       results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: 'http' });
     } catch (error) {
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', code: error.code || 'EMAIL_HTTP_FAILED', error: error.message });
+      results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', code: error.code || 'EMAIL_HTTP_FAILED', error: error.message, providerStatus: error.providerStatus || '' });
     }
   }
-  await updateWaitingState(document, signers, links);
-  return { actNo, status: 'Кутилмоқда', approved: 0, total: signersCount, results, provider: 'http', workspaceId: workspace.id, workspaceName: workspace.name, signersSource: 'workspace_signers', signersSynced: signersCount };
+  const sent = results.filter((item) => item.status === 'sent').length;
+  const failed = results.filter((item) => item.status === 'email-failed').length;
+  const approved = results.filter((item) => item.status === 'already-approved').length;
+  const status = sent > 0 || approved > 0 ? 'Кутилмоқда' : 'Email xatosi';
+  await updateWaitingState(document, signers, links, status);
+  return { actNo, status, sent, failed, approved, total: signersCount, results, provider: 'http', workspaceId: workspace.id, workspaceName: workspace.name, signersSource: 'workspace_signers', signersSynced: signersCount };
 }
 
 export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
