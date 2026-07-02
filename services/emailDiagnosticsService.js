@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
-import { getHttpEmailSummary, hasHttpEmailProvider } from './httpEmailService.js';
+import { hasHttpEmailProvider } from './httpEmailService.js';
+import { getEmailProviderTestSummary } from './emailProviderTestService.js';
 
 const USER_KEYS = ['SMTP_' + 'USER', 'GMAIL_' + 'USER'];
 const SECRET_KEYS = ['SMTP_' + 'PASS', 'GMAIL_' + 'APP_' + 'PASSWORD'];
@@ -81,10 +82,7 @@ export function createSafeEmailTransport() {
 }
 
 export async function verifySafeEmailTransport() {
-  if (hasHttpEmailProvider()) {
-    const summary = getHttpEmailSummary();
-    return { ok: true, emailReady: true, ...summary, message: 'HTTP email provider sozlangan.' };
-  }
+  if (hasHttpEmailProvider()) return getEmailProviderTestSummary();
   const cfg = publicConfig();
   try {
     const { transporter, public: pub } = createSafeEmailTransport();
