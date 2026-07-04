@@ -219,7 +219,7 @@ function isDateRow(v){
   if (document.getElementById('segReliableAiRendererScript')) return;
   const script = document.createElement('script');
   script.id = 'segReliableAiRendererScript';
-  script.src = 'js/ai-response-render-fix.js?v=stage9a';
+  script.src = 'js/ai-response-render-fix.js?v=stage9b';
   script.defer = true;
   document.head.appendChild(script);
 })();
