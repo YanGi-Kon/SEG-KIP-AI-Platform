@@ -220,7 +220,8 @@ function injectAiUiStyles() {
 }
 
 function aiStatusLabel() {
-  if (aiStatus.ai === 'configured') return { text: 'AI ONLINE', cls: '' };
+  if (aiStatus.ai === 'online') return { text: 'AI ONLINE', cls: '' };
+  if (aiStatus.ai === 'configured') return { text: 'AI KEY PRESENT', cls: 'demo' };
   if (aiStatus.ai === 'missing_api_key') return { text: 'DEMO MODE', cls: 'demo' };
   if (aiStatus.code) return { text: aiStatus.code, cls: 'error' };
   return { text: 'AI CHECKING', cls: 'demo' };
@@ -238,6 +239,19 @@ function updateAiStatusBadge() {
   const label = aiStatusLabel();
   badge.className = 'seg-ai-status-badge ' + label.cls;
   badge.textContent = label.text + (aiStatus.model ? ' · ' + aiStatus.model : '');
+}
+
+function markAiProviderError(data = {}) {
+  aiStatus = { ai: 'error', code: data.code || 'AI_PROVIDER_ERROR', model: data.model || aiStatus.model || '' };
+  updateAiStatusBadge();
+  if (data.code === 'AI_AUTH_FAILED') {
+    setDashboardAssistantText('AI key mavjud, lekin OpenAI uni qabul qilmadi. Railway Variables ichidagi OPENAI_API_KEY qiymatini yangilang.');
+  }
+}
+
+function markAiOnline(data = {}) {
+  aiStatus = { ai: 'online', model: data.model || aiStatus.model || '', code: '' };
+  updateAiStatusBadge();
 }
 
 function setDashboardAssistantText(text) {
@@ -362,14 +376,18 @@ async function sendAiMessage(message) {
     });
     const data = await readJsonResponse(res);
     if (!res.ok || data.ok === false || data.error) {
+      markAiProviderError(data);
       renderAiHistory(renderAiDiagnostic(data));
       return;
     }
+    markAiOnline(data);
     const answer = data.answer || 'AI жавоб қайтармади.';
     pushAiHistory('assistant', answer);
     renderAiHistory();
   } catch (err) {
-    renderAiHistory(renderAiDiagnostic({ code: 'AI_NETWORK_ERROR', error: 'AI serverga ulanishda xato: ' + (err?.message || 'noma\'lum xato'), recommendedFix: 'Sahifani yangilang yoki Railway deploy loglarini tekshiring.' }));
+    const diagnostic = { code: 'AI_NETWORK_ERROR', error: 'AI serverga ulanishda xato: ' + (err?.message || 'noma\'lum xato'), recommendedFix: 'Sahifani yangilang yoki Railway deploy loglarini tekshiring.' };
+    markAiProviderError(diagnostic);
+    renderAiHistory(renderAiDiagnostic(diagnostic));
   } finally {
     setAiInputDisabled(false);
     document.querySelectorAll('.seg-ai-input input, .assistant .input-row input').forEach(input => { input.value = ''; });
@@ -393,15 +411,19 @@ async function sendAiAnalysis(message) {
     });
     const data = await readJsonResponse(res);
     if (!res.ok || data.ok === false || data.error) {
+      markAiProviderError(data);
       setAiMessage('');
       renderAiHistory(renderAiDiagnostic(data));
       return;
     }
+    markAiOnline(data);
     const answer = data.analysis || 'AI tahlil javobi kelmadi.';
     pushAiHistory('assistant', answer);
     renderAiHistory();
   } catch (err) {
-    renderAiHistory(renderAiDiagnostic({ code: 'AI_ANALYSIS_NETWORK_ERROR', error: 'AI serverga ulanishda xato: ' + (err?.message || 'noma\'lum xato'), recommendedFix: 'Railway deploy loglarini tekshiring.' }));
+    const diagnostic = { code: 'AI_ANALYSIS_NETWORK_ERROR', error: 'AI serverga ulanishda xato: ' + (err?.message || 'noma\'lum xato'), recommendedFix: 'Railway deploy loglarini tekshiring.' };
+    markAiProviderError(diagnostic);
+    renderAiHistory(renderAiDiagnostic(diagnostic));
   } finally {
     setAiInputDisabled(false);
   }
@@ -419,7 +441,7 @@ async function checkAiStatus() {
       setDashboardAssistantText('AI yordamchi demo rejimda. OPENAI_API_KEY qo‘shilgandan keyin real javob beradi.');
     } else if (data.ai === 'configured') {
       const historyNote = aiHistory.length ? ` Avvalgi suhbat tarixi: ${aiHistory.length} ta xabar.` : '';
-      if (aiHistory.length) renderAiHistory(); else setAiMessage('AI yordamchi tayyor. Savolingizni yozing.' + historyNote);
+      if (aiHistory.length) renderAiHistory(); else setAiMessage('AI key mavjud. Tekshirish uchun savol yozing.' + historyNote);
       setDashboardAssistantText('AI yordamchi platforma modullari, Google Sheets va joriy oyna konteksti asosida yordam beradi. Savolingizni yozing.');
     } else {
       setAiMessage(data.message || 'AI holati tekshirilmoqda.');
