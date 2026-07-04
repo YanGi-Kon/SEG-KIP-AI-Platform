@@ -5,57 +5,18 @@ function isDateRow(v){
 
 (function setupCompactAiWidget(){
   const css = `
-    .seg-ai-label{display:none !important;}
-    .seg-ai-status{display:none !important;}
-    .seg-floating-ai .seg-ai-status{display:none !important;}
-    .seg-floating-ai{
-      width:62px !important;
-      height:62px !important;
-      right:18px !important;
-      bottom:18px !important;
-      border-radius:20px !important;
-      padding:3px !important;
-      z-index:10020 !important;
-      background:linear-gradient(135deg,rgba(34,211,238,.95),rgba(16,185,129,.92)) !important;
-      box-shadow:0 0 18px rgba(34,211,238,.46),0 10px 24px rgba(0,0,0,.42) !important;
-    }
-    .seg-floating-ai:hover{
-      transform:translateY(-3px) scale(1.05) !important;
-      box-shadow:0 0 28px rgba(34,211,238,.72),0 16px 34px rgba(0,0,0,.52) !important;
-    }
+    .seg-ai-label,.seg-ai-status,.seg-floating-ai .seg-ai-status{display:none !important;}
+    .seg-floating-ai{width:62px !important;height:62px !important;right:18px !important;bottom:18px !important;border-radius:20px !important;padding:3px !important;z-index:10020 !important;background:linear-gradient(135deg,rgba(34,211,238,.95),rgba(16,185,129,.92)) !important;box-shadow:0 0 18px rgba(34,211,238,.46),0 10px 24px rgba(0,0,0,.42) !important;}
+    .seg-floating-ai:hover{transform:translateY(-3px) scale(1.05) !important;box-shadow:0 0 28px rgba(34,211,238,.72),0 16px 34px rgba(0,0,0,.52) !important;}
     .seg-floating-ai-inner{border-radius:17px !important;}
-    .seg-floating-ai-inner img{object-fit:cover !important; object-position:center top !important;}
-    .seg-floating-ai::after{display:none !important; content:'' !important;}
-    .seg-ai-panel{
-      right:22px !important;
-      bottom:92px !important;
-      width:390px !important;
-      max-width:calc(100vw - 28px) !important;
-      z-index:10010 !important;
-    }
-    .seg-ai-panel-head{position:relative; padding-right:54px !important;}
-    .seg-ai-close{
-      position:absolute;
-      right:14px;
-      top:14px;
-      width:32px;
-      height:32px;
-      border:1px solid rgba(34,211,238,.32);
-      border-radius:12px;
-      background:rgba(2,8,23,.62);
-      color:#eaffff;
-      font-size:18px;
-      line-height:1;
-      cursor:pointer;
-    }
-    .seg-ai-close:hover{background:rgba(34,211,238,.18); color:#67e8f9;}
-    @media(max-width:680px){
-      .seg-floating-ai{width:56px !important;height:56px !important;right:14px !important;bottom:14px !important;border-radius:18px !important;}
-      .seg-floating-ai-inner{border-radius:15px !important;}
-      .seg-ai-panel{right:12px !important;bottom:82px !important;width:calc(100vw - 24px) !important;}
-    }
+    .seg-floating-ai-inner img{object-fit:cover !important;object-position:center top !important;}
+    .seg-floating-ai::after{display:none !important;content:'' !important;}
+    .seg-ai-panel{right:22px !important;bottom:92px !important;width:390px !important;max-width:calc(100vw - 28px) !important;z-index:10010 !important;}
+    .seg-ai-panel-head{position:relative;padding-right:54px !important;}
+    .seg-ai-close{position:absolute;right:14px;top:14px;width:32px;height:32px;border:1px solid rgba(34,211,238,.32);border-radius:12px;background:rgba(2,8,23,.62);color:#eaffff;font-size:18px;line-height:1;cursor:pointer;}
+    .seg-ai-close:hover{background:rgba(34,211,238,.18);color:#67e8f9;}
+    @media(max-width:680px){.seg-floating-ai{width:56px !important;height:56px !important;right:14px !important;bottom:14px !important;border-radius:18px !important;}.seg-floating-ai-inner{border-radius:15px !important;}.seg-ai-panel{right:12px !important;bottom:82px !important;width:calc(100vw - 24px) !important;}}
   `;
-
   function injectStyle(){
     if (document.getElementById('segAiCompactWidgetStyle')) return;
     const style = document.createElement('style');
@@ -63,7 +24,6 @@ function isDateRow(v){
     style.textContent = css;
     document.head.appendChild(style);
   }
-
   function installCloseButton(){
     const panel = document.getElementById('segAiPanel');
     const head = panel?.querySelector('.seg-ai-panel-head');
@@ -73,13 +33,9 @@ function isDateRow(v){
     close.className = 'seg-ai-close';
     close.setAttribute('aria-label', 'AI oynasini yopish');
     close.textContent = '×';
-    close.addEventListener('click', (event) => {
-      event.stopPropagation();
-      panel.classList.remove('open');
-    });
+    close.addEventListener('click', (event) => { event.stopPropagation(); panel.classList.remove('open'); });
     head.appendChild(close);
   }
-
   function setup(){
     injectStyle();
     installCloseButton();
@@ -87,59 +43,36 @@ function isDateRow(v){
       if (event.key === 'Escape') document.getElementById('segAiPanel')?.classList.remove('open');
     });
   }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setup);
-  } else {
-    setup();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
 })();
 
 (function applySanegplatformBranding(){
   const BRAND = 'Sanegplatform';
-  const BRAND_SUB = 'DIGITAL PLATFORM';
   const RE = /SEG KIP AI Platform|SEG KIP Platform|SEG KIP|KIP Digital Platform|KIP Digital Control System/g;
-
-  function renameText(value){
-    return String(value || '').replace(RE, BRAND);
-  }
-
+  const renameText = (value) => String(value || '').replace(RE, BRAND);
   function setText(selector, text){
     const node = document.querySelector(selector);
     if (node && node.textContent !== text) node.textContent = text;
   }
-
   function applyBranding(){
-    document.title = renameText(document.title || 'Sanegplatform');
-
+    document.title = renameText(document.title || BRAND);
     setText('.brand .logo', 'SANEG');
     setText('.brand h1', BRAND);
-    setText('.brand p', BRAND_SUB);
-
+    setText('.brand p', 'DIGITAL PLATFORM');
     const topTitle = document.querySelector('.topbar h2');
     if (topTitle) topTitle.textContent = renameText(topTitle.textContent || BRAND);
-
     document.querySelectorAll('.side-footer').forEach((node) => {
       node.innerHTML = '<b>СП ООО “SANOAT ENERGETIKA GURUHI”</b><br>ТПП “АНДИЖАН” · Sanegplatform';
     });
-
-    document.querySelectorAll('.assistant-badge h3, .seg-ai-panel-head h3').forEach((node) => {
-      node.textContent = 'Sanegplatform Assistant';
-    });
-    document.querySelectorAll('.seg-ai-panel-head p').forEach((node) => {
-      node.textContent = 'Industrial AI Engineer · Sanegplatform';
-    });
-    document.querySelectorAll('.assistant-badge p').forEach((node) => {
-      node.textContent = 'Industrial AI Engineer · Sanegplatform';
-    });
-
+    document.querySelectorAll('.assistant-badge h3, .seg-ai-panel-head h3').forEach((node) => { node.textContent = 'Sanegplatform Assistant'; });
+    document.querySelectorAll('.assistant-badge p, .seg-ai-panel-head p').forEach((node) => { node.textContent = 'Industrial AI Engineer · Sanegplatform'; });
     document.querySelectorAll('[onclick]').forEach((node) => {
       const current = node.getAttribute('onclick') || '';
       const next = renameText(current);
       if (next !== current) node.setAttribute('onclick', next);
     });
   }
-
   function wrapTitleFunction(name){
     const original = window[name];
     if (typeof original !== 'function' || original.__sanegBrandWrapped) return;
@@ -152,49 +85,13 @@ function isDateRow(v){
     wrapped.__sanegBrandWrapped = true;
     window[name] = wrapped;
   }
-
   function setup(){
     applyBranding();
-    wrapTitleFunction('setTopbar');
-    wrapTitleFunction('openModulePage');
-    wrapTitleFunction('openDashboard');
-    wrapTitleFunction('openHomeDashboard');
-    wrapTitleFunction('openUlchovVositalari');
-    const observer = new MutationObserver(applyBranding);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    ['setTopbar','openModulePage','openDashboard','openHomeDashboard','openUlchovVositalari'].forEach(wrapTitleFunction);
+    new MutationObserver(applyBranding).observe(document.body, { childList:true, subtree:true });
   }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setup);
-  } else {
-    setup();
-  }
-})();
-
-(function preventActsLegacyCacheLeak(){
-  const hiddenLegacyKeys = ['acts_service_account', 'seg_kip_admin_jwt'];
-
-  function clearHiddenLegacyActsSettings(){
-    hiddenLegacyKeys.forEach((key) => {
-      try { localStorage.removeItem(key); } catch (_) {}
-      try { sessionStorage.removeItem(key); } catch (_) {}
-    });
-  }
-
-  function install(){
-    const original = window.openModulePage;
-    if (typeof original !== 'function' || original.__actsLegacyCacheGuard) return;
-    function guardedOpenModulePage(moduleName, ...args){
-      if (moduleName === 'acts') clearHiddenLegacyActsSettings();
-      return original.call(this, moduleName, ...args);
-    }
-    guardedOpenModulePage.__actsLegacyCacheGuard = true;
-    window.openModulePage = guardedOpenModulePage;
-  }
-
-  clearHiddenLegacyActsSettings();
-  install();
-  window.clearActsHiddenLegacySettings = clearHiddenLegacyActsSettings;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
 })();
 
 (function injectUlchovSheetsModule(){
@@ -209,7 +106,6 @@ function isDateRow(v){
       doc.head.appendChild(script);
     } catch (_) {}
   }
-
   function bind(){
     const frame = document.getElementById('claUlchovFrame');
     if (!frame) return;
@@ -219,18 +115,9 @@ function isDateRow(v){
     }
     inject(frame);
   }
-
-  function setup(){
-    bind();
-    const observer = new MutationObserver(bind);
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setup);
-  } else {
-    setup();
-  }
+  function setup(){ bind(); new MutationObserver(bind).observe(document.body, { childList:true, subtree:true }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
 })();
 
 (function injectActsWorkspaceModules(){
@@ -242,7 +129,6 @@ function isDateRow(v){
     script.defer = true;
     doc.head.appendChild(script);
   }
-
   function inject(frame){
     try {
       const doc = frame.contentDocument || frame.contentWindow?.document;
@@ -252,7 +138,6 @@ function isDateRow(v){
       appendScript(doc, 'segActsWorkspaceDocumentsScript', '/js/acts-workspace-documents.js?v=stage8e');
     } catch (_) {}
   }
-
   function bind(){
     const frame = document.getElementById('genericModuleFrame');
     if (!frame) return;
@@ -262,18 +147,9 @@ function isDateRow(v){
     }
     inject(frame);
   }
-
-  function setup(){
-    bind();
-    const observer = new MutationObserver(bind);
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setup);
-  } else {
-    setup();
-  }
+  function setup(){ bind(); new MutationObserver(bind).observe(document.body, { childList:true, subtree:true }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
 })();
 
 (function loadReliableAiResponseRenderer(){
@@ -286,10 +162,11 @@ function isDateRow(v){
 })();
 
 (function loadEntryLoginGate(){
-  if (document.getElementById('segEntryLoginScript')) return;
+  const existing = document.getElementById('segEntryLoginScript');
+  if (existing) existing.remove();
   const script = document.createElement('script');
   script.id = 'segEntryLoginScript';
-  script.src = 'js/app-login-ui.js?v=stage7c';
+  script.src = 'js/app-login-ui.js?v=stage7e';
   script.async = false;
   script.defer = true;
   document.head.appendChild(script);
@@ -299,16 +176,7 @@ function isDateRow(v){
   function removeExistingUi(){
     document.querySelectorAll('.seg-workspace-menu, #workspaceSettingsPage, #workspaceSignersPanel').forEach((node) => node.remove());
   }
-
-  function setup(){
-    removeExistingUi();
-    const observer = new MutationObserver(removeExistingUi);
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setup);
-  } else {
-    setup();
-  }
+  function setup(){ removeExistingUi(); new MutationObserver(removeExistingUi).observe(document.body, { childList:true, subtree:true }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
 })();
