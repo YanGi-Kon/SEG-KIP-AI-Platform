@@ -7,7 +7,6 @@ import { Server } from "socket.io";
 
 import healthRouter from "./routes/health.js";
 import chatRouter from "./routes/chat.js";
-import analysisRouter from "./routes/analysis.js";
 import projectRouter from "./routes/project.js";
 import baseRouter from "./routes/base.js";
 import workbookRouter from "./routes/workbook.js";
@@ -39,7 +38,6 @@ app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/workspaces", workspacesRouter);
 app.use("/api/chat", chatRouter);
-app.use("/api/analysis", analysisRouter);
 app.use("/api/project", projectRouter);
 app.use("/api/base", baseRouter);
 app.use("/api/workbook", workbookRouter);
