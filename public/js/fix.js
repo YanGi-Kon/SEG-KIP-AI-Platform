@@ -3,6 +3,10 @@ function isDateRow(v){
   return v.includes('-//-') || v.includes('//') || /^\d{2}\.\d{2}\.\d{4}$/.test(v);
 }
 
+function isSanegLoginActive(){
+  return Boolean(document.getElementById('sanegLoginGate')) || document.body?.classList?.contains('saneg-login-active');
+}
+
 (function setupCompactAiWidget(){
   const css = `
     .seg-ai-label,.seg-ai-status,.seg-floating-ai .seg-ai-status{display:none !important;}
@@ -110,6 +114,7 @@ function isDateRow(v){
 (function injectUlchovSheetsModule(){
   function inject(frame){
     try {
+      if (isSanegLoginActive()) return;
       const doc = frame.contentDocument || frame.contentWindow?.document;
       if (!doc || doc.getElementById('segUlchovSheetsScript')) return;
       const script = doc.createElement('script');
@@ -120,6 +125,7 @@ function isDateRow(v){
     } catch (_) {}
   }
   function bind(){
+    if (isSanegLoginActive()) return;
     const frame = document.getElementById('claUlchovFrame');
     if (!frame) return;
     if (frame.dataset.ulchovSheetsBound !== 'true') {
@@ -128,7 +134,11 @@ function isDateRow(v){
     }
     inject(frame);
   }
-  function setup(){ bind(); new MutationObserver(bind).observe(document.body, { childList:true, subtree:true }); }
+  function setup(){
+    bind();
+    const observer = new MutationObserver(() => { if (!isSanegLoginActive()) bind(); });
+    observer.observe(document.body, { childList:true, subtree:true });
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
   else setup();
 })();
@@ -144,6 +154,7 @@ function isDateRow(v){
   }
   function inject(frame){
     try {
+      if (isSanegLoginActive()) return;
       const doc = frame.contentDocument || frame.contentWindow?.document;
       const src = String(frame.getAttribute('src') || frame.contentWindow?.location?.pathname || '');
       if (!doc || !src.includes('acts')) return;
@@ -152,6 +163,7 @@ function isDateRow(v){
     } catch (_) {}
   }
   function bind(){
+    if (isSanegLoginActive()) return;
     const frame = document.getElementById('genericModuleFrame');
     if (!frame) return;
     if (frame.dataset.actsWorkspaceModulesBound !== 'true') {
@@ -160,7 +172,11 @@ function isDateRow(v){
     }
     inject(frame);
   }
-  function setup(){ bind(); new MutationObserver(bind).observe(document.body, { childList:true, subtree:true }); }
+  function setup(){
+    bind();
+    const observer = new MutationObserver(() => { if (!isSanegLoginActive()) bind(); });
+    observer.observe(document.body, { childList:true, subtree:true });
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
   else setup();
 })();
@@ -178,7 +194,7 @@ function isDateRow(v){
   document.querySelectorAll('#segEntryLoginScript,#sanegLoginGateScript').forEach((node) => node.remove());
   const script = document.createElement('script');
   script.id = 'sanegLoginGateScript';
-  script.src = 'js/saneg-login-gate.js?v=stage1b';
+  script.src = 'js/saneg-login-gate.js?v=stage1c';
   script.async = false;
   script.defer = true;
   document.head.appendChild(script);
@@ -186,9 +202,14 @@ function isDateRow(v){
 
 (function removeWorkspaceSettingsUi(){
   function removeExistingUi(){
+    if (isSanegLoginActive()) return;
     document.querySelectorAll('.seg-workspace-menu, #workspaceSettingsPage, #workspaceSignersPanel').forEach((node) => node.remove());
   }
-  function setup(){ removeExistingUi(); new MutationObserver(removeExistingUi).observe(document.body, { childList:true, subtree:true }); }
+  function setup(){
+    removeExistingUi();
+    const observer = new MutationObserver(() => { if (!isSanegLoginActive()) removeExistingUi(); });
+    observer.observe(document.body, { childList:true, subtree:true });
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
   else setup();
 })();
