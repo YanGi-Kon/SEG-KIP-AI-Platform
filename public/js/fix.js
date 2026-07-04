@@ -23,24 +23,7 @@ function isDateRow(v){
     }
     .seg-floating-ai-inner{border-radius:17px !important;}
     .seg-floating-ai-inner img{object-fit:cover !important; object-position:center top !important;}
-    .seg-floating-ai::after{
-      content:'AI';
-      position:absolute;
-      right:-4px;
-      top:-7px;
-      min-width:24px;
-      height:18px;
-      padding:0 5px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-size:10px;
-      font-weight:900;
-      color:#001018;
-      background:#22d3ee;
-      border:2px solid #03111f;
-      box-shadow:0 0 12px rgba(34,211,238,.65);
-    }
+    .seg-floating-ai::after{display:none !important; content:'' !important;}
     .seg-ai-panel{
       right:22px !important;
       bottom:92px !important;
