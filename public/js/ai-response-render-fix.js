@@ -31,13 +31,53 @@
     return next;
   }
 
+  function ensureChat(){
+    const box = document.querySelector('.seg-ai-msg');
+    if (!box) return null;
+    let chat = box.querySelector('.seg-ai-chat');
+    if (!chat) {
+      box.innerHTML = '<div class="seg-ai-chat"></div>';
+      chat = box.querySelector('.seg-ai-chat');
+    }
+    return chat;
+  }
+
+  function scrollBottom(chat){
+    if (!chat) return;
+    setTimeout(() => { chat.scrollTop = chat.scrollHeight; }, 20);
+  }
+
   function draw(h, extra){
     const box = document.querySelector('.seg-ai-msg');
     if (!box) return;
     const rows = (h || hist()).slice(-10).map(m => '<div class="seg-ai-bubble '+esc(m.role)+'">'+esc(m.content)+'</div>').join('');
     box.innerHTML = '<div class="seg-ai-chat">' + rows + (extra || '') + '</div>';
-    const chat = box.querySelector('.seg-ai-chat');
-    if (chat) setTimeout(() => { chat.scrollTop = chat.scrollHeight; }, 20);
+    scrollBottom(box.querySelector('.seg-ai-chat'));
+  }
+
+  function appendAssistant(text){
+    const chat = ensureChat();
+    if (!chat) return;
+    const bubble = document.createElement('div');
+    bubble.className = 'seg-ai-bubble assistant seg-ai-forced-answer';
+    bubble.textContent = String(text || '').trim() || 'AI javob bo‘sh qaytdi.';
+    chat.appendChild(bubble);
+    scrollBottom(chat);
+  }
+
+  function forceAnswer(text){
+    const answer = String(text || '').trim() || 'AI javob bo‘sh qaytdi.';
+    const stamp = Date.now();
+    window.__segLastAiAnswerStamp = stamp;
+    appendAssistant(answer);
+    [120, 450, 900].forEach(delay => {
+      setTimeout(() => {
+        if (window.__segLastAiAnswerStamp !== stamp) return;
+        const chat = document.querySelector('.seg-ai-msg .seg-ai-chat');
+        const existing = Array.from(chat?.querySelectorAll('.seg-ai-bubble.assistant') || []).some(n => n.textContent.trim() === answer);
+        if (!existing) appendAssistant(answer);
+      }, delay);
+    });
   }
 
   function card(d){
@@ -90,9 +130,12 @@
         draw(h, card(data));
         return;
       }
-      h = add('assistant', String(data.answer || '').trim() || 'AI javob bo‘sh qaytdi.');
+      const answer = String(data.answer || '').trim() || 'AI javob bo‘sh qaytdi.';
+      h = add('assistant', answer);
       badge('AI ONLINE', data.model || '');
       draw(h);
+      forceAnswer(answer);
+      console.log('[AI_RENDER_AFTER]', { assistantBubbles: document.querySelectorAll('.seg-ai-bubble.assistant').length, hasAnswerText: document.querySelector('.seg-ai-msg')?.innerText?.includes(answer.slice(0, 20)) });
     } catch (e) {
       const d = { code:'AI_NETWORK_ERROR', error:'AI serverga ulanishda xato: ' + (e?.message || 'noma’lum xato') };
       badge(d.code, '');
