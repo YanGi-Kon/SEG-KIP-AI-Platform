@@ -200,6 +200,16 @@ function isSanegLoginActive(){
   document.head.appendChild(script);
 })();
 
+(function loadSanegLoginPolish(){
+  if (document.getElementById('sanegLoginPolishScript')) return;
+  const script = document.createElement('script');
+  script.id = 'sanegLoginPolishScript';
+  script.src = 'js/saneg-login-polish.js?v=polish1a';
+  script.async = false;
+  script.defer = true;
+  document.head.appendChild(script);
+})();
+
 (function removeWorkspaceSettingsUi(){
   function removeExistingUi(){
     if (isSanegLoginActive()) return;
