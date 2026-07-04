@@ -215,6 +215,15 @@ function isDateRow(v){
   }
 })();
 
+(function loadReliableAiResponseRenderer(){
+  if (document.getElementById('segReliableAiRendererScript')) return;
+  const script = document.createElement('script');
+  script.id = 'segReliableAiRendererScript';
+  script.src = 'js/ai-response-render-fix.js?v=stage9a';
+  script.defer = true;
+  document.head.appendChild(script);
+})();
+
 (function loadEntryLoginGate(){
   if (document.getElementById('segEntryLoginScript')) return;
   const script = document.createElement('script');
