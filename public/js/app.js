@@ -22,6 +22,11 @@ const AI_VISIBLE_TEXT_LIMIT = 10000;
 let activeModuleName = 'journal';
 let lastServerSheetUrl = '';
 let aiHistory = loadAiHistory();
+let aiStatus = { ai: 'checking', model: '', code: '' };
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
+}
 
 function normalizeSpreadsheetUrl(value) {
   const raw = String(value || '').trim();
@@ -164,7 +169,7 @@ function openModulePage(moduleName, title) {
   const frame = document.getElementById('genericModuleFrame');
   if (frame) frame.src = src;
   if (page) page.classList.add('active');
-  const menuLabels = {journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'ТО ЖУРНАЛ', replacement:'АЛМАШИШ ЖУРНАЛИ'};
+  const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'ТО ЖУРНАЛ', replacement:'АЛМАШИШ ЖУРНАЛИ' };
   setActiveMenu(menuLabels[moduleName] || 'ЖУРНАЛ УЧЕТА');
   setTopbar(title || 'SEG KIP AI Platform — Модул', 'Модул алоҳида HTML файлдан юкланади');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -206,18 +211,69 @@ function getAiPanelMessage() {
   return document.querySelector('.seg-ai-msg');
 }
 
+function injectAiUiStyles() {
+  if (document.getElementById('segAiAssistantUxStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'segAiAssistantUxStyles';
+  style.textContent = '.seg-ai-status-badge{display:inline-flex;margin-top:8px;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900;border:1px solid rgba(34,211,238,.35);color:#67e8f9;background:rgba(34,211,238,.12)}.seg-ai-status-badge.demo{color:#fde68a;border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.12)}.seg-ai-status-badge.error{color:#fecaca;border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.14)}.seg-ai-chat{display:flex;flex-direction:column;gap:9px;max-height:310px;overflow:auto;padding-right:4px}.seg-ai-bubble{border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.45;white-space:pre-wrap}.seg-ai-bubble.user{align-self:flex-end;background:rgba(34,211,238,.16);border:1px solid rgba(34,211,238,.3);color:#dffbff;max-width:92%}.seg-ai-bubble.assistant{align-self:flex-start;background:rgba(15,23,42,.68);border:1px solid rgba(148,163,184,.22);color:#e5f4ff;max-width:96%}.ai-diagnostic-card{border:1px solid rgba(239,68,68,.35);background:rgba(127,29,29,.18);border-radius:14px;padding:12px;color:#fecaca;font-size:13px;line-height:1.45}.ai-diagnostic-title{font-weight:900;color:#fff;margin-bottom:7px}.ai-diagnostic-fix{margin-top:9px;padding:9px;border-radius:10px;background:rgba(15,23,42,.6);color:#fde68a}.seg-ai-clear{margin-left:8px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#dffbff;border-radius:9px;padding:5px 8px;font-size:11px;font-weight:800;cursor:pointer}.assistant .ai-message.ready{border-color:rgba(34,211,238,.25);background:rgba(34,211,238,.08)}';
+  document.head.appendChild(style);
+}
+
+function aiStatusLabel() {
+  if (aiStatus.ai === 'configured') return { text: 'AI ONLINE', cls: '' };
+  if (aiStatus.ai === 'missing_api_key') return { text: 'DEMO MODE', cls: 'demo' };
+  if (aiStatus.code) return { text: aiStatus.code, cls: 'error' };
+  return { text: 'AI CHECKING', cls: 'demo' };
+}
+
+function updateAiStatusBadge() {
+  const head = document.querySelector('.seg-ai-panel-head');
+  if (!head) return;
+  let badge = head.querySelector('.seg-ai-status-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'seg-ai-status-badge';
+    head.appendChild(badge);
+  }
+  const label = aiStatusLabel();
+  badge.className = 'seg-ai-status-badge ' + label.cls;
+  badge.textContent = label.text + (aiStatus.model ? ' · ' + aiStatus.model : '');
+}
+
+function setDashboardAssistantText(text) {
+  const dashboardMsg = document.querySelector('.assistant .ai-message');
+  if (!dashboardMsg) return;
+  dashboardMsg.classList.add('ready');
+  dashboardMsg.textContent = text;
+}
+
 function setAiMessage(text) {
   const panelMsg = getAiPanelMessage();
   if (panelMsg) panelMsg.textContent = text;
 }
 
+function renderAiHistory(extraHtml = '') {
+  const panelMsg = getAiPanelMessage();
+  if (!panelMsg) return;
+  const recent = aiHistory.slice(-8);
+  if (!recent.length && !extraHtml) return;
+  panelMsg.innerHTML = '<div class="seg-ai-chat">' + recent.map(msg => '<div class="seg-ai-bubble '+msg.role+'">'+escapeHtml(msg.content)+'</div>').join('') + extraHtml + '</div>';
+  const chat = panelMsg.querySelector('.seg-ai-chat');
+  if (chat) chat.scrollTop = chat.scrollHeight;
+}
+
+function renderAiDiagnostic(data) {
+  const code = data?.code || data?.status || 'AI_PROVIDER_ERROR';
+  const error = data?.error || data?.details || data?.message || 'AI yordamchi javob qaytara olmadi.';
+  const fix = data?.recommendedFix || 'Railway Variables, OpenAI API key, billing/quota va deploy loglarini tekshiring.';
+  return '<div class="ai-diagnostic-card"><div class="ai-diagnostic-title">AI yordamchi xatosi</div><div><b>Kod:</b> '+escapeHtml(code)+'</div><div><b>Sabab:</b> '+escapeHtml(error)+'</div><div class="ai-diagnostic-fix"><b>Yechim:</b> '+escapeHtml(fix)+'</div></div>';
+}
+
 function setAiInputDisabled(disabled) {
-  const aiInput = document.querySelector('.seg-ai-input input');
-  const aiButton = document.querySelector('#segAiSendButton');
-  const analyzeButton = document.querySelector('#segAiAnalyzeButton');
-  if (aiInput) aiInput.disabled = disabled;
-  if (aiButton) aiButton.disabled = disabled;
-  if (analyzeButton) analyzeButton.disabled = disabled;
+  const inputs = document.querySelectorAll('.seg-ai-input input, .assistant .input-row input');
+  const buttons = document.querySelectorAll('#segAiSendButton, #segAiAnalyzeButton, .assistant .input-row button');
+  inputs.forEach(input => { input.disabled = disabled; });
+  buttons.forEach(button => { button.disabled = disabled; });
 }
 
 function getVisibleFrame() {
@@ -229,26 +285,20 @@ function getVisibleFrame() {
 }
 
 function normalizeVisibleText(text, limit = AI_VISIBLE_TEXT_LIMIT) {
-  return String(text || '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, limit);
+  return String(text || '').replace(/\s+/g, ' ').trim().slice(0, limit);
 }
 
 function getFrameSnapshot(frame) {
   try {
     const doc = frame?.contentDocument || frame?.contentWindow?.document;
     if (!doc) return { visibleText: '', tableText: '' };
-
-    const tableRows = Array.from(doc.querySelectorAll('table tr')).slice(0, 250).map((row) => {
-      return Array.from(row.querySelectorAll('th,td')).map((cell) => cell.textContent.trim()).filter(Boolean).join(' | ');
+    const tableRows = Array.from(doc.querySelectorAll('table tr')).slice(0, 250).map(row => {
+      return Array.from(row.querySelectorAll('th,td')).map(cell => cell.textContent.trim()).filter(Boolean).join(' | ');
     }).filter(Boolean);
-
     const cardTexts = Array.from(doc.querySelectorAll('[data-ai-context], .card, .module-card, .stat, .row, .item, .device, .table-row'))
       .slice(0, 120)
-      .map((el) => el.textContent.trim())
+      .map(el => el.textContent.trim())
       .filter(Boolean);
-
     return {
       visibleText: normalizeVisibleText(doc.body?.innerText || ''),
       tableText: normalizeVisibleText([...tableRows, ...cardTexts].join('\n')),
@@ -258,13 +308,22 @@ function getFrameSnapshot(frame) {
   }
 }
 
+function readWorkspaceMeta() {
+  const get = (key) => {
+    try { return localStorage.getItem(key) || sessionStorage.getItem(key) || ''; } catch (_) { return ''; }
+  };
+  return {
+    workspaceId: get('seg_kip_selected_workspace_id').slice(0, 80),
+    workspaceName: get('seg_kip_selected_workspace_name').slice(0, 160),
+  };
+}
+
 function getCurrentPageContext() {
   const topTitle = document.querySelector('.topbar h2')?.textContent?.trim() || document.title || '';
   const topSubtitle = document.querySelector('.topbar p')?.textContent?.trim() || '';
   const activeMenu = document.querySelector('.menu-item.active .menu-title')?.textContent?.trim() || '';
   const visibleFrame = getVisibleFrame();
   const snapshot = getFrameSnapshot(visibleFrame);
-
   return {
     module: activeModuleName || 'unknown',
     title: topTitle,
@@ -275,17 +334,22 @@ function getCurrentPageContext() {
     path: window.location.pathname,
     visibleText: snapshot.visibleText,
     tableText: snapshot.tableText,
+    ...readWorkspaceMeta(),
   };
+}
+
+async function readJsonResponse(res) {
+  const text = await res.text();
+  if (!text) return {};
+  try { return JSON.parse(text); } catch (_) { return { error: text }; }
 }
 
 async function sendAiMessage(message) {
   const text = String(message || '').trim();
   if (!text) return;
-
   pushAiHistory('user', text);
   setAiInputDisabled(true);
-  setAiMessage('AI жавоб тайёрлаяпти...');
-
+  renderAiHistory('<div class="seg-ai-bubble assistant">AI жавоб тайёрлаяпти...</div>');
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
@@ -296,25 +360,25 @@ async function sendAiMessage(message) {
         currentPage: getCurrentPageContext(),
       }),
     });
-    const data = await res.json().catch(() => ({}));
-    const answer = data.answer || data.error || data.details || 'AI жавоб қайтармади.';
+    const data = await readJsonResponse(res);
+    if (!res.ok || data.ok === false || data.error) {
+      renderAiHistory(renderAiDiagnostic(data));
+      return;
+    }
+    const answer = data.answer || 'AI жавоб қайтармади.';
     pushAiHistory('assistant', answer);
-    setAiMessage(answer);
+    renderAiHistory();
   } catch (err) {
-    setAiMessage('AI серверга уланишда хато: ' + (err?.message || 'номаълум хато'));
+    renderAiHistory(renderAiDiagnostic({ code: 'AI_NETWORK_ERROR', error: 'AI serverga ulanishda xato: ' + (err?.message || 'noma\'lum xato'), recommendedFix: 'Sahifani yangilang yoki Railway deploy loglarini tekshiring.' }));
   } finally {
     setAiInputDisabled(false);
-    const aiInput = document.querySelector('.seg-ai-input input');
-    if (aiInput) {
-      aiInput.value = '';
-      aiInput.focus();
-    }
+    document.querySelectorAll('.seg-ai-input input, .assistant .input-row input').forEach(input => { input.value = ''; });
+    document.querySelector('.seg-ai-input input')?.focus();
   }
 }
 
 async function sendAiAnalysis(message) {
-  const text = String(message || '').trim() ||
-    'Iltimos, loyiha fayllari va Google Sheets ma\'lumotlari asosida umumiy tahlil va taklif bering.';
+  const text = String(message || '').trim() || 'Iltimos, loyiha fayllari va Google Sheets ma\'lumotlari asosida umumiy tahlil va taklif bering.';
   setAiInputDisabled(true);
   setAiMessage('AI tahlil qilinyapti...');
   try {
@@ -327,10 +391,17 @@ async function sendAiAnalysis(message) {
         currentPage: getCurrentPageContext(),
       }),
     });
-    const data = await res.json().catch(() => ({}));
-    setAiMessage(data.analysis || data.error || data.details || 'AI tahlil javobi kelmadi.');
+    const data = await readJsonResponse(res);
+    if (!res.ok || data.ok === false || data.error) {
+      setAiMessage('');
+      renderAiHistory(renderAiDiagnostic(data));
+      return;
+    }
+    const answer = data.analysis || 'AI tahlil javobi kelmadi.';
+    pushAiHistory('assistant', answer);
+    renderAiHistory();
   } catch (err) {
-    setAiMessage('AI serverga ulanishda xato: ' + (err?.message || 'noma\'lum xato'));
+    renderAiHistory(renderAiDiagnostic({ code: 'AI_ANALYSIS_NETWORK_ERROR', error: 'AI serverga ulanishda xato: ' + (err?.message || 'noma\'lum xato'), recommendedFix: 'Railway deploy loglarini tekshiring.' }));
   } finally {
     setAiInputDisabled(false);
   }
@@ -339,34 +410,61 @@ async function sendAiAnalysis(message) {
 async function checkAiStatus() {
   try {
     const res = await fetch('/api/chat');
-    const data = await res.json().catch(() => ({}));
+    const data = await readJsonResponse(res);
+    aiStatus = { ai: data.ai || 'unknown', model: data.model || '', code: data.code || '' };
+    updateAiStatusBadge();
     if (data.ai === 'missing_api_key') {
-      setAiMessage('AI yordamchi ulandi, lekin Railway Variables ichida OPENAI_API_KEY hali yo‘q. Kalit qo‘shilgandan keyin real ChatGPT javob beradi.');
+      const msg = data.message || 'AI yordamchi demo rejimda. Railway Variables ichida OPENAI_API_KEY qo‘shing va Redeploy qiling.';
+      setAiMessage(msg);
+      setDashboardAssistantText('AI yordamchi demo rejimda. OPENAI_API_KEY qo‘shilgandan keyin real javob beradi.');
     } else if (data.ai === 'configured') {
       const historyNote = aiHistory.length ? ` Avvalgi suhbat tarixi: ${aiHistory.length} ta xabar.` : '';
-      setAiMessage('AI yordamchi tayyor. Savolingizni yozing.' + historyNote);
+      if (aiHistory.length) renderAiHistory(); else setAiMessage('AI yordamchi tayyor. Savolingizni yozing.' + historyNote);
+      setDashboardAssistantText('AI yordamchi platforma modullari, Google Sheets va joriy oyna konteksti asosida yordam beradi. Savolingizni yozing.');
+    } else {
+      setAiMessage(data.message || 'AI holati tekshirilmoqda.');
     }
   } catch (_) {
+    aiStatus = { ai: 'error', code: 'AI_STATUS_ERROR', model: '' };
+    updateAiStatusBadge();
     setAiMessage('AI yordamchi server bilan bog‘lana olmadi. Sahifani yangilang yoki deploy loglarini tekshiring.');
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function bindAiUi() {
+  injectAiUiStyles();
   const aiInput = document.querySelector('.seg-ai-input input');
   const aiButton = document.querySelector('#segAiSendButton');
   const analyzeButton = document.querySelector('#segAiAnalyzeButton');
-
+  const dashInput = document.querySelector('.assistant .input-row input');
+  const dashButton = document.querySelector('.assistant .input-row button');
   if (aiButton && aiInput) {
     aiButton.addEventListener('click', () => sendAiMessage(aiInput.value));
-    aiInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') sendAiMessage(aiInput.value);
-    });
+    aiInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendAiMessage(aiInput.value); });
   }
-
-  if (analyzeButton && aiInput) {
-    analyzeButton.addEventListener('click', () => sendAiAnalysis(aiInput.value));
+  if (dashButton && dashInput) {
+    dashButton.addEventListener('click', () => sendAiMessage(dashInput.value));
+    dashInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendAiMessage(dashInput.value); });
   }
+  if (analyzeButton && aiInput) analyzeButton.addEventListener('click', () => sendAiAnalysis(aiInput.value));
+  const head = document.querySelector('.seg-ai-panel-head');
+  if (head && !head.querySelector('.seg-ai-clear')) {
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'seg-ai-clear';
+    clear.textContent = 'Tarixni tozalash';
+    clear.addEventListener('click', clearAiHistory);
+    head.appendChild(clear);
+  }
+  document.querySelectorAll('.assistant .quick button').forEach((button) => {
+    if (button.dataset.aiQuickBound === 'true') return;
+    button.dataset.aiQuickBound = 'true';
+    button.addEventListener('click', () => sendAiMessage(button.textContent.trim()));
+  });
+}
 
+document.addEventListener('DOMContentLoaded', () => {
+  bindAiUi();
   checkAiStatus();
 });
 
