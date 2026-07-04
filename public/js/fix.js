@@ -95,6 +95,82 @@ function isDateRow(v){
   }
 })();
 
+(function applySanegplatformBranding(){
+  const BRAND = 'Sanegplatform';
+  const BRAND_SUB = 'DIGITAL PLATFORM';
+  const RE = /SEG KIP AI Platform|SEG KIP Platform|SEG KIP|KIP Digital Platform|KIP Digital Control System/g;
+
+  function renameText(value){
+    return String(value || '').replace(RE, BRAND);
+  }
+
+  function setText(selector, text){
+    const node = document.querySelector(selector);
+    if (node && node.textContent !== text) node.textContent = text;
+  }
+
+  function applyBranding(){
+    document.title = renameText(document.title || 'Sanegplatform');
+
+    setText('.brand .logo', 'SANEG');
+    setText('.brand h1', BRAND);
+    setText('.brand p', BRAND_SUB);
+
+    const topTitle = document.querySelector('.topbar h2');
+    if (topTitle) topTitle.textContent = renameText(topTitle.textContent || BRAND);
+
+    document.querySelectorAll('.side-footer').forEach((node) => {
+      node.innerHTML = '<b>СП ООО “SANOAT ENERGETIKA GURUHI”</b><br>ТПП “АНДИЖАН” · Sanegplatform';
+    });
+
+    document.querySelectorAll('.assistant-badge h3, .seg-ai-panel-head h3').forEach((node) => {
+      node.textContent = 'Sanegplatform Assistant';
+    });
+    document.querySelectorAll('.seg-ai-panel-head p').forEach((node) => {
+      node.textContent = 'Industrial AI Engineer · Sanegplatform';
+    });
+    document.querySelectorAll('.assistant-badge p').forEach((node) => {
+      node.textContent = 'Industrial AI Engineer · Sanegplatform';
+    });
+
+    document.querySelectorAll('[onclick]').forEach((node) => {
+      const current = node.getAttribute('onclick') || '';
+      const next = renameText(current);
+      if (next !== current) node.setAttribute('onclick', next);
+    });
+  }
+
+  function wrapTitleFunction(name){
+    const original = window[name];
+    if (typeof original !== 'function' || original.__sanegBrandWrapped) return;
+    const wrapped = function(...args){
+      if (typeof args[1] === 'string') args[1] = renameText(args[1]);
+      const result = original.apply(this, args);
+      setTimeout(applyBranding, 0);
+      return result;
+    };
+    wrapped.__sanegBrandWrapped = true;
+    window[name] = wrapped;
+  }
+
+  function setup(){
+    applyBranding();
+    wrapTitleFunction('setTopbar');
+    wrapTitleFunction('openModulePage');
+    wrapTitleFunction('openDashboard');
+    wrapTitleFunction('openHomeDashboard');
+    wrapTitleFunction('openUlchovVositalari');
+    const observer = new MutationObserver(applyBranding);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
+})();
+
 (function preventActsLegacyCacheLeak(){
   const hiddenLegacyKeys = ['acts_service_account', 'seg_kip_admin_jwt'];
 
