@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
 import http from "http";
+import { readFileSync } from "node:fs";
 import { Server } from "socket.io";
 
 import healthRouter from "./routes/health.js";
@@ -26,13 +27,47 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 const PORT = process.env.PORT || 3000;
+const indexHtmlPath = new URL("./public/index.html", import.meta.url);
 
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors());
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: false, limit: "2mb" }));
-app.use(express.static("public"));
+
+app.use((req, res, next) => {
+  if (req.path === "/" || req.path.endsWith(".html") || req.path.endsWith(".js")) {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+  }
+  next();
+});
+
+app.get("/", (_req, res, next) => {
+  try {
+    const html = readFileSync(indexHtmlPath, "utf8");
+    const loginGateScript = '<script id="sanegLoginGateRootScript" src="/js/saneg-login-gate.js?v=root1a" defer></script>';
+    const safeHtml = html.includes("sanegLoginGateRootScript")
+      ? html
+      : html.replace("</body>", `${loginGateScript}\n</body>`);
+    res.type("html").send(safeHtml);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.use(express.static("public", {
+  etag: false,
+  maxAge: 0,
+  setHeaders(res, path) {
+    if (path.endsWith(".html") || path.endsWith(".js")) {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+    }
+  },
+}));
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
@@ -61,7 +96,7 @@ async function startServer() {
 
   server.listen(PORT, () => {
     const aiReady = Boolean(process.env.OPENAI_API_KEY);
-    console.log(`SEG KIP AI Platform integrated: http://localhost:${PORT}`);
+    console.log(`Sanegplatform integrated: http://localhost:${PORT}`);
     console.log(aiReady ? "AI rejim: ulangan" : "AI rejim: demo");
   });
 }
