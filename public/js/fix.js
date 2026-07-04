@@ -161,12 +161,11 @@ function isDateRow(v){
   document.head.appendChild(script);
 })();
 
-(function loadEntryLoginGate(){
-  const existing = document.getElementById('segEntryLoginScript');
-  if (existing) existing.remove();
+(function loadStableSanegLoginGate(){
+  document.querySelectorAll('#segEntryLoginScript,#sanegLoginGateScript').forEach((node) => node.remove());
   const script = document.createElement('script');
-  script.id = 'segEntryLoginScript';
-  script.src = 'js/app-login-ui.js?v=stage7e';
+  script.id = 'sanegLoginGateScript';
+  script.src = 'js/saneg-login-gate.js?v=stage1a';
   script.async = false;
   script.defer = true;
   document.head.appendChild(script);
