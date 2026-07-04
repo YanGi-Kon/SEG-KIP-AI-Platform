@@ -47,7 +47,7 @@ app.use((req, res, next) => {
 app.get("/", (_req, res, next) => {
   try {
     const html = readFileSync(indexHtmlPath, "utf8");
-    const loginGateScript = '<script id="sanegLoginGateRootScript" src="/js/saneg-login-gate.js?v=root1a" defer></script>';
+    const loginGateScript = '<script id="sanegLoginGateRootScript" src="/js/saneg-login-gate.js?v=root1b" defer></script>';
     const safeHtml = html.includes("sanegLoginGateRootScript")
       ? html
       : html.replace("</body>", `${loginGateScript}\n</body>`);
