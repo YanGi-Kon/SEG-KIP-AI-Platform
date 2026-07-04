@@ -51,22 +51,34 @@ function isDateRow(v){
   const BRAND = 'Sanegplatform';
   const RE = /SEG KIP AI Platform|SEG KIP Platform|SEG KIP|KIP Digital Platform|KIP Digital Control System/g;
   const renameText = (value) => String(value || '').replace(RE, BRAND);
-  function setText(selector, text){
+  const setText = (selector, text) => {
     const node = document.querySelector(selector);
     if (node && node.textContent !== text) node.textContent = text;
+  };
+  function setFooter(){
+    const target = '<b>СП ООО “SANOAT ENERGETIKA GURUHI”</b><br>ТПП “АНДИЖАН” · Sanegplatform';
+    document.querySelectorAll('.side-footer').forEach((node) => {
+      if (node.innerHTML !== target) node.innerHTML = target;
+    });
   }
   function applyBranding(){
-    document.title = renameText(document.title || BRAND);
+    const nextTitle = renameText(document.title || BRAND);
+    if (document.title !== nextTitle) document.title = nextTitle;
     setText('.brand .logo', 'SANEG');
     setText('.brand h1', BRAND);
     setText('.brand p', 'DIGITAL PLATFORM');
     const topTitle = document.querySelector('.topbar h2');
-    if (topTitle) topTitle.textContent = renameText(topTitle.textContent || BRAND);
-    document.querySelectorAll('.side-footer').forEach((node) => {
-      node.innerHTML = '<b>СП ООО “SANOAT ENERGETIKA GURUHI”</b><br>ТПП “АНДИЖАН” · Sanegplatform';
+    if (topTitle) {
+      const next = renameText(topTitle.textContent || BRAND);
+      if (topTitle.textContent !== next) topTitle.textContent = next;
+    }
+    setFooter();
+    document.querySelectorAll('.assistant-badge h3, .seg-ai-panel-head h3').forEach((node) => {
+      if (node.textContent !== 'Sanegplatform Assistant') node.textContent = 'Sanegplatform Assistant';
     });
-    document.querySelectorAll('.assistant-badge h3, .seg-ai-panel-head h3').forEach((node) => { node.textContent = 'Sanegplatform Assistant'; });
-    document.querySelectorAll('.assistant-badge p, .seg-ai-panel-head p').forEach((node) => { node.textContent = 'Industrial AI Engineer · Sanegplatform'; });
+    document.querySelectorAll('.assistant-badge p, .seg-ai-panel-head p').forEach((node) => {
+      if (node.textContent !== 'Industrial AI Engineer · Sanegplatform') node.textContent = 'Industrial AI Engineer · Sanegplatform';
+    });
     document.querySelectorAll('[onclick]').forEach((node) => {
       const current = node.getAttribute('onclick') || '';
       const next = renameText(current);
@@ -88,9 +100,10 @@ function isDateRow(v){
   function setup(){
     applyBranding();
     ['setTopbar','openModulePage','openDashboard','openHomeDashboard','openUlchovVositalari'].forEach(wrapTitleFunction);
-    new MutationObserver(applyBranding).observe(document.body, { childList:true, subtree:true });
+    setTimeout(applyBranding, 250);
+    setTimeout(applyBranding, 1000);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup, { once:true });
   else setup();
 })();
 
@@ -165,7 +178,7 @@ function isDateRow(v){
   document.querySelectorAll('#segEntryLoginScript,#sanegLoginGateScript').forEach((node) => node.remove());
   const script = document.createElement('script');
   script.id = 'sanegLoginGateScript';
-  script.src = 'js/saneg-login-gate.js?v=stage1a';
+  script.src = 'js/saneg-login-gate.js?v=stage1b';
   script.async = false;
   script.defer = true;
   document.head.appendChild(script);
