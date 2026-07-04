@@ -91,23 +91,33 @@
       .saneg-note{display:flex;align-items:center;justify-content:center;gap:12px;color:#64748b;font-size:13px;line-height:1.45;}
       .saneg-note-icon{width:36px;height:36px;border-radius:13px;display:grid;place-items:center;border:1px dashed rgba(14,165,233,.45);color:#0ea5e9;background:rgba(14,165,233,.06);font-size:17px;}
       .saneg-copy{margin-top:18px;text-align:center;color:#94a3b8;font-size:12px;}
-      .saneg-login-right{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:44px;background:radial-gradient(circle at 62% 42%,rgba(16,185,129,.26),transparent 26%),radial-gradient(circle at 20% 18%,rgba(14,165,233,.25),transparent 30%),linear-gradient(135deg,#020817,#031525 45%,#020817);}
+      .saneg-login-right{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:42px;background:radial-gradient(circle at 62% 42%,rgba(16,185,129,.26),transparent 26%),radial-gradient(circle at 20% 18%,rgba(14,165,233,.25),transparent 30%),linear-gradient(135deg,#020817,#031525 45%,#020817);}
       .saneg-login-right:before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(34,211,238,.05) 0 1px,transparent 1px 96px),repeating-linear-gradient(0deg,rgba(16,185,129,.035) 0 1px,transparent 1px 86px);opacity:.85;}
       .saneg-servers{position:absolute;inset:0;display:grid;grid-template-columns:repeat(8,1fr);gap:18px;padding:24px 28px;opacity:.56;}
       .saneg-server{border:1px solid rgba(34,211,238,.10);border-radius:18px;background:linear-gradient(180deg,rgba(15,23,42,.72),rgba(2,8,23,.62));position:relative;overflow:hidden;}
       .saneg-server:before{content:'';position:absolute;inset:18px 9px;background:repeating-linear-gradient(180deg,rgba(34,211,238,.45) 0 3px,transparent 3px 16px);opacity:.22;}
-      .saneg-hero{position:relative;z-index:2;width:min(900px,100%);min-height:650px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:22px;}
+      .saneg-hero{position:relative;z-index:2;width:min(960px,100%);min-height:650px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:20px;}
       .saneg-hero h2{margin:0;color:#f8fafc;font-size:30px;text-align:center;}
       .saneg-hero p{margin:0;color:#b8d4e3;text-align:center;line-height:1.5;}
-      .saneg-orbit{position:relative;width:min(620px,84vw);height:300px;display:grid;place-items:center;margin:12px 0;}
-      .saneg-plant{width:280px;height:180px;border-radius:50%;border:1px solid rgba(34,211,238,.55);background:radial-gradient(circle,rgba(16,185,129,.16),rgba(14,165,233,.08) 48%,transparent 70%);box-shadow:0 0 42px rgba(34,211,238,.28),inset 0 0 32px rgba(16,185,129,.14);}
-      .saneg-info{position:absolute;min-width:190px;border:1px solid rgba(125,211,252,.32);border-radius:18px;padding:15px;background:linear-gradient(180deg,rgba(15,23,42,.82),rgba(2,8,23,.72));box-shadow:0 18px 50px rgba(0,0,0,.28);backdrop-filter:blur(14px);}
-      .saneg-info b{display:block;color:#fff;font-size:13px;margin-bottom:10px;}.saneg-info strong{display:block;color:#fff;font-size:28px;}.saneg-info span{display:block;color:#a7c6d4;font-size:12px;margin-top:3px;}.saneg-info small{display:block;color:#34d399;font-size:12px;margin-top:10px;font-weight:900;}
-      .saneg-info.registry{left:0;top:20px;}.saneg-info.monitor{left:35%;top:72px;}.saneg-info.approval{right:0;top:28px;}.saneg-info.ai{right:18px;bottom:0;min-width:215px;}
+      .saneg-orbit{position:relative;width:min(780px,88vw);height:340px;display:grid;place-items:center;margin:8px 0 4px;}
+      .saneg-plant{width:300px;height:190px;border-radius:50%;border:1px solid rgba(34,211,238,.55);background:radial-gradient(circle,rgba(16,185,129,.16),rgba(14,165,233,.08) 48%,transparent 70%);box-shadow:0 0 42px rgba(34,211,238,.28),inset 0 0 32px rgba(16,185,129,.14);position:relative;}
+      .saneg-plant:before{content:'';position:absolute;left:50%;bottom:50px;transform:translateX(-50%);width:225px;height:118px;background:linear-gradient(90deg,transparent 4%,rgba(34,211,238,.85) 4% 5%,transparent 5% 16%,rgba(34,211,238,.65) 16% 17%,transparent 17% 36%,rgba(34,211,238,.9) 36% 38%,transparent 38% 52%,rgba(34,211,238,.65) 52% 53%,transparent 53% 76%,rgba(34,211,238,.8) 76% 78%,transparent 78%);clip-path:polygon(0 100%,0 74%,7% 74%,7% 45%,13% 45%,13% 100%,24% 100%,24% 56%,31% 56%,31% 100%,44% 100%,44% 8%,55% 8%,55% 100%,66% 100%,66% 42%,73% 42%,73% 100%,84% 100%,84% 60%,91% 60%,91% 100%,100% 100%);filter:drop-shadow(0 0 10px rgba(34,211,238,.7));}
+      .saneg-flow-hub{position:absolute;top:0;left:50%;transform:translateX(-50%);width:118px;height:92px;border-radius:28px;display:grid;place-items:center;text-align:center;background:radial-gradient(circle at 50% 20%,rgba(34,211,238,.32),rgba(2,8,23,.78));border:1px solid rgba(34,211,238,.38);box-shadow:0 0 36px rgba(34,211,238,.25);}
+      .saneg-sheets-icon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#22c55e,#10b981);box-shadow:0 0 22px rgba(16,185,129,.45);font-size:26px;}
+      .saneg-flow-hub small{display:block;color:#eaffff;font-weight:1000;margin-top:6px;font-size:12px;}
+      .saneg-flow-hub span{display:block;color:#b8d4e3;font-size:11px;margin-top:2px;}
+      .saneg-flow-line{position:absolute;left:14%;right:14%;top:85px;height:78px;border-top:2px solid rgba(34,211,238,.55);border-radius:120px 120px 0 0;opacity:.9;}
+      .saneg-flow-line:before,.saneg-flow-line:after{content:'';position:absolute;top:-5px;width:10px;height:10px;border-radius:50%;background:#5eead4;box-shadow:0 0 14px #5eead4;}.saneg-flow-line:before{left:0;}.saneg-flow-line:after{right:0;}
+      .saneg-info{position:absolute;min-width:210px;max-width:245px;border:1px solid rgba(125,211,252,.32);border-radius:18px;padding:17px;background:linear-gradient(180deg,rgba(15,23,42,.86),rgba(2,8,23,.74));box-shadow:0 18px 50px rgba(0,0,0,.28);backdrop-filter:blur(14px);}
+      .saneg-info b{display:block;color:#fff;font-size:16px;margin-bottom:12px;}.saneg-info span{display:block;color:#c4d8e6;font-size:12px;line-height:1.45;margin-top:5px;}.saneg-info small{display:block;color:#34d399;font-size:12px;margin-top:12px;font-weight:900;}
+      .saneg-info.registry{left:0;top:105px;}.saneg-info.monitor{left:50%;top:145px;transform:translateX(-50%);}.saneg-info.approval{right:0;top:105px;}.saneg-info.ai{right:8px;bottom:0;min-width:220px;max-width:230px;}
       .saneg-ai-face{width:58px;height:45px;border-radius:20px;background:linear-gradient(180deg,#ecfeff,#93c5fd);margin:8px auto 12px;box-shadow:0 0 26px rgba(34,211,238,.38);}
-      .saneg-nav{width:min(760px,96%);display:grid;grid-template-columns:repeat(6,1fr);gap:8px;border:1px solid rgba(34,211,238,.22);border-radius:20px;padding:10px;background:rgba(2,8,23,.56);backdrop-filter:blur(14px);}
+      .saneg-card-icon{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:13px;margin-bottom:10px;background:linear-gradient(135deg,rgba(34,211,238,.22),rgba(16,185,129,.32));box-shadow:0 0 18px rgba(34,211,238,.20);}
+      .saneg-mini-label{position:absolute;color:#7dd3fc;font-weight:900;font-size:12px;text-shadow:0 0 12px rgba(34,211,238,.55);}.saneg-mini-label.sync{left:100px;bottom:92px;}.saneg-mini-label.approve{right:136px;bottom:76px;}
+      .saneg-nav{width:min(820px,96%);display:grid;grid-template-columns:repeat(6,1fr);gap:8px;border:1px solid rgba(34,211,238,.22);border-radius:20px;padding:10px;background:rgba(2,8,23,.56);backdrop-filter:blur(14px);}
       .saneg-nav span{display:flex;align-items:center;justify-content:center;gap:7px;color:#eaffff;font-weight:800;font-size:12px;white-space:nowrap;}
       .saneg-compliance{display:flex;align-items:center;gap:10px;color:#b8d4e3;font-size:13px;margin-top:10px;}
+      @media(max-width:1180px){.saneg-info.ai{display:none}.saneg-orbit{width:min(680px,88vw)}.saneg-info.registry{left:0}.saneg-info.approval{right:0}}
       @media(max-width:980px){.saneg-login-shell{grid-template-columns:1fr;background:linear-gradient(135deg,#f8fafc,#eef6fb)}.saneg-login-right{display:none}.saneg-login-left{min-height:100vh}.saneg-login-card{padding:28px}.saneg-brand h1{font-size:26px}}
       @media(max-width:520px){.saneg-login-left{padding:18px}.saneg-login-card{border-radius:22px;padding:22px}.saneg-logo{width:52px;height:52px}.saneg-login-title{font-size:24px}}
     `;
@@ -127,7 +137,7 @@
       <div class="saneg-login-shell">
         <section class="saneg-login-left">
           <div class="saneg-login-card">
-            <div class="saneg-brand"><div class="saneg-logo"></div><div><h1>Sanegplatform</h1><p>KIP Digital Control System</p></div></div>
+            <div class="saneg-brand"><div class="saneg-logo"></div><div><h1>Sanegplatform</h1><p>KIP Raqamli Boshqaruv Tizimi</p></div></div>
             <h2 class="saneg-login-title">Kirish tizimi</h2>
             <p class="saneg-login-subtitle">Hisobingizga kirish uchun ma’lumotlaringizni kiriting.</p>
             <form id="sanegLoginForm" class="saneg-login-form">
@@ -136,16 +146,31 @@
               <label class="saneg-field-label">Til / Language<div class="saneg-field saneg-select-wrap"><span class="saneg-field-icon">🌐</span><select class="saneg-input saneg-select"><option>O‘zbekcha (Uzbek)</option><option>Русский</option><option>English</option></select></div></label>
               <button id="sanegLoginButton" class="saneg-login-btn" type="submit">↪ Kirish</button>
             </form>
-            <div class="saneg-secure">🛡 Secure corporate access</div>
+            <div class="saneg-secure">🛡 Xavfsiz korporativ kirish</div>
             <div id="sanegLoginMsg" class="saneg-login-msg">Login va parolni kiriting. Avtomatik kirish o‘chirildi.</div>
             <div class="saneg-divider"></div>
-            <div class="saneg-note"><span class="saneg-note-icon">▣</span><span>Industrial AI monitoring<br>and document workflow</span></div>
-            <div class="saneg-copy">© 2026 Sanegplatform. All rights reserved.</div>
+            <div class="saneg-note"><span class="saneg-note-icon">▣</span><span>Sanoat AI monitoringi<br>va hujjat jarayoni</span></div>
+            <div class="saneg-copy">© 2026 Sanegplatform. Barcha huquqlar himoyalangan.</div>
           </div>
         </section>
         <section class="saneg-login-right">
           <div class="saneg-servers"><div class="saneg-server"></div><div class="saneg-server"></div><div class="saneg-server"></div><div class="saneg-server"></div><div class="saneg-server"></div><div class="saneg-server"></div><div class="saneg-server"></div><div class="saneg-server"></div></div>
-          <div class="saneg-hero"><div><h2>KIP Digital Control System</h2><p>Real vaqt monitoringi · Aqlli qarorlar · Sanoat samaradorligi</p></div><div class="saneg-orbit"><div class="saneg-info registry"><b>📋 Asboblar reyestri</b><strong>2,489</strong><span>Jami asboblar</span><small>Faol · 2,156</small></div><div class="saneg-info monitor"><b>📈 Real vaqt monitoringi</b><strong>98.6%</strong><span>Tizim uzluksizligi</span><small>Barqaror ishlamoqda</small></div><div class="saneg-info approval"><b>✅ Akt tasdiqlash</b><strong>124</strong><span>Kutilayotgan tasdiqlar</span><small>Shu hafta +18%</small></div><div class="saneg-plant"></div><div class="saneg-info ai"><b>AI yordamchi</b><div class="saneg-ai-face"></div><span>Tahlil, hisobot va operatsion ma’lumotlar bo‘yicha yordam beradi.</span></div></div><div class="saneg-nav"><span>◉ Monitoring</span><span>⌁ Tahlil</span><span>⚠ Ogohlantirish</span><span>▤ Hujjatlar</span><span>▥ Hisobotlar</span><span>⌘ Jarayonlar</span></div><div class="saneg-compliance">🛡 Korporativ darajadagi xavfsizlik va muvofiqlik</div></div>
+          <div class="saneg-hero">
+            <div><h2>KIP Raqamli Boshqaruv Tizimi</h2><p>Google Sheets asosida monitoring, hujjat yuritish va aqlli boshqaruv</p></div>
+            <div class="saneg-orbit">
+              <div class="saneg-flow-hub"><div><div class="saneg-sheets-icon">▦</div><small>Google Sheets</small><span>ma’lumot manbai</span></div></div>
+              <div class="saneg-flow-line"></div>
+              <div class="saneg-info registry"><span class="saneg-card-icon">📋</span><b>Asboblar reyestri</b><span>Google Sheets bilan yuritiladi</span><span>Obyektlar bo‘yicha yangilanadi</span><small>Sinxronlash</small></div>
+              <div class="saneg-info monitor"><span class="saneg-card-icon">📈</span><b>Real vaqt monitoringi</b><span>Ko‘rsatkichlar doimiy kuzatiladi</span><span>Holat avtomatik yangilanadi</span></div>
+              <div class="saneg-info approval"><span class="saneg-card-icon">✅</span><b>Hujjat tasdiqlash</b><span>Tasdiqlash jarayoni nazoratda</span><span>Statuslar bosqichma-bosqich kuzatiladi</span></div>
+              <div class="saneg-plant"></div>
+              <div class="saneg-mini-label sync">Sinxronlash</div>
+              <div class="saneg-mini-label approve">Tasdiqlash</div>
+              <div class="saneg-info ai"><b>AI yordamchi</b><div class="saneg-ai-face"></div><span>Tahlil, hisobot va operatsion savollar bo‘yicha yordam beradi.</span><small>AI yordamchini ochish →</small></div>
+            </div>
+            <div class="saneg-nav"><span>◉ Monitoring</span><span>⌁ Tahlil</span><span>⚠ Ogohlantirishlar</span><span>▤ Hujjatlar</span><span>▥ Hisobotlar</span><span>⌘ Jarayonlar</span></div>
+            <div class="saneg-compliance">🛡 Korporativ darajadagi xavfsizlik va nazorat</div>
+          </div>
         </section>
       </div>`;
     document.body.appendChild(root);
