@@ -6,6 +6,8 @@ function isDateRow(v){
 (function setupCompactAiWidget(){
   const css = `
     .seg-ai-label{display:none !important;}
+    .seg-ai-status{display:none !important;}
+    .seg-floating-ai .seg-ai-status{display:none !important;}
     .seg-floating-ai{
       width:62px !important;
       height:62px !important;
