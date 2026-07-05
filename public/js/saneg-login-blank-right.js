@@ -4,7 +4,7 @@
   if (window.__sanegLoginMediaStageLoaded) return;
   window.__sanegLoginMediaStageLoaded = true;
 
-  const DEFAULT_IMAGE = '/assets/login/saneg-login-right-final.svg?v=final1a';
+  const DEFAULT_IMAGE = '';
 
   function injectStyle(){
     if (document.getElementById('sanegLoginMediaStageStyle')) return;
@@ -38,7 +38,10 @@
         position:absolute;
         inset:0;
         overflow:hidden;
-        background:#020817;
+        background:
+          radial-gradient(circle at 22% 18%,rgba(14,165,233,.14),transparent 34%),
+          radial-gradient(circle at 78% 44%,rgba(16,185,129,.10),transparent 34%),
+          linear-gradient(135deg,#020817,#031525 52%,#020817);
         isolation:isolate;
       }
       #sanegLoginGate .saneg-login-media-layer,
@@ -46,6 +49,29 @@
       #sanegLoginGate .saneg-login-overlay-layer{
         position:absolute;
         inset:0;
+      }
+      #sanegLoginGate .saneg-login-media-layer:empty::before{
+        content:'';
+        position:absolute;
+        inset:0;
+        background:
+          repeating-linear-gradient(90deg,rgba(34,211,238,.055) 0 1px,transparent 1px 92px),
+          repeating-linear-gradient(0deg,rgba(16,185,129,.035) 0 1px,transparent 1px 86px);
+        opacity:.65;
+      }
+      #sanegLoginGate .saneg-login-media-layer:empty::after{
+        content:'Media stage tayyor';
+        position:absolute;
+        left:50%;
+        top:50%;
+        transform:translate(-50%,-50%);
+        padding:12px 18px;
+        border:1px dashed rgba(34,211,238,.34);
+        border-radius:18px;
+        color:rgba(226,244,255,.56);
+        font:700 14px Inter,Arial,sans-serif;
+        letter-spacing:.02em;
+        background:rgba(2,8,23,.34);
       }
       #sanegLoginGate .saneg-login-media-img,
       #sanegLoginGate .saneg-login-media-video{
@@ -135,13 +161,19 @@
     layer.innerHTML = html || '';
   }
 
+  function clearMedia(){
+    const stage = createStage();
+    if (!stage) return;
+    stage.querySelector('[data-layer="media"]').innerHTML = '';
+  }
+
   function clearAnimation(){
     setAnimationHtml('');
   }
 
   function setup(){
     createStage();
-    setImage(DEFAULT_IMAGE, { fit:'cover' });
+    if (DEFAULT_IMAGE) setImage(DEFAULT_IMAGE, { fit:'cover' });
   }
 
   window.sanegLoginMediaStage = {
@@ -149,6 +181,7 @@
     setImage,
     setVideo,
     setAnimationHtml,
+    clearMedia,
     clearAnimation,
     defaultImage: DEFAULT_IMAGE
   };
