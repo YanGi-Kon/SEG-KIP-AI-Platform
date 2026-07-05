@@ -2,7 +2,7 @@
 // Put final login images in: public/assets/login/slides/
 (function configureSanegLoginMedia(){
   const slides = [
-    '/assets/login/slides/slide-1.webp'
+    '/assets/login/slides/slide-1.webp?v=slide1b'
   ];
   const intervalMs = 120000;
   let index = 0;
