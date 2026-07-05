@@ -1,17 +1,18 @@
-// Temporarily blank the right login infographic area for the next redesign stage.
-(function blankSanegLoginRightArea(){
-  if (window.__sanegLoginRightBlankLoaded) return;
-  window.__sanegLoginRightBlankLoaded = true;
+// Place the approved final right-side login infographic as a single asset.
+(function placeSanegLoginRightInfographic(){
+  if (window.__sanegLoginRightFinalLoaded) return;
+  window.__sanegLoginRightFinalLoaded = true;
 
   function inject(){
-    if (document.getElementById('sanegLoginBlankRightStyle')) return;
+    if (document.getElementById('sanegLoginRightFinalStyle')) return;
     const style = document.createElement('style');
-    style.id = 'sanegLoginBlankRightStyle';
+    style.id = 'sanegLoginRightFinalStyle';
     style.textContent = `
       #sanegLoginGate .saneg-login-right{
         background:#020817 !important;
         padding:0 !important;
         overflow:hidden !important;
+        position:relative !important;
       }
       #sanegLoginGate .saneg-login-right-bg,
       #sanegLoginGate .saneg-login-right-overlay,
@@ -33,10 +34,13 @@
         content:'';
         position:absolute;
         inset:0;
-        background:
-          radial-gradient(circle at 20% 18%,rgba(14,165,233,.10),transparent 30%),
-          radial-gradient(circle at 80% 42%,rgba(16,185,129,.08),transparent 32%),
-          linear-gradient(135deg,#020817,#031525 52%,#020817);
+        background-image:url('/assets/login/saneg-login-right-final.svg?v=final1a');
+        background-size:cover;
+        background-position:center;
+        background-repeat:no-repeat;
+      }
+      @media(max-width:980px){
+        #sanegLoginGate .saneg-login-right{display:none !important;}
       }
     `;
     document.head.appendChild(style);
