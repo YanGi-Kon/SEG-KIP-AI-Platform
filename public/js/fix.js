@@ -200,11 +200,21 @@ function isSanegLoginActive(){
   document.head.appendChild(script);
 })();
 
-(function loadSanegLoginBlankRight(){
+(function loadSanegLoginMediaStage(){
   if (document.getElementById('sanegLoginBlankRightScript')) return;
   const script = document.createElement('script');
   script.id = 'sanegLoginBlankRightScript';
   script.src = 'js/saneg-login-blank-right.js?v=media1b';
+  script.async = false;
+  script.defer = true;
+  document.head.appendChild(script);
+})();
+
+(function loadSanegLoginMediaConfig(){
+  if (document.getElementById('sanegLoginMediaConfigScript')) return;
+  const script = document.createElement('script');
+  script.id = 'sanegLoginMediaConfigScript';
+  script.src = 'js/saneg-login-media-config.js?v=slides1a';
   script.async = false;
   script.defer = true;
   document.head.appendChild(script);
