@@ -200,11 +200,11 @@ function isSanegLoginActive(){
   document.head.appendChild(script);
 })();
 
-(function loadSanegLoginPolish(){
-  if (document.getElementById('sanegLoginPolishScript')) return;
+(function loadSanegLoginBlankRight(){
+  if (document.getElementById('sanegLoginBlankRightScript')) return;
   const script = document.createElement('script');
-  script.id = 'sanegLoginPolishScript';
-  script.src = 'js/saneg-login-polish.js?v=polish1a';
+  script.id = 'sanegLoginBlankRightScript';
+  script.src = 'js/saneg-login-blank-right.js?v=blank1a';
   script.async = false;
   script.defer = true;
   document.head.appendChild(script);
