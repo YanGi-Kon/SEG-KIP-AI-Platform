@@ -60,7 +60,7 @@ function isSanegLoginActive(){
     if (node && node.textContent !== text) node.textContent = text;
   };
   function setFooter(){
-    const target = '<b>СП ООО “SANOAT ENERGETIKA GURUHI”</b><br>ТПП “АНДИЖАН” · Sanegplatform';
+    const target = '<b>СП ООО “SANOAT ENЕРГЕТИКА GURUHI”</b><br>ТПП “АНДИЖАН” · Sanegplatform';
     document.querySelectorAll('.side-footer').forEach((node) => {
       if (node.innerHTML !== target) node.innerHTML = target;
     });
@@ -204,7 +204,7 @@ function isSanegLoginActive(){
   if (document.getElementById('sanegLoginBlankRightScript')) return;
   const script = document.createElement('script');
   script.id = 'sanegLoginBlankRightScript';
-  script.src = 'js/saneg-login-blank-right.js?v=blank1a';
+  script.src = 'js/saneg-login-blank-right.js?v=blank1b';
   script.async = false;
   script.defer = true;
   document.head.appendChild(script);
