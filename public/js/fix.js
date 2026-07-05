@@ -204,7 +204,7 @@ function isSanegLoginActive(){
   if (document.getElementById('sanegLoginBlankRightScript')) return;
   const script = document.createElement('script');
   script.id = 'sanegLoginBlankRightScript';
-  script.src = 'js/saneg-login-blank-right.js?v=blank1b';
+  script.src = 'js/saneg-login-blank-right.js?v=media1a';
   script.async = false;
   script.defer = true;
   document.head.appendChild(script);
