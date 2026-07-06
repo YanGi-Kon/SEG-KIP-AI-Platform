@@ -15,6 +15,11 @@
     if (state.accessToken) sessionStorage.setItem(ACCESS_TOKEN_KEY, state.accessToken);
     else sessionStorage.removeItem(ACCESS_TOKEN_KEY);
   }
+  function releaseAuthBootGuard(){
+    document.documentElement.classList.remove('saneg-auth-boot');
+    qs('#sanegAuthBootStyle')?.remove();
+    qs('#sanegAuthBootScript')?.remove();
+  }
   function parseJsonSafe(text){
     if (!text) return {};
     try { return JSON.parse(text); } catch (_) { return { raw: text }; }
@@ -173,6 +178,7 @@
         </section>
       </div>`;
     document.body.appendChild(root);
+    releaseAuthBootGuard();
 
     qs('#sanegLoginEmail').value = localStorage.getItem(LOGIN_EMAIL_KEY) || '';
     qs('#sanegPasswordToggle')?.addEventListener('click', () => {
