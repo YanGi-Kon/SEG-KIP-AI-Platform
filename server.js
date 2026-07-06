@@ -47,6 +47,32 @@ const staticNoCacheOptions = {
   },
 };
 
+const authBootGuard = `
+<style id="sanegAuthBootStyle">
+  html.saneg-auth-boot,
+  html.saneg-auth-boot body {
+    background: #020817 !important;
+  }
+
+  html.saneg-auth-boot body > *:not(#sanegLoginGate) {
+    visibility: hidden !important;
+  }
+
+  html.saneg-auth-boot #sanegLoginGate,
+  html.saneg-auth-boot #sanegLoginGate * {
+    visibility: visible !important;
+  }
+</style>
+<script id="sanegAuthBootScript">
+  document.documentElement.classList.add('saneg-auth-boot');
+  window.setTimeout(function(){
+    if (!document.getElementById('sanegLoginGate')) {
+      document.documentElement.classList.remove('saneg-auth-boot');
+      document.getElementById('sanegAuthBootStyle')?.remove();
+    }
+  }, 8000);
+</script>`;
+
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors());
@@ -65,10 +91,13 @@ app.use((req, res, next) => {
 app.get("/", (_req, res, next) => {
   try {
     const html = readFileSync(indexHtmlPath, "utf8");
-    const loginGateScript = '<script id="sanegLoginGateRootScript" src="/js/saneg-login-gate.js?v=root1b" defer></script>';
-    const safeHtml = html.includes("sanegLoginGateRootScript")
+    const loginGateScript = '<script id="sanegLoginGateRootScript" src="/js/saneg-login-gate.js?v=root1c" defer></script>';
+    const htmlWithAuthBoot = html.includes("sanegAuthBootScript")
       ? html
-      : html.replace("</body>", `${loginGateScript}\n</body>`);
+      : html.replace("</head>", `${authBootGuard}\n</head>`);
+    const safeHtml = htmlWithAuthBoot.includes("sanegLoginGateRootScript")
+      ? htmlWithAuthBoot
+      : htmlWithAuthBoot.replace("</body>", `${loginGateScript}\n</body>`);
     res.type("html").send(safeHtml);
   } catch (error) {
     next(error);
