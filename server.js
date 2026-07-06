@@ -91,13 +91,17 @@ app.use((req, res, next) => {
 app.get("/", (_req, res, next) => {
   try {
     const html = readFileSync(indexHtmlPath, "utf8");
+    const sessionPersistenceScript = '<script id="segSessionPersistenceFixScript" src="/js/session-persistence-fix.js?v=session1" defer></script>';
     const loginGateScript = '<script id="sanegLoginGateRootScript" src="/js/saneg-login-gate.js?v=root1c" defer></script>';
     const htmlWithAuthBoot = html.includes("sanegAuthBootScript")
       ? html
       : html.replace("</head>", `${authBootGuard}\n</head>`);
-    const safeHtml = htmlWithAuthBoot.includes("sanegLoginGateRootScript")
+    const htmlWithSessionPatch = htmlWithAuthBoot.includes("segSessionPersistenceFixScript")
       ? htmlWithAuthBoot
-      : htmlWithAuthBoot.replace("</body>", `${loginGateScript}\n</body>`);
+      : htmlWithAuthBoot.replace("</body>", `${sessionPersistenceScript}\n</body>`);
+    const safeHtml = htmlWithSessionPatch.includes("sanegLoginGateRootScript")
+      ? htmlWithSessionPatch
+      : htmlWithSessionPatch.replace("</body>", `${loginGateScript}\n</body>`);
     res.type("html").send(safeHtml);
   } catch (error) {
     next(error);
