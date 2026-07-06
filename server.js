@@ -4,6 +4,8 @@ import cors from "cors";
 import helmet from "helmet";
 import http from "http";
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 
 import healthRouter from "./routes/health.js";
@@ -27,15 +29,17 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 const PORT = process.env.PORT || 3000;
-const publicDir = new URL("./public/", import.meta.url);
-const publicAssetsDir = new URL("./public/assets/", import.meta.url);
-const indexHtmlPath = new URL("./public/index.html", import.meta.url);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const publicDir = join(__dirname, "public");
+const publicAssetsDir = join(publicDir, "assets");
+const indexHtmlPath = join(publicDir, "index.html");
 
 const staticNoCacheOptions = {
   etag: false,
   maxAge: 0,
-  setHeaders(res, path) {
-    if (path.endsWith(".html") || path.endsWith(".js")) {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith(".html") || filePath.endsWith(".js")) {
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
@@ -73,7 +77,7 @@ app.get("/", (_req, res, next) => {
 
 // Public asset URL mapping:
 // public/assets/login/slides/slide-1.webp -> /assets/login/slides/slide-1.webp
-// Keep this explicit so Railway/Node always serves assets from the intended folder.
+// express.static requires filesystem path strings, not URL objects.
 app.use("/assets", express.static(publicAssetsDir, staticNoCacheOptions));
 app.use(express.static(publicDir, staticNoCacheOptions));
 
