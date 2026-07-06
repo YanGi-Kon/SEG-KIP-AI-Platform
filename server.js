@@ -27,7 +27,21 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 const PORT = process.env.PORT || 3000;
+const publicDir = new URL("./public/", import.meta.url);
+const publicAssetsDir = new URL("./public/assets/", import.meta.url);
 const indexHtmlPath = new URL("./public/index.html", import.meta.url);
+
+const staticNoCacheOptions = {
+  etag: false,
+  maxAge: 0,
+  setHeaders(res, path) {
+    if (path.endsWith(".html") || path.endsWith(".js")) {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+    }
+  },
+};
 
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } }));
@@ -57,17 +71,11 @@ app.get("/", (_req, res, next) => {
   }
 });
 
-app.use(express.static("public", {
-  etag: false,
-  maxAge: 0,
-  setHeaders(res, path) {
-    if (path.endsWith(".html") || path.endsWith(".js")) {
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-    }
-  },
-}));
+// Public asset URL mapping:
+// public/assets/login/slides/slide-1.webp -> /assets/login/slides/slide-1.webp
+// Keep this explicit so Railway/Node always serves assets from the intended folder.
+app.use("/assets", express.static(publicAssetsDir, staticNoCacheOptions));
+app.use(express.static(publicDir, staticNoCacheOptions));
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
