@@ -5,6 +5,7 @@
 
   const ACCESS_TOKEN_KEY = 'seg_kip_workspace_access_token';
   const SELECTED_WORKSPACE_KEY = 'seg_kip_selected_workspace_id';
+  let restoredAccessToken = sessionStorage.getItem(ACCESS_TOKEN_KEY) || '';
 
   function byId(id){ return document.getElementById(id); }
 
@@ -15,11 +16,14 @@
   }
 
   function saveAccessToken(token){
-    if (token) sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
+    restoredAccessToken = token || restoredAccessToken || '';
+    if (restoredAccessToken) sessionStorage.setItem(ACCESS_TOKEN_KEY, restoredAccessToken);
   }
 
   function showDashboardWhenSessionExists(){
-    if (!sessionStorage.getItem(ACCESS_TOKEN_KEY)) return;
+    const token = sessionStorage.getItem(ACCESS_TOKEN_KEY) || restoredAccessToken;
+    if (!token) return;
+    sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
     document.documentElement.classList.remove('saneg-auth-boot', 'saneg-login-active');
     document.body?.classList?.remove('saneg-login-active');
     const authStyle = byId('sanegAuthBootStyle');
@@ -78,7 +82,7 @@
     loadWorkspaceUi();
     markLoadedServiceAccount();
 
-    if (sessionStorage.getItem(ACCESS_TOKEN_KEY)) {
+    if (restoredAccessToken) {
       scheduleDashboardRelease();
     } else {
       try { await refreshSession(); } catch (_) {}
