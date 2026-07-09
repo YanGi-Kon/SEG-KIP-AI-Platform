@@ -53,6 +53,7 @@ function signAccessToken(user) {
     {
       tokenType: 'access',
       platformRole: user.platformRole,
+      permissions: user.permissions || [],
       email: user.email,
       name: user.fullName,
     },

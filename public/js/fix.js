@@ -233,3 +233,62 @@ function isSanegLoginActive(){
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
   else setup();
 })();
+
+(function injectSidebarExtras(){
+  const CSS = `
+    .sidebar-extras{margin-top:12px;display:flex;flex-direction:column;gap:8px;}
+    .menu-item-settings{min-height:56px;display:flex;align-items:center;gap:14px;padding:12px 16px;
+      border-radius:18px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.075);
+      cursor:pointer;transition:all .22s;color:#e2e8f0;}
+    .menu-item-settings:hover{background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.35);}
+    .menu-item-settings.active{background:rgba(34,211,238,.18);border-color:rgba(34,211,238,.55);box-shadow:0 0 18px rgba(34,211,238,.18);}
+    .menu-item-settings .menu-icon{font-size:20px;flex-shrink:0;}
+    .menu-item-settings .menu-title{font-size:11px;font-weight:700;letter-spacing:.5px;color:#eaffff;}
+    .menu-item-settings .empty-note{font-size:10px;color:#64748b;margin-top:2px;}
+    .logout-btn-sidebar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:18px;
+      background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);cursor:pointer;
+      color:#fca5a5;font-size:12px;font-weight:700;transition:all .22s;width:100%;text-align:left;}
+    .logout-btn-sidebar:hover{background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.5);color:#fecaca;}
+  `;
+  function injectStyle(){
+    if (document.getElementById('sidebarExtrasStyle')) return;
+    const s = document.createElement('style');
+    s.id = 'sidebarExtrasStyle';
+    s.textContent = CSS;
+    document.head.appendChild(s);
+  }
+  function inject(){
+    if (isSanegLoginActive()) return;
+    if (document.getElementById('sidebarExtrasBlock')) return;
+    const nav = document.querySelector('.sidebar nav.menu');
+    if (!nav) return;
+    const block = document.createElement('div');
+    block.id = 'sidebarExtrasBlock';
+    block.className = 'sidebar-extras';
+    block.innerHTML = `
+      <div class="menu-item-settings" onclick="openModulePage('settings','Настройки')">
+        <div class="menu-icon">⚙️</div>
+        <div><div class="menu-title">9. НАСТРОЙКИ</div><div class="empty-note">Язык и параметры</div></div>
+      </div>
+      <button class="logout-btn-sidebar" onclick="appLogout()">
+        <span style="font-size:16px">⏻</span> Выйти из системы
+      </button>
+    `;
+    nav.after(block);
+  }
+  function setup(){
+    injectStyle();
+    inject();
+    const obs = new MutationObserver(() => { if (!isSanegLoginActive()) inject(); });
+    obs.observe(document.body, { childList:true, subtree:true });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
+})();
+
+async function appLogout(){
+  try { await fetch('/api/auth/logout', { method:'POST', credentials:'include' }); } catch(_){}
+  sessionStorage.removeItem('seg_kip_workspace_access_token');
+  localStorage.removeItem('seg_kip_selected_workspace_id');
+  location.reload();
+}

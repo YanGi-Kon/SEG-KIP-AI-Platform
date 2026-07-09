@@ -23,6 +23,7 @@ export async function requireAccessToken(req, res, next) {
       userId: user.id,
       user,
       platformRole: user.platformRole,
+      permissions: user.permissions,
     };
     next();
   } catch (error) {

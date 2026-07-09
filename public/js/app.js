@@ -6,6 +6,9 @@ const MODULES = {
   to: 'modules/to.html',
   replacement: 'modules/replacement.html',
   openai: 'modules/openai.html',
+  users: 'modules/users.html',
+  roles: 'modules/roles.html',
+  settings: 'modules/settings.html'
 };
 
 const SHEET_LINK_KEYS = [
@@ -107,8 +110,12 @@ function setGlobalOnlineStatus(status) {
 }
 
 function setActiveMenu(label) {
-  document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
-  const target = Array.from(document.querySelectorAll('.menu-item')).find(item => item.textContent.includes(label));
+  document.querySelectorAll('.menu-item, .menu-item-settings').forEach(item => item.classList.remove('active'));
+  const target = Array.from(document.querySelectorAll('.menu-item, .menu-item-settings')).find(item => {
+    const titleEl = item.querySelector('.menu-title');
+    const original = titleEl?.dataset?.original || '';
+    return item.textContent.includes(label) || original.includes(label);
+  });
   if (target) target.classList.add('active');
 }
 
@@ -171,7 +178,7 @@ function openModulePage(moduleName, title) {
   const frame = document.getElementById('genericModuleFrame');
   if (frame) frame.src = src;
   if (page) page.classList.add('active');
-  const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'ТО ЖУРНАЛ', replacement:'АЛМАШИШ ЖУРНАЛИ' };
+  const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'ТО ЖУРНАЛ', replacement:'АЛМАШИШ ЖУРНАЛИ', users:'ПОЛЬЗОВАТЕЛИ', roles:'РОЛИ', settings:'НАСТРОЙКИ' };
   setActiveMenu(menuLabels[moduleName] || 'ЖУРНАЛ УЧЕТА');
   setTopbar(title || 'SEG KIP AI Platform — Модул', 'Модул алоҳида HTML файлдан юкланади');
   window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -82,9 +82,8 @@
     ensureWorkspaceScripts();
     updateActsServiceAccountLabel();
 
-    if (!sessionStorage.getItem(ACCESS_TOKEN_KEY)) {
-      try { await refreshSession(); } catch (_) {}
-    }
+    // Note: session refresh is handled by saneg-login-gate.js on boot
+    // No need to call refreshSession() here to avoid race conditions
 
     window.setTimeout(() => {
       ensureWorkspaceScripts();

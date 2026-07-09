@@ -72,7 +72,7 @@
       .saneg-brand{display:flex;align-items:center;gap:16px;margin-bottom:30px;}
       .saneg-logo{width:62px;height:62px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,#0ea5e9,#10b981);box-shadow:0 14px 32px rgba(14,165,233,.24);}
       .saneg-logo:before{content:'S';width:40px;height:40px;border-radius:13px;display:grid;place-items:center;border:4px solid rgba(255,255,255,.85);color:#fff;font-size:26px;font-weight:1000;line-height:1;}
-      .saneg-brand h1{margin:0;font-size:30px;letter-spacing:-.6px;color:#061427;font-weight:1000;}
+      .saneg-brand h1{margin:0;font-size:18px;letter-spacing:-.3px;color:#061427;font-weight:1000;}
       .saneg-brand p{margin:5px 0 0;color:#516172;font-size:14px;}
       .saneg-login-title{margin:0 0 8px;font-size:28px;font-weight:1000;color:#071427;}
       .saneg-login-subtitle{margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.55;}
@@ -223,8 +223,36 @@
     }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render, { once: true });
-  else render();
+  async function tryAutoLogin(){
+    // Try to restore session via refresh token (cookie-based)
+    try {
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('refresh failed');
+      const data = await res.json();
+      if (!data.accessToken) throw new Error('no token');
+      setToken(data.accessToken);
+      state.user = data.user || null;
+      // Also load workspaces silently so workspace-ui works
+      try { await loadWorkspaces(); } catch (_) {}
+      // Session restored — don't show login screen
+      releaseAuthBootGuard();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function boot(){
+    const restored = await tryAutoLogin();
+    if (!restored) render();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  else boot();
 
   window.sanegLoginGate = { render, state };
 })();

@@ -81,7 +81,7 @@
       .seg-entry-login-left{display:flex;align-items:center;justify-content:center;padding:36px;background:radial-gradient(circle at 10% 10%,rgba(34,211,238,.15),transparent 34%),linear-gradient(180deg,#fff,#f3f8fb);}
       .seg-entry-login-card{width:min(520px,100%);border:1px solid rgba(15,23,42,.08);border-radius:28px;padding:34px;background:rgba(255,255,255,.94);box-shadow:0 28px 86px rgba(15,23,42,.14);color:#071427;backdrop-filter:blur(18px);}
       .seg-entry-login-brand{display:flex;align-items:center;gap:16px;margin-bottom:30px;}.seg-entry-login-logo{width:62px;height:62px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,#0ea5e9,#10b981);box-shadow:0 14px 32px rgba(14,165,233,.24);}.seg-entry-login-logo::before{content:'S';width:40px;height:40px;border-radius:13px;display:grid;place-items:center;border:4px solid rgba(255,255,255,.85);color:#fff;font-size:26px;font-weight:1000;line-height:1;}
-      .seg-entry-login-card h2{margin:0;font-size:30px;letter-spacing:-.6px;color:#061427;font-weight:1000;}.seg-entry-login-card p{margin:5px 0 0;color:#516172;line-height:1.45;font-size:14px;}.seg-entry-login-title{margin:0 0 8px;font-size:28px;font-weight:1000;color:#071427;}.seg-entry-login-subtitle{margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.55;}
+      .seg-entry-login-card h2{margin:0;font-size:18px;letter-spacing:-.3px;color:#061427;font-weight:1000;}.seg-entry-login-card p{margin:4px 0 0;color:#516172;line-height:1.45;font-size:12px;}.seg-entry-login-title{margin:0 0 8px;font-size:28px;font-weight:1000;color:#071427;}.seg-entry-login-subtitle{margin:0 0 24px;color:#64748b;font-size:14px;line-height:1.55;}
       .seg-entry-login-form{display:grid;gap:15px;margin-top:18px;}.seg-entry-login-label{display:grid;gap:7px;color:#0f2438;font-size:13px;font-weight:900;}.seg-entry-login-field{position:relative;display:flex;align-items:center;}.seg-entry-login-icon{position:absolute;left:14px;color:#64748b;font-size:17px;pointer-events:none;}.seg-entry-login-input{width:100%;border:1px solid rgba(15,23,42,.12);background:#fff;color:#0f172a;border-radius:15px;padding:14px 44px;font-size:14px;outline:none;}.seg-entry-login-input:focus{border-color:rgba(14,165,233,.72);box-shadow:0 0 0 4px rgba(14,165,233,.11);}.seg-entry-login-eye{position:absolute;right:12px;border:0;background:transparent;color:#64748b;cursor:pointer;font-size:16px;padding:5px;border-radius:10px;}.seg-entry-login-select{appearance:none;background:#fff;cursor:pointer;}.seg-entry-login-select-wrap::after{content:'⌄';position:absolute;right:15px;top:50%;transform:translateY(-55%);color:#64748b;font-weight:900;pointer-events:none;}
       .seg-entry-login-actions{display:grid;margin-top:8px;}.seg-entry-login-btn{border:0;border-radius:15px;background:linear-gradient(135deg,#075da8,#21c794);color:white;padding:15px 18px;font-size:15px;font-weight:1000;cursor:pointer;box-shadow:0 14px 28px rgba(14,165,233,.24);}.seg-entry-login-btn:disabled{opacity:.65;cursor:not-allowed;}.seg-entry-login-security{display:flex;align-items:center;justify-content:center;gap:10px;margin:17px 0 0;color:#0f766e;font-weight:900;font-size:13px;}
       .seg-entry-login-msg{min-height:42px;border:1px solid rgba(14,165,233,.20);border-radius:15px;padding:11px 12px;margin-top:14px;color:#334155;background:rgba(14,165,233,.05);line-height:1.4;white-space:pre-wrap;font-size:13px;}.seg-entry-login-msg.ok{border-color:rgba(16,185,129,.34);color:#047857;background:rgba(16,185,129,.08);}.seg-entry-login-msg.error{border-color:rgba(239,68,68,.38);color:#b91c1c;background:rgba(239,68,68,.08);}.seg-entry-login-msg.warn{border-color:rgba(245,158,11,.40);color:#92400e;background:rgba(245,158,11,.10);}
@@ -153,11 +153,29 @@
       if (passwordInput) passwordInput.value = '';
     }
   }
-  function boot(){
+  async function boot(){
+    // Try to silently restore session via refresh token cookie
+    try {
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      const data = await parseResponse(res);
+      if (res.ok && data.accessToken) {
+        setToken(data.accessToken);
+        state.user = data.user || null;
+        state.manualLoginStarted = true;
+        // Load workspaces silently
+        try { await loadWorkspacesAndSelect(); } catch (_) {}
+        // Session restored — stay logged in, don't show login screen
+        return;
+      }
+    } catch (_) {}
+    // Refresh failed — show login screen
     injectStyle();
     injectModal();
-    setToken('');
-    showLogin('Login va parolni kiriting. Xavfsizlik uchun avtomatik kirish o‘chirildi.', 'info');
+    showLogin('Login va parolni kiriting.', 'info');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

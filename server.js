@@ -18,7 +18,10 @@ import actsRouter from "./routes/acts.js";
 import ulchovRouter from "./routes/ulchov.js";
 import signaturesRouter from "./routes/signatures.js";
 import authRouter from "./routes/auth.js";
+import rolesRouter from "./routes/roles.js";
+import usersRouter from "./routes/users.js";
 import workspacesRouter from "./routes/workspaces.js";
+import backupRouter from "./routes/backup.js";
 import { createKudukRouter, initKudukRealtime } from "./routes/kuduk.js";
 import { isDatabaseConfigured } from "./db/pool.js";
 import { runMigrations } from "./db/migrate.js";
@@ -116,6 +119,8 @@ app.use(express.static(publicDir, staticNoCacheOptions));
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/roles", rolesRouter);
+app.use("/api/users", usersRouter);
 app.use("/api/workspaces", workspacesRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/project", projectRouter);
@@ -126,6 +131,7 @@ app.use("/api/acts", actsRouter);
 app.use("/api/ulchov", ulchovRouter);
 app.use("/api", signaturesRouter);
 app.use("/api/kuduk", createKudukRouter(io));
+app.use("/api/backup", backupRouter);
 
 initKudukRealtime(io);
 
