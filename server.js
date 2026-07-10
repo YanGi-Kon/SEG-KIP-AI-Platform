@@ -28,6 +28,25 @@ import { runMigrations } from "./db/migrate.js";
 
 dotenv.config();
 
+function disableKudukBackgroundWorkerTimer() {
+  const originalSetInterval = global.setInterval;
+  if (originalSetInterval.__kudukBackgroundGuard) return;
+
+  const guardedSetInterval = (handler, timeout, ...args) => {
+    const handlerSource = typeof handler === "function" ? Function.prototype.toString.call(handler) : String(handler || "");
+    if (handlerSource.includes('"background-worker"') || handlerSource.includes("'background-worker'")) {
+      console.log("[KUDUK] Background-worker o‘chirildi. Sync faqat server start/config yoki manual sync orqali bajariladi.");
+      return null;
+    }
+    return originalSetInterval(handler, timeout, ...args);
+  };
+
+  guardedSetInterval.__kudukBackgroundGuard = true;
+  global.setInterval = guardedSetInterval;
+}
+
+disableKudukBackgroundWorkerTimer();
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
@@ -134,6 +153,7 @@ app.use("/api/kuduk", createKudukRouter(io));
 app.use("/api/backup", backupRouter);
 
 initKudukRealtime(io);
+
 
 async function startServer() {
   if (isDatabaseConfigured() && String(process.env.DB_AUTO_MIGRATE ?? "true") !== "false") {
