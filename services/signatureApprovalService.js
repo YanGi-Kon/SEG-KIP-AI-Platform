@@ -9,6 +9,7 @@ import {
   getSheetsClient,
   validateServiceAccount,
 } from './googleSheetsService.js';
+import { getWorkspaceSignatureImageById } from '../repositories/workspaceSignatureRepository.js';
 
 const SIGNERS_SHEET = 'ИМЗО_ЧЕКУВЧИЛАР';
 const APPROVALS_SHEET = 'ҲУЖЖАТ_ТАСДИҚЛАШ';
@@ -315,6 +316,15 @@ function extractDriveFileId(value) {
     || (raw.match(/^[a-zA-Z0-9_-]{20,}$/)?.[0] || '');
 }
 
+function extractSignatureFileId(value) {
+  const raw = clean(value);
+  if (!raw) return '';
+  if (/^db:[0-9a-f-]{36}$/i.test(raw)) return raw;
+  const internalId = raw.match(/\/signers\/signature\/([0-9a-f-]{36})/i)?.[1];
+  if (internalId) return `db:${internalId}`;
+  return extractDriveFileId(raw);
+}
+
 async function getRegistryDocument(config, actNo) {
   const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
   const sheets = await getSheetsClient(config.serviceAccount);
@@ -558,7 +568,7 @@ export async function sendDocumentForApproval(configInput, input, req) {
       approvalLink: link,
       tokenHash: sha256(token),
       createdAt: nowIso(),
-      signatureFileId: extractDriveFileId(signer.signatureUrl),
+      signatureFileId: extractSignatureFileId(signer.signatureUrl),
     });
     if (approval.status === 'Тасдиқланди') {
       results.push({ signer: signer.fio, gmail: signer.gmail, status: 'already-approved' });
@@ -626,13 +636,21 @@ export async function approveDocument(token, csrfToken, req) {
 
 export async function streamSignatureImage(token, res) {
   const { fileId } = verifySignatureImageToken(token);
+  if (/^db:[0-9a-f-]{36}$/i.test(fileId)) {
+    const image = await getWorkspaceSignatureImageById(fileId.slice(3));
+    if (!image) throw new Error('Имзо расми топилмади');
+    res.setHeader('Content-Type', image.mimeType || 'image/png');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.end(Buffer.from(image.imageBase64, 'base64'));
+    return;
+  }
   const config = resolveGoogleConfig({}, { requireServer: true });
   const auth = driveAuth(config.serviceAccount);
   await auth.authorize();
   const drive = google.drive({ version: 'v3', auth });
-  const meta = await drive.files.get({ fileId, fields: 'mimeType,name,size' });
+  const meta = await drive.files.get({ fileId, fields: 'mimeType,name,size', supportsAllDrives: true });
   if (meta.data.mimeType !== 'image/png') throw new Error('Имзо файли PNG эмас');
-  const response = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' });
+  const response = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'stream' });
   res.setHeader('Content-Type', 'image/png');
   res.setHeader('Cache-Control', 'private, max-age=3600');
   response.data.pipe(res);

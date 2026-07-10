@@ -7,6 +7,7 @@ const router = express.Router();
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_VISIBLE_TEXT_LENGTH = 10000;
+const AI_TIMEOUT_MS = 35000;
 
 function getApiKey() {
   return String(
@@ -14,7 +15,7 @@ function getApiKey() {
     process.env.OPENAI_KEY ||
     process.env.OPEN_AI_API_KEY ||
     ""
-  ).trim().replace(/^['\"]|['\"]$/g, "");
+  ).trim().replace(/^[\'"]|[\'"]$/g, "");
 }
 
 function getModel() {
@@ -201,6 +202,8 @@ function currentPageMessage(body) {
     path: String(page.path || "").slice(0, 240),
     frameSrc: String(page.frameSrc || "").slice(0, 240),
     url: String(page.url || "").slice(0, 240),
+    workspaceId: String(page.workspaceId || "").slice(0, 80),
+    workspaceName: String(page.workspaceName || "").slice(0, 160),
     visibleText: String(page.visibleText || "").slice(0, MAX_VISIBLE_TEXT_LENGTH),
     tableText: String(page.tableText || "").slice(0, MAX_VISIBLE_TEXT_LENGTH),
   };
@@ -212,6 +215,7 @@ function currentPageMessage(body) {
       `- title: ${safe.title || "unknown"}\n` +
       `- subtitle: ${safe.subtitle || ""}\n` +
       `- active menu: ${safe.activeMenu || ""}\n` +
+      `- workspace: ${safe.workspaceName || ""} ${safe.workspaceId ? "(" + safe.workspaceId + ")" : ""}\n` +
       `- iframe/module path: ${safe.frameSrc || safe.path || ""}\n` +
       `- browser url: ${safe.url || ""}\n\n` +
       "Joriy oynada ko‘rinayotgan jadval/matn snapshoti:\n" +
@@ -246,18 +250,44 @@ function buildConversationMessages(body, extraContexts = []) {
   };
 }
 
+function classifyAiError(error) {
+  const status = error?.status || error?.response?.status || 500;
+  const message = String(error?.message || "Noma’lum xato");
+  const lower = message.toLowerCase();
+  if (error?.name === "AbortError" || lower.includes("timeout")) {
+    return { status: 504, code: "AI_TIMEOUT", error: "AI provider javob berishga ulgurmagan.", recommendedFix: "Birozdan keyin qayta urinib ko‘ring yoki OpenAI status/billing holatini tekshiring." };
+  }
+  if (status === 401 || status === 403 || lower.includes("api key") || lower.includes("authentication")) {
+    return { status: 502, code: "AI_AUTH_FAILED", error: "OpenAI API key noto‘g‘ri yoki ruxsat berilmagan.", recommendedFix: "Railway Variables ichidagi OPENAI_API_KEY qiymatini tekshiring va redeploy qiling." };
+  }
+  if (status === 404 || lower.includes("model") && lower.includes("not")) {
+    return { status: 502, code: "AI_MODEL_NOT_FOUND", error: "Tanlangan OpenAI modeli topilmadi yoki account uchun ruxsat yo‘q.", recommendedFix: "OPENAI_MODEL qiymatini tekshiring yoki vaqtincha gpt-4o-mini ishlating." };
+  }
+  if (status === 429 && (lower.includes("quota") || lower.includes("billing") || lower.includes("insufficient"))) {
+    return { status: 502, code: "AI_QUOTA_EXCEEDED", error: "OpenAI balans/quota cheklovi sabab javob qaytmadi.", recommendedFix: "OpenAI billing, usage limit va project quota holatini tekshiring." };
+  }
+  if (status === 429) {
+    return { status: 502, code: "AI_RATE_LIMITED", error: "OpenAI vaqtincha rate limit berdi.", recommendedFix: "Birozdan keyin qayta urinib ko‘ring yoki so‘rovlar sonini kamaytiring." };
+  }
+  return { status: 502, code: "AI_PROVIDER_ERROR", error: "AI ulanishida xatolik yuz berdi.", details: message, recommendedFix: "Railway deploy loglari, OPENAI_API_KEY, model va billing holatini tekshiring." };
+}
+
 router.get("/", (_req, res) => {
+  const hasKey = Boolean(getApiKey());
   res.json({
     ok: true,
     service: "SEG KIP AI Assistant",
-    ai: getApiKey() ? "configured" : "missing_api_key",
+    ai: hasKey ? "configured" : "missing_api_key",
     model: getModel(),
+    openaiKeyPresent: hasKey,
+    message: hasKey ? "AI yordamchi tayyor." : "Railway Variables ichida OPENAI_API_KEY qo‘shing va redeploy qiling.",
     context: "enabled",
     pageContext: "enabled",
     visibleDataContext: "enabled",
     sheetsContext: "enabled",
     projectContext: "enabled",
     maxHistoryMessages: MAX_HISTORY_MESSAGES,
+    secretsExposed: false,
   });
 });
 
@@ -268,22 +298,30 @@ router.post("/", async (req, res) => {
   const projectContext = await projectContextMessage(userText, req.body);
   const { messages, lastUserMessage, contextMessages, projectContextAttached, pageContextAttached, sheetsContextAttached } = buildConversationMessages(req.body, [pageContext, sheetContext, projectContext]);
 
-  if (!lastUserMessage) return res.status(400).json({ error: "Savol bo‘sh bo‘lmasin." });
+  if (!lastUserMessage) return res.status(400).json({ ok: false, code: "AI_EMPTY_MESSAGE", error: "Savol bo‘sh bo‘lmasin.", secretsExposed: false });
 
   const client = getClient();
   if (!client) {
-    return res.status(200).json({ answer: "AI yordamchi demo rejimda. Railway Variables ichiga OPENAI_API_KEY qo‘shing va Redeploy qiling.", mode: "demo" });
+    return res.status(200).json({
+      ok: true,
+      answer: "AI yordamchi demo rejimda. Railway Variables ichiga OPENAI_API_KEY qo‘shing va Redeploy qiling.",
+      mode: "demo",
+      code: "AI_MISSING_API_KEY",
+      secretsExposed: false,
+    });
   }
 
   try {
-    const completion = await client.chat.completions.create({ model: getModel(), temperature: 0.25, messages });
+    const completion = await client.chat.completions.create(
+      { model: getModel(), temperature: 0.25, messages },
+      { timeout: AI_TIMEOUT_MS }
+    );
     const answer = completion.choices?.[0]?.message?.content || "AI javob qaytarmadi.";
-    res.json({ answer, mode: "ai", model: getModel(), contextMessages, projectContextAttached, pageContextAttached, sheetsContextAttached });
+    res.json({ ok: true, answer, mode: "ai", model: getModel(), contextMessages, projectContextAttached, pageContextAttached, sheetsContextAttached, secretsExposed: false });
   } catch (error) {
-    const status = error?.status || error?.response?.status || 500;
-    const message = error?.message || "Noma’lum xato";
-    console.error("OPENAI_ERROR:", status, message);
-    res.status(500).json({ error: "AI ulanishida xatolik. Railway Variables, Google Sheets share va billing holatini tekshiring.", details: message, status });
+    const classified = classifyAiError(error);
+    console.error("OPENAI_ERROR:", classified.code, classified.status, error?.message || "unknown");
+    res.status(classified.status).json({ ok: false, ...classified, secretsExposed: false });
   }
 });
 

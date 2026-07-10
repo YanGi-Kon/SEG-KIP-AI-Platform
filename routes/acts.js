@@ -4,6 +4,39 @@ import { getDailyReports, writeActDocument } from '../services/actBlankSheetServ
 
 const router = express.Router();
 
+function clean(value) {
+  return String(value ?? '').trim();
+}
+
+function safeJsonParse(value, fallback = null) {
+  try {
+    return JSON.parse(value);
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function parseServerServiceAccount() {
+  const raw = clean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_BASE64);
+  if (!raw) return null;
+  const direct = safeJsonParse(raw);
+  if (direct) return direct;
+  try {
+    return JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+  } catch (_) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON / BASE64 парсинг хатоси');
+  }
+}
+
+function resolveActsConfig(input = {}) {
+  const spreadsheetUrl = clean(input.spreadsheetUrl || input.spreadsheetId);
+  if (!spreadsheetUrl) throw new Error('Google Sheets ҳаволаси киритилмаган');
+  return {
+    spreadsheetUrl,
+    serviceAccount: validateServiceAccount(input.serviceAccount || parseServerServiceAccount()),
+  };
+}
+
 function isTargetWork(value) {
   const v = String(value || '').trim().toLowerCase().replace(/\s+/g, '');
   return ['то-2','то2','to-2','to2','акт','akt'].includes(v);
@@ -50,11 +83,32 @@ function getPayload(req) {
   return { ...req.query, ...req.body };
 }
 
+async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount }) {
+  const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:J' });
+  const reports = await getDailyReports({ spreadsheetUrl, serviceAccount });
+  const completedByKey = new Map(
+    reports
+      .filter(r => String(r.sourceKey || '').trim())
+      .map(r => [String(r.sourceKey).trim(), r])
+  );
+  const dataRows = rows.map((row, index) => ({ row, index })).filter(x => isDataRow(x.row));
+  const matched = dataRows.filter(x => isTargetWork(x.row[8])).map(x => mapRow(x.row, x.index, sheetName, completedByKey));
+  const createdDocuments = matched.filter(row => row.isCompleted).length || reports.length;
+  const completionPercentage = matched.length ? Math.min(100, Math.round((createdDocuments / matched.length) * 100)) : 0;
+  return {
+    totalRows: dataRows.length,
+    plannedDocuments: matched.length,
+    createdDocuments,
+    completionPercentage,
+    sheetName,
+    rows: matched
+  };
+}
+
 router.post('/settings/test', async (req, res) => {
   try {
-    const { spreadsheetUrl, serviceAccount } = req.body || {};
-    validateServiceAccount(serviceAccount);
-    const sheets = await listSheets({ spreadsheetUrl, serviceAccount });
+    const config = resolveActsConfig(req.body || {});
+    const sheets = await listSheets(config);
     res.json({ ok: true, sheets });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
@@ -63,39 +117,24 @@ router.post('/settings/test', async (req, res) => {
 
 router.post('/monthly-analysis', async (req, res) => {
   try {
-    const { spreadsheetUrl, sheetName, serviceAccount } = getPayload(req);
-    const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:J' });
-    const reports = await getDailyReports({ spreadsheetUrl, serviceAccount });
-    const completedByKey = new Map(
-      reports
-        .filter(r => String(r.sourceKey || '').trim())
-        .map(r => [String(r.sourceKey).trim(), r])
-    );
-    const dataRows = rows.map((row, index) => ({ row, index })).filter(x => isDataRow(x.row));
-    const matched = dataRows.filter(x => isTargetWork(x.row[8])).map(x => mapRow(x.row, x.index, sheetName, completedByKey));
-    const createdDocuments = matched.filter(row => row.isCompleted).length || reports.length;
-    const completionPercentage = matched.length ? Math.min(100, Math.round((createdDocuments / matched.length) * 100)) : 0;
-    res.json({
-      totalRows: dataRows.length,
-      plannedDocuments: matched.length,
-      createdDocuments,
-      completionPercentage,
-      sheetName,
-      rows: matched
-    });
+    const { sheetName } = getPayload(req);
+    const config = resolveActsConfig(getPayload(req));
+    const data = await buildMonthlyAnalysis({ ...config, sheetName });
+    res.json(data);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
 router.get('/monthly-analysis', async (req, res) => {
-  res.status(405).json({ error: 'Ушбу endpoint учун POST ишлатинг: serviceAccount JSON body орқали юборилади.' });
+  res.status(405).json({ error: 'Ушбу endpoint учун POST ишлатинг.' });
 });
 
 router.post('/create', async (req, res) => {
   try {
-    const { spreadsheetUrl, serviceAccount, act } = req.body || {};
-    const result = await writeActDocument({ spreadsheetUrl, serviceAccount, act });
+    const { act } = req.body || {};
+    const config = resolveActsConfig(req.body || {});
+    const result = await writeActDocument({ ...config, act });
     res.json({ ok: true, ...result });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
@@ -104,8 +143,8 @@ router.post('/create', async (req, res) => {
 
 router.post('/reports/daily', async (req, res) => {
   try {
-    const { spreadsheetUrl, serviceAccount } = req.body || {};
-    const rows = await getDailyReports({ spreadsheetUrl, serviceAccount });
+    const config = resolveActsConfig(req.body || {});
+    const rows = await getDailyReports(config);
     res.json({ rows });
   } catch (err) {
     res.status(400).json({ error: err.message, rows: [] });

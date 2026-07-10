@@ -156,12 +156,20 @@ body::after {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 .brand {
   display: flex;
   align-items: center;
   gap: 14px;
   margin-bottom: 28px;
+  min-width: 0;
+}
+.brand > div:last-child {
+  min-width: 0;
+  overflow: hidden;
 }
 .logo {
   width: 58px;
@@ -172,18 +180,24 @@ body::after {
   background: linear-gradient(135deg, rgba(34,211,238,.22), rgba(16,185,129,.18));
   border: 1px solid rgba(34,211,238,.45);
   box-shadow: 0 0 34px rgba(34,211,238,.20);
-  font-size: 28px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  overflow: hidden;
 }
 .brand h1 {
   margin: 0;
-  font-size: 32px;
-  letter-spacing: 1px;
+  font-size: 14px;
+  letter-spacing: .3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .brand p {
   margin: 2px 0 0;
   color: var(--cyan);
-  font-size: 13px;
-  letter-spacing: 1.2px;
+  font-size: 10px;
+  letter-spacing: 1px;
 }
 .menu {
   display: grid;

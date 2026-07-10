@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Настройки</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body { margin: 0; background: transparent; color: #e2e8f0; font-family: Inter, Arial, sans-serif; padding: 0 2px; }
+  .settings-wrap { display: grid; gap: 24px; max-width: 640px; }
+  .settings-card {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(34,211,238,.15);
+    border-radius: 22px;
+    padding: 28px;
+  }
+  .settings-card h2 { margin: 0 0 6px; font-size: 18px; color: #eaffff; display: flex; align-items: center; gap: 10px; }
+  .settings-card p { margin: 0 0 22px; font-size: 13px; color: #64748b; }
+  .lang-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .lang-option {
+    border: 2px solid rgba(255,255,255,.1);
+    border-radius: 16px;
+    padding: 20px 16px;
+    cursor: pointer;
+    text-align: center;
+    transition: all .2s;
+    background: rgba(255,255,255,.04);
+    user-select: none;
+  }
+  .lang-option:hover { border-color: rgba(34,211,238,.45); background: rgba(34,211,238,.07); }
+  .lang-option.active { border-color: #22d3ee; background: rgba(34,211,238,.14); box-shadow: 0 0 18px rgba(34,211,238,.2); }
+  .lang-flag { font-size: 36px; display: block; margin-bottom: 10px; }
+  .lang-name { font-size: 15px; font-weight: 700; color: #eaffff; }
+  .lang-sub { font-size: 11px; color: #64748b; margin-top: 3px; }
+  .lang-badge { display: inline-block; margin-top: 8px; font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: rgba(34,211,238,.18); color: #22d3ee; letter-spacing: 1px; }
+  .settings-card.danger { border-color: rgba(239,68,68,.2); }
+  .logout-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+  .logout-info { font-size: 13px; color: #94a3b8; }
+  .btn-logout {
+    border: 1.5px solid rgba(239,68,68,.45);
+    border-radius: 14px;
+    background: rgba(239,68,68,.1);
+    color: #fca5a5;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px 28px;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-logout:hover { background: rgba(239,68,68,.22); border-color: rgba(239,68,68,.7); color: #fecaca; }
+  .save-toast { display: none; position: fixed; bottom: 24px; right: 24px; background: rgba(16,185,129,.9); color: #fff; padding: 12px 22px; border-radius: 14px; font-weight: 700; font-size: 14px; z-index: 9999; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+  .save-toast.show { display: block; animation: fadeInUp .3s; }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .btn-backup {
+    border: 1.5px solid rgba(34,211,238,.45);
+    border-radius: 14px;
+    background: rgba(34,211,238,.1);
+    color: #22d3ee;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px 28px;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-backup:hover { background: rgba(34,211,238,.22); border-color: rgba(34,211,238,.7); }
+  .btn-backup:disabled { opacity: .55; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div class="settings-wrap">
+
+  <!-- Language -->
+  <div class="settings-card">
+    <h2>🌐 Язык интерфейса</h2>
+    <p>Выберите язык для отображения меню и интерфейса системы</p>
+    <div class="lang-grid">
+      <div class="lang-option" id="lang-ru" onclick="selectLang('ru')">
+        <span class="lang-flag">🇷🇺</span>
+        <div class="lang-name">Русский</div>
+        <div class="lang-sub">Russian</div>
+        <div class="lang-badge">RU</div>
+      </div>
+      <div class="lang-option" id="lang-uz" onclick="selectLang('uz')">
+        <span class="lang-flag">🇺🇿</span>
+        <div class="lang-name">O'zbekcha</div>
+        <div class="lang-sub">Uzbek</div>
+        <div class="lang-badge">UZ</div>
+      </div>
+      <div class="lang-option" id="lang-en" onclick="selectLang('en')">
+        <span class="lang-flag">🇬🇧</span>
+        <div class="lang-name">English</div>
+        <div class="lang-sub">Ingliz tili</div>
+        <div class="lang-badge">EN</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logout -->
+  <div class="settings-card danger">
+    <h2>🔒 Сессия</h2>
+    <div class="logout-row">
+      <div class="logout-info">Завершите текущую сессию. Вам потребуется снова войти в систему.</div>
+      <button class="btn-logout" onclick="doLogout()">⏻ Выйти из системы</button>
+    </div>
+  </div>
+
+  <!-- Database Backup (admin only) -->
+  <div class="settings-card" id="backupCard" style="display:none">
+    <h2>🗄️ Резервная копия БД</h2>
+    <p>Экспорт всех данных базы данных в JSON-файл. Только для администраторов.</p>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <button class="btn-backup" id="backupBtn" onclick="downloadBackup()">
+        ⬇ Скачать резервную копию
+      </button>
+      <div id="backupStatus" style="font-size:13px;color:#64748b"></div>
+    </div>
+    <div style="margin-top:14px;font-size:12px;color:#475569;line-height:1.6">
+      ⚠ Файл содержит конфиденциальные данные. Храните его в безопасном месте.
+    </div>
+  </div>
+
+</div>
+
+<div class="save-toast" id="saveToast">✓ Язык сохранён</div>
+
+<script>
+const LANG_KEY = 'seg_kip_lang';
+
+const TRANSLATIONS = {
+  ru: {
+    '1. ЖУРНАЛ УЧЕТА': '1. ЖУРНАЛ УЧЕТА',
+    '2. УЛЧОВ ВОСИТАЛАРИ': '2. ИЗМЕРИТЕЛЬНЫЕ ПРИБОРЫ',
+    '3. АКТЛАР ЖУРНАЛИ': '3. ЖУРНАЛ АКТОВ',
+    '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. ЖУРНАЛ НЕИСПРАВНОСТЕЙ',
+    '5. ТО ЖУРНАЛ': '5. ЖУРНАЛ ТО',
+    '6. АЛМАШИШ ЖУРНАЛИ': '6. ЖУРНАЛ ЗАМЕН',
+    '7. ПОЛЬЗОВАТЕЛИ': '7. ПОЛЬЗОВАТЕЛИ',
+    '8. РОЛИ': '8. РОЛИ',
+    '9. НАСТРОЙКИ': '9. НАСТРОЙКИ',
+  },
+  uz: {
+    '1. ЖУРНАЛ УЧЕТА': '1. HISOBOT JURNALI',
+    '2. УЛЧОВ ВОСИТАЛАРИ': '2. ЎЛЧОВ ВОСИТАЛАРИ',
+    '3. АКТЛАР ЖУРНАЛИ': '3. АКТЛАР ЖУРНАЛИ',
+    '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. НОСОЗЛИКЛАР ЖУРНАЛИ',
+    '5. ТО ЖУРНАЛ': '5. ТО ЖУРНАЛИ',
+    '6. АЛМАШИШ ЖУРНАЛИ': '6. АЛМАШИШ ЖУРНАЛИ',
+    '7. ПОЛЬЗОВАТЕЛИ': '7. FOYDALANUVCHILAR',
+    '8. РОЛИ': '8. ROLLAR',
+    '9. НАСТРОЙКИ': '9. SOZLAMALAR',
+  },
+  en: {
+    '1. ЖУРНАЛ УЧЕТА': '1. ACCOUNTING JOURNAL',
+    '2. УЛЧОВ ВОСИТАЛАРИ': '2. MEASURING INSTRUMENTS',
+    '3. АКТЛАР ЖУРНАЛИ': '3. ACTS JOURNAL',
+    '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. FAULTS JOURNAL',
+    '5. ТО ЖУРНАЛ': '5. MAINTENANCE LOG',
+    '6. АЛМАШИШ ЖУРНАЛИ': '6. REPLACEMENT LOG',
+    '7. ПОЛЬЗОВАТЕЛИ': '7. USERS',
+    '8. РОЛИ': '8. ROLES',
+    '9. НАСТРОЙКИ': '9. SETTINGS',
+  }
+};
+
+function selectLang(lang) {
+  localStorage.setItem(LANG_KEY, lang);
+  document.querySelectorAll('.lang-option').forEach(el => el.classList.remove('active'));
+  document.getElementById('lang-' + lang)?.classList.add('active');
+  applyLangToParent(lang);
+  showToast();
+}
+
+function applyLangToParent(lang) {
+  const t = TRANSLATIONS[lang];
+  if (!t) return;
+  try {
+    const menuItems = parent.document.querySelectorAll('.menu-title');
+    menuItems.forEach(el => {
+      // Save original text on first call
+      if (!el.dataset.original) {
+        el.dataset.original = el.textContent.trim();
+      }
+      const original = el.dataset.original;
+      const mapped = t[original];
+      if (mapped) el.textContent = mapped;
+      else el.textContent = original; // fallback to original if no translation
+    });
+  } catch(_) {}
+}
+
+function showToast() {
+  const toast = document.getElementById('saveToast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+function loadCurrentLang() {
+  const lang = localStorage.getItem(LANG_KEY) || 'ru';
+  document.querySelectorAll('.lang-option').forEach(el => el.classList.remove('active'));
+  document.getElementById('lang-' + lang)?.classList.add('active');
+  applyLangToParent(lang);
+}
+
+async function doLogout() {
+  try {
+    if (parent && parent.appLogout) { parent.appLogout(); return; }
+  } catch(_) {}
+  try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); } catch(_) {}
+  sessionStorage.removeItem('seg_kip_workspace_access_token');
+  localStorage.removeItem('seg_kip_selected_workspace_id');
+  parent.location.reload();
+}
+
+loadCurrentLang();
+checkAdminAccess();
+
+async function checkAdminAccess() {
+  try {
+    const token = parent?.sessionStorage?.getItem('seg_kip_workspace_access_token') || '';
+    const res = await fetch('/api/roles', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    // If we can access roles endpoint — user has admin rights
+    if (res.ok || res.status === 403) {
+      // Try a HEAD to /api/backup to detect admin
+      const bRes = await fetch('/api/backup', {
+        method: 'HEAD',
+        headers: { Authorization: 'Bearer ' + token },
+        credentials: 'include'
+      });
+      // Show backup card if not 403
+      if (bRes.status !== 403) {
+        document.getElementById('backupCard').style.display = '';
+      }
+    }
+  } catch(_) {}
+}
+
+async function downloadBackup() {
+  const btn = document.getElementById('backupBtn');
+  const status = document.getElementById('backupStatus');
+  btn.disabled = true;
+  status.textContent = '⏳ Создание резервной копии...';
+  try {
+    const token = parent?.sessionStorage?.getItem('seg_kip_workspace_access_token') || '';
+    const res = await fetch('/api/backup', {
+      headers: { Authorization: 'Bearer ' + token },
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      status.textContent = '❌ ' + (data.error || 'Ошибка');
+      return;
+    }
+    const blob = await res.blob();
+    const filename = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1]
+      || `backup_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    status.textContent = '✅ Загружено: ' + filename;
+  } catch(e) {
+    status.textContent = '❌ ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
