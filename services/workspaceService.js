@@ -4,12 +4,24 @@ import { normalizeWorkspaceInput } from '../domain/workspace.js';
 import {
   addWorkspaceMember,
   archiveWorkspaceRecord,
+  clearWorkspaceServiceAccountRecord,
   createWorkspaceRecord,
   findWorkspaceForUser,
+  getWorkspaceServiceAccountRecord,
   listUserWorkspaces,
   listWorkspaceMembers,
   updateWorkspaceRecord,
+  updateWorkspaceServiceAccountRecord,
 } from '../repositories/workspaceRepository.js';
+import {
+  getServiceAccountPublicInfo,
+  normalizeServiceAccountInput,
+  validateServiceAccountShape,
+} from './googleCredentialService.js';
+import {
+  decryptWorkspaceJsonSecret,
+  encryptWorkspaceJsonSecret,
+} from './workspaceSecretService.js';
 
 const DEFAULT_WORKSPACE = Object.freeze({
   name: process.env.DEFAULT_WORKSPACE_NAME || 'Fargona №-4-Цех',
@@ -34,6 +46,22 @@ function uniqueSlug(baseSlug, attempt) {
 
 function shouldBootstrapDefaultWorkspace() {
   return String(process.env.DEFAULT_WORKSPACE_BOOTSTRAP ?? 'true').toLowerCase() !== 'false';
+}
+
+function serviceAccountStatusFromWorkspace(workspace) {
+  return {
+    status: workspace?.serviceAccountStatus || 'missing',
+    clientEmail: workspace?.serviceAccountClientEmail || '',
+    projectId: workspace?.serviceAccountProjectId || '',
+    updatedAt: workspace?.serviceAccountUpdatedAt || null,
+  };
+}
+
+function extractServiceAccountPayload(input = {}) {
+  if (input?.serviceAccount) return input.serviceAccount;
+  if (input?.serviceAccountJson) return input.serviceAccountJson;
+  if (input?.json) return input.json;
+  return input;
 }
 
 async function bootstrapDefaultWorkspace(userId) {
@@ -130,6 +158,66 @@ export async function updateWorkspace(userId, workspaceId, input) {
       throw error;
     }
   });
+}
+
+export async function getWorkspaceServiceAccountStatus(userId, workspaceId) {
+  const workspace = await getWorkspace(userId, workspaceId);
+  return serviceAccountStatusFromWorkspace(workspace);
+}
+
+export async function saveWorkspaceServiceAccount(userId, workspaceId, input) {
+  return withTransaction(async (client) => {
+    const current = await findWorkspaceForUser(workspaceId, userId, { forUpdate: true, client });
+    if (!current || current.memberStatus !== 'active' || current.status === 'archived') {
+      throw serviceError('Workspace not found', 'WORKSPACE_NOT_FOUND', 404);
+    }
+
+    const serviceAccount = normalizeServiceAccountInput(
+      extractServiceAccountPayload(input),
+      'WORKSPACE_SERVICE_ACCOUNT',
+    );
+    const publicInfo = getServiceAccountPublicInfo(serviceAccount, 'WORKSPACE_SERVICE_ACCOUNT');
+    const encryptedJson = encryptWorkspaceJsonSecret(serviceAccount);
+    const workspace = await updateWorkspaceServiceAccountRecord(workspaceId, {
+      encryptedJson,
+      clientEmail: publicInfo.clientEmail,
+      projectId: publicInfo.projectId,
+    }, client);
+
+    return {
+      workspace,
+      serviceAccount: serviceAccountStatusFromWorkspace(workspace),
+    };
+  });
+}
+
+export async function clearWorkspaceServiceAccount(userId, workspaceId) {
+  return withTransaction(async (client) => {
+    const current = await findWorkspaceForUser(workspaceId, userId, { forUpdate: true, client });
+    if (!current || current.memberStatus !== 'active' || current.status === 'archived') {
+      throw serviceError('Workspace not found', 'WORKSPACE_NOT_FOUND', 404);
+    }
+
+    const workspace = await clearWorkspaceServiceAccountRecord(workspaceId, client);
+    return {
+      workspace,
+      serviceAccount: serviceAccountStatusFromWorkspace(workspace),
+    };
+  });
+}
+
+export async function getRuntimeWorkspaceServiceAccount(workspaceId) {
+  if (!workspaceId) return null;
+  const record = await getWorkspaceServiceAccountRecord(workspaceId);
+  if (!record || record.status !== 'configured' || !record.encryptedJson) return null;
+  const serviceAccount = decryptWorkspaceJsonSecret(record.encryptedJson);
+  return {
+    serviceAccount: validateServiceAccountShape(serviceAccount, 'WORKSPACE_SERVICE_ACCOUNT'),
+    credentialSource: 'WORKSPACE_SERVICE_ACCOUNT',
+    clientEmail: record.clientEmail,
+    projectId: record.projectId,
+    updatedAt: record.updatedAt,
+  };
 }
 
 export async function archiveWorkspace(userId, workspaceId) {
