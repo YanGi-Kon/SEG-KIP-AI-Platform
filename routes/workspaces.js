@@ -20,6 +20,11 @@ import {
   getWorkspaceSignerList,
   updateSignerForWorkspace,
 } from '../services/workspaceSignerService.js';
+import {
+  createWorkspaceActDocument,
+  getWorkspaceDailyActReports,
+  getWorkspaceMonthlyAnalysis,
+} from '../services/workspaceActsService.js';
 import { verifySafeEmailTransport } from '../services/emailDiagnosticsService.js';
 import { testWorkspaceSheetConnection } from '../services/workspaceGoogleService.js';
 import { sendWorkspaceDocumentForApproval } from '../services/workspaceApprovalBridgeService.js';
@@ -130,6 +135,42 @@ router.delete('/:workspaceId/service-account', requireWorkspacePermission('works
   try {
     const result = await clearWorkspaceServiceAccount(req.auth.userId, req.params.workspaceId);
     res.json({ ok: true, ...result });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/acts/monthly-analysis', requireWorkspacePermission('documents:read'), async (req, res) => {
+  try {
+    const result = await getWorkspaceMonthlyAnalysis(req.workspace);
+    res.json(result);
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/acts/create', requireWorkspacePermission('documents:create'), async (req, res) => {
+  try {
+    const result = await createWorkspaceActDocument(req.workspace, req.body?.act);
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.get('/:workspaceId/acts/reports/daily', requireWorkspacePermission('documents:read'), async (req, res) => {
+  try {
+    const result = await getWorkspaceDailyActReports(req.workspace);
+    res.json(result);
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/acts/reports/daily', requireWorkspacePermission('documents:read'), async (req, res) => {
+  try {
+    const result = await getWorkspaceDailyActReports(req.workspace);
+    res.json(result);
   } catch (error) {
     handleError(res, error);
   }
