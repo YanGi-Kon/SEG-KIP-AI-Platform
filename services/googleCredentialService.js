@@ -19,7 +19,7 @@ function safeJsonParse(raw, source) {
     throw makeError(
       source === 'BASE64'
         ? 'GOOGLE_SERVICE_ACCOUNT_BASE64 JSON parse xato'
-        : 'GOOGLE_SERVICE_ACCOUNT_JSON parse xato',
+        : `${source || 'GOOGLE_SERVICE_ACCOUNT_JSON'} parse xato`,
       source === 'BASE64' ? 'GOOGLE_SERVICE_ACCOUNT_BASE64_INVALID' : 'GOOGLE_SERVICE_ACCOUNT_JSON_INVALID',
       400,
       { parseMessage: error.message },
@@ -33,6 +33,7 @@ function normalizePrivateKey(value = '') {
 
 function sanitizeBase64(raw) {
   return clean(raw)
+    .replace(/^[']|[']$/g, '')
     .replace(/^['"]|['"]$/g, '')
     .replace(/\s+/g, '');
 }
@@ -57,7 +58,7 @@ function parseServiceAccountFromJson(raw) {
   return safeJsonParse(value, 'JSON');
 }
 
-function validateServiceAccountShape(serviceAccount, source = 'UNKNOWN') {
+export function validateServiceAccountShape(serviceAccount, source = 'UNKNOWN') {
   if (!serviceAccount || typeof serviceAccount !== 'object') {
     throw makeError('SERVICE ACCOUNT JSON topilmadi', 'GOOGLE_SERVICE_ACCOUNT_MISSING', 400, { credentialSource: source });
   }
@@ -86,6 +87,28 @@ function validateServiceAccountShape(serviceAccount, source = 'UNKNOWN') {
     throw makeError('private_key formati noto‘g‘ri', 'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_INVALID', 400, publicInfo);
   }
   return { ...serviceAccount, private_key: privateKey };
+}
+
+export function normalizeServiceAccountInput(input, source = 'WORKSPACE_SERVICE_ACCOUNT') {
+  let serviceAccount = input;
+  if (typeof input === 'string') {
+    const value = clean(input);
+    if (!value) {
+      throw makeError('SERVICE ACCOUNT JSON topilmadi', 'GOOGLE_SERVICE_ACCOUNT_MISSING', 400, { credentialSource: source });
+    }
+    serviceAccount = safeJsonParse(value, source);
+  }
+  return validateServiceAccountShape(serviceAccount, source);
+}
+
+export function getServiceAccountPublicInfo(serviceAccount, source = 'UNKNOWN') {
+  const validated = validateServiceAccountShape(serviceAccount, source);
+  return {
+    credentialSource: source,
+    clientEmail: clean(validated.client_email),
+    projectId: clean(validated.project_id),
+    hasPrivateKey: Boolean(validated.private_key),
+  };
 }
 
 export function getGoogleCredentialSummary() {
@@ -124,7 +147,7 @@ export function resolveEnvServiceAccount() {
 
 export function resolvePlatformGoogleConfig(input = {}) {
   const { serviceAccount, credentialSource, credentialConflict } = resolveEnvServiceAccount();
-  const spreadsheetUrl = clean(process.env.GOOGLE_SPREADSHEET_URL || process.env.GOOGLE_SPREADSHEET_ID || input.spreadsheetUrl || input.spreadsheetId);
+  const spreadsheetUrl = clean(process.env.GOOGLE_SPREADSHEET_URL || process.env.GOOGLE_SHEETS_ID || input.spreadsheetUrl || input.spreadsheetId);
   if (!spreadsheetUrl) throw makeError('Google Sheets havolasi kiritilmagan', 'GOOGLE_SPREADSHEET_URL_MISSING');
   return { spreadsheetUrl, serviceAccount, credentialSource, credentialConflict };
 }
