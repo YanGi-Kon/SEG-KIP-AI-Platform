@@ -15,8 +15,9 @@
   }
 
   function loadSettingsScripts(){
-    appendScript('segWorkspaceUiScript', '/js/workspace-ui.js?v=settings2');
-    appendScript('segWorkspaceSessionCleanupScript', '/js/workspace-session-cleanup.js?v=settings2');
+    appendScript('segWorkspaceUiScript', '/js/workspace-ui.js?v=settings3');
+    appendScript('segWorkspaceServiceAccountUiScript', '/js/workspace-service-account-ui.js?v=settings3');
+    appendScript('segWorkspaceSessionCleanupScript', '/js/workspace-session-cleanup.js?v=settings3');
   }
 
   if (document.readyState === 'loading') {
