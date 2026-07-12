@@ -4,6 +4,14 @@ function executor(client) {
   return client || { query };
 }
 
+const WORKSPACE_RETURN_COLUMNS = `
+  id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
+  main_sheet_name, drive_folder_id, time_zone, status, is_default,
+  service_account_client_email, service_account_project_id,
+  service_account_status, service_account_updated_at,
+  created_at, updated_at
+`;
+
 function mapWorkspace(row) {
   if (!row) return null;
   return {
@@ -18,6 +26,10 @@ function mapWorkspace(row) {
     timeZone: row.time_zone,
     status: row.status,
     isDefault: row.is_default,
+    serviceAccountClientEmail: row.service_account_client_email || '',
+    serviceAccountProjectId: row.service_account_project_id || '',
+    serviceAccountStatus: row.service_account_status || 'missing',
+    serviceAccountUpdatedAt: row.service_account_updated_at || null,
     memberRole: row.member_role || null,
     memberStatus: row.member_status || null,
     createdAt: row.created_at,
@@ -31,9 +43,7 @@ export async function createWorkspaceRecord(input, client = null) {
        (owner_id, name, slug, spreadsheet_id, spreadsheet_url, main_sheet_name,
         drive_folder_id, time_zone, status, is_default)
      VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, $9, $10)
-     RETURNING id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
-               main_sheet_name, drive_folder_id, time_zone, status, is_default,
-               created_at, updated_at`,
+     RETURNING ${WORKSPACE_RETURN_COLUMNS}`,
     [
       input.ownerId,
       input.name,
@@ -66,6 +76,8 @@ export async function listUserWorkspaces(userId) {
   const result = await query(
     `SELECT w.id, w.owner_id, w.name, w.slug, w.spreadsheet_id, w.spreadsheet_url,
             w.main_sheet_name, w.drive_folder_id, w.time_zone, w.status, w.is_default,
+            w.service_account_client_email, w.service_account_project_id,
+            w.service_account_status, w.service_account_updated_at,
             w.created_at, w.updated_at,
             wm.role AS member_role, wm.status AS member_status
      FROM workspace_members wm
@@ -83,6 +95,8 @@ export async function findWorkspaceForUser(workspaceId, userId, { forUpdate = fa
   const result = await executor(client).query(
     `SELECT w.id, w.owner_id, w.name, w.slug, w.spreadsheet_id, w.spreadsheet_url,
             w.main_sheet_name, w.drive_folder_id, w.time_zone, w.status, w.is_default,
+            w.service_account_client_email, w.service_account_project_id,
+            w.service_account_status, w.service_account_updated_at,
             w.created_at, w.updated_at,
             wm.role AS member_role, wm.status AS member_status
      FROM workspace_members wm
@@ -106,9 +120,7 @@ export async function updateWorkspaceRecord(workspaceId, input, client = null) {
          time_zone = COALESCE($8, time_zone),
          status = COALESCE($9, status)
      WHERE id = $1
-     RETURNING id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
-               main_sheet_name, drive_folder_id, time_zone, status, is_default,
-               created_at, updated_at`,
+     RETURNING ${WORKSPACE_RETURN_COLUMNS}`,
     [
       workspaceId,
       input.name ?? null,
@@ -124,14 +136,67 @@ export async function updateWorkspaceRecord(workspaceId, input, client = null) {
   return mapWorkspace(result.rows[0]);
 }
 
+export async function updateWorkspaceServiceAccountRecord(workspaceId, input, client = null) {
+  const result = await executor(client).query(
+    `UPDATE workspaces
+     SET service_account_encrypted_json = $2,
+         service_account_client_email = $3,
+         service_account_project_id = $4,
+         service_account_status = 'configured',
+         service_account_updated_at = NOW()
+     WHERE id = $1
+     RETURNING ${WORKSPACE_RETURN_COLUMNS}`,
+    [workspaceId, input.encryptedJson, input.clientEmail, input.projectId],
+  );
+  return mapWorkspace(result.rows[0]);
+}
+
+export async function clearWorkspaceServiceAccountRecord(workspaceId, client = null) {
+  const result = await executor(client).query(
+    `UPDATE workspaces
+     SET service_account_encrypted_json = NULL,
+         service_account_client_email = NULL,
+         service_account_project_id = NULL,
+         service_account_status = 'missing',
+         service_account_updated_at = NOW()
+     WHERE id = $1
+     RETURNING ${WORKSPACE_RETURN_COLUMNS}`,
+    [workspaceId],
+  );
+  return mapWorkspace(result.rows[0]);
+}
+
+export async function getWorkspaceServiceAccountRecord(workspaceId, client = null) {
+  const result = await executor(client).query(
+    `SELECT id,
+            service_account_encrypted_json,
+            service_account_client_email,
+            service_account_project_id,
+            service_account_status,
+            service_account_updated_at
+     FROM workspaces
+     WHERE id = $1 AND status <> 'archived'
+     LIMIT 1`,
+    [workspaceId],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    workspaceId: row.id,
+    encryptedJson: row.service_account_encrypted_json || '',
+    clientEmail: row.service_account_client_email || '',
+    projectId: row.service_account_project_id || '',
+    status: row.service_account_status || 'missing',
+    updatedAt: row.service_account_updated_at || null,
+  };
+}
+
 export async function archiveWorkspaceRecord(workspaceId, client = null) {
   const result = await executor(client).query(
     `UPDATE workspaces
      SET status = 'archived'
      WHERE id = $1 AND status <> 'archived'
-     RETURNING id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
-               main_sheet_name, drive_folder_id, time_zone, status, is_default,
-               created_at, updated_at`,
+     RETURNING ${WORKSPACE_RETURN_COLUMNS}`,
     [workspaceId],
   );
   return mapWorkspace(result.rows[0]);
