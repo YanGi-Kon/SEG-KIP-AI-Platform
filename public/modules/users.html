@@ -77,7 +77,7 @@
     
     <div class="form-group">
       <label>Пароль <span id="pwdHint" style="font-size:12px; color:#666;"></span></label>
-      <input type="password" id="userPassword" placeholder="Минимум 8 символов">
+      <input type="password" id="userPassword" placeholder="12+ символов: A-Z, a-z, 0-9">
     </div>
     
     <div class="error" id="modalError"></div>
@@ -103,19 +103,66 @@ function getHeaders() {
   return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (token || '') };
 }
 
+function showModalError(message) {
+  const errDiv = document.getElementById('modalError');
+  errDiv.innerText = message;
+  errDiv.style.display = 'block';
+}
+
+function hideModalError() {
+  const errDiv = document.getElementById('modalError');
+  errDiv.innerText = '';
+  errDiv.style.display = 'none';
+}
+
+function formatNonJsonResponse(text) {
+  const compact = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!compact) return 'Server returned non-JSON response';
+  if (compact.startsWith('<!DOCTYPE') || compact.startsWith('<html')) {
+    return 'Server returned non-JSON response';
+  }
+  return compact.slice(0, 240);
+}
+
+async function readApiPayload(res) {
+  const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('application/json')) {
+    return { isJson: true, data: await res.json() };
+  }
+  return { isJson: false, data: await res.text() };
+}
+
+function validatePasswordClient(password) {
+  const value = String(password || '');
+  if (value.length < 12 || value.length > 200) {
+    return 'Пароль должен содержать 12-200 символов';
+  }
+  if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/\d/.test(value)) {
+    return 'Пароль должен содержать строчные, заглавные буквы и цифры';
+  }
+  return '';
+}
+
 async function loadData() {
   try {
     const rolesRes = await fetch('/api/roles', { headers: getHeaders() });
-    if (rolesRes.ok) {
-      const rolesData = await rolesRes.json();
-      rolesList = rolesData.roles;
+    const rolesPayload = await readApiPayload(rolesRes);
+    if (rolesRes.ok && rolesPayload.isJson) {
+      rolesList = Array.isArray(rolesPayload.data.roles) ? rolesPayload.data.roles : [];
       const select = document.getElementById('userRole');
       select.innerHTML = rolesList.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
     }
 
     const res = await fetch('/api/users', { headers: getHeaders() });
-    if (!res.ok) throw new Error('Failed to load users');
-    const data = await res.json();
+    const payload = await readApiPayload(res);
+    if (!res.ok) {
+      throw new Error(payload.isJson ? (payload.data.error || 'Failed to load users') : formatNonJsonResponse(payload.data));
+    }
+    if (!payload.isJson) {
+      throw new Error('Server returned non-JSON response');
+    }
+
+    const data = payload.data;
     const tbody = document.getElementById('usersTableBody');
     tbody.innerHTML = '';
     data.users.forEach(user => {
@@ -145,8 +192,8 @@ function openModal() {
   document.getElementById('userStatus').value = 'active';
   if(rolesList.length > 0) document.getElementById('userRole').value = rolesList[0].id;
   document.getElementById('modalTitle').innerText = 'Добавить пользователя';
-  document.getElementById('pwdHint').innerText = '';
-  document.getElementById('modalError').style.display = 'none';
+  document.getElementById('pwdHint').innerText = '(12+ символов, A-Z, a-z, 0-9)';
+  hideModalError();
   document.getElementById('userModal').classList.add('open');
 }
 
@@ -163,44 +210,75 @@ function editUser(id, fullNameEnc, roleId, status) {
   document.getElementById('userEmail').disabled = true;
   document.getElementById('userRole').value = roleId;
   document.getElementById('userStatus').value = status;
-  document.getElementById('pwdHint').innerText = '(оставьте пустым, чтобы не менять)';
+  document.getElementById('pwdHint').innerText = '(оставьте пустым, чтобы не менять; если меняете: 12+ символов, A-Z, a-z, 0-9)';
 }
 
 async function saveUser() {
   const id = document.getElementById('userId').value;
-  const fullName = document.getElementById('userFullName').value;
-  const email = document.getElementById('userEmail').value;
-  const systemRoleId = document.getElementById('userRole').value;
+  const fullName = document.getElementById('userFullName').value.trim();
+  const email = document.getElementById('userEmail').value.trim();
+  const systemRoleId = document.getElementById('userRole').value.trim();
   const status = document.getElementById('userStatus').value;
   const password = document.getElementById('userPassword').value;
-  
-  if (!id && !password) {
-    document.getElementById('modalError').innerText = 'Пароль обязателен для нового пользователя';
-    document.getElementById('modalError').style.display = 'block';
+
+  hideModalError();
+
+  if (!fullName) {
+    showModalError('ФИО обязательно');
     return;
   }
-  
+
+  if (!systemRoleId) {
+    showModalError('Системная роль обязательна');
+    return;
+  }
+
+  if (!id && !email) {
+    showModalError('Email обязателен для нового пользователя');
+    return;
+  }
+
+  if (!id && !password) {
+    showModalError('Пароль обязателен для нового пользователя');
+    return;
+  }
+
+  if (password) {
+    const passwordError = validatePasswordClient(password);
+    if (passwordError) {
+      showModalError(passwordError);
+      return;
+    }
+  }
+
   const url = id ? `/api/users/${id}` : '/api/users';
   const method = id ? 'PUT' : 'POST';
-  
+
   const body = { fullName, systemRoleId, status };
   if (!id) body.email = email;
   if (password) body.password = password;
-  
+
   try {
     const res = await fetch(url, {
       method,
       headers: getHeaders(),
       body: JSON.stringify(body)
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Ошибка');
+
+    const payload = await readApiPayload(res);
+    if (!payload.isJson) {
+      throw new Error(formatNonJsonResponse(payload.data));
+    }
+
+    const data = payload.data;
+    if (!res.ok) {
+      throw new Error(data.error || data.message || 'Ошибка');
+    }
+
     closeModal();
     loadData();
   } catch (err) {
-    const errDiv = document.getElementById('modalError');
-    errDiv.innerText = err.message;
-    errDiv.style.display = 'block';
+    showModalError(err.message || 'Ошибка');
   }
 }
 
