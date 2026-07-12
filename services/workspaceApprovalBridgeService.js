@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { ensureSheet, extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
 import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
 import { sendDocumentForApproval } from './signatureApprovalService.js';
+import { verifySafeEmailTransport } from './emailDiagnosticsService.js';
 import { getHttpEmailSummary, hasHttpEmailProvider, sendHttpEmail } from './httpEmailService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
 
@@ -71,6 +72,19 @@ function signatureValue(signer) {
 
 function pinLegacyApprovalToWorkspace(config) {
   if (config?.spreadsheetUrl) process.env.GOOGLE_SPREADSHEET_URL = config.spreadsheetUrl;
+}
+
+function makeWorkspaceEmailError(result = {}) {
+  const message = clean(result.error) || 'Email yuborishda xatolik.';
+  const error = new Error(message);
+  error.code = clean(result.code) || 'EMAIL_SEND_FAILED';
+  error.statusCode = 400;
+  error.rawCode = clean(result.rawCode);
+  error.rawErrno = clean(result.rawErrno);
+  error.rawSyscall = clean(result.rawSyscall);
+  error.responseCode = Number.isFinite(Number(result.responseCode)) ? Number(result.responseCode) : undefined;
+  error.recommendedFix = clean(result.recommendedFix);
+  return error;
 }
 
 async function ensureApprovalSheet(config) {
@@ -269,6 +283,17 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
 }
 
 export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
+  const provider = getHttpEmailSummary();
+  if (!provider.hasHttpEmailProvider) {
+    const emailCheck = await verifySafeEmailTransport();
+    if (!emailCheck.ok) {
+      throw makeWorkspaceEmailError({
+        ...emailCheck,
+        recommendedFix: clean(emailCheck.recommendedFix) || 'Railway email sozlamalarini tekshiring yoki HTTP email provider ishlating.',
+      });
+    }
+  }
+
   const synced = await syncWorkspaceSignersToSheet(workspace);
   if (!synced.signersCount) throw new Error('Бу объект учун актив имзо чекувчилар йўқ');
   pinLegacyApprovalToWorkspace(synced.config);
