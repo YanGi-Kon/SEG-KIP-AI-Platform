@@ -43,19 +43,34 @@ export async function findUserById(id, client = null) {
 
 export async function createUser(input, client = null) {
   const executor = client || { query };
-  const result = await executor.query(
-    `INSERT INTO users (full_name, email, password_hash, system_role_id, status)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, full_name, email, password_hash, status, created_at, updated_at`,
-    [
-      String(input.fullName || '').trim(),
-      String(input.email || '').trim().toLowerCase(),
-      input.passwordHash,
-      input.systemRoleId,
-      input.status || 'active',
-    ],
-  );
-  return mapUser(result.rows[0]);
+  try {
+    const result = await executor.query(
+      `INSERT INTO users (full_name, email, password_hash, system_role_id, status)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, full_name, email, password_hash, status, created_at, updated_at`,
+      [
+        String(input.fullName || '').trim(),
+        String(input.email || '').trim().toLowerCase(),
+        input.passwordHash,
+        input.systemRoleId,
+        input.status || 'active',
+      ],
+    );
+    return mapUser(result.rows[0]);
+  } catch (error) {
+    console.error('[userRepository.createUser] insert failed', {
+      message: error?.message,
+      code: error?.code,
+      detail: error?.detail,
+      constraint: error?.constraint,
+      table: error?.table,
+      column: error?.column,
+      email: String(input.email || '').trim().toLowerCase(),
+      systemRoleId: input.systemRoleId,
+      status: input.status || 'active',
+    });
+    throw error;
+  }
 }
 
 export function publicUser(user) {
