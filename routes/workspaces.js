@@ -32,11 +32,21 @@ const upload = multer({
   limits: { fileSize: 2 * 1024 * 1024, files: 1 },
 });
 
+const EMAIL_ERROR_CODES = new Set([
+  'EMAIL_CONFIG_MISSING',
+  'EMAIL_AUTH_FAILED',
+  'EMAIL_CONNECTION_FAILED',
+  'EMAIL_SEND_TIMEOUT',
+  'EMAIL_SEND_FAILED',
+]);
+
 function handleError(res, error) {
   const knownStatus = Number(error.statusCode);
   let status = Number.isInteger(knownStatus) && knownStatus >= 400 && knownStatus < 600 ? knownStatus : 500;
   if (error?.code === '23505') status = 409;
   if (error?.code === '23503' || error?.code === '42P01' || error?.code === '42703') status = 400;
+  if (EMAIL_ERROR_CODES.has(error?.code)) status = 400;
+
   const message = String(error?.message || '').trim() || 'Workspace request failed';
   res.status(status).json({
     error: message,
@@ -46,6 +56,11 @@ function handleError(res, error) {
     rawReason: error.rawReason || undefined,
     serviceAccountEmail: error.serviceAccountEmail || undefined,
     serviceAccountProjectId: error.serviceAccountProjectId || undefined,
+    rawCode: error.rawCode || undefined,
+    rawErrno: error.rawErrno || undefined,
+    rawSyscall: error.rawSyscall || undefined,
+    responseCode: error.responseCode || undefined,
+    recommendedFix: error.recommendedFix || undefined,
   });
 }
 
