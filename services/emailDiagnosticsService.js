@@ -36,6 +36,16 @@ function publicConfig() {
   return { sender, from, host, port, secure, hasUser: Boolean(sender), hasSecret };
 }
 
+function extractSafeDebug(error, extra = {}) {
+  return {
+    rawCode: clean(error?.code),
+    rawErrno: clean(error?.errno),
+    rawSyscall: clean(error?.syscall),
+    responseCode: Number.isFinite(Number(error?.responseCode)) ? Number(error.responseCode) : undefined,
+    ...extra,
+  };
+}
+
 function createError(code, message, extra = {}) {
   const error = new Error(message);
   error.code = code;
@@ -44,25 +54,52 @@ function createError(code, message, extra = {}) {
   return error;
 }
 
-function classify(error) {
+function logSmtpError(context, error, cfg = {}) {
+  console.error(`[email-diagnostics] ${context}`, {
+    message: error?.message || '',
+    code: error?.code || '',
+    command: error?.command || '',
+    response: error?.response || '',
+    responseCode: error?.responseCode || '',
+    errno: error?.errno || '',
+    syscall: error?.syscall || '',
+    address: error?.address || '',
+    port: error?.port || cfg.port || '',
+    host: cfg.host || '',
+    secure: typeof cfg.secure === 'boolean' ? cfg.secure : undefined,
+    stack: error?.stack || '',
+  });
+}
+
+function classify(error, cfg = {}) {
+  if (error?.code === 'EMAIL_CONFIG_MISSING') {
+    return createError(
+      'EMAIL_CONFIG_MISSING',
+      error?.message || 'Email yuborish sozlanmagan.',
+      extractSafeDebug(error, { host: cfg.host, port: cfg.port, secure: cfg.secure })
+    );
+  }
+
   const text = `${error?.message || ''} ${error?.code || ''} ${error?.command || ''}`;
+  const safeDebug = extractSafeDebug(error, { host: cfg.host, port: cfg.port, secure: cfg.secure });
+
   if (/EAUTH|Invalid login|Username and Password not accepted|535|534|auth/i.test(text)) {
-    return createError('EMAIL_AUTH_FAILED', 'Email login yoki yuborish kaliti noto‘g‘ri.');
+    return createError('EMAIL_AUTH_FAILED', 'Email login yoki yuborish kaliti noto‘g‘ri.', safeDebug);
   }
   if (/timeout|ETIMEDOUT|Greeting never received|Socket closed/i.test(text)) {
-    return createError('EMAIL_SEND_TIMEOUT', 'Email server javob bermadi yoki ulanish vaqti tugadi.');
+    return createError('EMAIL_SEND_TIMEOUT', 'Email server javob bermadi yoki ulanish vaqti tugadi.', safeDebug);
   }
   if (/ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|ECONNRESET|connect/i.test(text)) {
-    return createError('EMAIL_CONNECTION_FAILED', 'Email serverga ulanishda xatolik.');
+    return createError('EMAIL_CONNECTION_FAILED', 'Email serverga ulanishda xatolik.', safeDebug);
   }
-  return createError('EMAIL_SEND_FAILED', error?.message || 'Email yuborish xatosi.');
+  return createError('EMAIL_SEND_FAILED', error?.message || 'Email yuborish xatosi.', safeDebug);
 }
 
 export function createSafeEmailTransport() {
   const cfg = publicConfig();
   const secret = firstEnv(SECRET_KEYS);
   if (!cfg.hasUser || !cfg.hasSecret) {
-    throw createError('EMAIL_CONFIG_MISSING', 'Email yuborish sozlanmagan.', cfg);
+    throw createError('EMAIL_CONFIG_MISSING', 'Email yuborish sozlanmagan.', extractSafeDebug(null, cfg));
   }
   return {
     transporter: nodemailer.createTransport({
@@ -89,16 +126,29 @@ export async function verifySafeEmailTransport() {
     await transporter.verify();
     return { ok: true, emailReady: true, ...pub, message: 'Email yuborish sozlamasi tayyor.' };
   } catch (error) {
-    const classified = classify(error);
-    return { ok: false, emailReady: false, code: classified.code, error: classified.message, ...cfg };
+    logSmtpError('verify transport failed', error, cfg);
+    const classified = classify(error, cfg);
+    return {
+      ok: false,
+      emailReady: false,
+      code: classified.code,
+      error: classified.message,
+      ...cfg,
+      rawCode: classified.rawCode || undefined,
+      rawErrno: classified.rawErrno || undefined,
+      rawSyscall: classified.rawSyscall || undefined,
+      responseCode: classified.responseCode,
+    };
   }
 }
 
 export async function sendSafeEmail(mail) {
+  const cfg = publicConfig();
   try {
     const { transporter, from } = createSafeEmailTransport();
     return await transporter.sendMail({ ...mail, from: mail.from || from });
   } catch (error) {
-    throw classify(error);
+    logSmtpError('send mail failed', error, cfg);
+    throw classify(error, cfg);
   }
 }
