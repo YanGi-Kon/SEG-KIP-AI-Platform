@@ -9,7 +9,7 @@ test('Workspace Google connector exports a callable connection check', () => {
   assert.equal(typeof testWorkspaceSheetConnection, 'function');
 });
 
-test('Workspace Sheet URL is not overridden by legacy global Sheet env', () => {
+test('Workspace Sheet URL is not overridden by legacy global Sheet env', async () => {
   const original = {
     json: process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
     base64: process.env.GOOGLE_SERVICE_ACCOUNT_BASE64,
@@ -27,7 +27,7 @@ test('Workspace Sheet URL is not overridden by legacy global Sheet env', () => {
     process.env.GOOGLE_SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/LEGACY_GLOBAL_SHEET_ID_123456789/edit';
 
     const workspaceSheet = 'https://docs.google.com/spreadsheets/d/WORKSPACE_SHEET_ID_123456789012345/edit';
-    const config = resolveWorkspaceGoogleConfig({
+    const config = await resolveWorkspaceGoogleConfig({
       spreadsheetUrl: workspaceSheet,
       mainSheetName: 'База',
     });
