@@ -1,0 +1,46 @@
+name: Apply Acts donut layout fix
+
+on:
+  push:
+    branches:
+      - dev_ab
+    paths:
+      - .github/workflows/apply-acts-donut-layout-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dev_ab
+        uses: actions/checkout@v4
+        with:
+          ref: dev_ab
+          fetch-depth: 0
+
+      - name: Keep donut beside KPI cards on tablet and desktop
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('public/modules/acts.html')
+          text = path.read_text(encoding='utf-8')
+          old = '@media(max-width:900px){html,body{overflow:auto}'
+          new = '@media(max-width:640px){html,body{overflow:auto}'
+
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one responsive breakpoint, found {count}')
+
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Commit fix
+        run: |
+          git config user.name "SEG KIP Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/modules/acts.html
+          git commit -m "fix: keep Acts completion donut beside KPI cards"
+          git push origin HEAD:dev_ab
