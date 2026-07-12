@@ -113,8 +113,8 @@ app.use((req, res, next) => {
 app.get("/", (_req, res, next) => {
   try {
     const html = readFileSync(indexHtmlPath, "utf8");
-    const settingsScript = '<script id="segSettingsPersistenceScript" src="/js/settings-persistence.js?v=settings2" defer></script>';
-    const loginGateScript = '<script id="sanegLoginGateRootScript" src="/js/saneg-login-gate.js?v=root1d" defer></script>';
+    const settingsScript = '<script id="segSettingsPersistenceScript" src="/js/settings-persistence.js?v=settings3" defer></script>';
+    const loginGateScript = '<script id="sanegLoginGateRootScript" src="/js/saneg-login-gate-manual.js?v=manual1" defer></script>';
     const htmlWithAuthBoot = html.includes("sanegAuthBootScript")
       ? html
       : html.replace("</head>", `${authBootGuard}\n</head>`);
@@ -130,9 +130,6 @@ app.get("/", (_req, res, next) => {
   }
 });
 
-// Public asset URL mapping:
-// public/assets/login/slides/slide-1.webp -> /assets/login/slides/slide-1.webp
-// express.static requires filesystem path strings, not URL objects.
 app.use("/assets", express.static(publicAssetsDir, staticNoCacheOptions));
 app.use(express.static(publicDir, staticNoCacheOptions));
 
@@ -153,7 +150,6 @@ app.use("/api/kuduk", createKudukRouter(io));
 app.use("/api/backup", backupRouter);
 
 initKudukRealtime(io);
-
 
 async function startServer() {
   if (isDatabaseConfigured() && String(process.env.DB_AUTO_MIGRATE ?? "true") !== "false") {
