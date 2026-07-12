@@ -5,10 +5,13 @@ import { requireWorkspaceMode } from '../middleware/featureGate.js';
 import { requireWorkspacePermission } from '../middleware/workspaceAccess.js';
 import {
   archiveWorkspace,
+  clearWorkspaceServiceAccount,
   createWorkspace,
   getUserWorkspaces,
   getWorkspace,
   getWorkspaceMembers,
+  getWorkspaceServiceAccountStatus,
+  saveWorkspaceServiceAccount,
   updateWorkspace,
 } from '../services/workspaceService.js';
 import {
@@ -100,6 +103,33 @@ router.post('/:workspaceId/test', requireWorkspacePermission('workspace:test'), 
   try {
     const result = await testWorkspaceSheetConnection(req.workspace);
     res.json({ ok: result.ok, result });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.get('/:workspaceId/service-account', requireWorkspacePermission('workspace:read'), async (req, res) => {
+  try {
+    const serviceAccount = await getWorkspaceServiceAccountStatus(req.auth.userId, req.params.workspaceId);
+    res.json({ ok: true, serviceAccount });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/service-account', requireWorkspacePermission('workspace:update'), async (req, res) => {
+  try {
+    const result = await saveWorkspaceServiceAccount(req.auth.userId, req.params.workspaceId, req.body || {});
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.delete('/:workspaceId/service-account', requireWorkspacePermission('workspace:update'), async (req, res) => {
+  try {
+    const result = await clearWorkspaceServiceAccount(req.auth.userId, req.params.workspaceId);
+    res.json({ ok: true, ...result });
   } catch (error) {
     handleError(res, error);
   }
