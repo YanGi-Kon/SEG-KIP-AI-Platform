@@ -71,35 +71,67 @@ function logSmtpError(context, error, cfg = {}) {
   });
 }
 
+function recommendedFixFor(classified, cfg = {}) {
+  if (classified.code === 'EMAIL_CONFIG_MISSING') {
+    return 'Railway Variables’da GMAIL_USER/GMAIL_APP_PASSWORD yoki SMTP_USER/SMTP_PASS kiriting.';
+  }
+
+  if (classified.code === 'EMAIL_AUTH_FAILED') {
+    return 'GMAIL_USER va GMAIL_APP_PASSWORD qiymatlarini qayta tekshiring. Oddiy Gmail paroli emas, Google App Password ishlating.';
+  }
+
+  if (classified.code === 'EMAIL_SEND_TIMEOUT') {
+    return /smtp\.gmail\.com/i.test(String(cfg.host || ''))
+      ? 'Gmail SMTP javobi kechikmoqda. RESEND_API_KEY va EMAIL_FROM bilan HTTP email provider ishlatish tavsiya etiladi.'
+      : 'SMTP server javobi kechikmoqda. Host, port va provider holatini tekshiring.';
+  }
+
+  if (classified.code === 'EMAIL_CONNECTION_FAILED') {
+    if (classified.rawCode === 'ETIMEDOUT' && /smtp\.gmail\.com/i.test(String(cfg.host || ''))) {
+      return 'Railway dan Gmail SMTP ulanishi timeout bo‘lyapti. RESEND_API_KEY va EMAIL_FROM bilan HTTP email provider ishlating yoki boshqa SMTP provider sinang.';
+    }
+    return 'SMTP host/port yoki tarmoq ulanishini tekshiring. Zarur bo‘lsa HTTP email provider ishlating.';
+  }
+
+  return '';
+}
+
 function classify(error, cfg = {}) {
   if (error?.code === 'EMAIL_CONFIG_MISSING') {
-    return createError(
+    const classified = createError(
       'EMAIL_CONFIG_MISSING',
       error?.message || 'Email yuborish sozlanmagan.',
       extractSafeDebug(error, { host: cfg.host, port: cfg.port, secure: cfg.secure })
     );
+    classified.recommendedFix = recommendedFixFor(classified, cfg);
+    return classified;
   }
 
   const text = `${error?.message || ''} ${error?.code || ''} ${error?.command || ''}`;
   const safeDebug = extractSafeDebug(error, { host: cfg.host, port: cfg.port, secure: cfg.secure });
 
+  let classified;
   if (/EAUTH|Invalid login|Username and Password not accepted|535|534|auth/i.test(text)) {
-    return createError('EMAIL_AUTH_FAILED', 'Email login yoki yuborish kaliti noto‘g‘ri.', safeDebug);
+    classified = createError('EMAIL_AUTH_FAILED', 'Email login yoki yuborish kaliti noto‘g‘ri.', safeDebug);
+  } else if (/timeout|ETIMEDOUT|Greeting never received|Socket closed/i.test(text)) {
+    classified = createError('EMAIL_SEND_TIMEOUT', 'Email server javob bermadi yoki ulanish vaqti tugadi.', safeDebug);
+  } else if (/ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|ECONNRESET|connect/i.test(text)) {
+    classified = createError('EMAIL_CONNECTION_FAILED', 'Email serverga ulanishda xatolik.', safeDebug);
+  } else {
+    classified = createError('EMAIL_SEND_FAILED', error?.message || 'Email yuborish xatosi.', safeDebug);
   }
-  if (/timeout|ETIMEDOUT|Greeting never received|Socket closed/i.test(text)) {
-    return createError('EMAIL_SEND_TIMEOUT', 'Email server javob bermadi yoki ulanish vaqti tugadi.', safeDebug);
-  }
-  if (/ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|ECONNRESET|connect/i.test(text)) {
-    return createError('EMAIL_CONNECTION_FAILED', 'Email serverga ulanishda xatolik.', safeDebug);
-  }
-  return createError('EMAIL_SEND_FAILED', error?.message || 'Email yuborish xatosi.', safeDebug);
+
+  classified.recommendedFix = recommendedFixFor(classified, cfg);
+  return classified;
 }
 
 export function createSafeEmailTransport() {
   const cfg = publicConfig();
   const secret = firstEnv(SECRET_KEYS);
   if (!cfg.hasUser || !cfg.hasSecret) {
-    throw createError('EMAIL_CONFIG_MISSING', 'Email yuborish sozlanmagan.', extractSafeDebug(null, cfg));
+    const error = createError('EMAIL_CONFIG_MISSING', 'Email yuborish sozlanmagan.', extractSafeDebug(null, cfg));
+    error.recommendedFix = recommendedFixFor(error, cfg);
+    throw error;
   }
   return {
     transporter: nodemailer.createTransport({
@@ -138,6 +170,7 @@ export async function verifySafeEmailTransport() {
       rawErrno: classified.rawErrno || undefined,
       rawSyscall: classified.rawSyscall || undefined,
       responseCode: classified.responseCode,
+      recommendedFix: classified.recommendedFix || undefined,
     };
   }
 }
