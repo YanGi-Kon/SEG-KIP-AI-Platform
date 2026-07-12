@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { ensureSheet, extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
 import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
-import { sendDocumentForApproval } from './signatureApprovalService.js';
 import { getHttpEmailSummary, hasHttpEmailProvider, sendHttpEmail } from './httpEmailService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
 
@@ -34,16 +33,36 @@ function randomId(prefix) {
 }
 
 function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
 }
 
 function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean(value));
 }
 
+function serviceError(message, code, statusCode = 400, details = {}) {
+  const error = new Error(message);
+  error.code = code;
+  error.statusCode = statusCode;
+  Object.assign(error, details);
+  return error;
+}
+
 function approvalSecret() {
   const secret = clean(process.env.APPROVAL_JWT_SECRET);
-  if (!secret || secret.length < 32) throw new Error('APPROVAL_JWT_SECRET камида 32 белгидан иборат бўлиши шарт');
+  if (secret.length < 32) {
+    throw serviceError(
+      'APPROVAL_JWT_SECRET kamida 32 belgidan iborat bo‘lishi kerak',
+      'APPROVAL_JWT_SECRET_INVALID',
+      500,
+    );
+  }
   return secret;
 }
 
@@ -64,13 +83,7 @@ function baseUrlFromRequest(req) {
 }
 
 function signatureValue(signer) {
-  const fileId = clean(signer.signatureFileId);
-  if (fileId) return fileId;
-  return clean(signer.signatureUrl);
-}
-
-function pinLegacyApprovalToWorkspace(config) {
-  if (config?.spreadsheetUrl) process.env.GOOGLE_SPREADSHEET_URL = config.spreadsheetUrl;
+  return clean(signer.signatureFileId) || clean(signer.signatureUrl);
 }
 
 async function ensureApprovalSheet(config) {
@@ -88,7 +101,6 @@ async function ensureApprovalSheet(config) {
 
 async function syncWorkspaceSignersToSheet(workspace) {
   const config = await resolveWorkspaceGoogleConfig(workspace);
-  pinLegacyApprovalToWorkspace(config);
   const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
   const sheets = await getSheetsClient(config.serviceAccount);
   await ensureSheet({ ...config, sheetName: SIGNERS_SHEET });
@@ -102,6 +114,7 @@ async function syncWorkspaceSignersToSheet(workspace) {
     spreadsheetId,
     range: `${q(SIGNERS_SHEET)}!A2:F`,
   }).catch(() => {});
+
   const signers = await listWorkspaceSigners(workspace.id, { includeInactive: false });
   const rows = signers.map((signer) => [
     signer.id,
@@ -109,7 +122,7 @@ async function syncWorkspaceSignersToSheet(workspace) {
     signer.fullName || '',
     signatureValue(signer),
     signer.email || '',
-    signer.createdAt ? new Date(signer.createdAt).toISOString() : new Date().toISOString(),
+    signer.createdAt ? new Date(signer.createdAt).toISOString() : nowIso(),
   ]);
   if (rows.length) {
     await sheets.spreadsheets.values.append({
@@ -132,9 +145,16 @@ async function findDocument(config, actNo) {
     valueRenderOption: 'FORMATTED_VALUE',
   });
   const rows = result.data.values || [];
-  const index = rows.findIndex((row, i) => i > 0 && clean(row[0]) === actNo);
-  if (index < 0) throw new Error('Ҳужжат АКТЛАР_РЕЕСТР дан топилмади');
-  return { sheets, spreadsheetId, rowNumber: index + 1, rowStart: Number(rows[index][5]) || 0 };
+  const index = rows.findIndex((row, rowIndex) => rowIndex > 0 && clean(row[0]) === actNo);
+  if (index < 0) {
+    throw serviceError('Hujjat АКТЛАР_РЕЕСТР dan topilmadi', 'WORKSPACE_DOCUMENT_NOT_FOUND', 404);
+  }
+  return {
+    sheets,
+    spreadsheetId,
+    rowNumber: index + 1,
+    rowStart: Number(rows[index][5]) || 0,
+  };
 }
 
 async function readApprovalRows(config, actNo) {
@@ -156,7 +176,8 @@ async function readApprovalRows(config, actNo) {
 }
 
 async function writeApproval(config, input) {
-  const existing = (await readApprovalRows(config, input.actNo)).find((row) => row.signerId === input.signerId);
+  const existing = (await readApprovalRows(config, input.actNo))
+    .find((row) => row.signerId === input.signerId);
   const { sheets, spreadsheetId } = await ensureApprovalSheet(config);
   const row = [
     input.id,
@@ -206,7 +227,10 @@ async function updateWaitingState(document, signers, links, status = 'Кутил
       spreadsheetId: document.spreadsheetId,
       range: `${q(DAILY_SHEET)}!K${document.rowStart}:O${document.rowStart + 1}`,
       valueInputOption: 'RAW',
-      requestBody: { values: [['Status', 'Imzolovchi', 'Gmail', 'ApprovalLink', 'CreatedDate'], [status, signers.map((s) => s.fullName).join(', '), signers.map((s) => s.email).join(', '), links.join('\n'), nowIso()]] },
+      requestBody: { values: [
+        ['Status', 'Imzolovchi', 'Gmail', 'ApprovalLink', 'CreatedDate'],
+        [status, signers.map((signer) => signer.fullName).join(', '), signers.map((signer) => signer.email).join(', '), links.join('\n'), nowIso()],
+      ] },
     }).catch(() => {});
   }
 }
@@ -215,21 +239,37 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
   const { config, signers, signersCount } = synced;
   const provider = getHttpEmailSummary();
   const actNo = clean(input.actNo);
-  if (!actNo) throw new Error('Акт рақами киритилмаган');
-  if (!signersCount) throw new Error('Бу объект учун актив имзо чекувчилар йўқ');
+  if (!actNo) throw serviceError('Akt raqami kiritilmagan', 'ACT_NUMBER_REQUIRED');
+  if (!signersCount) throw serviceError('Bu obyekt uchun aktiv imzo chekuvchilar yo‘q', 'WORKSPACE_SIGNERS_MISSING');
+
   const document = await findDocument(config, actNo);
   const existingApprovals = await readApprovalRows(config, actNo);
   const baseUrl = baseUrlFromRequest(req);
   const links = [];
   const results = [];
+
   for (const signer of signers) {
     if (!isValidEmail(signer.email)) {
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', approvalLinkCreated: false, code: 'EMAIL_INVALID_RECIPIENT', error: `Email manzil noto‘g‘ri yoki to‘liq emas: ${clean(signer.email)}` });
+      results.push({
+        signer: signer.fullName,
+        gmail: signer.email,
+        status: 'email-failed',
+        approvalLinkCreated: false,
+        code: 'EMAIL_INVALID_RECIPIENT',
+        error: `Email manzil noto‘g‘ri yoki to‘liq emas: ${clean(signer.email)}`,
+      });
       continue;
     }
+
     const existing = existingApprovals.find((row) => row.signerId === signer.id);
     const approvalId = existing?.id || randomId('APR');
-    const token = signApprovalToken({ approvalId, actNo, signerId: signer.id, email: signer.email });
+    const token = signApprovalToken({
+      workspaceId: workspace.id,
+      approvalId,
+      actNo,
+      signerId: signer.id,
+      email: signer.email,
+    });
     const link = `${baseUrl}/api/document/approve/${encodeURIComponent(token)}`;
     links.push(link);
     const approval = await writeApproval(config, {
@@ -248,47 +288,70 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
       results.push({ signer: signer.fullName, gmail: signer.email, status: 'already-approved', approvalLinkCreated: true });
       continue;
     }
+
     try {
       await sendHttpEmail({
         to: signer.email,
         subject: 'Hujjatni tasdiqlash talab qilinadi',
-        text: `Hujjat: ${actNo}\nTasdiqlash havolasi: ${link}`,
+        text: `Obyekt: ${workspace.name}\nHujjat: ${actNo}\nTasdiqlash havolasi: ${link}`,
         html: `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto"><h2>Hujjatni tasdiqlash talab qilinadi</h2><p><b>Obyekt:</b> ${escapeHtml(workspace.name)}</p><p><b>Hujjat:</b> ${escapeHtml(actNo)}</p><p><b>Imzolovchi:</b> ${escapeHtml(signer.fullName)}</p><p><a href="${link}" style="display:inline-block;padding:12px 20px;background:#0891b2;color:#fff;text-decoration:none;border-radius:8px">Hujjatni ochish va tasdiqlash</a></p></div>`,
       });
       results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: provider.provider, approvalLinkCreated: true });
     } catch (error) {
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', approvalLinkCreated: true, code: error.code || 'EMAIL_HTTP_FAILED', error: error.message, providerStatus: error.providerStatus || '', providerMessage: error.providerMessage || '' });
+      results.push({
+        signer: signer.fullName,
+        gmail: signer.email,
+        status: 'email-failed',
+        approvalLinkCreated: true,
+        code: error.code || 'EMAIL_HTTP_FAILED',
+        error: error.message,
+        providerStatus: error.providerStatus || '',
+        providerMessage: error.providerMessage || '',
+      });
     }
   }
+
   const sent = results.filter((item) => item.status === 'sent').length;
   const failed = results.filter((item) => item.status === 'email-failed').length;
   const approved = results.filter((item) => item.status === 'already-approved').length;
-  const status = signersCount > 0 && approved === signersCount && failed === 0 && sent === 0 ? 'Тасдиқланди' : (sent > 0 || approved > 0 ? 'Кутилмоқда' : 'Email xatosi');
+  const status = signersCount > 0 && approved === signersCount && failed === 0 && sent === 0
+    ? 'Тасдиқланди'
+    : sent > 0 || approved > 0
+      ? 'Кутилмоқда'
+      : 'Email xatosi';
   await updateWaitingState(document, signers, links, status);
-  return { actNo, status, sent, failed, approved, total: signersCount, results, provider: provider.provider, fromMode: provider.fromMode, warning: provider.warning || '', recommendedFix: provider.recommendedFix || '', workspaceId: workspace.id, workspaceName: workspace.name, signersSource: 'workspace_signers', signersSynced: signersCount };
+  return {
+    actNo,
+    status,
+    sent,
+    failed,
+    approved,
+    total: signersCount,
+    results,
+    provider: provider.provider,
+    fromMode: provider.fromMode,
+    warning: provider.warning || '',
+    recommendedFix: provider.recommendedFix || '',
+    workspaceId: workspace.id,
+    workspaceName: workspace.name,
+    credentialSource: config.credentialSource || 'UNKNOWN',
+    signersSource: 'workspace_signers',
+    signersSynced: signersCount,
+  };
 }
 
 export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
-  const synced = await syncWorkspaceSignersToSheet(workspace);
-  if (!synced.signersCount) throw new Error('Бу объект учун актив имзо чекувчилар йўқ');
-  pinLegacyApprovalToWorkspace(synced.config);
-  if (hasHttpEmailProvider()) return sendWorkspaceDocumentViaHttp(workspace, input, req, synced);
-  try {
-    const result = await sendDocumentForApproval({
-      spreadsheetUrl: synced.config.spreadsheetUrl,
-      serviceAccount: synced.config.serviceAccount,
-    }, input, req);
-    return {
-      ...result,
-      workspaceId: workspace.id,
-      workspaceName: workspace.name,
-      signersSource: 'workspace_signers',
-      signersSynced: synced.signersCount,
-    };
-  } catch (error) {
-    if (/Requested entity was not found/i.test(error?.message || '')) {
-      throw new Error('Workspace Google Sheet topilmadi yoki Railway GOOGLE_SPREADSHEET_URL eskirgan. Sahifani Ctrl+F5 qiling va qayta urinib ko‘ring.');
-    }
-    throw error;
+  if (!hasHttpEmailProvider()) {
+    throw serviceError(
+      'Workspace hujjat yuborish uchun RESEND_API_KEY va EMAIL_FROM sozlanishi kerak. Global Sheet yoki global credentialga qaytilmaydi.',
+      'WORKSPACE_EMAIL_PROVIDER_REQUIRED',
+      503,
+      { recommendedFix: 'Railway Variables’da RESEND_API_KEY va EMAIL_FROM ni verified domain bilan sozlang.' },
+    );
   }
+  const synced = await syncWorkspaceSignersToSheet(workspace);
+  if (!synced.signersCount) {
+    throw serviceError('Bu obyekt uchun aktiv imzo chekuvchilar yo‘q', 'WORKSPACE_SIGNERS_MISSING');
+  }
+  return sendWorkspaceDocumentViaHttp(workspace, input, req, synced);
 }
