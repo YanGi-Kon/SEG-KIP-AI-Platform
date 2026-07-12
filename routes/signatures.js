@@ -15,6 +15,12 @@ import {
   updateSigner,
   uploadSignaturePng,
 } from '../services/signatureApprovalService.js';
+import {
+  approveWorkspaceDocument,
+  isWorkspaceApprovalToken,
+  openWorkspaceApproval,
+  renderWorkspaceApprovalPage,
+} from '../services/workspaceApprovalPublicService.js';
 
 const router = express.Router();
 const upload = multer({
@@ -26,7 +32,11 @@ function configFromRequest(req) {
   const headerConfig = parseConfigHeader(req.get('x-seg-kip-config'));
   let serviceAccount = req.body?.serviceAccount || headerConfig.serviceAccount;
   if (typeof serviceAccount === 'string') {
-    try { serviceAccount = JSON.parse(serviceAccount); } catch (_) { throw new Error('serviceAccount JSON формати нотўғри'); }
+    try {
+      serviceAccount = JSON.parse(serviceAccount);
+    } catch (_) {
+      throw new Error('serviceAccount JSON formati noto‘g‘ri');
+    }
   }
   return {
     spreadsheetUrl: req.body?.spreadsheetUrl || req.query?.spreadsheetUrl || headerConfig.spreadsheetUrl,
@@ -50,21 +60,23 @@ function requireAdmin(req, res, next) {
   const passwordConfigured = Boolean(String(process.env.ADMIN_PASSWORD || '').trim());
   if (!passwordConfigured) return next();
   const token = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '');
-  if (!token) return res.status(401).json({ error: 'Administrator JWT токени талаб қилинади', code: 'ADMIN_AUTH_REQUIRED' });
+  if (!token) return res.status(401).json({ error: 'Administrator JWT tokeni talab qilinadi', code: 'ADMIN_AUTH_REQUIRED' });
   try {
     req.user = jwt.verify(token, adminSecret(), { issuer: 'SEG-KIP-AI', audience: 'admin' });
     next();
   } catch (_) {
-    res.status(401).json({ error: 'Administrator JWT токени яроқсиз', code: 'ADMIN_AUTH_REQUIRED' });
+    res.status(401).json({ error: 'Administrator JWT tokeni yaroqsiz', code: 'ADMIN_AUTH_REQUIRED' });
   }
 }
 
 router.post('/auth/login', (req, res) => {
   const expected = String(process.env.ADMIN_PASSWORD || '').trim();
-  if (!expected) return res.status(404).json({ error: 'ADMIN_PASSWORD созланмаган' });
-  if (String(req.body?.password || '') !== expected) return res.status(401).json({ error: 'Пароль нотўғри' });
+  if (!expected) return res.status(404).json({ error: 'ADMIN_PASSWORD sozlanmagan' });
+  if (String(req.body?.password || '') !== expected) return res.status(401).json({ error: 'Parol noto‘g‘ri' });
   const token = jwt.sign({ role: 'admin', name: String(req.body?.name || 'Administrator') }, adminSecret(), {
-    expiresIn: '8h', issuer: 'SEG-KIP-AI', audience: 'admin',
+    expiresIn: '8h',
+    issuer: 'SEG-KIP-AI',
+    audience: 'admin',
   });
   res.json({ token, expiresIn: '8h' });
 });
@@ -132,21 +144,30 @@ router.post('/document/send', requireAdmin, async (req, res) => {
 
 router.get('/document/approve/:token', async (req, res) => {
   try {
-    const data = await openApproval(req.params.token, req);
+    const token = req.params.token;
+    const data = isWorkspaceApprovalToken(token)
+      ? await openWorkspaceApproval(token, req)
+      : await openApproval(token, req);
+    const html = isWorkspaceApprovalToken(token)
+      ? renderWorkspaceApprovalPage(data, token)
+      : renderApprovalPage(data, token);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.send(renderApprovalPage(data, req.params.token));
+    res.send(html);
   } catch (error) {
-    res.status(403).send(`<!doctype html><meta charset="utf-8"><title>Havola xatosi</title><body style="font-family:Arial;padding:40px"><h2>Havola yaroqsiz</h2><p>${String(error.message).replace(/[&<>]/g, '')}</p></body>`);
+    res.status(Number(error.statusCode) || 403).send(`<!doctype html><meta charset="utf-8"><title>Havola xatosi</title><body style="font-family:Arial;padding:40px"><h2>Havola yaroqsiz</h2><p>${String(error.message).replace(/[&<>]/g, '')}</p></body>`);
   }
 });
 
 router.post('/document/approve', async (req, res) => {
   try {
-    const result = await approveDocument(req.body?.token, req.body?.csrfToken, req);
+    const token = req.body?.token;
+    const result = isWorkspaceApprovalToken(token)
+      ? await approveWorkspaceDocument(token, req.body?.csrfToken, req)
+      : await approveDocument(token, req.body?.csrfToken, req);
     res.json({ ok: true, ...result });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(Number(error.statusCode) || 400).json({ error: error.message, code: error.code || 'APPROVAL_FAILED' });
   }
 });
 
