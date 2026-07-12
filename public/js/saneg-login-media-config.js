@@ -1,8 +1,8 @@
 // Sanegplatform login media config
-// Video is preferred; the existing SVG hero remains a safe fallback.
+// Uses the uploaded login image when available and keeps the SVG hero as fallback.
 (function configureSanegLoginMedia(){
-  const VIDEO_URL = '/assets/login/slides/slide-1.mp4?v=loginmedia2';
-  const POSTER_URL = '/assets/login/saneg-login-hero.svg?v=hero1a';
+  const IMAGE_URL = '/assets/login/slides/slide-1.webp?v=loginimage3';
+  const FALLBACK_URL = '/assets/login/saneg-login-hero.svg?v=hero1a';
   const WAIT_TIMEOUT_MS = 12000;
   const PROBE_TIMEOUT_MS = 6000;
   let startPromise = null;
@@ -65,32 +65,28 @@
     api.setup();
 
     try {
-      const videoMeta = await probe(VIDEO_URL, 'video/mp4');
-      await api.setVideo(VIDEO_URL, {
+      const imageMeta = await probe(IMAGE_URL, 'image/webp');
+      await api.setImage(IMAGE_URL, {
         fit:'cover',
-        autoplay:true,
-        muted:true,
-        loop:true,
-        poster:POSTER_URL
+        alt:'Sanegplatform login banner'
       });
-      console.info('[login-media] MP4 yuklandi.', videoMeta);
-      return { type:'video', ...videoMeta };
-    } catch (videoError) {
-      console.warn('[login-media] MP4 ishlamadi, SVG fallback tekshirilmoqda.', videoError);
+      console.info('[login-media] WEBP yuklandi.', imageMeta);
+      return { type:'image', source:'webp', ...imageMeta };
+    } catch (imageError) {
+      console.warn('[login-media] WEBP ishlamadi, SVG fallback ishlatiladi.', imageError);
     }
 
     try {
-      const imageMeta = await probe(POSTER_URL, 'image/svg+xml');
-      await api.setImage(POSTER_URL, {
+      await api.setImage(FALLBACK_URL, {
         fit:'cover',
         alt:'Sanegplatform KIP automation banner'
       });
-      console.info('[login-media] SVG fallback yuklandi.', imageMeta);
-      return { type:'image', ...imageMeta };
-    } catch (imageError) {
+      console.info('[login-media] SVG fallback yuklandi.');
+      return { type:'image', source:'svg-fallback' };
+    } catch (fallbackError) {
       api.clearMedia();
-      console.warn('[login-media] Media fayllari ishlamadi. Mavjud login hero fallback ko‘rsatiladi.', imageError);
-      return { type:'fallback', error:imageError.message };
+      console.warn('[login-media] Hech bir media yuklanmadi. Mavjud login hero fallback ko‘rsatiladi.', fallbackError);
+      return { type:'fallback', error:fallbackError.message };
     }
   }
 
@@ -104,8 +100,8 @@
   }
 
   window.sanegLoginMediaConfig = {
-    videoUrl:VIDEO_URL,
-    posterUrl:POSTER_URL,
+    imageUrl: IMAGE_URL,
+    fallbackUrl: FALLBACK_URL,
     start,
     showCurrent:start,
     loadMedia
