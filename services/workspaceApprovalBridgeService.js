@@ -87,7 +87,7 @@ async function ensureApprovalSheet(config) {
 }
 
 async function syncWorkspaceSignersToSheet(workspace) {
-  const config = resolveWorkspaceGoogleConfig(workspace);
+  const config = await resolveWorkspaceGoogleConfig(workspace);
   pinLegacyApprovalToWorkspace(config);
   const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
   const sheets = await getSheetsClient(config.serviceAccount);
