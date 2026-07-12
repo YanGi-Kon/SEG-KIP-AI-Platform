@@ -1,5 +1,6 @@
 import { extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
-import { resolveGoogleConfig } from './signatureApprovalService.js';
+import { resolveEnvServiceAccount } from './googleCredentialService.js';
+import { getRuntimeWorkspaceServiceAccount } from './workspaceService.js';
 
 const REQUIRED_ACT_TABS = [
   'АКТЛАР_КУНЛИК',
@@ -7,24 +8,34 @@ const REQUIRED_ACT_TABS = [
   'ИМЗО_ЧЕКУВЧИЛАР',
 ];
 
-export function resolveWorkspaceGoogleConfig(workspace) {
+export async function resolveWorkspaceGoogleConfig(workspace) {
   if (!workspace?.spreadsheetUrl || !workspace?.mainSheetName) {
     throw new Error('Workspace Google Sheets configuration is incomplete');
   }
 
-  const platformConfig = resolveGoogleConfig(
-    { spreadsheetUrl: workspace.spreadsheetUrl },
-    { requireServer: false },
-  );
+  const workspaceCredential = await getRuntimeWorkspaceServiceAccount(workspace.id);
+  if (workspaceCredential?.serviceAccount) {
+    return {
+      spreadsheetUrl: workspace.spreadsheetUrl,
+      serviceAccount: workspaceCredential.serviceAccount,
+      credentialSource: workspaceCredential.credentialSource,
+      credentialConflict: false,
+      serviceAccountClientEmail: workspaceCredential.clientEmail || workspaceCredential.serviceAccount.client_email || '',
+      serviceAccountProjectId: workspaceCredential.projectId || workspaceCredential.serviceAccount.project_id || '',
+    };
+  }
 
+  const platformConfig = resolveEnvServiceAccount();
   return {
     ...platformConfig,
     spreadsheetUrl: workspace.spreadsheetUrl,
+    serviceAccountClientEmail: platformConfig.serviceAccount?.client_email || '',
+    serviceAccountProjectId: platformConfig.serviceAccount?.project_id || '',
   };
 }
 
 export async function testWorkspaceSheetConnection(workspace) {
-  const config = resolveWorkspaceGoogleConfig(workspace);
+  const config = await resolveWorkspaceGoogleConfig(workspace);
   const sheets = await getSheetsClient(config.serviceAccount);
   const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
 
@@ -56,5 +67,8 @@ export async function testWorkspaceSheetConnection(workspace) {
     accessVerified: true,
     writeCapabilityVerified: false,
     driveFolderVerified: false,
+    credentialSource: config.credentialSource || 'UNKNOWN',
+    serviceAccountClientEmail: config.serviceAccountClientEmail || '',
+    serviceAccountProjectId: config.serviceAccountProjectId || '',
   };
 }
