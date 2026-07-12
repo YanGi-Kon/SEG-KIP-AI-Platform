@@ -152,8 +152,38 @@ app.use("/api", signaturesRouter);
 app.use("/api/kuduk", createKudukRouter(io));
 app.use("/api/backup", backupRouter);
 
-initKudukRealtime(io);
+app.use("/api", (_req, res) => {
+  res.status(404).json({
+    error: "API route not found",
+    code: "API_ROUTE_NOT_FOUND",
+  });
+});
 
+app.use((error, req, res, next) => {
+  if (!req.path.startsWith("/api")) {
+    return next(error);
+  }
+
+  console.error("[api-error]", {
+    path: req.path,
+    method: req.method,
+    message: error?.message,
+    code: error?.code,
+    detail: error?.detail,
+    constraint: error?.constraint,
+    stack: error?.stack,
+  });
+
+  if (res.headersSent) return next(error);
+
+  const statusCode = Number(error?.statusCode) || 500;
+  return res.status(statusCode).json({
+    error: error?.message || "Internal Server Error",
+    code: error?.code || "INTERNAL_ERROR",
+  });
+});
+
+initKudukRealtime(io);
 
 async function startServer() {
   if (isDatabaseConfigured() && String(process.env.DB_AUTO_MIGRATE ?? "true") !== "false") {
