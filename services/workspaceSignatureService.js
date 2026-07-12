@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { Readable } from 'stream';
 import { google } from 'googleapis';
-import { resolvePlatformGoogleConfig } from './googleCredentialService.js';
+import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
 import {
   getWorkspaceSignatureImage,
   saveWorkspaceSignatureImage,
@@ -23,19 +23,13 @@ function makeError(message, code = 'WORKSPACE_SIGNATURE_UPLOAD_ERROR', statusCod
 }
 
 function validatePngFile(file) {
-  if (!file?.buffer) {
-    throw makeError('PNG файл танланмаган', 'SIGNATURE_FILE_REQUIRED');
-  }
+  if (!file?.buffer) throw makeError('PNG файл танланмаган', 'SIGNATURE_FILE_REQUIRED');
   const pngMagic = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
   const isPng = file.mimetype === 'image/png'
     && file.buffer.length >= pngMagic.length
     && file.buffer.subarray(0, pngMagic.length).equals(pngMagic);
-  if (!isPng) {
-    throw makeError('Фақат ҳақиқий PNG файл қабул қилинади', 'INVALID_SIGNATURE_PNG');
-  }
-  if (file.size > 2 * 1024 * 1024) {
-    throw makeError('PNG ҳажми 2 MB дан ошмаслиги керак', 'SIGNATURE_PNG_TOO_LARGE');
-  }
+  if (!isPng) throw makeError('Фақат ҳақиқий PNG файл қабул қилинади', 'INVALID_SIGNATURE_PNG');
+  if (file.size > 2 * 1024 * 1024) throw makeError('PNG ҳажми 2 MB дан ошмаслиги керак', 'SIGNATURE_PNG_TOO_LARGE');
 }
 
 function driveAuth(serviceAccount) {
@@ -53,61 +47,21 @@ function classifyDriveError(error) {
   const text = `${error?.message || ''} ${JSON.stringify(errors)} ${JSON.stringify(error?.response?.data || {})}`;
 
   if (/Service Accounts do not have storage quota|do not have storage quota|storage quota|about-sharedrives|OAuth delegation/i.test(text)) {
-    return {
-      code: 'SERVICE_ACCOUNT_NO_STORAGE_QUOTA',
-      message: 'Service account oddiy My Drive papkaga fayl yarata olmaydi, chunki unda Drive storage quota yo‘q.',
-      statusCode: 400,
-      rawReason: reason,
-      recommendedFix: SERVICE_ACCOUNT_QUOTA_FIX,
-    };
+    return { code: 'SERVICE_ACCOUNT_NO_STORAGE_QUOTA', message: 'Service account oddiy My Drive papkaga fayl yarata olmaydi, chunki unda Drive storage quota yo‘q.', statusCode: 400, rawReason: reason, recommendedFix: SERVICE_ACCOUNT_QUOTA_FIX };
   }
   if (/drive api has not been used|accessNotConfigured|SERVICE_DISABLED|disabled|not enabled/i.test(text)) {
-    return {
-      code: 'DRIVE_API_DISABLED',
-      message: 'Google Drive API ёқилмаган. Google Cloud Console’da Drive API’ni enable qiling.',
-      statusCode: 400,
-      rawReason: reason,
-    };
+    return { code: 'DRIVE_API_DISABLED', message: 'Google Drive API ёқилмаган. Google Cloud Console’da Drive API’ni enable qiling.', statusCode: 400, rawReason: reason };
   }
   if (/invalid_grant|invalid_credentials|private key|service account|credentials|configuration|GOOGLE_SERVICE_ACCOUNT/i.test(text)) {
-    return {
-      code: error?.code || 'GOOGLE_SERVICE_ACCOUNT_INVALID',
-      message: error?.message || 'Google service account созламаси нотўғри ёки private key эскирган.',
-      statusCode: 400,
-      rawReason: reason,
-      serviceAccountEmail: error?.clientEmail || error?.serviceAccountEmail || '',
-      serviceAccountProjectId: error?.projectId || error?.serviceAccountProjectId || '',
-    };
+    return { code: error?.code || 'GOOGLE_SERVICE_ACCOUNT_INVALID', message: error?.message || 'Google service account созламаси нотўғри ёки private key эскирган.', statusCode: 400, rawReason: reason };
   }
   if (status === 404 || /File not found|notFound/i.test(text)) {
-    return {
-      code: 'DRIVE_FOLDER_NOT_FOUND',
-      message: 'Drive папка топилмади ёки service account бу папкага share қилинмаган.',
-      statusCode: 404,
-      rawReason: reason,
-    };
+    return { code: 'DRIVE_FOLDER_NOT_FOUND', message: 'Drive папка топилмади ёки service account бу папкага share қилинмаган.', statusCode: 404, rawReason: reason };
   }
   if (status === 403 || /insufficientFilePermissions|forbidden|permission|denied/i.test(text)) {
-    return {
-      code: 'DRIVE_WRITE_PERMISSION_DENIED',
-      message: 'Service account бу папкага ёзиш ҳуқуқига эга эмас. Папкани service account email билан Editor қилиб share қилинг.',
-      statusCode: 403,
-      rawReason: reason,
-    };
+    return { code: 'DRIVE_WRITE_PERMISSION_DENIED', message: 'Service account бу папкага ёзиш ҳуқуқига эга эмас. Папкани service account email билан Editor қилиб share қилинг.', statusCode: 403, rawReason: reason };
   }
-  return {
-    code: 'DRIVE_UPLOAD_FAILED',
-    message: 'Google Drive upload вақтинча ишламади.',
-    statusCode: status >= 400 && status < 600 ? status : 400,
-    rawReason: reason,
-  };
-}
-
-function serviceAccountPublicInfo(serviceAccount = {}) {
-  return {
-    serviceAccountEmail: clean(serviceAccount.client_email),
-    serviceAccountProjectId: clean(serviceAccount.project_id),
-  };
+  return { code: 'DRIVE_UPLOAD_FAILED', message: 'Google Drive upload вақтинча ишламади.', statusCode: status >= 400 && status < 600 ? status : 400, rawReason: reason };
 }
 
 function resolveFolderId(workspace) {
@@ -115,28 +69,25 @@ function resolveFolderId(workspace) {
 }
 
 async function createDriveClient(workspace) {
-  const config = resolvePlatformGoogleConfig({ spreadsheetUrl: workspace?.spreadsheetUrl });
+  const config = await resolveWorkspaceGoogleConfig(workspace);
   const auth = driveAuth(config.serviceAccount);
   await auth.authorize();
   return {
     drive: google.drive({ version: 'v3', auth }),
     serviceAccount: config.serviceAccount,
-    credentialSource: config.credentialSource,
-    credentialConflict: config.credentialConflict,
-    ...serviceAccountPublicInfo(config.serviceAccount),
+    serviceAccountEmail: clean(config.serviceAccountClientEmail || config.serviceAccount?.client_email),
+    serviceAccountProjectId: clean(config.serviceAccountProjectId || config.serviceAccount?.project_id),
+    credentialSource: config.credentialSource || 'UNKNOWN',
+    credentialConflict: Boolean(config.credentialConflict),
   };
 }
 
 function safeFilePart(value) {
-  return clean(value)
-    .replace(/[\\/:*?"<>|]+/g, '-')
-    .replace(/\s+/g, '_')
-    .replace(/_+/g, '_')
-    .slice(0, 64) || 'signature';
+  return clean(value).replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '_').replace(/_+/g, '_').slice(0, 64) || 'signature';
 }
 
 function makeDriveSignatureName(workspace, input = {}) {
-  const object = safeFilePart(workspace?.slug || workspace?.name || 'Fargona-4-Cex');
+  const object = safeFilePart(workspace?.slug || workspace?.name || 'workspace');
   const position = safeFilePart(input.position || 'Lavozim');
   const fullName = safeFilePart(input.fullName || input.fio || 'FIO');
   const stamp = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
@@ -154,9 +105,8 @@ async function saveSignatureToDatabase(workspace, file, actorUserId = null, fall
       sizeBytes: file.size,
       createdBy: actorUserId,
     });
-    const fileId = `db:${saved.id}`;
     return {
-      fileId,
+      fileId: `db:${saved.id}`,
       name: saved.fileName,
       webViewLink: `/api/workspaces/${encodeURIComponent(workspace.id)}/signers/signature/${encodeURIComponent(saved.id)}`,
       storage: 'database',
@@ -170,21 +120,15 @@ async function saveSignatureToDatabase(workspace, file, actorUserId = null, fall
     };
   } catch (error) {
     if (error?.code === '42P01' || /workspace_signature_store/i.test(error?.message || '')) {
-      throw makeError(
-        'PostgreSQL imzo zaxira jadvali hali tayyor emas. Railway deploy/migration tugaganidan keyin qayta urinib ko‘ring.',
-        'WORKSPACE_SIGNATURE_STORE_NOT_READY',
-      );
+      throw makeError('PostgreSQL imzo zaxira jadvali hali tayyor emas. Railway deploy/migration tugaganidan keyin qayta urinib ko‘ring.', 'WORKSPACE_SIGNATURE_STORE_NOT_READY');
     }
-    throw makeError(
-      `Imzoni saqlash xato: ${error?.message || 'PostgreSQL fallback ishlamadi'}`,
-      'WORKSPACE_SIGNATURE_DATABASE_FALLBACK_FAILED',
-    );
+    throw makeError(`Imzoni saqlash xato: ${error?.message || 'PostgreSQL fallback ishlamadi'}`, 'WORKSPACE_SIGNATURE_DATABASE_FALLBACK_FAILED');
   }
 }
 
 async function createDriveCopy(workspace, file, folderId, name) {
-  const { drive, serviceAccountEmail, serviceAccountProjectId, credentialSource, credentialConflict } = await createDriveClient(workspace);
-  const result = await drive.files.create({
+  const client = await createDriveClient(workspace);
+  const result = await client.drive.files.create({
     requestBody: { name, mimeType: 'image/png', parents: [folderId] },
     media: { mimeType: 'image/png', body: Readable.from(file.buffer) },
     fields: 'id,name,mimeType,webViewLink,parents,driveId',
@@ -199,90 +143,57 @@ async function createDriveCopy(workspace, file, folderId, name) {
     driveId: result.data.driveId || '',
     storage: 'drive',
     storageLabel: result.data.driveId ? 'Google Drive — Shared Drive' : 'Google Drive',
-    serviceAccountEmail,
-    serviceAccountProjectId,
-    credentialSource,
-    credentialConflict,
+    serviceAccountEmail: client.serviceAccountEmail,
+    serviceAccountProjectId: client.serviceAccountProjectId,
+    credentialSource: client.credentialSource,
+    credentialConflict: client.credentialConflict,
   };
 }
 
 export async function testWorkspaceSignatureFolder(workspace, { writeTest = true } = {}) {
   const folderId = resolveFolderId(workspace);
-  if (!folderId) {
-    throw makeError('Имзолар Drive папка ID киритилмаган.', 'DRIVE_FOLDER_ID_REQUIRED', 400);
-  }
+  if (!folderId) throw makeError('Имзолар Drive папка ID киритилмаган.', 'DRIVE_FOLDER_ID_REQUIRED', 400);
 
   try {
-    const { drive, serviceAccountEmail, serviceAccountProjectId, credentialSource, credentialConflict } = await createDriveClient(workspace);
-    const folder = await drive.files.get({
+    const client = await createDriveClient(workspace);
+    const folder = await client.drive.files.get({
       fileId: folderId,
       fields: 'id,name,mimeType,driveId,ownedByMe,spaces,webViewLink,owners(emailAddress),capabilities(canAddChildren,canEdit)',
       supportsAllDrives: true,
     });
     const data = folder.data || {};
-    const folderDiagnostic = {
-      folderId: data.id || folderId,
-      folderName: data.name || '',
-      mimeType: data.mimeType || '',
-      folderMimeType: data.mimeType || '',
-      folderUrl: data.webViewLink || '',
-      driveId: data.driveId || '',
-      ownedByMe: Boolean(data.ownedByMe),
-      spaces: data.spaces || [],
-      canAddChildren: Boolean(data.capabilities?.canAddChildren),
-      canEdit: Boolean(data.capabilities?.canEdit),
-      uploadStrategy: data.driveId ? 'service_account_shared_drive' : 'service_account_my_drive',
-    };
     if (data.mimeType !== DRIVE_FOLDER_MIME) {
       throw makeError('Киритилган ID Google Drive папка эмас.', 'DRIVE_FOLDER_NOT_A_FOLDER', 400, {
-        serviceAccountEmail,
-        serviceAccountProjectId,
-        credentialSource,
-        credentialConflict,
-        folderDiagnostic,
+        serviceAccountEmail: client.serviceAccountEmail,
+        serviceAccountProjectId: client.serviceAccountProjectId,
       });
     }
 
     let writeTestFileId = '';
     if (writeTest) {
-      try {
-        const testFile = await drive.files.create({
-          requestBody: {
-            name: `SEG-KIP-drive-test-${Date.now()}.txt`,
-            mimeType: 'text/plain',
-            parents: [folderId],
-          },
-          media: { mimeType: 'text/plain', body: Readable.from('SEG KIP Drive write test') },
-          fields: 'id,name,driveId',
-          supportsAllDrives: true,
-        });
-        writeTestFileId = testFile.data?.id || '';
-        if (writeTestFileId) {
-          await drive.files.delete({ fileId: writeTestFileId, supportsAllDrives: true }).catch(() => {});
-        }
-      } catch (error) {
-        const classified = classifyDriveError(error);
-        throw makeError(classified.message, classified.code, classified.statusCode, {
-          serviceAccountEmail,
-          serviceAccountProjectId,
-          credentialSource,
-          credentialConflict,
-          driveErrorCode: classified.code,
-          driveErrorMessage: classified.message,
-          recommendedFix: classified.recommendedFix || '',
-          folderDiagnostic,
-          safeStorageAvailable: true,
-        });
-      }
+      const testFile = await client.drive.files.create({
+        requestBody: { name: `SEG-KIP-drive-test-${Date.now()}.txt`, mimeType: 'text/plain', parents: [folderId] },
+        media: { mimeType: 'text/plain', body: Readable.from('SEG KIP Drive write test') },
+        fields: 'id,name,driveId',
+        supportsAllDrives: true,
+      });
+      writeTestFileId = testFile.data?.id || '';
+      if (writeTestFileId) await client.drive.files.delete({ fileId: writeTestFileId, supportsAllDrives: true }).catch(() => {});
     }
 
     return {
       ok: true,
-      ...folderDiagnostic,
-      serviceAccountEmail,
-      serviceAccountProjectId,
-      credentialSource,
-      credentialConflict,
+      folderId: data.id || folderId,
+      folderName: data.name || '',
+      folderUrl: data.webViewLink || '',
+      driveId: data.driveId || '',
+      ownedByMe: Boolean(data.ownedByMe),
+      canAddChildren: Boolean(data.capabilities?.canAddChildren),
+      canEdit: Boolean(data.capabilities?.canEdit),
+      serviceAccountEmail: client.serviceAccountEmail,
+      serviceAccountProjectId: client.serviceAccountProjectId,
+      credentialSource: client.credentialSource,
+      credentialConflict: client.credentialConflict,
       driveApiEnabled: true,
       folderAccessible: true,
       writeTest: Boolean(writeTest),
@@ -295,8 +206,6 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
       driveErrorCode: classified.code,
       driveErrorMessage: classified.message,
       rawReason: classified.rawReason,
-      serviceAccountEmail: classified.serviceAccountEmail,
-      serviceAccountProjectId: classified.serviceAccountProjectId,
       recommendedFix: classified.recommendedFix || '',
       safeStorageAvailable: true,
     });
@@ -305,52 +214,24 @@ export async function testWorkspaceSignatureFolder(workspace, { writeTest = true
 
 export async function uploadWorkspaceSignaturePng(workspace, file, { actorUserId = null, position = '', fullName = '' } = {}) {
   validatePngFile(file);
-  const internal = await saveSignatureToDatabase(workspace, file, actorUserId, {
-    driveStatus: 'not_configured',
-  });
+  const internal = await saveSignatureToDatabase(workspace, file, actorUserId, { driveStatus: 'not_configured' });
   const folderId = resolveFolderId(workspace);
   if (!folderId) {
-    return {
-      ...internal,
-      driveStatus: 'not_configured',
-      fallbackReason: 'Drive папка ID киритилмаган. Imzo ichki xavfsiz saqlashda saqlandi.',
-      driveErrorCode: 'DRIVE_FOLDER_ID_REQUIRED',
-      driveErrorMessage: 'Drive папка ID киритилмаган.',
-    };
+    return { ...internal, driveStatus: 'not_configured', fallbackReason: 'Drive папка ID киритилмаган. Imzo ichki xavfsiz saqlashda saqlandi.', driveErrorCode: 'DRIVE_FOLDER_ID_REQUIRED', driveErrorMessage: 'Drive папка ID киритилмаган.' };
   }
 
   try {
     const name = makeDriveSignatureName(workspace, { position, fullName });
     const driveCopy = await createDriveCopy(workspace, file, folderId, name);
-    return {
-      ...internal,
-      driveStatus: 'ready',
-      driveCopy,
-      driveCopyUrl: driveCopy.webViewLink,
-      driveCopyFileId: driveCopy.fileId,
-      driveErrorCode: '',
-      driveErrorMessage: '',
-      fallbackReason: '',
-    };
+    return { ...internal, driveStatus: 'ready', driveCopy, driveCopyUrl: driveCopy.webViewLink, driveCopyFileId: driveCopy.fileId, driveErrorCode: '', driveErrorMessage: '', fallbackReason: '' };
   } catch (error) {
     const classified = classifyDriveError(error);
-    return {
-      ...internal,
-      driveStatus: classified.code === 'SERVICE_ACCOUNT_NO_STORAGE_QUOTA' ? 'quota_limited' : 'failed',
-      fallbackReason: classified.message,
-      driveErrorCode: classified.code,
-      driveErrorMessage: classified.message,
-      recommendedFix: classified.recommendedFix || '',
-    };
+    return { ...internal, driveStatus: classified.code === 'SERVICE_ACCOUNT_NO_STORAGE_QUOTA' ? 'quota_limited' : 'failed', fallbackReason: classified.message, driveErrorCode: classified.code, driveErrorMessage: classified.message, recommendedFix: classified.recommendedFix || '' };
   }
 }
 
 export async function getWorkspaceSignaturePng(workspaceId, signatureId) {
   const row = await getWorkspaceSignatureImage(workspaceId, signatureId);
   if (!row) throw makeError('Workspace signature image topilmadi', 'WORKSPACE_SIGNATURE_NOT_FOUND', 404);
-  return {
-    fileName: row.fileName,
-    mimeType: row.mimeType,
-    buffer: Buffer.from(row.imageBase64, 'base64'),
-  };
+  return { fileName: row.fileName, mimeType: row.mimeType, buffer: Buffer.from(row.imageBase64, 'base64') };
 }
