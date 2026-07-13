@@ -169,13 +169,7 @@ function buildActBlankRows(act, actNo) {
     pad(['5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:', '', '', '', '', '', '', '', '', '']),
     pad([safeText(act.actionText), '', '', '', '', '', '', '', '', '']),
     pad(['Хулоса:', '', '', '', '', '', '', '', '', '']),
-    pad([safeText(act.conclusion), '', '', '', '', '', '', '', '', '']),
-    pad(['', '', '', '', '', '', '', '', '', '']),
-    pad(['Имзолар:', '', '', '', '', '', '', '', '', '']),
-    pad(['', '_________________', '', '', '_________________', '', '', '_________________', '', '']),
-    pad(['', '(Лавозими)', '', '', '(Имзо)', '', '', '(Ф.И.Ш.)', '', '']),
-    pad(['', '_________________', '', '', '_________________', '', '', '_________________', '', '']),
-    pad(['', '(Лавозими)', '', '', '(Имзо)', '', '', '(Ф.И.Ш.)', '', ''])
+    pad([safeText(act.conclusion), '', '', '', '', '', '', '', '', ''])
   ];
 }
 
@@ -187,7 +181,7 @@ function blockFormatRequests(sheetId, startRow, rowCount) {
     [0, 6, 9], [1, 6, 9], [2, 6, 9], [3, 6, 9], [4, 6, 9],
     [6, 2, 8], [7, 2, 8], [9, 0, 10],
     [13, 0, 10], [14, 0, 10], [16, 0, 10], [17, 0, 10], [18, 0, 10],
-    [19, 0, 10], [20, 0, 10], [21, 0, 10], [22, 0, 10], [23, 0, 10], [24, 0, 10], [26, 0, 10],
+    [19, 0, 10], [20, 0, 10], [21, 0, 10], [22, 0, 10], [23, 0, 10], [24, 0, 10],
     [10, 1, 3], [10, 4, 6], [10, 7, 9], [11, 1, 3], [11, 4, 6], [11, 7, 9], [12, 1, 3], [12, 4, 6], [12, 7, 9]
   ];
   mergeRanges.forEach(([rowOffset, startCol, endCol]) => {
@@ -198,7 +192,6 @@ function blockFormatRequests(sheetId, startRow, rowCount) {
     { repeatCell: { range: { sheetId, startRowIndex: s, endRowIndex: s + 5, startColumnIndex: 6, endColumnIndex: 9 }, cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', textFormat: { foregroundColor: { red: 0, green: 0, blue: 1 }, fontFamily: 'Times New Roman', fontSize: 11 } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
     { repeatCell: { range: { sheetId, startRowIndex: s + 6, endRowIndex: s + 8, startColumnIndex: 0, endColumnIndex: BLANK_COLUMNS }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { bold: true, fontFamily: 'Times New Roman', fontSize: 13 } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
     { repeatCell: { range: { sheetId, startRowIndex: s + 10, endRowIndex: s + 13, startColumnIndex: 0, endColumnIndex: BLANK_COLUMNS }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat(horizontalAlignment)' } },
-    { repeatCell: { range: { sheetId, startRowIndex: s + 27, endRowIndex: s + 31, startColumnIndex: 0, endColumnIndex: BLANK_COLUMNS }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { fontSize: 10, fontFamily: 'Times New Roman' } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
     { updateDimensionProperties: { range: { sheetId, dimension: 'ROWS', startIndex: s, endIndex: e }, properties: { pixelSize: 28 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId, dimension: 'ROWS', startIndex: s + 14, endIndex: s + 25 }, properties: { pixelSize: 58 }, fields: 'pixelSize' } }
   );
