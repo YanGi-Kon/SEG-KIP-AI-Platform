@@ -61,6 +61,29 @@
     document.head.appendChild(style);
   }
 
+  function stripLegacyManualSignatureBlock(html){
+    let source = String(html || '').trim();
+    if(!source) return source;
+    const patterns = [
+      /<p[^>]*>\s*<b>\s*Имзолар:\s*<\/b>\s*<\/p>/giu,
+      /<div[^>]*class="[^"]*signs[^"]*"[^>]*>[\s\S]*?<\/div>\s*<div[^>]*class="[^"]*signs[^"]*"[^>]*>[\s\S]*?<\/div>/giu,
+      /<div[^>]*>\s*Имзолар:\s*<\/div>/giu,
+      /Имзолар:/giu,
+      /_{5,}/gu,
+      /\((?:Лавозими|Имзо|Ф\.И\.Ш\.)\)/giu
+    ];
+    patterns.forEach((pattern)=>{ source = source.replace(pattern, ''); });
+    let previous='';
+    while(previous!==source){
+      previous=source;
+      source=source
+        .replace(/<(p|div|span|section)([^>]*)>\s*(?:<br\s*\/?>\s*)*<\/\1>/giu,'')
+        .replace(/(<br\s*\/?>\s*){3,}/giu,'<br><br>')
+        .replace(/\n{3,}/g,'\n\n');
+    }
+    return source;
+  }
+
   function setDonut(pct){ const v=Math.max(0,Math.min(100,Number(pct)||0)); const d=$('completionDonut'); if(d){d.style.setProperty('--p',v); const s=d.querySelector('span'); if(s)s.textContent=`${v}%`;}}
   function updateKpi(data){ $('kpiTotal').textContent=data.totalRows??0; $('kpiPlanned').textContent=data.plannedDocuments??0; $('kpiCreated').textContent=data.createdDocuments??0; $('kpiSheet').textContent=data.sheetName||settings().sheetName||'—'; setDonut(data.completionPercentage||0); }
   function formatWorkPlace(row){ return `${row.deviceName||''} ${row.typeMark||''}, завод рақами ${row.serialNo||''},\nўлчаш чегараси ${row.measureRange||''},\n${row.place||''}, поз. №${row.positionNo||''}`.replace(/ +,/g,',').trim(); }
@@ -87,11 +110,11 @@
   function saveButton(mode){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');if(mode==='saving'){b.classList.add('saving');b.textContent='⏳ Сақланмоқда...';b.disabled=true;return;}if(mode==='saved'){b.classList.add('saved');b.textContent='Сақланди ✓';b.disabled=true;return;}resetSaveButton();}
   function fillDoc(index){const row=state.analysisRows[index];if(!row)return;if(row.isCompleted){viewDoc(ref(row.actNo));return;}state.selected=row;$('workPlace').value=formatWorkPlace(row);$('actDate').value=row.date||today();$('actNo').value='';['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>{if($(id))$(id).value='';});resetSaveButton();showView('create',$('tab-create'));validateDoc();}
   function collectActBase(){const r=state.selected||{};return{actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value,position1:$('position1').value,department1:$('department1').value,person2:$('person2').value,position2:$('position2').value,department2:$('department2').value,person3:$('person3').value,position3:$('position3').value,department3:$('department3').value,failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),conclusion:$('conclusion').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||''};}
-  function buildA4ActHtml(a){const sign='<div class="signs"><div>_________________<br>(Лавозими)</div><div>_________________<br>(Имзо)</div><div>_________________<br>(Ф.И.Ш.)</div></div>';return `<div class="a4-preview"><div class="act-head"><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича</div><div style="text-align:right;font-weight:400">ТПП «Андижан»</div><div class="act-title">ДАЛОЛАТНОМА № ${esc(a.actNo||'')}</div><div>Ўлчов воситасининг бузилиши</div></div><p><b>Сана:</b> ${esc(a.date)}</p><p><b>1. Ў.В. Ишлаш жойи:</b><br>${esc(a.workPlace).replace(/\n/g,'<br>')}</p><p><b>2. Рад этиш мазмуни, санаси, вақти:</b><br>${esc(a.failureText)}</p><p><b>3. Носозликнинг технологик оқибатлари:</b><br>${esc(a.impactText)}</p><p><b>4. Рад этиш сабаби:</b><br>${esc(a.reasonText)}</p><p><b>5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</b><br>${esc(a.actionText)}</p><p><b>Хулоса:</b><br>${esc(a.conclusion)}</p><p><b>Имзолар:</b></p>${sign}${sign}</div>`;}
-  function collectAct(){const base=collectActBase();return{...base,a4Html:buildA4ActHtml(base),a4Json:JSON.stringify(base)};}
+  function buildA4ActHtml(a){return `<div class="a4-preview"><div class="act-head"><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича</div><div style="text-align:right;font-weight:400">ТПП «Андижан»</div><div class="act-title">ДАЛОЛАТНОМА № ${esc(a.actNo||'')}</div><div>Ўлчов воситасининг бузилиши</div></div><p><b>Сана:</b> ${esc(a.date)}</p><p><b>1. Ў.В. Ишлаш жойи:</b><br>${esc(a.workPlace).replace(/\n/g,'<br>')}</p><p><b>2. Рад этиш мазмуни, санаси, вақти:</b><br>${esc(a.failureText)}</p><p><b>3. Носозликнинг технологик оқибатлари:</b><br>${esc(a.impactText)}</p><p><b>4. Рад этиш сабаби:</b><br>${esc(a.reasonText)}</p><p><b>5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</b><br>${esc(a.actionText)}</p><p><b>Хулоса:</b><br>${esc(a.conclusion)}</p></div>`;}
+  function collectAct(){const base=collectActBase();return{...base,a4Html:stripLegacyManualSignatureBlock(buildA4ActHtml(base)),a4Json:JSON.stringify(base)};}
   function validateDoc(){const a=collectActBase();const required=['date','workPlace','failureText','impactText','reasonText','actionText','conclusion'];const done=required.filter(k=>a[k]).length;const pct=Math.round(done/required.length*100);$('fillBar').style.width=pct+'%';$('fillText').textContent=`Тўлдирилиш: ${pct}%`;const b=$('saveActBtn');if(b&&!state.saving&&!b.classList.contains('saved'))b.disabled=pct<100||!state.selected;return pct>=100;}
   function markCompleted(actNo){const key=state.selected?.sourceKey;if(!key)return;state.analysisRows=state.analysisRows.map(r=>r.sourceKey===key?{...r,isCompleted:true,actNo,status:'Хужат якунланди'}:r);renderRows(state.analysisRows);}
-  async function saveAct(){if(state.saving)return;if(!validateDoc()){setStatus('Мажбурий майдонларни тўлдиринг.','bad');return;}state.saving=true;saveButton('saving');try{setStatus('Ҳужжат Google Sheets га сақланмоқда...','sync');const result=await postJson('/api/acts/create',{...settings(),act:collectAct()});$('actNo').value=result.actNo||'';saveButton('saved');markCompleted(result.actNo||'');setStatus(result.duplicate?`Ҳужжат аввал якунланган: ${result.actNo}`:`Ҳужжат сақланди: ${result.actNo}. Маълумот АКТЛАР_КУНЛИК варағига қўшилди.`,'ok');await loadReports();await loadAnalysis();setTimeout(()=>{showView('analysis',$('tab-analysis'));state.saving=false;},900);}catch(err){state.saving=false;resetSaveButton();validateDoc();setStatus(err.message,'bad');}}
+  async function saveAct(){if(state.saving)return;if(!validateDoc()){setStatus('Мажбурий майдонларни тўлдиринг.','bad');return;}state.saving=true;saveButton('saving');try{setStatus('Ҳужжат Google Sheets га сақланмоқда...','sync');const result=await postJson('/api/acts/create',{...settings(),act:collectAct()});$('actNo').value=result.actNo||'';saveButton('saved');markCompleted(result.actNo||'');setStatus(result.message||'Ҳужжат сақланди.','ok');await loadReports();}catch(err){resetSaveButton();setStatus(err.message,'bad');}finally{state.saving=false;}}
 
   function showView(id,btn){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.acts-top .tabs button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');if(id==='reports')loadReports();}
   function showReport(id,btn){document.querySelectorAll('.report-view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.subtabs button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');}
@@ -102,7 +125,7 @@
 
   async function findReport(actNo){const no=unref(actNo);if(!state.dailyRows.length)await loadReports();return state.dailyRows.find(r=>String(r.actNo||'')===no);}
   function ensureA4Modal(){let modal=$('actsA4Modal');if(modal)return modal;modal=document.createElement('div');modal.id='actsA4Modal';modal.className='acts-a4-modal';modal.innerHTML='<div class="acts-a4-wrap"><div class="acts-a4-toolbar"><button onclick="window.print()">PDF / Print</button><button onclick="document.getElementById(\'actsA4Modal\').classList.remove(\'show\')">Yopish</button></div><div id="actsA4Content"></div></div>';document.body.appendChild(modal);return modal;}
-  async function viewDoc(actNo){const report=await findReport(actNo);if(!report){alert('Ҳужжат топилмади. Excel очилади.');openExcel();return;}let html=report.a4Html||'';if(!html){let act=null;try{act=JSON.parse(report.a4Json||'null');}catch(_){}html=buildA4ActHtml(act||{actNo:report.actNo,date:report.date,workPlace:report.workPlace,failureText:report.failureText,impactText:report.impactText,reasonText:report.reasonText,actionText:report.actionText,conclusion:report.conclusion});}ensureA4Modal();$('actsA4Content').innerHTML=html;$('actsA4Modal').classList.add('show');}
+  async function viewDoc(actNo){const report=await findReport(actNo);if(!report){alert('Ҳужжат топилмади. Excel очилади.');openExcel();return;}let html=stripLegacyManualSignatureBlock(report.a4Html||'');if(!html){let act=null;try{act=JSON.parse(report.a4Json||'null');}catch(_){}html=stripLegacyManualSignatureBlock(buildA4ActHtml(act||{actNo:report.actNo,date:report.date,workPlace:report.workPlace,failureText:report.failureText,impactText:report.impactText,reasonText:report.reasonText,actionText:report.actionText,conclusion:report.conclusion}));}ensureA4Modal();$('actsA4Content').innerHTML=html;$('actsA4Modal').classList.add('show');}
   async function sendDoc(actNo){
     const no=unref(actNo);
     if(!confirm(`${no} ҳужжатини барча имзо чекувчиларга Gmail орқали юборишни тасдиқлайсизми?`))return;
