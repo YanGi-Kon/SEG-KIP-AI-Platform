@@ -496,8 +496,35 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
 
+function stripLegacyManualSignatureBlock(html) {
+  let source = clean(html);
+  if (!source) return source;
+
+  const patterns = [
+    /<[^>]+>\s*Имзолар:\s*<\/[^>]+>/giu,
+    /<[^>]+>\s*_{5,}\s*<\/[^>]+>/gu,
+    /<[^>]+>\s*\((?:Лавозими|Имзо|Ф\.И\.Ш\.)\)\s*<\/[^>]+>/giu,
+    /Имзолар:/giu,
+    /_{5,}/gu,
+    /\((?:Лавозими|Имзо|Ф\.И\.Ш\.)\)/giu,
+  ];
+
+  for (const pattern of patterns) source = source.replace(pattern, '');
+
+  let previous = '';
+  while (previous !== source) {
+    previous = source;
+    source = source
+      .replace(/<(p|div|span|td|tr|section)([^>]*)>\s*(?:<br\s*\/?>\s*)*<\/\1>/giu, '')
+      .replace(/(<br\s*\/?>\s*){3,}/giu, '<br><br>')
+      .replace(/\n{3,}/g, '\n\n');
+  }
+
+  return source;
+}
+
 function injectSignerSection(html, section) {
-  let source = clean(html) || '<div class="a4-preview"><p>Ҳужжат маълумоти мавжуд эмас.</p></div>';
+  let source = stripLegacyManualSignatureBlock(html) || '<div class="a4-preview"><p>Ҳужжат маълумоти мавжуд эмас.</p></div>';
   source = source.replace(/<!--SEG_APPROVALS_START-->[\s\S]*?<!--SEG_APPROVALS_END-->/g, '');
   const last = source.lastIndexOf('</div>');
   return last >= 0 ? `${source.slice(0, last)}${section}${source.slice(last)}` : `${source}${section}`;
@@ -682,6 +709,6 @@ export async function getAudit(configInput, limit = 200) {
 
 export function renderApprovalPage({ approval, document, csrfToken }, token) {
   const isApproved = approval.status === 'Тасдиқланди';
-  const safeHtml = document.a4Html || `<div class="paper"><h2>${escapeHtml(document.actNo)}</h2><p>${escapeHtml(document.deviceName)} · ${escapeHtml(document.serialNo)}</p></div>`;
+  const safeHtml = stripLegacyManualSignatureBlock(document.a4Html) || `<div class="paper"><h2>${escapeHtml(document.actNo)}</h2><p>${escapeHtml(document.deviceName)} · ${escapeHtml(document.serialNo)}</p></div>`;
   return `<!doctype html><html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(document.actNo)} — Tasdiqlash</title><style>body{margin:0;background:#071427;color:#eaf7ff;font-family:Arial,sans-serif}.wrap{max-width:980px;margin:0 auto;padding:20px}.head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.badge{padding:8px 12px;border-radius:999px;background:${isApproved ? '#166534' : '#92400e'}}.paper{background:#fff;color:#111;padding:24px;margin:18px 0;border-radius:12px;overflow:auto}.a4-preview{max-width:210mm;min-height:297mm;margin:auto;background:#fff;color:#111;padding:18mm;box-sizing:border-box;font-family:'Times New Roman',serif}.actions{display:flex;justify-content:center;margin:20px}.approve{border:0;border-radius:10px;padding:14px 24px;font-size:17px;font-weight:800;background:#22c55e;color:#052e16;cursor:pointer}.approve:disabled{opacity:.55}.msg{text-align:center;min-height:24px}</style></head><body><div class="wrap"><div class="head"><div><h1>Hujjatni tasdiqlash</h1><p>${escapeHtml(approval.position)} — ${escapeHtml(approval.fio)}</p></div><div class="badge" id="status">${escapeHtml(approval.status)}</div></div><div class="paper">${safeHtml}</div><div class="actions"><button class="approve" id="approveBtn" ${isApproved ? 'disabled' : ''}>${isApproved ? 'Tasdiqlangan' : 'Tasdiqlash'}</button></div><div class="msg" id="msg"></div></div><script>const token=${JSON.stringify(token)};const csrfToken=${JSON.stringify(csrfToken)};document.getElementById('approveBtn').addEventListener('click',async()=>{const b=document.getElementById('approveBtn');b.disabled=true;document.getElementById('msg').textContent='Tasdiqlanmoqda...';try{const r=await fetch('/api/document/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,csrfToken})});const d=await r.json();if(!r.ok)throw new Error(d.error||'Xato');document.getElementById('status').textContent='Тасдиқланди';b.textContent='Tasdiqlangan';document.getElementById('msg').textContent='Hujjat muvaffaqiyatli tasdiqlandi.';}catch(e){b.disabled=false;document.getElementById('msg').textContent=e.message;}});</script></body></html>`;
 }
