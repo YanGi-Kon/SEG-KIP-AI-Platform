@@ -87,6 +87,43 @@ function makeWorkspaceEmailError(result = {}) {
   return error;
 }
 
+function compactSubjectPart(value, max = 72) {
+  return clean(value).replace(/\s+/g, ' ').slice(0, max);
+}
+
+function approvalDeliveryTag(token) {
+  return sha256(token).slice(0, 8).toUpperCase();
+}
+
+function buildApprovalEmailSubject({ actNo, workspaceName, approverName, deliveryTag }) {
+  return [
+    'Tasdiqlash talab qilinadi',
+    compactSubjectPart(actNo, 80),
+    compactSubjectPart(workspaceName, 80),
+    compactSubjectPart(approverName, 80),
+    compactSubjectPart(deliveryTag, 24),
+  ].filter(Boolean).join(' — ');
+}
+
+function buildApprovalEmailText({ actNo, workspaceName, approverName, link }) {
+  return [
+    'Hujjatni tasdiqlash talab qilinadi.',
+    '',
+    `Obyekt: ${clean(workspaceName) || '-'}`,
+    `Hujjat: ${clean(actNo) || '-'}`,
+    `Imzolovchi: ${clean(approverName) || '-'}`,
+    '',
+    'Tasdiqlash uchun quyidagi havolani oching:',
+    link,
+    '',
+    'Agar tugma ko‘rinmasa yoki email klient uni yashirsa, yuqoridagi havolani brauzerga qo‘ying.',
+  ].join('\n');
+}
+
+function buildApprovalEmailHtml({ actNo, workspaceName, approverName, link }) {
+  return `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;line-height:1.55;color:#0f172a"><h2>Hujjatni tasdiqlash talab qilinadi</h2><p><b>Obyekt:</b> ${escapeHtml(workspaceName || '-')}</p><p><b>Hujjat:</b> ${escapeHtml(actNo || '-')}</p><p><b>Imzolovchi:</b> ${escapeHtml(approverName || '-')}</p><div style="margin:24px 0"><a href="${link}" style="display:inline-block;padding:12px 20px;background:#0891b2;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700">Hujjatni ochish va tasdiqlash</a></div><p style="margin:0 0 8px;color:#475569"><b>Agar tugma ko‘rinmasa</b>, quyidagi havolani brauzerga qo‘ying:</p><p style="margin:0 0 12px;word-break:break-all"><a href="${link}" style="color:#0891b2;text-decoration:underline">${link}</a></p><p style="color:#64748b">Havola shaxsiy va boshqa hujjatlarni ko‘rsatmaydi.</p></div>`;
+}
+
 async function ensureApprovalSheet(config) {
   const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
   const sheets = await getSheetsClient(config.serviceAccount);
@@ -245,6 +282,25 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
     const approvalId = existing?.id || randomId('APR');
     const token = signApprovalToken({ approvalId, actNo, signerId: signer.id, email: signer.email });
     const link = `${baseUrl}/api/document/approve/${encodeURIComponent(token)}`;
+    const deliveryTag = approvalDeliveryTag(token);
+    const subject = buildApprovalEmailSubject({
+      actNo,
+      workspaceName: workspace.name,
+      approverName: signer.fullName,
+      deliveryTag,
+    });
+    const text = buildApprovalEmailText({
+      actNo,
+      workspaceName: workspace.name,
+      approverName: signer.fullName,
+      link,
+    });
+    const html = buildApprovalEmailHtml({
+      actNo,
+      workspaceName: workspace.name,
+      approverName: signer.fullName,
+      link,
+    });
     links.push(link);
     const approval = await writeApproval(config, {
       id: approvalId,
@@ -265,9 +321,9 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
     try {
       await sendHttpEmail({
         to: signer.email,
-        subject: 'Hujjatni tasdiqlash talab qilinadi',
-        text: `Hujjat: ${actNo}\nTasdiqlash havolasi: ${link}`,
-        html: `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto"><h2>Hujjatni tasdiqlash talab qilinadi</h2><p><b>Obyekt:</b> ${escapeHtml(workspace.name)}</p><p><b>Hujjat:</b> ${escapeHtml(actNo)}</p><p><b>Imzolovchi:</b> ${escapeHtml(signer.fullName)}</p><p><a href="${link}" style="display:inline-block;padding:12px 20px;background:#0891b2;color:#fff;text-decoration:none;border-radius:8px">Hujjatni ochish va tasdiqlash</a></p></div>`,
+        subject,
+        text,
+        html,
       });
       results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: provider.provider, approvalLinkCreated: true });
     } catch (error) {
@@ -302,7 +358,10 @@ export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
     const result = await sendDocumentForApproval({
       spreadsheetUrl: synced.config.spreadsheetUrl,
       serviceAccount: synced.config.serviceAccount,
-    }, input, req);
+    }, {
+      ...input,
+      workspaceName: workspace.name,
+    }, req);
     return {
       ...result,
       workspaceId: workspace.id,
