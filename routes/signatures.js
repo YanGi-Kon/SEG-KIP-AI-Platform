@@ -52,9 +52,9 @@ function approvalPreviewStyles() {
 .a4-preview .act-signers-title{font-weight:700;margin:14px 0 8px}
 .a4-preview .act-signers{display:grid;gap:10px;margin-bottom:18px}
 .a4-preview .act-signers-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}
-.a4-preview .act-signers-cell{text-align:center}
-.a4-preview .act-signers-value{min-height:22px;padding:0 4px;border-bottom:1px solid #111;word-break:break-word}
-.a4-preview .act-signers-label{font-size:12px;line-height:1.2;margin-top:3px}
+.a4-preview .act-signers-cell{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;min-width:0}
+.a4-preview .act-signers-value{width:100%;min-height:24px;padding:0 4px 2px;border-bottom:1px solid #111;box-sizing:border-box;text-align:center;display:flex;align-items:flex-end;justify-content:center;word-break:break-word}
+.a4-preview .act-signers-label{width:100%;text-align:center;font-size:12px;line-height:1.2;margin-top:3px}
 .a4-preview .act-section{margin:10px 0}
 .a4-preview .act-section-title{font-weight:700;margin-bottom:4px}
 .a4-preview .act-section-value{min-height:18px;padding-bottom:4px;border-bottom:1px solid #111;white-space:pre-wrap;word-break:break-word}
