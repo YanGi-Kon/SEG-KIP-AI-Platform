@@ -1,12 +1,17 @@
 (function(){
   const KEYS = { url:'acts_sheet_url', sheet:'acts_sheet_name', service:'acts_service_account' };
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
+  const WORKSPACE_ID_KEY = 'seg_kip_selected_workspace_id';
+  const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
   const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false };
 
   function $(id){ return document.getElementById(id); }
   function esc(v){ return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
   function ref(v){ return encodeURIComponent(String(v || '')); }
   function unref(v){ try { return decodeURIComponent(String(v || '')); } catch(_) { return String(v || ''); } }
+  function clean(v){ return String(v ?? '').trim(); }
+  function pget(store,key){ try { return parent?.[store]?.getItem(key) || ''; } catch(_) { return ''; } }
+
   function settings(){
     let serviceAccount = null;
     try { serviceAccount = JSON.parse(localStorage.getItem(KEYS.service) || 'null'); } catch(_) {}
@@ -19,7 +24,8 @@
 
   function toBase64Url(value){
     const bytes = new TextEncoder().encode(String(value));
-    let binary=''; bytes.forEach(b=>binary+=String.fromCharCode(b));
+    let binary='';
+    bytes.forEach(b=>binary+=String.fromCharCode(b));
     return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   }
   function configHeader(){
@@ -27,6 +33,8 @@
     return toBase64Url(JSON.stringify({ spreadsheetUrl:s.spreadsheetUrl, serviceAccount:s.serviceAccount }));
   }
   function adminToken(){ return sessionStorage.getItem(ADMIN_TOKEN_KEY) || ''; }
+  function workspaceId(){ return localStorage.getItem(WORKSPACE_ID_KEY) || pget('localStorage', WORKSPACE_ID_KEY) || ''; }
+  function workspaceToken(){ return sessionStorage.getItem(WORKSPACE_TOKEN_KEY) || pget('sessionStorage', WORKSPACE_TOKEN_KEY) || ''; }
   async function loginAdmin(){
     const password = window.prompt('Administrator parolini kiriting:');
     if(password === null) throw new Error('Administrator autentifikatsiyasi bekor qilindi');
@@ -52,12 +60,35 @@
   async function postJson(url, body){
     return apiFetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   }
+  async function workspaceFetch(path){
+    const id = workspaceId();
+    const token = workspaceToken();
+    if(!id || !token) return null;
+    const headers = new Headers({ Authorization:`Bearer ${token}` });
+    const res = await fetch(`/api/workspaces/${encodeURIComponent(id)}${path}`, { headers, credentials:'include' });
+    if(!res.ok) return null;
+    return res.json().catch(()=>null);
+  }
+  async function loadWorkspaceApproverRegistry(force=false){
+    if(!force && Array.isArray(state.workspaceApprovers)) return state.workspaceApprovers;
+    const data = await workspaceFetch('/signers?includeInactive=true');
+    const rows = Array.isArray(data?.rows) ? data.rows : [];
+    state.workspaceApprovers = rows.map((row)=>({
+      signerId: clean(row.id),
+      fio: clean(row.fullName || row.fio),
+      position: clean(row.position),
+      gmail: clean(row.email || row.gmail),
+      signatureUrl: clean(row.signatureUrl),
+      signatureFileId: clean(row.signatureFileId)
+    })).filter((row)=>row.signerId || row.fio || row.gmail);
+    return state.workspaceApprovers;
+  }
 
   function injectStyles(){
     if(document.getElementById('actsWorkflowStyles')) return;
     const style=document.createElement('style');
     style.id='actsWorkflowStyles';
-    style.textContent='.btn.done{background:linear-gradient(135deg,#16a34a,#86efac)!important;color:#052e16!important;border:0!important;box-shadow:0 0 18px rgba(34,197,94,.35)!important}.btn.saving{opacity:.9!important;pointer-events:none!important;background:linear-gradient(135deg,#f59e0b,#facc15)!important;color:#1f1300!important;border:0!important}.btn.saved{background:linear-gradient(135deg,#16a34a,#22c55e,#86efac)!important;color:#022c22!important;border:0!important;box-shadow:0 0 20px rgba(34,197,94,.55)!important}.btn:active{transform:scale(.97)}.acts-a4-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:80;display:none;align-items:center;justify-content:center;padding:18px}.acts-a4-modal.show{display:flex}.acts-a4-wrap{max-height:95vh;overflow:auto}.acts-a4-toolbar{display:flex;gap:10px;justify-content:center;margin-bottom:10px}.acts-a4-toolbar button{padding:10px 16px;border:0;border-radius:10px;font-weight:800;cursor:pointer}.a4-preview{width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:18mm;font-family:"Times New Roman",serif;box-shadow:0 0 30px rgba(0,0,0,.35)}.a4-preview p{font-size:15px;line-height:1.45}.a4-preview .act-head{text-align:center;font-weight:700}.a4-preview .right{text-align:right;color:#00f;font-size:14px;margin-bottom:15px}.a4-preview .act-title{text-align:center;font-size:18px;font-weight:900;margin:10px 0}.a4-preview .signs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:25px;margin-top:32px;text-align:center;font-size:12px}@media print{.acts-a4-toolbar{display:none}.acts-a4-modal{position:static;display:block;background:#fff;padding:0}.a4-preview{box-shadow:none}}';
+    style.textContent='.btn.done{background:linear-gradient(135deg,#16a34a,#86efac)!important;color:#052e16!important;border:0!important;box-shadow:0 0 18px rgba(34,197,94,.35)!important}.btn.saving{opacity:.9!important;pointer-events:none!important;background:linear-gradient(135deg,#f59e0b,#facc15)!important;color:#1f1300!important;border:0!important}.btn.saved{background:linear-gradient(135deg,#16a34a,#22c55e,#86efac)!important;color:#022c22!important;border:0!important;box-shadow:0 0 20px rgba(34,197,94,.55)!important}.btn:active{transform:scale(.97)}.acts-a4-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:80;display:none;align-items:center;justify-content:center;padding:18px}.acts-a4-modal.show{display:flex}.acts-a4-wrap{max-height:95vh;overflow:auto}.acts-a4-toolbar{display:flex;gap:10px;justify-content:center;margin-bottom:10px}.acts-a4-toolbar button{padding:10px 16px;border:0;border-radius:10px;font-weight:800;cursor:pointer}.a4-preview{width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:14mm 16mm 16mm;font-family:"Times New Roman",serif;box-shadow:0 0 30px rgba(0,0,0,.35)}.a4-preview p{font-size:14px;line-height:1.45;margin:0}.a4-preview .act-head{text-align:center;font-weight:700}.a4-preview .right{text-align:right;color:#00f;font-size:13px;line-height:1.35;margin:0 0 10px auto;max-width:90mm;white-space:pre-line}.a4-preview .act-title{display:flex;justify-content:center;align-items:center;gap:8px;font-size:18px;font-weight:900;margin:8px 0 4px}.a4-preview .act-subtitle{text-align:center;font-size:16px;font-weight:700;margin-bottom:12px}.a4-preview .act-signers-title{font-weight:700;margin:12px 0 8px}.a4-preview .act-signers{display:grid;gap:8px;margin-bottom:14px}.a4-preview .act-signers-row{display:grid;grid-template-columns:2.2fr 1.4fr 1.2fr;gap:12px;align-items:end}.a4-preview .act-signers-cell{display:grid;gap:3px}.a4-preview .act-signers-value{min-height:24px;border-bottom:1px solid #111;padding:0 4px;font-size:14px}.a4-preview .act-signers-label{text-align:center;font-size:12px}.a4-preview .act-section{margin-top:10px}.a4-preview .act-section-title{font-weight:700;margin-bottom:4px}.a4-preview .act-section-value{min-height:28px;padding:0 2px 4px;border-bottom:1px solid #111;white-space:pre-wrap}.a4-preview .act-date-inline{display:flex;justify-content:flex-end;gap:8px;align-items:end;margin-top:4px;font-size:13px}.a4-preview .act-date-inline .line{min-width:120px;min-height:18px;border-bottom:1px solid #111;padding:0 4px}.a4-preview .act-conclusion{margin-top:12px}.a4-preview .act-conclusion .act-section-value{min-height:48px}@media print{.acts-a4-toolbar{display:none}.acts-a4-modal{position:static;display:block;background:#fff;padding:0}.a4-preview{box-shadow:none}}';
     document.head.appendChild(style);
   }
 
@@ -109,12 +140,53 @@
   function resetSaveButton(){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');b.textContent='Сақлаш';}
   function saveButton(mode){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');if(mode==='saving'){b.classList.add('saving');b.textContent='⏳ Сақланмоқда...';b.disabled=true;return;}if(mode==='saved'){b.classList.add('saved');b.textContent='Сақланди ✓';b.disabled=true;return;}resetSaveButton();}
   function fillDoc(index){const row=state.analysisRows[index];if(!row)return;if(row.isCompleted){viewDoc(ref(row.actNo));return;}state.selected=row;$('workPlace').value=formatWorkPlace(row);$('actDate').value=row.date||today();$('actNo').value='';['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>{if($(id))$(id).value='';});resetSaveButton();showView('create',$('tab-create'));validateDoc();}
-  function collectActBase(){const r=state.selected||{};return{actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value,position1:$('position1').value,department1:$('department1').value,person2:$('person2').value,position2:$('position2').value,department2:$('department2').value,person3:$('person3').value,position3:$('position3').value,department3:$('department3').value,failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),conclusion:$('conclusion').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||''};}
-  function buildA4ActHtml(a){return `<div class="a4-preview"><div class="act-head"><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича</div><div style="text-align:right;font-weight:400">ТПП «Андижан»</div><div class="act-title">ДАЛОЛАТНОМА № ${esc(a.actNo||'')}</div><div>Ўлчов воситасининг бузилиши</div></div><p><b>Сана:</b> ${esc(a.date)}</p><p><b>1. Ў.В. Ишлаш жойи:</b><br>${esc(a.workPlace).replace(/\n/g,'<br>')}</p><p><b>2. Рад этиш мазмуни, санаси, вақти:</b><br>${esc(a.failureText)}</p><p><b>3. Носозликнинг технологик оқибатлари:</b><br>${esc(a.impactText)}</p><p><b>4. Рад этиш сабаби:</b><br>${esc(a.reasonText)}</p><p><b>5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</b><br>${esc(a.actionText)}</p><p><b>Хулоса:</b><br>${esc(a.conclusion)}</p></div>`;}
-  function collectAct(){const base=collectActBase();return{...base,a4Html:stripLegacyManualSignatureBlock(buildA4ActHtml(base)),a4Json:JSON.stringify(base)};}
+  function collectActBase(){const r=state.selected||{};return{actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value.trim(),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:$('person2').value.trim(),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:$('person3').value.trim(),position3:$('position3').value.trim(),department3:$('department3').value.trim(),failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),conclusion:$('conclusion').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||''};}
+  function collectAssignedApproverSlots(base){
+    return [1,2,3].map((slot)=>({
+      slot,
+      fio: clean(base[`person${slot}`]),
+      position: clean(base[`position${slot}`]),
+      department: clean(base[`department${slot}`])
+    })).filter((row)=>row.fio || row.position || row.department);
+  }
+  function buildSignerRows(a){
+    return [1,2,3].map((slot)=>{
+      const fio = esc(a[`person${slot}`] || '');
+      const position = esc(a[`position${slot}`] || '');
+      const department = esc(a[`department${slot}`] || '');
+      return `<div class="act-signers-row"><div class="act-signers-cell"><div class="act-signers-value">${fio}</div><div class="act-signers-label">(Ф.И.Ш.)</div></div><div class="act-signers-cell"><div class="act-signers-value">${position}</div><div class="act-signers-label">(Лавозими)</div></div><div class="act-signers-cell"><div class="act-signers-value">${department}</div><div class="act-signers-label">(цех ва м/р)</div></div></div>`;
+    }).join('');
+  }
+  function sectionHtml(title, value, extra=''){
+    return `<div class="act-section"><div class="act-section-title">${title}</div><div class="act-section-value">${esc(value || '').replace(/\n/g,'<br>')}</div>${extra}</div>`;
+  }
+  function buildA4ActHtml(a){
+    const signerBlock = `<div class="act-signers-title">Биз имзо чекувчилар:</div><div class="act-signers">${buildSignerRows(a)}</div>`;
+    return `<div class="a4-preview"><div class="act-head"><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича<br>ТПП «Андижан»</div><div class="act-title"><span>ДАЛОЛАТНОМА №</span><span>${esc(a.actNo||'')}</span></div><div class="act-subtitle">Ўлчов воситасининг бузилиши</div></div>${signerBlock}${sectionHtml('1. Ў.В. Ишлаш жойи', a.workPlace)}${sectionHtml('2. Рад этиш мазмуни, санаси, вақти:', a.failureText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(a.date || '')}</span></div>`)}${sectionHtml('3. Носозликнинг технологик оқибатлари:', a.impactText)}${sectionHtml('4. Рад этиш сабаби:', a.reasonText)}${sectionHtml('5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:', a.actionText)}<div class="act-conclusion">${sectionHtml('Хулоса:', a.conclusion)}</div></div>`;
+  }
+  function collectAct(){
+    const base=collectActBase();
+    const payload={...base, assignedApprovers: collectAssignedApproverSlots(base)};
+    return {...payload,a4Html:stripLegacyManualSignatureBlock(buildA4ActHtml(payload)),a4Json:JSON.stringify(payload)};
+  }
   function validateDoc(){const a=collectActBase();const required=['date','workPlace','failureText','impactText','reasonText','actionText','conclusion'];const done=required.filter(k=>a[k]).length;const pct=Math.round(done/required.length*100);$('fillBar').style.width=pct+'%';$('fillText').textContent=`Тўлдирилиш: ${pct}%`;const b=$('saveActBtn');if(b&&!state.saving&&!b.classList.contains('saved'))b.disabled=pct<100||!state.selected;return pct>=100;}
   function markCompleted(actNo){const key=state.selected?.sourceKey;if(!key)return;state.analysisRows=state.analysisRows.map(r=>r.sourceKey===key?{...r,isCompleted:true,actNo,status:'Хужат якунланди'}:r);renderRows(state.analysisRows);}
-  async function saveAct(){if(state.saving)return;if(!validateDoc()){setStatus('Мажбурий майдонларни тўлдиринг.','bad');return;}state.saving=true;saveButton('saving');try{setStatus('Ҳужжат Google Sheets га сақланмоқда...','sync');const result=await postJson('/api/acts/create',{...settings(),act:collectAct()});$('actNo').value=result.actNo||'';saveButton('saved');markCompleted(result.actNo||'');setStatus(result.message||'Ҳужжат сақланди.','ok');await loadReports();}catch(err){resetSaveButton();setStatus(err.message,'bad');}finally{state.saving=false;}}
+  async function saveAct(){
+    if(state.saving)return;
+    if(!validateDoc()){setStatus('Мажбурий майдонларни тўлдиринг.','bad');return;}
+    state.saving=true;saveButton('saving');
+    try{
+      await loadWorkspaceApproverRegistry().catch(()=>[]);
+      setStatus('Ҳужжат Google Sheets га сақланмоқда...','sync');
+      const result=await postJson('/api/acts/create',{...settings(),act:collectAct()});
+      $('actNo').value=result.actNo||'';
+      saveButton('saved');
+      markCompleted(result.actNo||'');
+      setStatus(result.message||'Ҳужжат сақланди.','ok');
+      await loadReports();
+    }catch(err){resetSaveButton();setStatus(err.message,'bad');}
+    finally{state.saving=false;}
+  }
 
   function showView(id,btn){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.acts-top .tabs button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');if(id==='reports')loadReports();}
   function showReport(id,btn){document.querySelectorAll('.report-view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.subtabs button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');}
@@ -128,49 +200,41 @@
   async function viewDoc(actNo){const report=await findReport(actNo);if(!report){alert('Ҳужжат топилмади. Excel очилади.');openExcel();return;}let html=stripLegacyManualSignatureBlock(report.a4Html||'');if(!html){let act=null;try{act=JSON.parse(report.a4Json||'null');}catch(_){}html=stripLegacyManualSignatureBlock(buildA4ActHtml(act||{actNo:report.actNo,date:report.date,workPlace:report.workPlace,failureText:report.failureText,impactText:report.impactText,reasonText:report.reasonText,actionText:report.actionText,conclusion:report.conclusion}));}ensureA4Modal();$('actsA4Content').innerHTML=html;$('actsA4Modal').classList.add('show');}
   async function sendDoc(actNo){
     const no=unref(actNo);
-    if(!confirm(`${no} ҳужжатини барча имзо чекувчиларга Gmail орқали юборишни тасдиқлайсизми?`))return;
-    try{setStatus(`${no} имзоловчиларга юборилмоқда...`,'sync');const result=await postJson('/api/document/send',{...settings(),actNo:no,sentBy:'KIP Administrator'});const sent=(result.results||[]).filter(x=>x.status==='sent').length;const failed=(result.results||[]).filter(x=>x.status==='email-failed').length;setStatus(`${no}: ${sent} та Gmail юборилди${failed?`, ${failed} та хатолик`:''}. Ҳолат: ${result.status}` ,failed?'sync':'ok');await loadReports();}catch(err){setStatus(err.message,'bad');}
+    if(!confirm(`${no} ҳужжатини тайинланган тасдиқловчиларга Gmail орқали юборишни тасдиқлайсизми?`))return;
+    try{setStatus(`${no} тасдиқловчиларга юборилмоқда...`,'sync');const result=await postJson('/api/document/send',{...settings(),actNo:no,sentBy:'KIP Administrator'});const sent=(result.results||[]).filter(x=>x.status==='sent').length;const failed=(result.results||[]).filter(x=>x.status==='email-failed').length;setStatus(`${no}: ${sent} та Gmail юборилди${failed?`, ${failed} та хатолик`:''}. Ҳолат: ${result.status}` ,failed?'sync':'ok');await loadReports();}catch(err){setStatus(err.message,'bad');}
   }
 
-  function openSigners(){
-    if(!hasSettings()){openSettings();setStatus('Аввал Google Sheets созламаларини киритинг.','bad');return;}
-    $('signersModal').classList.add('show');
-    loadSigners();
-  }
+  function openSigners(){ if(!hasSettings()){openSettings();setStatus('Аввал Google Sheets созламаларини киритинг.','bad');return;} $('signersModal').classList.add('show'); loadSigners(); }
   function closeSigners(){$('signersModal').classList.remove('show');}
-  function signerRowHtml(signer, isNew=false){
-    const id=signer.id||`new_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-    const disabled=isNew?'':'disabled';
-    const fileInfo=signer.signatureUrl?`<a class="file-link" href="${esc(signer.signatureUrl)}" target="_blank" rel="noopener">Drive imzo</a>`:'PNG tanlanmagan';
-    return `<tr data-signer-id="${esc(id)}" data-new="${isNew?'1':'0'}" data-signature-url="${esc(signer.signatureUrl||'')}"><td><input data-field="position" value="${esc(signer.position||'')}" ${disabled}></td><td><input data-field="fio" value="${esc(signer.fio||'')}" ${disabled}></td><td><div data-file-info>${fileInfo}</div><input data-field="file" type="file" accept="image/png,.png" ${disabled}></td><td><input data-field="gmail" type="email" value="${esc(signer.gmail||'')}" placeholder="name@gmail.com" ${disabled}></td><td><div class="signer-actions"><button class="btn ghost small" title="Tahrirlash" onclick="ActsUI.editSigner('${esc(id)}')">✏️</button><button class="btn green small" title="Saqlash" onclick="ActsUI.saveSigner('${esc(id)}')" ${isNew?'':'disabled'}>💾</button><button class="btn red small" title="O‘chirish" onclick="ActsUI.deleteSigner('${esc(id)}')">🗑</button></div></td></tr>`;
-  }
+  function signerRowHtml(signer, isNew=false){ const id=signer.id||`new_${Date.now()}_${Math.random().toString(16).slice(2)}`; const disabled=isNew?'':'disabled'; const fileInfo=signer.signatureUrl?`<a class="file-link" href="${esc(signer.signatureUrl)}" target="_blank" rel="noopener">Drive imzo</a>`:'PNG tanlanmagan'; return `<tr data-signer-id="${esc(id)}" data-new="${isNew?'1':'0'}" data-signature-url="${esc(signer.signatureUrl||'')}"><td><input data-field="position" value="${esc(signer.position||'')}" ${disabled}></td><td><input data-field="fio" value="${esc(signer.fio||'')}" ${disabled}></td><td><div data-file-info>${fileInfo}</div><input data-field="file" type="file" accept="image/png,.png" ${disabled}></td><td><input data-field="gmail" type="email" value="${esc(signer.gmail||'')}" placeholder="name@gmail.com" ${disabled}></td><td><div class="signer-actions"><button class="btn ghost small" title="Tahrirlash" onclick="ActsUI.editSigner('${esc(id)}')">✏️</button><button class="btn green small" title="Saqlash" onclick="ActsUI.saveSigner('${esc(id)}')" ${isNew?'':'disabled'}>💾</button><button class="btn red small" title="O‘chirish" onclick="ActsUI.deleteSigner('${esc(id)}')">🗑</button></div></td></tr>`; }
   function renderSigners(){const tb=$('signersRows');if(!state.signers.length){tb.innerHTML='<tr><td colspan="5">Имзо чекувчилар йўқ. “Қўшиш” тугмасини босинг.</td></tr>';return;}tb.innerHTML=state.signers.map(s=>signerRowHtml(s,false)).join('');}
   async function loadSigners(){try{setSignersMsg('Google Sheets дан юкланмоқда...','sync');const data=await apiFetch('/api/signers');state.signers=data.rows||[];renderSigners();setSignersMsg(`${state.signers.length} та имзо чекувчи юкланди.`,'ok');}catch(err){setSignersMsg(err.message,'bad');$('signersRows').innerHTML=`<tr><td colspan="5">${esc(err.message)}</td></tr>`;}}
   function addSignerRow(){const tb=$('signersRows');if(tb.querySelector('td[colspan]'))tb.innerHTML='';const id=`new_${Date.now()}`;tb.insertAdjacentHTML('beforeend',signerRowHtml({id},true));setSignersMsg('Янги сатр қўшилди. Майдонларни тўлдириб сақланг.','sync');}
   function rowBySignerId(id){return Array.from($('signersRows').querySelectorAll('tr')).find(tr=>tr.dataset.signerId===id);}
   function editSigner(id){const tr=rowBySignerId(id);if(!tr)return;tr.querySelectorAll('input').forEach(i=>i.disabled=false);const save=tr.querySelector('button[title="Saqlash"]');if(save)save.disabled=false;setSignersMsg('Таҳрирлаш режими ёқилди.','sync');}
-  async function uploadSignerFile(file){
-    if(!file)return'';
-    if(file.type!=='image/png'&&!file.name.toLowerCase().endsWith('.png'))throw new Error('Фақат PNG файл қабул қилинади');
-    if(file.size>2*1024*1024)throw new Error('PNG ҳажми 2 MB дан ошмаслиги керак');
-    const s=settings();const form=new FormData();form.append('signature',file);form.append('spreadsheetUrl',s.spreadsheetUrl);form.append('serviceAccount',JSON.stringify(s.serviceAccount));
-    const data=await apiFetch('/api/signature/upload',{method:'POST',body:form});
-    return data.webViewLink||data.fileId;
-  }
-  async function saveSigner(id){
-    const tr=rowBySignerId(id);if(!tr)return;
-    const position=tr.querySelector('[data-field="position"]').value.trim();const fio=tr.querySelector('[data-field="fio"]').value.trim();const gmail=tr.querySelector('[data-field="gmail"]').value.trim();const file=tr.querySelector('[data-field="file"]').files[0];
-    if(!position||!fio||!gmail) return setSignersMsg('Лавозими, F.I.O ва Gmail тўлдирилиши шарт.','bad');
-    if(!/^[^\s@]+@gmail\.com$/i.test(gmail))return setSignersMsg('Фақат тўғри Gmail манзили қабул қилинади.','bad');
-    try{setSignersMsg('PNG юкланмоқда ва маълумот сақланмоқда...','sync');let signatureUrl=tr.dataset.signatureUrl||'';if(file)signatureUrl=await uploadSignerFile(file);if(!signatureUrl)throw new Error('PNG имзо танланмаган');const payload={position,fio,gmail,signatureUrl,...settings()};if(tr.dataset.new==='1'){await postJson('/api/signers',payload);}else{await apiFetch(`/api/signers/${encodeURIComponent(id)}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}await loadSigners();setSignersMsg('Имзо чекувчи сақланди.','ok');}catch(err){setSignersMsg(err.message,'bad');}
-  }
-  async function deleteSigner(id){
-    const tr=rowBySignerId(id);if(!tr)return;if(tr.dataset.new==='1'){tr.remove();return setSignersMsg('Янги сатр бекор қилинди.','sync');}if(!confirm('Ушбу имзо чекувчини ўчиришни тасдиқлайсизми?'))return;
-    try{setSignersMsg('Ўчирилмоқда...','sync');await apiFetch(`/api/signers/${encodeURIComponent(id)}`,{method:'DELETE'});await loadSigners();setSignersMsg('Имзо чекувчи ўчирилди.','ok');}catch(err){setSignersMsg(err.message,'bad');}
-  }
+  async function uploadSignerFile(file){ if(!file)return''; if(file.type!=='image/png'&&!file.name.toLowerCase().endsWith('.png'))throw new Error('Фақат PNG файл қабул қилинади'); if(file.size>2*1024*1024)throw new Error('PNG ҳажми 2 MB дан ошмаслиги керак'); const s=settings();const form=new FormData();form.append('signature',file);form.append('spreadsheetUrl',s.spreadsheetUrl);form.append('serviceAccount',JSON.stringify(s.serviceAccount)); const data=await apiFetch('/api/signature/upload',{method:'POST',body:form}); return data.webViewLink||data.fileId; }
+  async function saveSigner(id){ const tr=rowBySignerId(id);if(!tr)return; const position=tr.querySelector('[data-field="position"]').value.trim();const fio=tr.querySelector('[data-field="fio"]').value.trim();const gmail=tr.querySelector('[data-field="gmail"]').value.trim();const file=tr.querySelector('[data-field="file"]').files[0]; if(!position||!fio||!gmail) return setSignersMsg('Лавозими, F.I.O ва Gmail тўлдирилиши шарт.','bad'); if(!/^[^\s@]+@gmail\.com$/i.test(gmail))return setSignersMsg('Фақат тўғри Gmail манзили қабул қилинади.','bad'); try{setSignersMsg('PNG юкланмоқда ва маълумот сақланмоқда...','sync');let signatureUrl=tr.dataset.signatureUrl||'';if(file)signatureUrl=await uploadSignerFile(file);if(!signatureUrl)throw new Error('PNG имзо танланмаган');const payload={position,fio,gmail,signatureUrl,...settings()};if(tr.dataset.new==='1'){await postJson('/api/signers',payload);}else{await apiFetch(`/api/signers/${encodeURIComponent(id)}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}await loadSigners();setSignersMsg('Имзо чекувчи сақланди.','ok');}catch(err){setSignersMsg(err.message,'bad');} }
+  async function deleteSigner(id){ const tr=rowBySignerId(id);if(!tr)return;if(tr.dataset.new==='1'){tr.remove();return setSignersMsg('Янги сатр бекор қилинди.','sync');}if(!confirm('Ушбу имзо чекувчини ўчиришни тасдиқлайсизми?'))return; try{setSignersMsg('Ўчирилмоқда...','sync');await apiFetch(`/api/signers/${encodeURIComponent(id)}`,{method:'DELETE'});await loadSigners();setSignersMsg('Имзо чекувчи ўчирилди.','ok');}catch(err){setSignersMsg(err.message,'bad');} }
 
   function clearLegacyDonutOverrides(){const legacy=document.getElementById('actsDonutPositionOverride');if(legacy)legacy.remove();}
-  function bind(){injectStyles();clearLegacyDonutOverrides();$('serviceFile')?.addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{const json=JSON.parse(await file.text());if(!json.client_email||!json.private_key||!json.project_id)throw new Error('client_email, private_key ёки project_id топилмади');localStorage.setItem(KEYS.service,JSON.stringify(json));$('serviceFileName').innerHTML=`${esc(file.name)} ✓`;$('settingsMsg').innerHTML='<span class="ok">SERVICE ACCOUNT JSON юкланди.</span>';}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}});['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>$(id)?.addEventListener('input',validateDoc));if(!hasSettings())openSettings();else loadAnalysis();}
+  function bind(){
+    injectStyles();
+    clearLegacyDonutOverrides();
+    loadWorkspaceApproverRegistry().then((rows)=>{
+      if(!rows?.length) return;
+      let list = $('actsApproverList');
+      if(!list){
+        list = document.createElement('datalist');
+        list.id = 'actsApproverList';
+        document.body.appendChild(list);
+      }
+      list.innerHTML = rows.map((row)=>`<option value="${esc(row.fio)}">${esc(row.position || row.gmail || '')}</option>`).join('');
+      ['person1','person2','person3'].forEach((id)=>{ const input=$(id); if(input) input.setAttribute('list','actsApproverList'); });
+    }).catch(()=>{});
+    $('serviceFile')?.addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{const json=JSON.parse(await file.text());if(!json.client_email||!json.private_key||!json.project_id)throw new Error('client_email, private_key ёки project_id топилмади');localStorage.setItem(KEYS.service,JSON.stringify(json));$('serviceFileName').innerHTML=`${esc(file.name)} ✓`;$('settingsMsg').innerHTML='<span class="ok">SERVICE ACCOUNT JSON юкланди.</span>';}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}});
+    ['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>$(id)?.addEventListener('input',validateDoc));
+    if(!hasSettings())openSettings();else loadAnalysis();
+  }
 
   window.ActsUI={showView,showReport,openSettings,closeSettings,saveSettings,loadAnalysis,fillDoc,saveAct,openExcel,setStatus,viewDoc,sendDoc,openSigners,closeSigners,loadSigners,addSignerRow,editSigner,saveSigner,deleteSigner};
   document.addEventListener('DOMContentLoaded',bind);
