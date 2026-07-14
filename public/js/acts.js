@@ -4,6 +4,7 @@
   const WORKSPACE_ID_KEY = 'seg_kip_selected_workspace_id';
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
   const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null };
+  const PDF_MONTHS = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
 
   function $(id){ return document.getElementById(id); }
   function esc(v){ return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
@@ -25,7 +26,7 @@
   function toBase64Url(value){
     const bytes = new TextEncoder().encode(String(value));
     let binary='';
-    bytes.forEach(b=>binary+=String.fromCharCode(b));
+    bytes.forEach((b)=>{ binary+=String.fromCharCode(b); });
     return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   }
   function configHeader(){
@@ -90,7 +91,61 @@
     if(document.getElementById('actsWorkflowStyles')) return;
     const style=document.createElement('style');
     style.id='actsWorkflowStyles';
-    style.textContent='.btn.done{background:linear-gradient(135deg,#16a34a,#86efac)!important;color:#052e16!important;border:0!important;box-shadow:0 0 18px rgba(34,197,94,.35)!important}.btn.saving{opacity:.9!important;pointer-events:none!important;background:linear-gradient(135deg,#f59e0b,#facc15)!important;color:#1f1300!important;border:0!important}.btn.saved{background:linear-gradient(135deg,#16a34a,#22c55e,#86efac)!important;color:#022c22!important;border:0!important;box-shadow:0 0 20px rgba(34,197,94,.55)!important}.btn:active{transform:scale(.97)}.acts-a4-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:80;display:none;align-items:center;justify-content:center;padding:18px}.acts-a4-modal.show{display:flex}.acts-a4-wrap{max-height:95vh;overflow:auto}.acts-a4-toolbar{display:flex;gap:10px;justify-content:center;margin-bottom:10px}.acts-a4-toolbar button{padding:10px 16px;border:0;border-radius:10px;font-weight:800;cursor:pointer}.a4-preview{width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:14mm 16mm 16mm;font-family:"Times New Roman",serif;box-shadow:0 0 30px rgba(0,0,0,.35)}.a4-preview p{font-size:14px;line-height:1.45;margin:0}.a4-preview .act-head{text-align:center;font-weight:700}.a4-preview .right{text-align:right;color:#00f;font-size:13px;line-height:1.35;margin:0 0 10px auto;max-width:90mm;white-space:pre-line}.a4-preview .act-title{display:flex;justify-content:center;align-items:center;gap:8px;font-size:18px;font-weight:900;margin:8px 0 4px}.a4-preview .act-subtitle{text-align:center;font-size:16px;font-weight:700;margin-bottom:12px}.a4-preview .act-signers-title{font-weight:700;margin:12px 0 8px}.a4-preview .act-signers{display:grid;gap:8px;margin-bottom:14px}.a4-preview .act-signers-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}.a4-preview .act-signers-cell{display:grid;gap:8px;min-width:0}.a4-preview .act-signer-line{display:grid;gap:3px}.a4-preview .act-signers-value{width:100%;min-height:24px;border-bottom:1px solid #111;padding:0 4px 2px;font-size:14px;box-sizing:border-box;text-align:center;display:flex;align-items:flex-end;justify-content:center}.a4-preview .act-signers-label{text-align:center;font-size:12px;line-height:1.2}.a4-preview .act-section{margin-top:10px}.a4-preview .act-section-title{font-weight:700;margin-bottom:4px}.a4-preview .act-section-value{min-height:28px;padding:0 2px 4px;border-bottom:1px solid #111;white-space:pre-wrap}.a4-preview .act-date-inline{display:flex;justify-content:flex-end;gap:8px;align-items:end;margin-top:4px;font-size:13px}.a4-preview .act-date-inline .line{min-width:120px;min-height:18px;border-bottom:1px solid #111;padding:0 4px}.a4-preview .act-conclusion{margin-top:12px}.a4-preview .act-conclusion .act-section-value{min-height:48px}@media print{.acts-a4-toolbar{display:none}.acts-a4-modal{position:static;display:block;background:#fff;padding:0}.a4-preview{box-shadow:none}}';
+    style.textContent=`
+.btn.done{background:linear-gradient(135deg,#16a34a,#86efac)!important;color:#052e16!important;border:0!important;box-shadow:0 0 18px rgba(34,197,94,.35)!important}
+.btn.saving{opacity:.9!important;pointer-events:none!important;background:linear-gradient(135deg,#f59e0b,#facc15)!important;color:#1f1300!important;border:0!important}
+.btn.saved{background:linear-gradient(135deg,#16a34a,#22c55e,#86efac)!important;color:#022c22!important;border:0!important;box-shadow:0 0 20px rgba(34,197,94,.55)!important}
+.btn:active{transform:scale(.97)}
+.acts-a4-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:80;display:none;align-items:center;justify-content:center;padding:18px}
+.acts-a4-modal.show{display:flex}
+.acts-a4-wrap{max-height:95vh;overflow:auto}
+.acts-a4-toolbar{display:flex;gap:10px;justify-content:center;margin-bottom:10px}
+.acts-a4-toolbar button{padding:10px 16px;border:0;border-radius:10px;font-weight:800;cursor:pointer}
+.a4-preview{width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:14mm 18mm 16mm;font-family:"Times New Roman",serif;box-shadow:0 0 30px rgba(0,0,0,.35);font-size:15px;line-height:1.28}
+.a4-preview p{margin:0}
+.a4-preview .act-meta{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:8mm}
+.a4-preview .act-date-head{font-size:13px;line-height:1.2;white-space:nowrap;padding-top:28mm}
+.a4-preview .act-date-head .line{display:inline-block;min-width:26px;border-bottom:1px solid #111;text-align:center;line-height:1;padding:0 2px 1px}
+.a4-preview .act-date-head .month,.a4-preview .act-date-head .year{color:#1d4ed8;font-style:italic}
+.a4-preview .act-head{margin-bottom:10mm}
+.a4-preview .right{text-align:right;color:#1d4ed8;font-size:14px;line-height:1.25;font-weight:700;max-width:92mm;margin-left:auto;white-space:pre-line}
+.a4-preview .act-title{display:flex;justify-content:center;align-items:flex-end;gap:10px;font-size:20px;font-weight:700;line-height:1.05;text-align:center;margin:0 0 4px}
+.a4-preview .act-title .act-no-line{display:inline-flex;align-items:flex-end;justify-content:center;min-width:82px;padding:0 6px 2px;border-bottom:1px solid #111}
+.a4-preview .act-subtitle{text-align:center;font-size:16px;font-weight:700;margin-bottom:0}
+.a4-preview .act-signers-title{font-weight:700;font-size:16px;margin:0 0 8px}
+.a4-preview .act-signers{display:grid;gap:14px;margin-bottom:14px}
+.a4-preview .act-signers-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:end}
+.a4-preview .act-signers-cell{text-align:center;min-width:0}
+.a4-preview .act-signers-value{min-height:22px;padding:0 4px 1px;border-bottom:1px solid #111;text-align:center;display:flex;align-items:flex-end;justify-content:center;word-break:break-word}
+.a4-preview .act-signers-label{font-size:12px;line-height:1.15;font-style:italic;margin-top:2px}
+.a4-preview .act-section{margin-top:12px}
+.a4-preview .act-section-title{font-size:16px;font-weight:700;margin-bottom:6px}
+.a4-preview .act-section-value{min-height:20px;padding:0 2px 4px;border-bottom:1px solid #111;white-space:pre-wrap;word-break:break-word}
+.a4-preview .act-section-value.tall{min-height:60px}
+.a4-preview .act-section-value.xl{min-height:88px}
+.a4-preview .act-date-inline{display:flex;justify-content:flex-end;align-items:flex-end;gap:10px;font-size:13px;font-weight:700;margin-top:4px}
+.a4-preview .act-date-inline .line{display:inline-flex;align-items:flex-end;justify-content:center;min-width:132px;padding:0 4px 1px;border-bottom:1px solid #111;font-weight:400}
+.a4-preview .act-conclusion{margin-top:12px}
+.a4-preview img{max-width:100%;height:auto}
+@media (max-width:980px){
+  .a4-preview{padding:12mm 12mm 14mm;font-size:14px}
+  .a4-preview .act-meta{gap:10px;margin-bottom:6mm}
+  .a4-preview .act-date-head{padding-top:18mm}
+  .a4-preview .act-title{font-size:18px}
+  .a4-preview .act-subtitle{font-size:15px}
+}
+@media (max-width:760px){
+  .a4-preview .act-meta{display:block}
+  .a4-preview .act-date-head{padding-top:0;margin-bottom:10px}
+  .a4-preview .act-signers-row{grid-template-columns:1fr}
+  .a4-preview .act-date-inline{justify-content:flex-start;flex-wrap:wrap}
+  .a4-preview .act-date-inline .line{min-width:0;width:100%}
+}
+@media print{
+  .acts-a4-toolbar{display:none}
+  .acts-a4-modal{position:static;display:block;background:#fff;padding:0}
+  .a4-preview{box-shadow:none}
+}`;
     document.head.appendChild(style);
   }
 
@@ -122,6 +177,20 @@
   function formatWorkPlace(row){ return `${row.deviceName||''} ${row.typeMark||''}, завод рақами ${row.serialNo||''},\nўлчаш чегараси ${row.measureRange||''},\n${row.place||''}, поз. №${row.positionNo||''}`.replace(/ +,/g,',').trim(); }
   function today(){ const d=new Date(); return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; }
 
+  function parsePdfDate(raw){
+    const value = clean(raw);
+    const match = value.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})$/);
+    if(match){
+      const monthIndex = Math.max(1, Math.min(12, Number(match[2]))) - 1;
+      return { day: match[1].padStart(2,'0'), month: PDF_MONTHS[monthIndex], year: match[3] };
+    }
+    const date = new Date(value);
+    if(!Number.isNaN(date.getTime())){
+      return { day: String(date.getDate()).padStart(2,'0'), month: PDF_MONTHS[date.getMonth()], year: String(date.getFullYear()) };
+    }
+    return { day:'', month: PDF_MONTHS[new Date().getMonth()], year:String(new Date().getFullYear()) };
+  }
+
   function renderRows(rows){
     const tb=$('analysisRows');
     if(!rows||!rows.length){tb.innerHTML='<tr><td colspan="11">ТО-2 / АКТ қаторлари топилмади.</td></tr>';return;}
@@ -146,14 +215,15 @@
   function collectAssignedApproverSlots(base){
     return [1,2,3].map((slot)=>({ slot, fio: clean(base[`person${slot}`]), position: clean(base[`position${slot}`]), department: clean(base[`department${slot}`]) })).filter((row)=>row.fio || row.position || row.department);
   }
-  function signerLine(value,label){ return `<div class="act-signer-line"><div class="act-signers-value">${esc(value || '')}</div><div class="act-signers-label">${label}</div></div>`; }
+  function signerCell(value,label){ return `<div class="act-signers-cell"><div class="act-signers-value">${esc(value || '')}</div><div class="act-signers-label">${label}</div></div>`; }
   function buildSignerRows(a){
-    return `<div class="act-signers-row">${[1,2,3].map((slot)=>`<div class="act-signers-cell">${signerLine(a[`person${slot}`],'(Ф.И.Ш.)')}${signerLine(a[`position${slot}`],'(Лавозими)')}${signerLine(a[`department${slot}`],'(цех ва м/р)')}</div>`).join('')}</div>`;
+    return [1,2,3].map((slot)=>`<div class="act-signers-row">${signerCell(a[`person${slot}`],'(Ф.И.Ш.)')}${signerCell(a[`position${slot}`],'(Лавозими)')}${signerCell(a[`department${slot}`],'(цех ва м/р)')}</div>`).join('');
   }
-  function sectionHtml(title, value, extra=''){ return `<div class="act-section"><div class="act-section-title">${title}</div><div class="act-section-value">${esc(value || '').replace(/\n/g,'<br>')}</div>${extra}</div>`; }
+  function sectionHtml(title, value, extra='', valueClass=''){ return `<div class="act-section"><div class="act-section-title">${title}</div><div class="act-section-value ${valueClass}">${esc(value || '').replace(/\n/g,'<br>')}</div>${extra}</div>`; }
   function buildA4ActHtml(a){
+    const dateParts = parsePdfDate(a.date);
     const signerBlock = `<div class="act-signers-title">Биз имзо чекувчилар:</div><div class="act-signers">${buildSignerRows(a)}</div>`;
-    return `<div class="a4-preview"><div class="act-head"><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича<br>ТПП «Андижан»</div><div class="act-title"><span>ДАЛОЛАТНОМА №</span><span>${esc(a.actNo||'')}</span></div><div class="act-subtitle">Ўлчов воситасининг бузилиши</div></div>${signerBlock}${sectionHtml('1. Ў.В. Ишлаш жойи', a.workPlace)}${sectionHtml('2. Рад этиш мазмуни, санаси, вақти:', a.failureText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(a.date || '')}</span></div>`)}${sectionHtml('3. Носозликнинг технологик оқибатлари:', a.impactText)}${sectionHtml('4. Рад этиш сабаби:', a.reasonText)}${sectionHtml('5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:', a.actionText)}<div class="act-conclusion">${sectionHtml('Хулоса:', a.conclusion)}</div></div>`;
+    return `<div class="a4-preview"><div class="act-meta"><div class="act-date-head">&quot;<span class="line">${esc(dateParts.day)}</span>&quot; <span class="month">${esc(dateParts.month)}</span> <span class="year">${esc(dateParts.year)}</span> г.</div><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича<br>ТПП «Андижан»</div></div><div class="act-head"><div class="act-title"><span>ДАЛОЛАТНОМА №</span><span class="act-no-line">${esc(a.actNo||'')}</span></div><div class="act-subtitle">Ўлчов воситасининг бузилиши</div></div>${signerBlock}${sectionHtml('1. Ў.В. Ишлаш жойи', a.workPlace)}${sectionHtml('2. Рад этиш мазмуни, санаси, вақти:', a.failureText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(a.date || '')}</span></div>`)}${sectionHtml('3. Носозликнинг технологик оқибатлари:', a.impactText, '', 'tall')}${sectionHtml('4. Рад этиш сабаби:', a.reasonText, '', 'tall')}${sectionHtml('5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:', a.actionText, '', 'xl')}<div class="act-conclusion">${sectionHtml('Хулоса:', a.conclusion, '', 'xl')}</div></div>`;
   }
   function collectAct(){ const base=collectActBase(); const payload={...base, assignedApprovers: collectAssignedApproverSlots(base)}; return {...payload,a4Html:stripLegacyManualSignatureBlock(buildA4ActHtml(payload)),a4Json:JSON.stringify(payload)}; }
   function validateDoc(){const a=collectActBase();const required=['date','workPlace','failureText','impactText','reasonText','actionText','conclusion'];const done=required.filter(k=>a[k]).length;const pct=Math.round(done/required.length*100);$('fillBar').style.width=pct+'%';$('fillText').textContent=`Тўлдирилиш: ${pct}%`;const b=$('saveActBtn');if(b&&!state.saving&&!b.classList.contains('saved'))b.disabled=pct<100||!state.selected;return pct>=100;}
