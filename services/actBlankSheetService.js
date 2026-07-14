@@ -79,16 +79,16 @@ async function ensureDisplaySheet({ spreadsheetUrl, serviceAccount }) {
     requestBody: {
       requests: [
         { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 0, hideGridlines: true } }, fields: 'gridProperties(frozenRowCount,hideGridlines)' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 36 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 118 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 95 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 }, properties: { pixelSize: 112 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 95 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 }, properties: { pixelSize: 112 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 6, endIndex: 7 }, properties: { pixelSize: 95 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 7, endIndex: 8 }, properties: { pixelSize: 112 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 8, endIndex: 9 }, properties: { pixelSize: 95 }, fields: 'pixelSize' } },
-        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 9, endIndex: 10 }, properties: { pixelSize: 36 }, fields: 'pixelSize' } }
+        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 30 }, fields: 'pixelSize' } },
+        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 120 }, fields: 'pixelSize' } },
+        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },
+        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 }, properties: { pixelSize: 120 }, fields: 'pixelSize' } },
+        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },
+        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 }, properties: { pixelSize: 120 }, fields: 'pixelSize' } },
+        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 6, endIndex: 7 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } },
+        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 7, endIndex: 8 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } },
+        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 8, endIndex: 9 }, properties: { pixelSize: 90 }, fields: 'pixelSize' } },
+        { updateDimensionProperties: { range: { sheetId, dimension: 'COLUMNS', startIndex: 9, endIndex: 10 }, properties: { pixelSize: 30 }, fields: 'pixelSize' } }
       ]
     }
   }).catch(() => {});
@@ -143,6 +143,13 @@ function nextActNo(existingRows) {
   return `АКТ_${year}_${String(next).padStart(4, '0')}`;
 }
 
+function signerCells(act, slot) {
+  return [
+    pad(['', safeText(act[`person${slot}`]), '', '', safeText(act[`position${slot}`]), '', '', safeText(act[`department${slot}`]), '', '']),
+    pad(['', '(Ф.И.Ш.)', '', '', '(Лавозими)', '', '', '(цех ва м/р)', '', ''])
+  ];
+}
+
 function buildActBlankRows(act, actNo) {
   return [
     pad(['', '', '', '', '', '', 'Низомга илова №4', '', '', '']),
@@ -154,14 +161,14 @@ function buildActBlankRows(act, actNo) {
     pad(['', '', 'ДАЛОЛАТНОМА №', actNo, '', '', '', '', '', '']),
     pad(['', '', 'Ўлчов воситасининг бузилиши', '', '', '', '', '', '', '']),
     pad(['', '', '', '', '', '', '', '', '', '']),
-    pad(['Биз қуйида имзо чекувчилар:', '', '', '', '', '', '', '', '', '']),
-    pad(['Ф.И.Ш.', safeText(act.person1), '', 'Лавозими', safeText(act.position1), '', 'Цех ва м/р', safeText(act.department1), '', '']),
-    pad(['Ф.И.Ш.', safeText(act.person2), '', 'Лавозими', safeText(act.position2), '', 'Цех ва м/р', safeText(act.department2), '', '']),
-    pad(['Ф.И.Ш.', safeText(act.person3), '', 'Лавозими', safeText(act.position3), '', 'Цех ва м/р', safeText(act.department3), '', '']),
-    pad(['1. Ў.В. Ишлаш жойи:', '', '', '', '', '', '', '', '', '']),
+    pad(['Биз имзо чекувчилар:', '', '', '', '', '', '', '', '', '']),
+    ...signerCells(act, 1),
+    ...signerCells(act, 2),
+    ...signerCells(act, 3),
+    pad(['1. Ў.В. Ишлаш жойи', '', '', '', '', '', '', '', '', '']),
     pad([safeText(act.workPlace), '', '', '', '', '', '', '', '', '']),
-    pad(['2. Рад этиш мазмуни, санаси, вақти:', '', '', '', '', '', 'Сана:', safeText(act.date), '', '']),
-    pad([safeText(act.failureText), '', '', '', '', '', '', '', '', '']),
+    pad(['2. Рад этиш мазмуни, санаси, вақти:', '', '', '', '', '', '', '', '', '']),
+    pad([safeText(act.failureText), '', '', '', '', '', 'Сана:', safeText(act.date), '', '']),
     pad(['3. Носозликнинг технологик оқибатлари:', '', '', '', '', '', '', '', '', '']),
     pad([safeText(act.impactText), '', '', '', '', '', '', '', '', '']),
     pad(['4. Рад этиш сабаби:', '', '', '', '', '', '', '', '', '']),
@@ -180,9 +187,14 @@ function blockFormatRequests(sheetId, startRow, rowCount) {
   const mergeRanges = [
     [0, 6, 9], [1, 6, 9], [2, 6, 9], [3, 6, 9], [4, 6, 9],
     [6, 2, 8], [7, 2, 8], [9, 0, 10],
-    [13, 0, 10], [14, 0, 10], [16, 0, 10], [17, 0, 10], [18, 0, 10],
-    [19, 0, 10], [20, 0, 10], [21, 0, 10], [22, 0, 10], [23, 0, 10], [24, 0, 10],
-    [10, 1, 3], [10, 4, 6], [10, 7, 9], [11, 1, 3], [11, 4, 6], [11, 7, 9], [12, 1, 3], [12, 4, 6], [12, 7, 9]
+    [10, 1, 3], [10, 4, 6], [10, 7, 9],
+    [11, 1, 3], [11, 4, 6], [11, 7, 9],
+    [12, 1, 3], [12, 4, 6], [12, 7, 9],
+    [13, 1, 3], [13, 4, 6], [13, 7, 9],
+    [14, 1, 3], [14, 4, 6], [14, 7, 9],
+    [15, 1, 3], [15, 4, 6], [15, 7, 9],
+    [16, 0, 10], [17, 0, 10], [18, 0, 10], [19, 0, 6], [20, 0, 10],
+    [21, 0, 10], [22, 0, 10], [23, 0, 4], [24, 0, 10], [25, 0, 10], [26, 0, 10]
   ];
   mergeRanges.forEach(([rowOffset, startCol, endCol]) => {
     requests.push({ mergeCells: { range: { sheetId, startRowIndex: s + rowOffset, endRowIndex: s + rowOffset + 1, startColumnIndex: startCol, endColumnIndex: endCol }, mergeType: 'MERGE_ALL' } });
@@ -191,9 +203,9 @@ function blockFormatRequests(sheetId, startRow, rowCount) {
     { repeatCell: { range: { sheetId, startRowIndex: s, endRowIndex: e, startColumnIndex: 0, endColumnIndex: BLANK_COLUMNS }, cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 1, blue: 1 }, wrapStrategy: 'WRAP', verticalAlignment: 'MIDDLE', textFormat: { foregroundColor: { red: 0, green: 0, blue: 0 }, fontFamily: 'Times New Roman', fontSize: 11 }, borders: { top: border(), bottom: border(), left: border(), right: border() } } }, fields: 'userEnteredFormat(backgroundColor,wrapStrategy,verticalAlignment,textFormat,borders)' } },
     { repeatCell: { range: { sheetId, startRowIndex: s, endRowIndex: s + 5, startColumnIndex: 6, endColumnIndex: 9 }, cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', textFormat: { foregroundColor: { red: 0, green: 0, blue: 1 }, fontFamily: 'Times New Roman', fontSize: 11 } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
     { repeatCell: { range: { sheetId, startRowIndex: s + 6, endRowIndex: s + 8, startColumnIndex: 0, endColumnIndex: BLANK_COLUMNS }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER', textFormat: { bold: true, fontFamily: 'Times New Roman', fontSize: 13 } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
-    { repeatCell: { range: { sheetId, startRowIndex: s + 10, endRowIndex: s + 13, startColumnIndex: 0, endColumnIndex: BLANK_COLUMNS }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat(horizontalAlignment)' } },
-    { updateDimensionProperties: { range: { sheetId, dimension: 'ROWS', startIndex: s, endIndex: e }, properties: { pixelSize: 28 }, fields: 'pixelSize' } },
-    { updateDimensionProperties: { range: { sheetId, dimension: 'ROWS', startIndex: s + 14, endIndex: s + 25 }, properties: { pixelSize: 58 }, fields: 'pixelSize' } }
+    { repeatCell: { range: { sheetId, startRowIndex: s + 10, endRowIndex: s + 16, startColumnIndex: 0, endColumnIndex: BLANK_COLUMNS }, cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat(horizontalAlignment)' } },
+    { updateDimensionProperties: { range: { sheetId, dimension: 'ROWS', startIndex: s, endIndex: e }, properties: { pixelSize: 26 }, fields: 'pixelSize' } },
+    { updateDimensionProperties: { range: { sheetId, dimension: 'ROWS', startIndex: s + 17, endIndex: e }, properties: { pixelSize: 52 }, fields: 'pixelSize' } }
   );
   return requests;
 }
