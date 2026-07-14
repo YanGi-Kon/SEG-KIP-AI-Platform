@@ -3,7 +3,7 @@
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const WORKSPACE_ID_KEY = 'seg_kip_selected_workspace_id';
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
-  const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false };
+  const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null };
 
   function $(id){ return document.getElementById(id); }
   function esc(v){ return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
@@ -35,6 +35,7 @@
   function adminToken(){ return sessionStorage.getItem(ADMIN_TOKEN_KEY) || ''; }
   function workspaceId(){ return localStorage.getItem(WORKSPACE_ID_KEY) || pget('localStorage', WORKSPACE_ID_KEY) || ''; }
   function workspaceToken(){ return sessionStorage.getItem(WORKSPACE_TOKEN_KEY) || pget('sessionStorage', WORKSPACE_TOKEN_KEY) || ''; }
+
   async function loginAdmin(){
     const password = window.prompt('Administrator parolini kiriting:');
     if(password === null) throw new Error('Administrator autentifikatsiyasi bekor qilindi');
@@ -44,6 +45,7 @@
     sessionStorage.setItem(ADMIN_TOKEN_KEY,data.token);
     return data.token;
   }
+
   async function apiFetch(url, options={}, retry=true){
     const headers = new Headers(options.headers || {});
     if(hasSettings()) headers.set('x-seg-kip-config',configHeader());
@@ -88,7 +90,7 @@
     if(document.getElementById('actsWorkflowStyles')) return;
     const style=document.createElement('style');
     style.id='actsWorkflowStyles';
-    style.textContent='.btn.done{background:linear-gradient(135deg,#16a34a,#86efac)!important;color:#052e16!important;border:0!important;box-shadow:0 0 18px rgba(34,197,94,.35)!important}.btn.saving{opacity:.9!important;pointer-events:none!important;background:linear-gradient(135deg,#f59e0b,#facc15)!important;color:#1f1300!important;border:0!important}.btn.saved{background:linear-gradient(135deg,#16a34a,#22c55e,#86efac)!important;color:#022c22!important;border:0!important;box-shadow:0 0 20px rgba(34,197,94,.55)!important}.btn:active{transform:scale(.97)}.acts-a4-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:80;display:none;align-items:center;justify-content:center;padding:18px}.acts-a4-modal.show{display:flex}.acts-a4-wrap{max-height:95vh;overflow:auto}.acts-a4-toolbar{display:flex;gap:10px;justify-content:center;margin-bottom:10px}.acts-a4-toolbar button{padding:10px 16px;border:0;border-radius:10px;font-weight:800;cursor:pointer}.a4-preview{width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:14mm 16mm 16mm;font-family:"Times New Roman",serif;box-shadow:0 0 30px rgba(0,0,0,.35)}.a4-preview p{font-size:14px;line-height:1.45;margin:0}.a4-preview .act-head{text-align:center;font-weight:700}.a4-preview .right{text-align:right;color:#00f;font-size:13px;line-height:1.35;margin:0 0 10px auto;max-width:90mm;white-space:pre-line}.a4-preview .act-title{display:flex;justify-content:center;align-items:center;gap:8px;font-size:18px;font-weight:900;margin:8px 0 4px}.a4-preview .act-subtitle{text-align:center;font-size:16px;font-weight:700;margin-bottom:12px}.a4-preview .act-signers-title{font-weight:700;margin:12px 0 8px}.a4-preview .act-signers{display:grid;gap:8px;margin-bottom:14px}.a4-preview .act-signers-row{display:grid;grid-template-columns:2.2fr 1.4fr 1.2fr;gap:12px;align-items:end}.a4-preview .act-signers-cell{display:grid;gap:3px}.a4-preview .act-signers-value{min-height:24px;border-bottom:1px solid #111;padding:0 4px;font-size:14px}.a4-preview .act-signers-label{text-align:center;font-size:12px}.a4-preview .act-section{margin-top:10px}.a4-preview .act-section-title{font-weight:700;margin-bottom:4px}.a4-preview .act-section-value{min-height:28px;padding:0 2px 4px;border-bottom:1px solid #111;white-space:pre-wrap}.a4-preview .act-date-inline{display:flex;justify-content:flex-end;gap:8px;align-items:end;margin-top:4px;font-size:13px}.a4-preview .act-date-inline .line{min-width:120px;min-height:18px;border-bottom:1px solid #111;padding:0 4px}.a4-preview .act-conclusion{margin-top:12px}.a4-preview .act-conclusion .act-section-value{min-height:48px}@media print{.acts-a4-toolbar{display:none}.acts-a4-modal{position:static;display:block;background:#fff;padding:0}.a4-preview{box-shadow:none}}';
+    style.textContent='.btn.done{background:linear-gradient(135deg,#16a34a,#86efac)!important;color:#052e16!important;border:0!important;box-shadow:0 0 18px rgba(34,197,94,.35)!important}.btn.saving{opacity:.9!important;pointer-events:none!important;background:linear-gradient(135deg,#f59e0b,#facc15)!important;color:#1f1300!important;border:0!important}.btn.saved{background:linear-gradient(135deg,#16a34a,#22c55e,#86efac)!important;color:#022c22!important;border:0!important;box-shadow:0 0 20px rgba(34,197,94,.55)!important}.btn:active{transform:scale(.97)}.acts-a4-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:80;display:none;align-items:center;justify-content:center;padding:18px}.acts-a4-modal.show{display:flex}.acts-a4-wrap{max-height:95vh;overflow:auto}.acts-a4-toolbar{display:flex;gap:10px;justify-content:center;margin-bottom:10px}.acts-a4-toolbar button{padding:10px 16px;border:0;border-radius:10px;font-weight:800;cursor:pointer}.a4-preview{width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:14mm 16mm 16mm;font-family:"Times New Roman",serif;box-shadow:0 0 30px rgba(0,0,0,.35)}.a4-preview p{font-size:14px;line-height:1.45;margin:0}.a4-preview .act-head{text-align:center;font-weight:700}.a4-preview .right{text-align:right;color:#00f;font-size:13px;line-height:1.35;margin:0 0 10px auto;max-width:90mm;white-space:pre-line}.a4-preview .act-title{display:flex;justify-content:center;align-items:center;gap:8px;font-size:18px;font-weight:900;margin:8px 0 4px}.a4-preview .act-subtitle{text-align:center;font-size:16px;font-weight:700;margin-bottom:12px}.a4-preview .act-signers-title{font-weight:700;margin:12px 0 8px}.a4-preview .act-signers{display:grid;gap:8px;margin-bottom:14px}.a4-preview .act-signers-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}.a4-preview .act-signers-cell{display:grid;gap:8px;min-width:0}.a4-preview .act-signer-line{display:grid;gap:3px}.a4-preview .act-signers-value{width:100%;min-height:24px;border-bottom:1px solid #111;padding:0 4px 2px;font-size:14px;box-sizing:border-box;text-align:center;display:flex;align-items:flex-end;justify-content:center}.a4-preview .act-signers-label{text-align:center;font-size:12px;line-height:1.2}.a4-preview .act-section{margin-top:10px}.a4-preview .act-section-title{font-weight:700;margin-bottom:4px}.a4-preview .act-section-value{min-height:28px;padding:0 2px 4px;border-bottom:1px solid #111;white-space:pre-wrap}.a4-preview .act-date-inline{display:flex;justify-content:flex-end;gap:8px;align-items:end;margin-top:4px;font-size:13px}.a4-preview .act-date-inline .line{min-width:120px;min-height:18px;border-bottom:1px solid #111;padding:0 4px}.a4-preview .act-conclusion{margin-top:12px}.a4-preview .act-conclusion .act-section-value{min-height:48px}@media print{.acts-a4-toolbar{display:none}.acts-a4-modal{position:static;display:block;background:#fff;padding:0}.a4-preview{box-shadow:none}}';
     document.head.appendChild(style);
   }
 
@@ -140,51 +142,28 @@
   function resetSaveButton(){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');b.textContent='Сақлаш';}
   function saveButton(mode){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');if(mode==='saving'){b.classList.add('saving');b.textContent='⏳ Сақланмоқда...';b.disabled=true;return;}if(mode==='saved'){b.classList.add('saved');b.textContent='Сақланди ✓';b.disabled=true;return;}resetSaveButton();}
   function fillDoc(index){const row=state.analysisRows[index];if(!row)return;if(row.isCompleted){viewDoc(ref(row.actNo));return;}state.selected=row;$('workPlace').value=formatWorkPlace(row);$('actDate').value=row.date||today();$('actNo').value='';['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>{if($(id))$(id).value='';});resetSaveButton();showView('create',$('tab-create'));validateDoc();}
-  function collectActBase(){const r=state.selected||{};return{actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value.trim(),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:$('person2').value.trim(),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:$('person3').value.trim(),position3:$('position3').value.trim(),department3:$('department3').value.trim(),failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),conclusion:$('conclusion').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||''};}
+  function collectActBase(){const r=state.selected||{};return{actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value.trim(),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:$('person2').value.trim(),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:$('person3').value.trim(),position3:$('position3').value.trim(),department3:$('department3').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||'',failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),conclusion:$('conclusion').value.trim()};}
   function collectAssignedApproverSlots(base){
-    return [1,2,3].map((slot)=>({
-      slot,
-      fio: clean(base[`person${slot}`]),
-      position: clean(base[`position${slot}`]),
-      department: clean(base[`department${slot}`])
-    })).filter((row)=>row.fio || row.position || row.department);
+    return [1,2,3].map((slot)=>({ slot, fio: clean(base[`person${slot}`]), position: clean(base[`position${slot}`]), department: clean(base[`department${slot}`]) })).filter((row)=>row.fio || row.position || row.department);
   }
+  function signerLine(value,label){ return `<div class="act-signer-line"><div class="act-signers-value">${esc(value || '')}</div><div class="act-signers-label">${label}</div></div>`; }
   function buildSignerRows(a){
-    return [1,2,3].map((slot)=>{
-      const fio = esc(a[`person${slot}`] || '');
-      const position = esc(a[`position${slot}`] || '');
-      const department = esc(a[`department${slot}`] || '');
-      return `<div class="act-signers-row"><div class="act-signers-cell"><div class="act-signers-value">${fio}</div><div class="act-signers-label">(Ф.И.Ш.)</div></div><div class="act-signers-cell"><div class="act-signers-value">${position}</div><div class="act-signers-label">(Лавозими)</div></div><div class="act-signers-cell"><div class="act-signers-value">${department}</div><div class="act-signers-label">(цех ва м/р)</div></div></div>`;
-    }).join('');
+    return `<div class="act-signers-row">${[1,2,3].map((slot)=>`<div class="act-signers-cell">${signerLine(a[`person${slot}`],'(Ф.И.Ш.)')}${signerLine(a[`position${slot}`],'(Лавозими)')}${signerLine(a[`department${slot}`],'(цех ва м/р)')}</div>`).join('')}</div>`;
   }
-  function sectionHtml(title, value, extra=''){
-    return `<div class="act-section"><div class="act-section-title">${title}</div><div class="act-section-value">${esc(value || '').replace(/\n/g,'<br>')}</div>${extra}</div>`;
-  }
+  function sectionHtml(title, value, extra=''){ return `<div class="act-section"><div class="act-section-title">${title}</div><div class="act-section-value">${esc(value || '').replace(/\n/g,'<br>')}</div>${extra}</div>`; }
   function buildA4ActHtml(a){
     const signerBlock = `<div class="act-signers-title">Биз имзо чекувчилар:</div><div class="act-signers">${buildSignerRows(a)}</div>`;
     return `<div class="a4-preview"><div class="act-head"><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича<br>ТПП «Андижан»</div><div class="act-title"><span>ДАЛОЛАТНОМА №</span><span>${esc(a.actNo||'')}</span></div><div class="act-subtitle">Ўлчов воситасининг бузилиши</div></div>${signerBlock}${sectionHtml('1. Ў.В. Ишлаш жойи', a.workPlace)}${sectionHtml('2. Рад этиш мазмуни, санаси, вақти:', a.failureText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(a.date || '')}</span></div>`)}${sectionHtml('3. Носозликнинг технологик оқибатлари:', a.impactText)}${sectionHtml('4. Рад этиш сабаби:', a.reasonText)}${sectionHtml('5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:', a.actionText)}<div class="act-conclusion">${sectionHtml('Хулоса:', a.conclusion)}</div></div>`;
   }
-  function collectAct(){
-    const base=collectActBase();
-    const payload={...base, assignedApprovers: collectAssignedApproverSlots(base)};
-    return {...payload,a4Html:stripLegacyManualSignatureBlock(buildA4ActHtml(payload)),a4Json:JSON.stringify(payload)};
-  }
+  function collectAct(){ const base=collectActBase(); const payload={...base, assignedApprovers: collectAssignedApproverSlots(base)}; return {...payload,a4Html:stripLegacyManualSignatureBlock(buildA4ActHtml(payload)),a4Json:JSON.stringify(payload)}; }
   function validateDoc(){const a=collectActBase();const required=['date','workPlace','failureText','impactText','reasonText','actionText','conclusion'];const done=required.filter(k=>a[k]).length;const pct=Math.round(done/required.length*100);$('fillBar').style.width=pct+'%';$('fillText').textContent=`Тўлдирилиш: ${pct}%`;const b=$('saveActBtn');if(b&&!state.saving&&!b.classList.contains('saved'))b.disabled=pct<100||!state.selected;return pct>=100;}
   function markCompleted(actNo){const key=state.selected?.sourceKey;if(!key)return;state.analysisRows=state.analysisRows.map(r=>r.sourceKey===key?{...r,isCompleted:true,actNo,status:'Хужат якунланди'}:r);renderRows(state.analysisRows);}
   async function saveAct(){
     if(state.saving)return;
     if(!validateDoc()){setStatus('Мажбурий майдонларни тўлдиринг.','bad');return;}
     state.saving=true;saveButton('saving');
-    try{
-      await loadWorkspaceApproverRegistry().catch(()=>[]);
-      setStatus('Ҳужжат Google Sheets га сақланмоқда...','sync');
-      const result=await postJson('/api/acts/create',{...settings(),act:collectAct()});
-      $('actNo').value=result.actNo||'';
-      saveButton('saved');
-      markCompleted(result.actNo||'');
-      setStatus(result.message||'Ҳужжат сақланди.','ok');
-      await loadReports();
-    }catch(err){resetSaveButton();setStatus(err.message,'bad');}
+    try{await loadWorkspaceApproverRegistry().catch(()=>[]);setStatus('Ҳужжат Google Sheets га сақланмоқда...','sync');const result=await postJson('/api/acts/create',{...settings(),act:collectAct()});$('actNo').value=result.actNo||'';saveButton('saved');markCompleted(result.actNo||'');setStatus(result.message||'Ҳужжат сақланди.','ok');await loadReports();}
+    catch(err){resetSaveButton();setStatus(err.message,'bad');}
     finally{state.saving=false;}
   }
 
@@ -197,12 +176,9 @@
 
   async function findReport(actNo){const no=unref(actNo);if(!state.dailyRows.length)await loadReports();return state.dailyRows.find(r=>String(r.actNo||'')===no);}
   function ensureA4Modal(){let modal=$('actsA4Modal');if(modal)return modal;modal=document.createElement('div');modal.id='actsA4Modal';modal.className='acts-a4-modal';modal.innerHTML='<div class="acts-a4-wrap"><div class="acts-a4-toolbar"><button onclick="window.print()">PDF / Print</button><button onclick="document.getElementById(\'actsA4Modal\').classList.remove(\'show\')">Yopish</button></div><div id="actsA4Content"></div></div>';document.body.appendChild(modal);return modal;}
-  async function viewDoc(actNo){const report=await findReport(actNo);if(!report){alert('Ҳужжат топилмади. Excel очилади.');openExcel();return;}let html=stripLegacyManualSignatureBlock(report.a4Html||'');if(!html){let act=null;try{act=JSON.parse(report.a4Json||'null');}catch(_){}html=stripLegacyManualSignatureBlock(buildA4ActHtml(act||{actNo:report.actNo,date:report.date,workPlace:report.workPlace,failureText:report.failureText,impactText:report.impactText,reasonText:report.reasonText,actionText:report.actionText,conclusion:report.conclusion}));}ensureA4Modal();$('actsA4Content').innerHTML=html;$('actsA4Modal').classList.add('show');}
-  async function sendDoc(actNo){
-    const no=unref(actNo);
-    if(!confirm(`${no} ҳужжатини тайинланган тасдиқловчиларга Gmail орқали юборишни тасдиқлайсизми?`))return;
-    try{setStatus(`${no} тасдиқловчиларга юборилмоқда...`,'sync');const result=await postJson('/api/document/send',{...settings(),actNo:no,sentBy:'KIP Administrator'});const sent=(result.results||[]).filter(x=>x.status==='sent').length;const failed=(result.results||[]).filter(x=>x.status==='email-failed').length;setStatus(`${no}: ${sent} та Gmail юборилди${failed?`, ${failed} та хатолик`:''}. Ҳолат: ${result.status}` ,failed?'sync':'ok');await loadReports();}catch(err){setStatus(err.message,'bad');}
-  }
+  function reportToAct(report){return {actNo:report.actNo,date:report.date,workPlace:report.workPlace,failureText:report.failureText,impactText:report.impactText,reasonText:report.reasonText,actionText:report.actionText,conclusion:report.conclusion,person1:report.person1||'',position1:report.position1||'',department1:report.department1||'',person2:report.person2||'',position2:report.position2||'',department2:report.department2||'',person3:report.person3||'',position3:report.position3||'',department3:report.department3||''};}
+  async function viewDoc(actNo){const report=await findReport(actNo);if(!report){alert('Ҳужжат топилмади. Excel очилади.');openExcel();return;}let act=null;try{act=JSON.parse(report.a4Json||'null');}catch(_){}const html=stripLegacyManualSignatureBlock(buildA4ActHtml(act||reportToAct(report)));ensureA4Modal();$('actsA4Content').innerHTML=html;$('actsA4Modal').classList.add('show');}
+  async function sendDoc(actNo){ const no=unref(actNo); if(!confirm(`${no} ҳужжатини тайинланган тасдиқловчиларга Gmail орқали юборишни тасдиқлайсизми?`))return; try{setStatus(`${no} тасдиқловчиларга юборилмоқда...`,'sync');const result=await postJson('/api/document/send',{...settings(),actNo:no,sentBy:'KIP Administrator'});const sent=(result.results||[]).filter(x=>x.status==='sent').length;const failed=(result.results||[]).filter(x=>x.status==='email-failed').length;setStatus(`${no}: ${sent} та Gmail юборилди${failed?`, ${failed} та хатолик`:''}. Ҳолат: ${result.status}` ,failed?'sync':'ok');await loadReports();}catch(err){setStatus(err.message,'bad');} }
 
   function openSigners(){ if(!hasSettings()){openSettings();setStatus('Аввал Google Sheets созламаларини киритинг.','bad');return;} $('signersModal').classList.add('show'); loadSigners(); }
   function closeSigners(){$('signersModal').classList.remove('show');}
@@ -223,11 +199,7 @@
     loadWorkspaceApproverRegistry().then((rows)=>{
       if(!rows?.length) return;
       let list = $('actsApproverList');
-      if(!list){
-        list = document.createElement('datalist');
-        list.id = 'actsApproverList';
-        document.body.appendChild(list);
-      }
+      if(!list){ list = document.createElement('datalist'); list.id = 'actsApproverList'; document.body.appendChild(list); }
       list.innerHTML = rows.map((row)=>`<option value="${esc(row.fio)}">${esc(row.position || row.gmail || '')}</option>`).join('');
       ['person1','person2','person3'].forEach((id)=>{ const input=$(id); if(input) input.setAttribute('list','actsApproverList'); });
     }).catch(()=>{});
