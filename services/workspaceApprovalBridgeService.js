@@ -18,6 +18,10 @@ function clean(value) {
   return String(value ?? '').trim();
 }
 
+function normalizeText(value) {
+  return clean(value).toLowerCase().replace(/\s+/g, ' ');
+}
+
 function q(name) {
   return `'${String(name).replace(/'/g, "''")}'`;
 }
@@ -40,6 +44,14 @@ function escapeHtml(value) {
 
 function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean(value));
+}
+
+function safeJsonParse(value, fallback = null) {
+  try {
+    return JSON.parse(value);
+  } catch (_) {
+    return fallback;
+  }
 }
 
 function approvalSecret() {
@@ -185,7 +197,23 @@ async function findDocument(config, actNo) {
   const rows = result.data.values || [];
   const index = rows.findIndex((row, i) => i > 0 && clean(row[0]) === actNo);
   if (index < 0) throw new Error('Ҳужжат АКТЛАР_РЕЕСТР дан топилмади');
-  return { sheets, spreadsheetId, rowNumber: index + 1, rowStart: Number(rows[index][5]) || 0 };
+  const row = rows[index];
+  return {
+    sheets,
+    spreadsheetId,
+    rowNumber: index + 1,
+    actNo: row[0] || '',
+    status: row[4] || '',
+    rowStart: Number(row[5]) || 0,
+    createdAt: row[6] || '',
+    date: row[7] || '',
+    deviceName: row[8] || '',
+    serialNo: row[9] || '',
+    place: row[10] || '',
+    executor: row[11] || '',
+    a4Html: row[12] || '',
+    a4Json: row[13] || '',
+  };
 }
 
 async function readApprovalRows(config, actNo) {
@@ -257,23 +285,124 @@ async function updateWaitingState(document, signers, links, status = 'Кутил
       spreadsheetId: document.spreadsheetId,
       range: `${q(DAILY_SHEET)}!K${document.rowStart}:O${document.rowStart + 1}`,
       valueInputOption: 'RAW',
-      requestBody: { values: [['Status', 'Imzolovchi', 'Gmail', 'ApprovalLink', 'CreatedDate'], [status, signers.map((s) => s.fullName).join(', '), signers.map((s) => s.email).join(', '), links.join('\n'), nowIso()]] },
+      requestBody: { values: [['Status', 'Imzolovchi', 'Gmail', 'ApprovalLink', 'CreatedDate'], [status, signers.map((s) => s.fullName || s.fio || '').join(', '), signers.map((s) => s.email || s.gmail || '').join(', '), links.join('\n'), nowIso()]] },
     }).catch(() => {});
   }
 }
 
-async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
-  const { config, signers, signersCount } = synced;
+function readDocumentMetadata(document) {
+  const meta = safeJsonParse(document?.a4Json, {});
+  return meta && typeof meta === 'object' ? meta : {};
+}
+
+function assignmentSlotsFromMetadata(meta = {}) {
+  const direct = Array.isArray(meta.assignedApprovers) ? meta.assignedApprovers : [];
+  if (direct.length) {
+    return direct.map((row, index) => ({
+      slot: Number(row?.slot) || index + 1,
+      signerId: clean(row?.signerId),
+      fio: clean(row?.fio || row?.fullName),
+      position: clean(row?.position),
+      gmail: clean(row?.gmail || row?.email),
+      department: clean(row?.department),
+    })).filter((row) => row.signerId || row.fio || row.position || row.gmail);
+  }
+  return [1, 2, 3].map((slot) => ({
+    slot,
+    signerId: '',
+    fio: clean(meta[`person${slot}`]),
+    position: clean(meta[`position${slot}`]),
+    gmail: '',
+    department: clean(meta[`department${slot}`]),
+  })).filter((row) => row.fio || row.position || row.department);
+}
+
+function resolveAssignedWorkspaceSigners(meta, signers = []) {
+  const requested = assignmentSlotsFromMetadata(meta);
+  if (!requested.length) return { requested, signers: [] };
+
+  const resolved = [];
+  const used = new Set();
+
+  for (const item of requested) {
+    const requestedId = clean(item.signerId);
+    const requestedEmail = clean(item.gmail).toLowerCase();
+    const requestedName = normalizeText(item.fio);
+    const requestedPosition = normalizeText(item.position);
+
+    let signer = null;
+    if (requestedId) signer = signers.find((row) => clean(row.id) === requestedId) || null;
+    if (!signer && requestedEmail) signer = signers.find((row) => clean(row.email).toLowerCase() === requestedEmail) || null;
+    if (!signer && requestedName && requestedPosition) {
+      signer = signers.find((row) => normalizeText(row.fullName) === requestedName && normalizeText(row.position) === requestedPosition) || null;
+    }
+    if (!signer && requestedName) signer = signers.find((row) => normalizeText(row.fullName) === requestedName) || null;
+    if (!signer) continue;
+
+    const dedupeKey = clean(signer.id) || clean(signer.email).toLowerCase();
+    if (!dedupeKey || used.has(dedupeKey)) continue;
+    used.add(dedupeKey);
+
+    resolved.push({
+      ...signer,
+      slot: item.slot,
+      requestedName: item.fio,
+      requestedPosition: item.position,
+      fullName: clean(signer.fullName) || clean(item.fio),
+      position: clean(signer.position) || clean(item.position),
+      email: clean(signer.email) || clean(item.gmail),
+    });
+  }
+
+  return { requested, signers: resolved };
+}
+
+async function persistResolvedAssignedApprovers(document, meta, signers) {
+  const nextMeta = {
+    ...meta,
+    assignedApprovers: signers.map((signer) => ({
+      slot: signer.slot || '',
+      signerId: clean(signer.id),
+      fio: clean(signer.fullName),
+      position: clean(signer.position),
+      gmail: clean(signer.email),
+      department: clean(meta[`department${signer.slot}`]),
+    })),
+  };
+  const nextJson = JSON.stringify(nextMeta);
+  if (nextJson === clean(document.a4Json)) return nextMeta;
+  await document.sheets.spreadsheets.values.update({
+    spreadsheetId: document.spreadsheetId,
+    range: `${q(REGISTRY_SHEET)}!N${document.rowNumber}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[nextJson]] },
+  }).catch(() => {});
+  document.a4Json = nextJson;
+  return nextMeta;
+}
+
+async function resolveWorkspaceDocumentTargets(workspace, actNo, synced) {
+  const document = await findDocument(synced.config, actNo);
+  const metadata = readDocumentMetadata(document);
+  const resolved = resolveAssignedWorkspaceSigners(metadata, synced.signers);
+  if (!resolved.requested.length || !resolved.signers.length) {
+    throw new Error('Hujjatga approver biriktirilmagan');
+  }
+  await persistResolvedAssignedApprovers(document, metadata, resolved.signers);
+  return { document, metadata, targetSigners: resolved.signers };
+}
+
+async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resolvedTargets) {
+  const { config } = synced;
+  const { document, targetSigners } = resolvedTargets;
   const provider = getHttpEmailSummary();
   const actNo = clean(input.actNo);
-  if (!actNo) throw new Error('Акт рақами киритилмаган');
-  if (!signersCount) throw new Error('Бу объект учун актив имзо чекувчилар йўқ');
-  const document = await findDocument(config, actNo);
   const existingApprovals = await readApprovalRows(config, actNo);
   const baseUrl = baseUrlFromRequest(req);
   const links = [];
   const results = [];
-  for (const signer of signers) {
+
+  for (const signer of targetSigners) {
     if (!isValidEmail(signer.email)) {
       results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', approvalLinkCreated: false, code: 'EMAIL_INVALID_RECIPIENT', error: `Email manzil noto‘g‘ri yoki to‘liq emas: ${clean(signer.email)}` });
       continue;
@@ -330,12 +459,14 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced) {
       results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', approvalLinkCreated: true, code: error.code || 'EMAIL_HTTP_FAILED', error: error.message, providerStatus: error.providerStatus || '', providerMessage: error.providerMessage || '' });
     }
   }
+
+  const total = targetSigners.length;
   const sent = results.filter((item) => item.status === 'sent').length;
   const failed = results.filter((item) => item.status === 'email-failed').length;
   const approved = results.filter((item) => item.status === 'already-approved').length;
-  const status = signersCount > 0 && approved === signersCount && failed === 0 && sent === 0 ? 'Тасдиқланди' : (sent > 0 || approved > 0 ? 'Кутилмоқда' : 'Email xatosi');
-  await updateWaitingState(document, signers, links, status);
-  return { actNo, status, sent, failed, approved, total: signersCount, results, provider: provider.provider, fromMode: provider.fromMode, warning: provider.warning || '', recommendedFix: provider.recommendedFix || '', workspaceId: workspace.id, workspaceName: workspace.name, signersSource: 'workspace_signers', signersSynced: signersCount };
+  const status = total > 0 && approved === total && failed === 0 && sent === 0 ? 'Тасдиқланди' : (sent > 0 || approved > 0 ? 'Кутилмоқда' : 'Email xatosi');
+  await updateWaitingState(document, targetSigners, links, status);
+  return { actNo, status, sent, failed, approved, total, results, provider: provider.provider, fromMode: provider.fromMode, warning: provider.warning || '', recommendedFix: provider.recommendedFix || '', workspaceId: workspace.id, workspaceName: workspace.name, signersSource: 'assigned_workspace_signers', signersSynced: synced.signersCount, targetedApprovers: total };
 }
 
 export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
@@ -353,21 +484,36 @@ export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
   const synced = await syncWorkspaceSignersToSheet(workspace);
   if (!synced.signersCount) throw new Error('Бу объект учун актив имзо чекувчилар йўқ');
   pinLegacyApprovalToWorkspace(synced.config);
-  if (hasHttpEmailProvider()) return sendWorkspaceDocumentViaHttp(workspace, input, req, synced);
+
+  const actNo = clean(input.actNo);
+  if (!actNo) throw new Error('Акт рақами киритилмаган');
+  const resolvedTargets = await resolveWorkspaceDocumentTargets(workspace, actNo, synced);
+
+  if (hasHttpEmailProvider()) return sendWorkspaceDocumentViaHttp(workspace, { ...input, actNo }, req, synced, resolvedTargets);
+
   try {
     const result = await sendDocumentForApproval({
       spreadsheetUrl: synced.config.spreadsheetUrl,
       serviceAccount: synced.config.serviceAccount,
     }, {
       ...input,
+      actNo,
       workspaceName: workspace.name,
+      assignedApprovers: resolvedTargets.targetSigners.map((signer) => ({
+        slot: signer.slot || '',
+        signerId: signer.id,
+        fio: signer.fullName,
+        position: signer.position,
+        gmail: signer.email,
+      })),
     }, req);
     return {
       ...result,
       workspaceId: workspace.id,
       workspaceName: workspace.name,
-      signersSource: 'workspace_signers',
+      signersSource: 'assigned_workspace_signers',
       signersSynced: synced.signersCount,
+      targetedApprovers: resolvedTargets.targetSigners.length,
     };
   } catch (error) {
     if (/Requested entity was not found/i.test(error?.message || '')) {
