@@ -42,6 +42,38 @@ function requestContext(req) {
   };
 }
 
+function approvalPreviewStyles() {
+  return `
+.a4-preview{max-width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:18mm;box-sizing:border-box;font-family:"Times New Roman",serif;font-size:15px;line-height:1.45}
+.a4-preview .act-head{display:block;margin-bottom:18px}
+.a4-preview .right{text-align:right;color:#1d4ed8;font-size:14px;line-height:1.25;font-weight:700;margin-bottom:12px}
+.a4-preview .act-title{display:flex;justify-content:center;align-items:flex-end;gap:10px;font-size:20px;font-weight:700;line-height:1.1;margin:8px 0 2px;text-align:center}
+.a4-preview .act-subtitle{text-align:center;font-size:16px;font-weight:700;margin-bottom:18px}
+.a4-preview .act-signers-title{font-weight:700;margin:14px 0 8px}
+.a4-preview .act-signers{display:grid;gap:10px;margin-bottom:18px}
+.a4-preview .act-signers-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}
+.a4-preview .act-signers-cell{text-align:center}
+.a4-preview .act-signers-value{min-height:22px;padding:0 4px;border-bottom:1px solid #111;word-break:break-word}
+.a4-preview .act-signers-label{font-size:12px;line-height:1.2;margin-top:3px}
+.a4-preview .act-section{margin:10px 0}
+.a4-preview .act-section-title{font-weight:700;margin-bottom:4px}
+.a4-preview .act-section-value{min-height:18px;padding-bottom:4px;border-bottom:1px solid #111;white-space:pre-wrap;word-break:break-word}
+.a4-preview .act-date-inline{display:flex;justify-content:flex-end;align-items:center;gap:8px;font-weight:700;margin-top:4px}
+.a4-preview .act-date-inline .line{display:inline-block;min-width:120px;border-bottom:1px solid #111;text-align:center;padding:0 4px}
+.a4-preview .act-conclusion{margin-top:10px}
+.a4-preview img{max-width:100%;height:auto}
+@media (max-width: 980px){.a4-preview{padding:12mm;font-size:14px}.a4-preview .act-title{font-size:18px}.a4-preview .act-subtitle{font-size:15px}}
+@media (max-width: 760px){.a4-preview .act-signers-row{grid-template-columns:1fr}.a4-preview .act-date-inline{justify-content:flex-start;flex-wrap:wrap}.a4-preview .act-date-inline .line{min-width:0;width:100%}}
+`;
+}
+
+function injectApprovalPreviewStyles(html) {
+  const extra = approvalPreviewStyles();
+  return String(html || '').includes('</style>')
+    ? String(html).replace('</style>', `${extra}</style>`)
+    : String(html || '');
+}
+
 function adminSecret() {
   return String(process.env.ADMIN_JWT_SECRET || process.env.APPROVAL_JWT_SECRET || '').trim();
 }
@@ -133,9 +165,10 @@ router.post('/document/send', requireAdmin, async (req, res) => {
 router.get('/document/approve/:token', async (req, res) => {
   try {
     const data = await openApproval(req.params.token, req);
+    const html = injectApprovalPreviewStyles(renderApprovalPage(data, req.params.token));
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.send(renderApprovalPage(data, req.params.token));
+    res.send(html);
   } catch (error) {
     res.status(403).send(`<!doctype html><meta charset="utf-8"><title>Havola xatosi</title><body style="font-family:Arial;padding:40px"><h2>Havola yaroqsiz</h2><p>${String(error.message).replace(/[&<>]/g, '')}</p></body>`);
   }
