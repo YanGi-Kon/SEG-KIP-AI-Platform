@@ -12,7 +12,7 @@
 <style id="actsSignerPreviewFix">
 .a4-preview .act-signers-row{grid-template-columns:repeat(3,minmax(0,1fr)) !important;gap:12px !important;align-items:end !important}
 .a4-preview .act-signers-cell{display:flex !important;flex-direction:column !important;align-items:center !important;justify-content:flex-end !important;gap:3px !important;min-width:0 !important}
-.a4-preview .act-signers-value{width:100% !important;min-height:24px !important;padding:0 4px 2px !important;border-bottom:1px solid #111 !important;box-sizing:border-box !important;text-align:center !important;display:flex !important;align-items:flex-end !important;justify-content:center !important}
+.a4-preview .act-signers-value{width:100% !important;min-height:24px !important;padding:0 4px 2px !important;border-bottom:1px solid #111 !important;box-sizing:border-box !important;text-align:center !important;display:flex !important;align-items:flex-end !important;justify-content:center !important;color:transparent !important;text-shadow:none !important}
 .a4-preview .act-signers-label{width:100% !important;text-align:center !important;font-size:12px !important;line-height:1.2 !important}
 </style>
 </head>
@@ -48,31 +48,59 @@
       <div class="act-paper">
         <div class="act-head"><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича</div><div style="text-align:right;font-weight:400">ТПП «Андижан»</div><div class="act-title">ДАЛОЛАТНОМА № <input id="actNo" style="width:140px;text-align:center" value=""></div><div>Ўлчов воситасининг бузилиши</div></div>
         <div style="margin-top:20px;font-weight:700">Биз қуйида имзо чекувчилар:</div>
-        <div class="line3"><input id="person1" placeholder="Ф.И.Ш."><input id="position1" placeholder="Лавозими"><input id="department1" placeholder="Цех ва м/р"></div>
-        <div class="line3"><input id="person2" placeholder="Ф.И.Ш."><input id="position2" placeholder="Лавозими"><input id="department2" placeholder="Цех ва м/р"></div>
-        <div class="line3"><input id="person3" placeholder="Ф.И.Ш."><input id="position3" placeholder="Лавозими"><input id="department3" placeholder="Цех ва м/р"></div>
-        <div class="act-section">1. Ў.В. Ишлаш жойи:</div><textarea id="workPlace" readonly></textarea>
-        <div class="act-section">2. Рад этиш мазмуни, санаси, вақти:</div><textarea id="failureText" placeholder="Қўлда тўлдирилади"></textarea><div style="margin-top:5px">Сана: <input id="actDate" style="width:160px"></div>
-        <div class="act-section">3. Носозликнинг технологик оқибатлари:</div><textarea id="impactText" placeholder="Қўлда тўлдирилади"></textarea>
-        <div class="act-section">4. Рад этиш сабаби:</div><textarea id="reasonText" placeholder="Қўлда тўлдирилади"></textarea>
-        <div class="act-section">5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</div><textarea id="actionText" placeholder="Қўлда тўлдирилади"></textarea>
-        <div class="act-section">Хулоса:</div><textarea id="conclusion" placeholder="Қўлда тўлдирилади"></textarea>
+        <div class="line3"><div><input id="person1"><div style="text-align:center;font-size:12px">(Ф.И.Ш.)</div></div><div><input id="position1"><div style="text-align:center;font-size:12px">(Лавозими)</div></div><div><input id="department1"><div style="text-align:center;font-size:12px">(цех ва м/р)</div></div></div>
+        <div class="line3"><div><input id="person2"><div style="text-align:center;font-size:12px">(Ф.И.Ш.)</div></div><div><input id="position2"><div style="text-align:center;font-size:12px">(Лавозими)</div></div><div><input id="department2"><div style="text-align:center;font-size:12px">(цех ва м/р)</div></div></div>
+        <div class="line3"><div><input id="person3"><div style="text-align:center;font-size:12px">(Ф.И.Ш.)</div></div><div><input id="position3"><div style="text-align:center;font-size:12px">(Лавозими)</div></div><div><input id="department3"><div style="text-align:center;font-size:12px">(цех ва м/р)</div></div></div>
+        <div class="act-section">1. Ў.В. Ишлаш жойи</div><textarea id="workPlace" readonly></textarea>
+        <div class="act-section">2. Рад этиш мазмуни, санаси, вақти:</div><textarea id="failureText"></textarea><div style="display:flex;justify-content:flex-end;gap:12px;margin-top:6px"><b>Сана:</b><input id="actDate" style="width:160px"></div>
+        <div class="act-section">3. Носозликнинг технологик оқибатлари:</div><textarea id="impactText"></textarea>
+        <div class="act-section">4. Рад этиш сабаби:</div><textarea id="reasonText"></textarea>
+        <div class="act-section">5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</div><textarea id="actionText"></textarea>
+        <div class="act-section">Хулоса:</div><textarea id="conclusion"></textarea>
       </div>
-      <div class="tabs" style="justify-content:flex-end"><button id="saveActBtn" class="btn green" onclick="ActsUI.saveAct()" disabled>Сақлаш</button><button class="btn orange" onclick="ActsUI.setStatus('Қоралама браузерда сақланди.', 'sync')">Қоралама сақлаш</button></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px"><button id="saveActBtn" class="btn green" onclick="ActsUI.saveAct()" disabled>Сақлаш</button></div>
     </div>
 
     <div id="reports" class="view">
-      <h2>📚 Хисоботлар</h2><p class="note">Сақланган ҳужжатлар кунлик рўйхатга тушади. “Хужатни юбориш” барча рўйхатдан ўтган имзоловчиларга Gmail юборади.</p>
-      <div class="subtabs"><button class="active" onclick="ActsUI.showReport('daily',this)">Кунлик</button><button onclick="ActsUI.showReport('monthly',this)">Ойлик</button></div>
-      <div id="daily" class="report-view active"><div class="tablewrap"><table><thead><tr><th>№</th><th>Акт рақами</th><th>Сана</th><th>Асбоб номи</th><th>Завод рақами</th><th>Жой</th><th>Ижрочи</th><th>Ҳолат</th><th>Амал</th></tr></thead><tbody id="dailyRows"><tr><td colspan="9">Маълумот юкланмаган.</td></tr></tbody></table></div></div>
-      <div id="monthly" class="report-view"><div class="empty-month"><h3>Ойлик ҳисоботлар</h3><p class="note">Ойлик ҳисоботлар модули ҳозирча тайёр эмас.</p><button class="btn ghost">Тез кунда</button></div></div>
+      <div class="subtabs" style="margin-bottom:12px"><button class="active" onclick="ActsUI.showReport('daily',this)">Кунлик</button><button onclick="ActsUI.showReport('monthly',this)">Ойлик</button></div>
+      <div id="daily" class="report-view active"><div class="tablewrap"><table><thead><tr><th>№</th><th>Акт рақами</th><th>Сана</th><th>Асбоб номи</th><th>Завод рақами</th><th>Жой</th><th>Ижрочи</th><th>Ҳолат</th><th>Амал</th></tr></thead><tbody id="dailyRows"><tr><td colspan="9">Ҳисобот юкланмоқда...</td></tr></tbody></table></div></div>
+      <div id="monthly" class="report-view"><div class="empty-month"><h3>Ойлик ҳисобот</h3><p class="note">Ойлик ҳисобот Excel орқали олинади. “Excel” тугмасини босинг.</p></div></div>
     </div>
   </div>
 </div>
 
-<div id="settingsModal" class="modal"><div class="modalbox"><div class="modal-head"><h2>Google Sheets уланиш созламалари</h2><button class="btn ghost" onclick="ActsUI.closeSettings()">✕</button></div><p class="note">Google Sheets ҳаволаси, асосий варақ ва Service Account JSON киритилади.</p><div class="fields"><div class="field full"><label>GOOGLE SHEETS SSILKASI</label><input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..."></div><div class="field"><label>ASOSIY VAROQ</label><input id="sheetName" placeholder="Асосий варақ номи"></div><div class="field"><label>SERVICE ACCOUNT JSON</label><input id="serviceFile" type="file" accept=".json,application/json"><div id="serviceFileName" class="note"></div></div></div><div class="note" style="margin-top:12px">Private key интерфейсда кўрсатилмайди. Электрон тасдиқлаш учун Railway Variables ҳам созланиши шарт.</div><div id="settingsMsg" class="msg">Созламалар киритилмаган.</div><div class="tabs" style="justify-content:flex-end"><button class="btn primary" onclick="ActsUI.saveSettings()">Сақлаш ва кириш</button><button class="btn ghost" onclick="ActsUI.closeSettings()">Бекор қилиш</button></div></div></div>
+<div id="settingsModal" class="modal"><div class="modalbox"><div class="modal-head"><h2>⚙ Google Sheets созламалари</h2><button class="btn ghost" onclick="ActsUI.closeSettings()">Ёпиш</button></div><div class="modal-note"><b>Талаб:</b> Google Sheets силкаси, ASOSIY VAROQ номи ва SERVICE ACCOUNT JSON файли киритилиши шарт.</div><div class="fields" style="margin-top:14px"><div class="field full"><label>Google Sheets силкаси</label><input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..."/></div><div class="field"><label>ASOSIY VAROQ номи</label><input id="sheetName" placeholder="База"/></div><div class="field"><label>SERVICE ACCOUNT JSON</label><input id="serviceFile" type="file" accept="application/json"><div id="serviceFileName" class="note" style="margin-top:6px">Файл танланмаган</div></div></div><div id="settingsMsg" class="msg">Маълумотларни киритиб “Сақлаш” тугмасини босинг.</div><div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px"><button class="btn primary" onclick="ActsUI.saveSettings()">Сақлаш</button></div></div></div>
 
-<div id="signersModal" class="modal"><div class="modalbox wide"><div class="modal-head"><div><h2>ИМЗО ЧЕКУВЧИЛАР</h2><p class="note">Лавозим, F.I.O, PNG имзо ва Gmail Google Sheets/Drive да доимий сақланади.</p></div><button class="btn ghost" onclick="ActsUI.closeSigners()">✕</button></div><div class="modal-note note">PNG: максимум 2 MB. Drive папкаси оммавий қилинмайди. Email тасдиқлаш сервердаги Railway Variables орқали ишлайди.</div><div class="signer-toolbar"><button class="btn green" onclick="ActsUI.addSignerRow()">＋ Қўшиш</button><button class="btn primary" onclick="ActsUI.loadSigners()">↻ Янгилаш</button></div><div class="tablewrap" style="max-height:58vh"><table class="signer-table"><thead><tr><th>Lavozimi</th><th>F.I.O</th><th>Imzo (.png)</th><th>Gmail</th><th>Амал</th></tr></thead><tbody id="signersRows"><tr><td colspan="5">Маълумот юкланмоқда...</td></tr></tbody></table></div><div id="signersMsg" class="msg">Тайёр.</div></div></div>
+<div id="signersModal" class="modal">
+  <div class="modalbox wide">
+    <div class="modal-head">
+      <div>
+        <h2>🖋 ИМЗО ЧЕКУВЧИЛАР</h2>
+        <p class="note">Lavozim, F.I.O, Gmail ва ҳақиқий <b>PNG</b> имзо файлини сақланг. Бу маълумотлар ИМЗО_ЧЕКУВЧИЛАР варағига ёзилади ва approval workflow учун ишлатилади.</p>
+      </div>
+      <button class="btn ghost" onclick="ActsUI.closeSigners()">Ёпиш</button>
+    </div>
+    <div class="signer-toolbar">
+      <div class="note">PNG ҳажми 2 MB дан ошмаслиги керак. Gmail майдонига фақат <b>@gmail.com</b> манзил қабул қилинади.</div>
+      <button class="btn primary" onclick="ActsUI.addSignerRow()">+ Қўшиш</button>
+    </div>
+    <div class="tablewrap">
+      <table class="signer-table">
+        <thead>
+          <tr>
+            <th>Лавозими</th>
+            <th>F.I.O</th>
+            <th>Имзо PNG</th>
+            <th>Gmail</th>
+            <th>Амаллар</th>
+          </tr>
+        </thead>
+        <tbody id="signersRows"><tr><td colspan="5">Юкланмоқда...</td></tr></tbody>
+      </table>
+    </div>
+    <div id="signersMsg" class="msg">Google Sheets дан имзо чекувчиларни юклаш мумкин.</div>
+  </div>
+</div>
 
 <script src="../js/acts.js"></script>
 </body>
