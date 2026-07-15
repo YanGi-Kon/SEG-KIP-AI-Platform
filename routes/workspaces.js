@@ -25,6 +25,10 @@ import {
   testWorkspaceSignatureFolder,
   uploadWorkspaceSignaturePng,
 } from '../services/workspaceSignatureService.js';
+import {
+  saveWorkspaceFinalDocumentsFolder,
+  testWorkspaceFinalDocumentsFolder,
+} from '../services/workspaceDriveFolderService.js';
 
 const router = express.Router();
 const upload = multer({
@@ -142,6 +146,25 @@ router.post('/:workspaceId/documents/email/test', requireWorkspacePermission('do
   try {
     const result = await verifySafeEmailTransport();
     res.status(result.ok ? 200 : 400).json(result);
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.put('/:workspaceId/documents/final-folder', requireWorkspacePermission('workspace:update'), async (req, res) => {
+  try {
+    const rawValue = req.body?.finalDocumentsFolderUrl ?? req.body?.finalDocumentsFolderId ?? '';
+    const workspace = await saveWorkspaceFinalDocumentsFolder(req.auth.userId, req.params.workspaceId, rawValue);
+    res.json({ ok: true, workspace, finalDocumentsFolderId: workspace.finalDocumentsFolderId || '' });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/documents/final-folder/test', requireWorkspacePermission('workspace:update'), async (req, res) => {
+  try {
+    const result = await testWorkspaceFinalDocumentsFolder(req.workspace, { writeTest: true });
+    res.json({ ok: true, result });
   } catch (error) {
     handleError(res, error);
   }
