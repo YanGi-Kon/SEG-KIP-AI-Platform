@@ -15,6 +15,7 @@ import {
   updateSigner,
   uploadSignaturePng,
 } from '../services/signatureApprovalService.js';
+import { finalizeApprovedActExport } from '../services/finalPdfExportService.js';
 
 const router = express.Router();
 const upload = multer({
@@ -184,7 +185,15 @@ router.get('/document/approve/:token', async (req, res) => {
 router.post('/document/approve', async (req, res) => {
   try {
     const result = await approveDocument(req.body?.token, req.body?.csrfToken, req);
-    res.json({ ok: true, ...result });
+    let finalPdfExport = null;
+    if (result?.status === 'Тасдиқланди' && result?.approval?.actNo) {
+      finalPdfExport = await finalizeApprovedActExport({
+        actNo: result.approval.actNo,
+        updatedHtml: result.updatedHtml || '',
+        spreadsheetUrl: process.env.GOOGLE_SPREADSHEET_URL || process.env.GOOGLE_SPREADSHEET_ID || '',
+      });
+    }
+    res.json({ ok: true, ...result, finalPdfExport });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
