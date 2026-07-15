@@ -15,6 +15,7 @@ function mapWorkspace(row) {
     spreadsheetUrl: row.spreadsheet_url,
     mainSheetName: row.main_sheet_name,
     driveFolderId: row.drive_folder_id || '',
+    finalDocumentsFolderId: row.final_documents_folder_id || '',
     timeZone: row.time_zone,
     status: row.status,
     isDefault: row.is_default,
@@ -29,10 +30,10 @@ export async function createWorkspaceRecord(input, client = null) {
   const result = await executor(client).query(
     `INSERT INTO workspaces
        (owner_id, name, slug, spreadsheet_id, spreadsheet_url, main_sheet_name,
-        drive_folder_id, time_zone, status, is_default)
-     VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, $9, $10)
+        drive_folder_id, final_documents_folder_id, time_zone, status, is_default)
+     VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), NULLIF($8, ''), $9, $10, $11)
      RETURNING id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
-               main_sheet_name, drive_folder_id, time_zone, status, is_default,
+               main_sheet_name, drive_folder_id, final_documents_folder_id, time_zone, status, is_default,
                created_at, updated_at`,
     [
       input.ownerId,
@@ -42,6 +43,7 @@ export async function createWorkspaceRecord(input, client = null) {
       input.spreadsheetUrl,
       input.mainSheetName,
       input.driveFolderId || '',
+      input.finalDocumentsFolderId || '',
       input.timeZone || 'Asia/Tashkent',
       input.status || 'draft',
       Boolean(input.isDefault),
@@ -65,7 +67,7 @@ export async function addWorkspaceMember(input, client = null) {
 export async function listUserWorkspaces(userId) {
   const result = await query(
     `SELECT w.id, w.owner_id, w.name, w.slug, w.spreadsheet_id, w.spreadsheet_url,
-            w.main_sheet_name, w.drive_folder_id, w.time_zone, w.status, w.is_default,
+            w.main_sheet_name, w.drive_folder_id, w.final_documents_folder_id, w.time_zone, w.status, w.is_default,
             w.created_at, w.updated_at,
             wm.role AS member_role, wm.status AS member_status
      FROM workspace_members wm
@@ -82,7 +84,7 @@ export async function listUserWorkspaces(userId) {
 export async function findWorkspaceForUser(workspaceId, userId, { forUpdate = false, client = null } = {}) {
   const result = await executor(client).query(
     `SELECT w.id, w.owner_id, w.name, w.slug, w.spreadsheet_id, w.spreadsheet_url,
-            w.main_sheet_name, w.drive_folder_id, w.time_zone, w.status, w.is_default,
+            w.main_sheet_name, w.drive_folder_id, w.final_documents_folder_id, w.time_zone, w.status, w.is_default,
             w.created_at, w.updated_at,
             wm.role AS member_role, wm.status AS member_status
      FROM workspace_members wm
@@ -90,6 +92,21 @@ export async function findWorkspaceForUser(workspaceId, userId, { forUpdate = fa
      WHERE w.id = $1 AND wm.user_id = $2
      LIMIT 1${forUpdate ? ' FOR UPDATE OF w' : ''}`,
     [workspaceId, userId],
+  );
+  return mapWorkspace(result.rows[0]);
+}
+
+export async function findWorkspaceBySpreadsheetUrl(spreadsheetUrl, client = null) {
+  const result = await executor(client).query(
+    `SELECT id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
+            main_sheet_name, drive_folder_id, final_documents_folder_id, time_zone, status, is_default,
+            created_at, updated_at
+     FROM workspaces
+     WHERE spreadsheet_url = $1
+       AND status <> 'archived'
+     ORDER BY is_default DESC, updated_at DESC
+     LIMIT 1`,
+    [spreadsheetUrl],
   );
   return mapWorkspace(result.rows[0]);
 }
@@ -103,11 +120,12 @@ export async function updateWorkspaceRecord(workspaceId, input, client = null) {
          spreadsheet_url = COALESCE($5, spreadsheet_url),
          main_sheet_name = COALESCE($6, main_sheet_name),
          drive_folder_id = CASE WHEN $7::text IS NULL THEN drive_folder_id ELSE NULLIF($7, '') END,
-         time_zone = COALESCE($8, time_zone),
-         status = COALESCE($9, status)
+         final_documents_folder_id = CASE WHEN $8::text IS NULL THEN final_documents_folder_id ELSE NULLIF($8, '') END,
+         time_zone = COALESCE($9, time_zone),
+         status = COALESCE($10, status)
      WHERE id = $1
      RETURNING id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
-               main_sheet_name, drive_folder_id, time_zone, status, is_default,
+               main_sheet_name, drive_folder_id, final_documents_folder_id, time_zone, status, is_default,
                created_at, updated_at`,
     [
       workspaceId,
@@ -117,6 +135,7 @@ export async function updateWorkspaceRecord(workspaceId, input, client = null) {
       input.spreadsheetUrl ?? null,
       input.mainSheetName ?? null,
       input.driveFolderId === undefined ? null : input.driveFolderId,
+      input.finalDocumentsFolderId === undefined ? null : input.finalDocumentsFolderId,
       input.timeZone ?? null,
       input.status ?? null,
     ],
@@ -130,7 +149,7 @@ export async function archiveWorkspaceRecord(workspaceId, client = null) {
      SET status = 'archived'
      WHERE id = $1 AND status <> 'archived'
      RETURNING id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
-               main_sheet_name, drive_folder_id, time_zone, status, is_default,
+               main_sheet_name, drive_folder_id, final_documents_folder_id, time_zone, status, is_default,
                created_at, updated_at`,
     [workspaceId],
   );
