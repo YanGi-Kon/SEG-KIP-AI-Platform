@@ -81,6 +81,18 @@ export async function listUserWorkspaces(userId) {
   return result.rows.map(mapWorkspace);
 }
 
+export async function listActiveWorkspaces(client = null) {
+  const result = await executor(client).query(
+    `SELECT id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
+            main_sheet_name, drive_folder_id, final_documents_folder_id, time_zone, status, is_default,
+            created_at, updated_at
+     FROM workspaces
+     WHERE status <> 'archived'
+     ORDER BY is_default DESC, updated_at DESC, name ASC`,
+  );
+  return result.rows.map(mapWorkspace);
+}
+
 export async function findWorkspaceForUser(workspaceId, userId, { forUpdate = false, client = null } = {}) {
   const result = await executor(client).query(
     `SELECT w.id, w.owner_id, w.name, w.slug, w.spreadsheet_id, w.spreadsheet_url,
