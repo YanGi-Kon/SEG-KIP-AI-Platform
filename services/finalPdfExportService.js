@@ -1,7 +1,7 @@
 import { Readable } from 'stream';
 import { ensureSheet, extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
 import { resolveEnvServiceAccount } from './googleCredentialService.js';
-import { findWorkspaceById, findWorkspaceBySpreadsheetUrl } from '../repositories/workspaceRepository.js';
+import { findWorkspaceById, findWorkspaceBySpreadsheetUrl, listActiveWorkspaces } from '../repositories/workspaceRepository.js';
 import {
   classifyWorkspaceDriveError,
   createWorkspaceDriveClient,
@@ -66,12 +66,14 @@ function wrapHtmlForPdf(html, actNo) {
   return `<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>${safeFilePart(actNo, 'ACT')}</title><style>body{margin:0;padding:0;background:#ffffff;color:#111827;font-family:Arial,sans-serif}.pdf-wrap{padding:18px}.paper{background:#ffffff}.a4-preview{max-width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:18mm;box-sizing:border-box;font-family:"Times New Roman",serif}img{max-width:100%;height:auto;display:inline-block}</style></head><body><div class="pdf-wrap">${body}</div></body></html>`;
 }
 
-function resolveExportConfig(spreadsheetUrl) {
-  const normalizedSpreadsheetUrl = clean(spreadsheetUrl);
-  if (!normalizedSpreadsheetUrl) throw new Error('Final PDF export учун spreadsheetUrl талаб қилинади');
+function resolveServiceAccount() {
   const { serviceAccount } = resolveEnvServiceAccount();
+  return serviceAccount;
+}
+
+function makeConfig(spreadsheetUrl, serviceAccount) {
   return {
-    spreadsheetUrl: normalizedSpreadsheetUrl,
+    spreadsheetUrl: clean(spreadsheetUrl),
     serviceAccount,
   };
 }
@@ -135,6 +137,15 @@ async function getRegistryDocument(config, actNo) {
   };
 }
 
+async function tryGetRegistryDocument(config, actNo) {
+  try {
+    const document = await getRegistryDocument(config, actNo);
+    return document?.rowNumber ? document : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function persistExportState(document, exportState) {
   await document.sheets.spreadsheets.values.update({
     spreadsheetId: document.spreadsheetId,
@@ -157,15 +168,43 @@ async function resolveWorkspaceContext({ workspaceId = '', spreadsheetUrl = '' }
     if (workspace) return workspace;
   }
   if (clean(spreadsheetUrl)) {
-    return findWorkspaceBySpreadsheetUrl(clean(spreadsheetUrl));
+    const workspace = await findWorkspaceBySpreadsheetUrl(clean(spreadsheetUrl));
+    if (workspace) return workspace;
   }
   return null;
 }
 
+async function resolveDocumentContext({ actNo, workspaceId = '', spreadsheetUrl = '' }) {
+  const serviceAccount = resolveServiceAccount();
+  const workspace = await resolveWorkspaceContext({ workspaceId, spreadsheetUrl });
+
+  if (workspace?.spreadsheetUrl) {
+    const config = makeConfig(workspace.spreadsheetUrl, serviceAccount);
+    const document = await getRegistryDocument(config, actNo);
+    return { workspace, config, document };
+  }
+
+  if (clean(spreadsheetUrl)) {
+    const config = makeConfig(spreadsheetUrl, serviceAccount);
+    const document = await getRegistryDocument(config, actNo);
+    return { workspace, config, document };
+  }
+
+  const candidates = await listActiveWorkspaces();
+  for (const candidate of candidates) {
+    if (!clean(candidate.spreadsheetUrl)) continue;
+    const config = makeConfig(candidate.spreadsheetUrl, serviceAccount);
+    const document = await tryGetRegistryDocument(config, actNo);
+    if (document) {
+      return { workspace: candidate, config, document };
+    }
+  }
+
+  throw new Error('Final PDF export учун workspace context аниқланмади');
+}
+
 export async function finalizeApprovedActExport({ actNo, updatedHtml = '', spreadsheetUrl = '', workspaceId = '' }) {
-  const config = resolveExportConfig(spreadsheetUrl);
-  const document = await getRegistryDocument(config, actNo);
-  const workspace = await resolveWorkspaceContext({ workspaceId, spreadsheetUrl: config.spreadsheetUrl });
+  const { workspace, document } = await resolveDocumentContext({ actNo, spreadsheetUrl, workspaceId });
 
   if (!workspace?.finalDocumentsFolderId) {
     const exportState = {
