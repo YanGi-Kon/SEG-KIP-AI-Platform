@@ -1,7 +1,7 @@
 import { Readable } from 'stream';
 import { ensureSheet, extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
-import { resolvePlatformGoogleConfig } from './googleCredentialService.js';
-import { findWorkspaceBySpreadsheetUrl } from '../repositories/workspaceRepository.js';
+import { resolveEnvServiceAccount } from './googleCredentialService.js';
+import { findWorkspaceById, findWorkspaceBySpreadsheetUrl } from '../repositories/workspaceRepository.js';
 import {
   classifyWorkspaceDriveError,
   createWorkspaceDriveClient,
@@ -64,6 +64,16 @@ function buildPdfFileName(actNo) {
 function wrapHtmlForPdf(html, actNo) {
   const body = clean(html) || `<div style="padding:24px;font-family:Arial,sans-serif"><h1>${safeFilePart(actNo, 'ACT')}</h1></div>`;
   return `<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>${safeFilePart(actNo, 'ACT')}</title><style>body{margin:0;padding:0;background:#ffffff;color:#111827;font-family:Arial,sans-serif}.pdf-wrap{padding:18px}.paper{background:#ffffff}.a4-preview{max-width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:18mm;box-sizing:border-box;font-family:"Times New Roman",serif}img{max-width:100%;height:auto;display:inline-block}</style></head><body><div class="pdf-wrap">${body}</div></body></html>`;
+}
+
+function resolveExportConfig(spreadsheetUrl) {
+  const normalizedSpreadsheetUrl = clean(spreadsheetUrl);
+  if (!normalizedSpreadsheetUrl) throw new Error('Final PDF export учун spreadsheetUrl талаб қилинади');
+  const { serviceAccount } = resolveEnvServiceAccount();
+  return {
+    spreadsheetUrl: normalizedSpreadsheetUrl,
+    serviceAccount,
+  };
 }
 
 async function ensureRegistryHeaders(config) {
@@ -141,10 +151,21 @@ async function persistExportState(document, exportState) {
   }).catch(() => {});
 }
 
-export async function finalizeApprovedActExport({ actNo, updatedHtml = '', spreadsheetUrl = '' }) {
-  const config = resolvePlatformGoogleConfig({ spreadsheetUrl });
+async function resolveWorkspaceContext({ workspaceId = '', spreadsheetUrl = '' }) {
+  if (clean(workspaceId)) {
+    const workspace = await findWorkspaceById(clean(workspaceId));
+    if (workspace) return workspace;
+  }
+  if (clean(spreadsheetUrl)) {
+    return findWorkspaceBySpreadsheetUrl(clean(spreadsheetUrl));
+  }
+  return null;
+}
+
+export async function finalizeApprovedActExport({ actNo, updatedHtml = '', spreadsheetUrl = '', workspaceId = '' }) {
+  const config = resolveExportConfig(spreadsheetUrl);
   const document = await getRegistryDocument(config, actNo);
-  const workspace = await findWorkspaceBySpreadsheetUrl(config.spreadsheetUrl);
+  const workspace = await resolveWorkspaceContext({ workspaceId, spreadsheetUrl: config.spreadsheetUrl });
 
   if (!workspace?.finalDocumentsFolderId) {
     const exportState = {
@@ -156,7 +177,7 @@ export async function finalizeApprovedActExport({ actNo, updatedHtml = '', sprea
       errorMessage: workspace ? 'Yakuniy hujjatlar papkasi sozlanmagan.' : 'Workspace topilmadi yoki archived holatda.',
     };
     await persistExportState(document, exportState);
-    console.info('[final-pdf-export]', { actNo: clean(actNo), folderId: '', exportStatus: exportState.status, errorCode: exportState.errorCode });
+    console.info('[final-pdf-export]', { actNo: clean(actNo), workspaceId: clean(workspace?.id), folderId: '', exportStatus: exportState.status, errorCode: exportState.errorCode });
     return exportState;
   }
 
@@ -168,7 +189,7 @@ export async function finalizeApprovedActExport({ actNo, updatedHtml = '', sprea
       approvedAt: clean(document.finalApprovedAt),
       skipped: true,
     };
-    console.info('[final-pdf-export]', { actNo: clean(actNo), folderId: clean(workspace.finalDocumentsFolderId), exportStatus: exportState.status, driveFileId: exportState.fileId });
+    console.info('[final-pdf-export]', { actNo: clean(actNo), workspaceId: clean(workspace.id), folderId: clean(workspace.finalDocumentsFolderId), exportStatus: exportState.status, driveFileId: exportState.fileId });
     return exportState;
   }
 
@@ -227,9 +248,10 @@ export async function finalizeApprovedActExport({ actNo, updatedHtml = '', sprea
       approvedAt: nowIso(),
       folderId: clean(workspace.finalDocumentsFolderId),
       documentsFolderId: targetFolder.folderId,
+      workspaceId: clean(workspace.id),
     };
     await persistExportState(document, exportState);
-    console.info('[final-pdf-export]', { actNo: clean(actNo), folderId: exportState.folderId, exportStatus: exportState.status, driveFileId: exportState.fileId });
+    console.info('[final-pdf-export]', { actNo: clean(actNo), workspaceId: clean(workspace.id), folderId: exportState.folderId, exportStatus: exportState.status, driveFileId: exportState.fileId });
     return exportState;
   } catch (error) {
     const classified = classifyWorkspaceDriveError(error);
@@ -244,7 +266,7 @@ export async function finalizeApprovedActExport({ actNo, updatedHtml = '', sprea
       rawReason: classified.rawReason || '',
     };
     await persistExportState(document, exportState);
-    console.error('[final-pdf-export]', { actNo: clean(actNo), folderId: clean(workspace.finalDocumentsFolderId), exportStatus: exportState.status, errorCode: exportState.errorCode, serviceAccountEmail: driveClient?.serviceAccountEmail || '' });
+    console.error('[final-pdf-export]', { actNo: clean(actNo), workspaceId: clean(workspace?.id), folderId: clean(workspace?.finalDocumentsFolderId), exportStatus: exportState.status, errorCode: exportState.errorCode, serviceAccountEmail: driveClient?.serviceAccountEmail || '' });
     return exportState;
   } finally {
     if (tempDocId && driveClient?.drive) {
