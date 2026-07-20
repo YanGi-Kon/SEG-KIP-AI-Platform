@@ -14,6 +14,7 @@ import {
   streamSignatureImage,
   updateSigner,
   uploadSignaturePng,
+  verifyApprovalToken,
 } from '../services/signatureApprovalService.js';
 import { finalizeApprovedActExport } from '../services/finalPdfExportService.js';
 
@@ -184,13 +185,15 @@ router.get('/document/approve/:token', async (req, res) => {
 
 router.post('/document/approve', async (req, res) => {
   try {
+    const approvalContext = req.body?.token ? verifyApprovalToken(req.body.token) : {};
     const result = await approveDocument(req.body?.token, req.body?.csrfToken, req);
     let finalPdfExport = null;
-    if (result?.status === 'Тасдиқланди' && result?.approval?.actNo) {
+    if (result?.status === 'Тасдиқланди' && result?.approval?.actNo && approvalContext?.spreadsheetUrl) {
       finalPdfExport = await finalizeApprovedActExport({
         actNo: result.approval.actNo,
         updatedHtml: result.updatedHtml || '',
-        spreadsheetUrl: process.env.GOOGLE_SPREADSHEET_URL || process.env.GOOGLE_SPREADSHEET_ID || '',
+        spreadsheetUrl: approvalContext.spreadsheetUrl,
+        workspaceId: approvalContext.workspaceId || '',
       });
     }
     res.json({ ok: true, ...result, finalPdfExport });
