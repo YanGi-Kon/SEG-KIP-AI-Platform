@@ -189,12 +189,20 @@ router.post('/document/approve', async (req, res) => {
     const result = await approveDocument(req.body?.token, req.body?.csrfToken, req);
     let finalPdfExport = null;
     if (result?.status === 'Тасдиқланди' && result?.approval?.actNo) {
-      finalPdfExport = await finalizeApprovedActExport({
-        actNo: result.approval.actNo,
-        updatedHtml: result.updatedHtml || '',
-        spreadsheetUrl: approvalContext.spreadsheetUrl || '',
-        workspaceId: approvalContext.workspaceId || '',
-      });
+      try {
+        finalPdfExport = await finalizeApprovedActExport({
+          actNo: result.approval.actNo,
+          updatedHtml: result.updatedHtml || '',
+          spreadsheetUrl: approvalContext.spreadsheetUrl || '',
+          workspaceId: approvalContext.workspaceId || '',
+        });
+      } catch (exportError) {
+        finalPdfExport = {
+          status: 'EXPORT_FAILED',
+          error: exportError.message,
+          code: exportError.code || 'FINAL_PDF_EXPORT_FAILED',
+        };
+      }
     }
     res.json({ ok: true, ...result, finalPdfExport });
   } catch (error) {
