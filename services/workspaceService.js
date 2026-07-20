@@ -17,6 +17,7 @@ const DEFAULT_WORKSPACE = Object.freeze({
   spreadsheetUrl: process.env.DEFAULT_WORKSPACE_SHEET_URL || 'https://docs.google.com/spreadsheets/d/191RWU_J2IxqfwdwCbvopVtcb4WhRkPM1UQppVbgiLhs/edit',
   mainSheetName: process.env.DEFAULT_WORKSPACE_MAIN_SHEET || 'База',
   driveFolderId: process.env.DEFAULT_WORKSPACE_DRIVE_FOLDER_ID || '',
+  finalDocumentsFolderId: process.env.DEFAULT_WORKSPACE_FINAL_DOCUMENTS_FOLDER_ID || '',
   timeZone: process.env.DEFAULT_WORKSPACE_TIME_ZONE || 'Asia/Tashkent',
 });
 
@@ -109,6 +110,8 @@ export async function updateWorkspace(userId, workspaceId, input) {
       mainSheetName: input.mainSheetName ?? current.mainSheetName,
       driveFolderUrl: input.driveFolderUrl,
       driveFolderId: input.driveFolderId ?? current.driveFolderId,
+      finalDocumentsFolderUrl: input.finalDocumentsFolderUrl,
+      finalDocumentsFolderId: input.finalDocumentsFolderId ?? current.finalDocumentsFolderId,
       timeZone: input.timeZone ?? current.timeZone,
     });
 
