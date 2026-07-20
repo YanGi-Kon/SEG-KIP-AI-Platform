@@ -96,6 +96,20 @@ export async function findWorkspaceForUser(workspaceId, userId, { forUpdate = fa
   return mapWorkspace(result.rows[0]);
 }
 
+export async function findWorkspaceById(workspaceId, client = null) {
+  const result = await executor(client).query(
+    `SELECT id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
+            main_sheet_name, drive_folder_id, final_documents_folder_id, time_zone, status, is_default,
+            created_at, updated_at
+     FROM workspaces
+     WHERE id = $1
+       AND status <> 'archived'
+     LIMIT 1`,
+    [workspaceId],
+  );
+  return mapWorkspace(result.rows[0]);
+}
+
 export async function findWorkspaceBySpreadsheetUrl(spreadsheetUrl, client = null) {
   const result = await executor(client).query(
     `SELECT id, owner_id, name, slug, spreadsheet_id, spreadsheet_url,
