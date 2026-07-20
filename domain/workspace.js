@@ -49,6 +49,11 @@ function sourcePart(value) {
   return String(value ?? '').trim().replace(/\s+/g, ' ');
 }
 
+function normalizeOptionalDriveFolder(value, fallback = '') {
+  if (value === undefined) return fallback;
+  return extractDriveFolderId(value || '');
+}
+
 export function buildSourceKeyV2(input = {}) {
   const sheet = sourcePart(input.sourceSheet || input.sheetName);
   const row = sourcePart(input.sourceRowNumber || input.rowNumber);
@@ -74,8 +79,14 @@ export function normalizeWorkspaceInput(input = {}) {
   const spreadsheetId = extractSpreadsheetId(input.spreadsheetUrl || input.spreadsheetId);
   const mainSheetName = String(input.mainSheetName || '').trim();
   if (!mainSheetName) throw new Error('Main sheet name is required');
-  const driveFolderId = extractDriveFolderId(input.driveFolderUrl || input.driveFolderId || '');
+
+  const driveFolderId = normalizeOptionalDriveFolder(input.driveFolderUrl || input.driveFolderId, '');
+  const finalDocumentsFolderId = normalizeOptionalDriveFolder(
+    input.finalDocumentsFolderUrl || input.finalDocumentsFolderId,
+    '',
+  );
   const timeZone = String(input.timeZone || 'Asia/Tashkent').trim();
+
   return {
     name,
     slug: String(input.slug || '').trim() || slugifyWorkspaceName(name),
@@ -83,6 +94,7 @@ export function normalizeWorkspaceInput(input = {}) {
     spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
     mainSheetName,
     driveFolderId,
+    finalDocumentsFolderId,
     timeZone,
   };
 }
