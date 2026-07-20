@@ -188,11 +188,11 @@ router.post('/document/approve', async (req, res) => {
     const approvalContext = req.body?.token ? verifyApprovalToken(req.body.token) : {};
     const result = await approveDocument(req.body?.token, req.body?.csrfToken, req);
     let finalPdfExport = null;
-    if (result?.status === 'Тасдиқланди' && result?.approval?.actNo && approvalContext?.spreadsheetUrl) {
+    if (result?.status === 'Тасдиқланди' && result?.approval?.actNo) {
       finalPdfExport = await finalizeApprovedActExport({
         actNo: result.approval.actNo,
         updatedHtml: result.updatedHtml || '',
-        spreadsheetUrl: approvalContext.spreadsheetUrl,
+        spreadsheetUrl: approvalContext.spreadsheetUrl || '',
         workspaceId: approvalContext.workspaceId || '',
       });
     }
