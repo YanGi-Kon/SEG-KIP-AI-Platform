@@ -90,9 +90,10 @@
   }
 
   function findSignerSettingsContainer(){
-    return $('objectSignersPanel')
-      || $('signersModal')?.querySelector('.object-signers-panel')
-      || null;
+    const objectPanel = $('objectSignersPanel') || $('signersModal')?.querySelector('.object-signers-panel');
+    if (objectPanel) return { host:objectPanel, mode:'object-panel' };
+    const modalBox = $('signersModal')?.querySelector('.modalbox');
+    return modalBox ? { host:modalBox, mode:'modal-box' } : null;
   }
 
   function panelMarkup(){
@@ -128,8 +129,9 @@
   function mountFinalDocumentsFolderPanel(){
     ensureStyle();
     removeLegacyUi();
-    const host = findSignerSettingsContainer();
-    if (!host) return { mounted:false, created:false };
+    const target = findSignerSettingsContainer();
+    if (!target) return { mounted:false, created:false };
+    const { host, mode } = target;
 
     let panel = $(PANEL_ID);
     let created = false;
@@ -138,15 +140,24 @@
       panel.id = PANEL_ID;
       panel.className = 'final-documents-card';
       panel.innerHTML = panelMarkup();
-      const signatureInfo = $('signatureServiceAccountInfo');
-      if (signatureInfo?.parentElement === host) signatureInfo.insertAdjacentElement('afterend', panel);
-      else host.appendChild(panel);
       created = true;
     }
+
+    if (mode === 'object-panel') {
+      const signatureInfo = $('signatureServiceAccountInfo');
+      if (signatureInfo?.parentElement === host) signatureInfo.insertAdjacentElement('afterend', panel);
+      else if (panel.parentElement !== host) host.appendChild(panel);
+    } else if (panel.parentElement !== host) {
+      const toolbar = host.querySelector('.signer-toolbar');
+      if (toolbar) toolbar.insertAdjacentElement('beforebegin', panel);
+      else host.appendChild(panel);
+    }
+
     bindPanelEvents(panel);
     console.info('[acts-final-documents-folder] mounted', {
       workspaceId: workspaceId(),
       containerFound: true,
+      containerMode: mode,
       created,
     });
     return { mounted:true, created };
