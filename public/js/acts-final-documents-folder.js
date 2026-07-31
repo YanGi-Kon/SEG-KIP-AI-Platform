@@ -2,19 +2,14 @@
 (function setupActsFinalDocumentsFolder(){
   'use strict';
 
-  const ACCESS_TOKEN_KEY = 'seg_kip_workspace_access_token';
-  const SELECTED_WORKSPACE_KEY = 'seg_kip_selected_workspace_id';
   const PANEL_ID = 'finalDocumentsFolderPanel';
   let lastDiagnostic = null;
   let currentWorkspace = null;
   let loadPromise = null;
-  let bootstrapTimer = null;
 
   function $(id){ return document.getElementById(id); }
   function esc(value){ return String(value ?? '').replace(/[&<>"']/g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m])); }
-  function parentStorage(storageName, key){ try { return parent?.[storageName]?.getItem(key) || ''; } catch (_) { return ''; } }
-  function workspaceId(){ return localStorage.getItem(SELECTED_WORKSPACE_KEY) || parentStorage('localStorage', SELECTED_WORKSPACE_KEY) || ''; }
-  function token(){ return sessionStorage.getItem(ACCESS_TOKEN_KEY) || parentStorage('sessionStorage', ACCESS_TOKEN_KEY) || ''; }
+  function workspaceId(){ return window.WorkspaceApiClient?.workspaceId() || ''; }
   function rootPath(){
     const id = workspaceId();
     if (!id) throw new Error('Объект аниқланмади. Қайта login қилинг ёки администраторга мурожаат қилинг.');
@@ -22,46 +17,9 @@
   }
   function documentsPath(){ return `${rootPath()}/documents`; }
 
-  async function parse(res){
-    const text = await res.text();
-    if (!text) return {};
-    try { return JSON.parse(text); } catch (_) { return { raw:text }; }
-  }
-
-  async function refresh(){
-    const res = await fetch('/api/auth/refresh', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      credentials:'include',
-    });
-    const data = await parse(res);
-    if (!res.ok) throw new Error(data.error || 'Session yangilanmadi');
-    if (data.accessToken) {
-      sessionStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
-      try { parent.sessionStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken); } catch (_) {}
-    }
-  }
-
-  async function api(path, options = {}, retry = true){
-    const headers = new Headers(options.headers || {});
-    if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
-      headers.set('Content-Type', 'application/json');
-    }
-    const currentToken = token();
-    if (currentToken) headers.set('Authorization', `Bearer ${currentToken}`);
-    const res = await fetch(path, { ...options, headers, credentials:'include' });
-    const data = await parse(res);
-    if (res.status === 401 && retry) {
-      await refresh();
-      return api(path, options, false);
-    }
-    if (!res.ok || data.error) {
-      const error = new Error(data.error || `HTTP ${res.status}`);
-      error.data = data;
-      error.status = res.status;
-      throw error;
-    }
-    return data;
+  async function api(path, options = {}){
+    if (!window.WorkspaceApiClient) throw new Error('Workspace API client yuklanmadi.');
+    return window.WorkspaceApiClient.request(path, options);
   }
 
   function ensureStyle(){
@@ -96,18 +54,7 @@
   }
 
   function findMainScreenHost(){
-    const top = document.querySelector('.acts-top');
-    if (!top) return null;
-    let slot = $('actsFinalDocumentsFolderSlot');
-    if (!slot) {
-      slot = document.createElement('div');
-      slot.id = 'actsFinalDocumentsFolderSlot';
-      slot.className = 'acts-final-folder-slot';
-      const settingsButton = Array.from(top.children).find((node) => node.matches?.('button') && (node.getAttribute('onclick') || '').includes('openSettings'));
-      if (settingsButton) top.insertBefore(slot, settingsButton);
-      else top.appendChild(slot);
-    }
-    return slot;
+    return $('actsFinalDocumentsFolderSlot');
   }
 
   function panelMarkup(){
@@ -218,6 +165,7 @@
 
   function friendlyError(diag){
     const code = diag?.code || '';
+    if (code === 'DRIVE_SHARED_DRIVE_REQUIRED') return '❌ Oddiy My Drive papkasi qo‘llab-quvvatlanmaydi. Shared Drive papkasini tanlang.';
     if (code === 'SERVICE_ACCOUNT_NO_STORAGE_QUOTA') return '❌ Service account’da Drive storage quota yo‘q. Shared Drive ishlating.';
     if (code === 'DRIVE_API_DISABLED') return '❌ Google Drive API yoqilmagan.';
     if (code === 'DRIVE_FOLDER_NOT_FOUND') return '❌ Folder ID noto‘g‘ri yoki service account bilan share qilinmagan.';
@@ -253,6 +201,7 @@
   }
 
   async function saveFinalDocumentsFolder(){
+    setBusy(true);
     try {
       const value = $('finalDocumentsFolderInput')?.value.trim() || '';
       if (!value) return setMsg('Якуний ҳужжатлар папкаси Google Drive URL ёки ID киритинг.', 'bad');
@@ -266,10 +215,13 @@
       setMsg('Папка сақланди. Энди “Текшириш” тугмасини босинг.', 'ok');
     } catch (error) {
       setMsg(error.message, 'bad');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function testFinalDocumentsFolder(){
+    setBusy(true);
     try {
       setMsg('Google Drive папка ва ёзиш ҳуқуқи текширилмоқда...', 'sync');
       const data = await api(`${documentsPath()}/final-folder/test`, {
@@ -290,7 +242,16 @@
       };
       updatePanel(await loadWorkspace().catch(() => null));
       setMsg(friendlyError(lastDiagnostic), 'bad');
+    } finally {
+      setBusy(false);
     }
+  }
+
+  function setBusy(busy){
+    ['saveFinalDocumentsFolderBtn', 'testFinalDocumentsFolderBtn'].forEach((id) => {
+      const button = $(id);
+      if (button) button.disabled = Boolean(busy);
+    });
   }
 
   function exposeApi(){
@@ -301,30 +262,22 @@
     return true;
   }
 
-  function bootstrap(){
-    const result = mountFinalDocumentsFolderPanel();
-    exposeApi();
-    if (result.mounted && workspaceId()) {
-      if (bootstrapTimer) clearInterval(bootstrapTimer);
-      bootstrapTimer = null;
-      loadPanelWorkspace();
-      return true;
-    }
-    return false;
-  }
-
   function boot(){
     console.info('[acts-final-documents-folder] loaded');
-    if (bootstrap()) return;
-    let attempts = 0;
-    bootstrapTimer = setInterval(() => {
-      attempts += 1;
-      if (bootstrap() || attempts >= 20) {
-        clearInterval(bootstrapTimer);
-        bootstrapTimer = null;
-      }
-    }, 500);
-    window.addEventListener('focus', () => { mountFinalDocumentsFolderPanel(); loadPanelWorkspace(); });
+    mountFinalDocumentsFolderPanel();
+    exposeApi();
+    loadPanelWorkspace();
+    window.addEventListener('seg-kip:workspace-change', () => {
+      currentWorkspace = null;
+      lastDiagnostic = null;
+      loadPanelWorkspace();
+    });
+    window.addEventListener('message', (event) => {
+      if (event.data?.type !== 'SEG_KIP_WORKSPACE_CHANGE') return;
+      currentWorkspace = null;
+      lastDiagnostic = null;
+      loadPanelWorkspace();
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });

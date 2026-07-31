@@ -27,6 +27,27 @@
         <button onclick="ActsUI.openExcel()">4. Excel</button>
         <button onclick="ActsUI.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
       </div>
+      <div id="actsFinalDocumentsFolderSlot" class="acts-final-folder-slot">
+        <section id="finalDocumentsFolderPanel" class="final-documents-card" aria-live="polite">
+          <div class="final-documents-title-row">
+            <div class="final-documents-title">Yakuniy hujjatlar Drive papkasi</div>
+            <div id="finalDocumentsWorkspaceName" class="final-documents-object">Obyekt aniqlanmoqda...</div>
+          </div>
+          <div class="final-documents-row">
+            <label>Shared Drive papka URL yoki ID
+              <input id="finalDocumentsFolderInput" placeholder="https://drive.google.com/drive/folders/... yoki folder ID">
+            </label>
+            <div class="final-documents-actions">
+              <button id="saveFinalDocumentsFolderBtn" class="btn primary" type="button">Saqlash</button>
+              <button id="testFinalDocumentsFolderBtn" class="btn ghost" type="button">Tekshirish</button>
+              <button id="openFinalDocumentsFolderBtn" class="btn ghost" type="button" disabled>Drive</button>
+            </div>
+          </div>
+          <div id="finalDocumentsFolderStatus" class="final-documents-status sync">Papka ma’lumoti yuklanmoqda...</div>
+          <div id="finalDocumentsServiceAccountInfo" class="final-documents-service-account">Service account tekshirilmagan.</div>
+          <div id="finalDocumentsFolderMessage" class="msg">Faqat Shared Drive papkasi qo‘llab-quvvatlanadi.</div>
+        </section>
+      </div>
       <button class="btn ghost" onclick="ActsUI.openSettings()">⚙ Созламалар</button>
     </div>
     <div id="actsStatus" class="status-line">Ҳолат: созламалар текширилмоқда...</div>
@@ -102,6 +123,7 @@
   </div>
 </div>
 
+<script src="../js/workspace-api-client.js"></script>
 <script src="../js/acts.js"></script>
 <script src="../js/acts-final-documents-folder.js"></script>
 </body>
