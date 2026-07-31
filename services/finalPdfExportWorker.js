@@ -1,0 +1,71 @@
+import crypto from 'node:crypto';
+import { isDatabaseConfigured } from '../db/pool.js';
+import {
+  claimNextFinalPdfExport,
+  completeFinalPdfExport,
+  failFinalPdfExport,
+} from '../repositories/outboxRepository.js';
+import { finalizeApprovedActExport } from './finalPdfExportService.js';
+
+const PERMANENT_ERRORS = new Set([
+  'APPROVAL_WORKSPACE_CONTEXT_REQUIRED',
+  'WORKSPACE_NOT_FOUND',
+  'FINAL_DOCUMENTS_FOLDER_ID_REQUIRED',
+  'DRIVE_SHARED_DRIVE_REQUIRED',
+  'DRIVE_FOLDER_NOT_FOUND',
+  'DRIVE_FOLDER_NOT_A_FOLDER',
+  'DRIVE_WRITE_PERMISSION_DENIED',
+  'DRIVE_API_DISABLED',
+  'GOOGLE_SERVICE_ACCOUNT_INVALID',
+]);
+
+let timer = null;
+let running = false;
+
+export function isRetryableFinalPdfError(error) {
+  return !PERMANENT_ERRORS.has(String(error?.code || ''));
+}
+
+export async function processNextFinalPdfExport(workerId = `final-pdf-${crypto.randomUUID()}`) {
+  const job = await claimNextFinalPdfExport(workerId);
+  if (!job) return null;
+  try {
+    const result = await finalizeApprovedActExport(job.payload);
+    if (result?.status === 'EXPORTED') {
+      return completeFinalPdfExport(job.id, result);
+    }
+    const error = new Error(result?.errorMessage || 'Final PDF export failed');
+    error.code = result?.errorCode || 'FINAL_PDF_EXPORT_FAILED';
+    throw error;
+  } catch (error) {
+    return failFinalPdfExport(job, error, { retryable: isRetryableFinalPdfError(error) });
+  }
+}
+
+export function startFinalPdfExportWorker() {
+  if (timer || !isDatabaseConfigured()) return false;
+  if (String(process.env.OUTBOX_WORKER_ENABLED || '').toLowerCase() !== 'true') return false;
+  const intervalMs = Math.max(1000, Number(process.env.FINAL_PDF_WORKER_INTERVAL_MS || 5000));
+  const workerId = `final-pdf-${process.pid}-${crypto.randomBytes(4).toString('hex')}`;
+  timer = setInterval(async () => {
+    if (running) return;
+    running = true;
+    try {
+      while (await processNextFinalPdfExport(workerId)) {
+        // Drain the currently due queue serially; database row locks prevent duplicate workers.
+      }
+    } catch (error) {
+      console.error('[final-pdf-worker]', { code: error?.code, message: error?.message });
+    } finally {
+      running = false;
+    }
+  }, intervalMs);
+  timer.unref?.();
+  return true;
+}
+
+export function stopFinalPdfExportWorker() {
+  if (!timer) return;
+  clearInterval(timer);
+  timer = null;
+}

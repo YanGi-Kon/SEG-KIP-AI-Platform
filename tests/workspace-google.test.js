@@ -4,6 +4,7 @@ import {
   resolveWorkspaceGoogleConfig,
   testWorkspaceSheetConnection,
 } from '../services/workspaceGoogleService.js';
+import { resolveGoogleConfig } from '../services/signatureApprovalService.js';
 
 test('Workspace Google connector exports a callable connection check', () => {
   assert.equal(typeof testWorkspaceSheetConnection, 'function');
@@ -41,5 +42,25 @@ test('Workspace Sheet URL is not overridden by legacy global Sheet env', () => {
     else process.env.GOOGLE_SERVICE_ACCOUNT_BASE64 = original.base64;
     if (original.sheet === undefined) delete process.env.GOOGLE_SPREADSHEET_URL;
     else process.env.GOOGLE_SPREADSHEET_URL = original.sheet;
+  }
+});
+
+test('Approval config prefers explicit workspace context over mutable legacy env', () => {
+  const previousSheet = process.env.GOOGLE_SPREADSHEET_URL;
+  try {
+    process.env.GOOGLE_SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/LEGACY_GLOBAL_SHEET_ID_123456789/edit';
+    const workspaceSheet = 'https://docs.google.com/spreadsheets/d/WORKSPACE_SHEET_ID_123456789012345/edit';
+    const serviceAccount = {
+      type: 'service_account',
+      project_id: 'workspace-project',
+      client_email: 'workspace@example.iam.gserviceaccount.com',
+      private_key: '-----BEGIN PRIVATE KEY-----\nTEST\n-----END PRIVATE KEY-----\n',
+    };
+    const config = resolveGoogleConfig({ spreadsheetUrl: workspaceSheet, serviceAccount });
+    assert.equal(config.spreadsheetUrl, workspaceSheet);
+    assert.equal(config.serviceAccount.project_id, 'workspace-project');
+  } finally {
+    if (previousSheet === undefined) delete process.env.GOOGLE_SPREADSHEET_URL;
+    else process.env.GOOGLE_SPREADSHEET_URL = previousSheet;
   }
 });

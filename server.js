@@ -25,6 +25,7 @@ import backupRouter from "./routes/backup.js";
 import { createKudukRouter, initKudukRealtime } from "./routes/kuduk.js";
 import { isDatabaseConfigured } from "./db/pool.js";
 import { runMigrations } from "./db/migrate.js";
+import { startFinalPdfExportWorker } from "./services/finalPdfExportWorker.js";
 
 dotenv.config();
 
@@ -194,6 +195,8 @@ async function startServer() {
       console.log("[database] migrations up to date");
     }
   }
+
+  startFinalPdfExportWorker();
 
   server.listen(PORT, () => {
     const aiReady = Boolean(process.env.OPENAI_API_KEY);

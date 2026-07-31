@@ -29,6 +29,7 @@ import {
   saveWorkspaceFinalDocumentsFolder,
   testWorkspaceFinalDocumentsFolder,
 } from '../services/workspaceDriveFolderService.js';
+import { retryFinalPdfExport } from '../repositories/outboxRepository.js';
 
 const router = express.Router();
 const upload = multer({
@@ -161,10 +162,25 @@ router.put('/:workspaceId/documents/final-folder', requireWorkspacePermission('w
   }
 });
 
-router.post('/:workspaceId/documents/final-folder/test', requireWorkspacePermission('workspace:update'), async (req, res) => {
+router.post('/:workspaceId/documents/final-folder/test', requireWorkspacePermission('workspace:test'), async (req, res) => {
   try {
     const result = await testWorkspaceFinalDocumentsFolder(req.workspace, { writeTest: true });
     res.json({ ok: true, result });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/documents/final-pdf-jobs/:jobId/retry', requireWorkspacePermission('documents:send'), async (req, res) => {
+  try {
+    const job = await retryFinalPdfExport(req.params.workspaceId, req.params.jobId);
+    if (!job) {
+      const error = new Error('Failed final PDF export job topilmadi.');
+      error.code = 'FINAL_PDF_JOB_NOT_FOUND';
+      error.statusCode = 404;
+      throw error;
+    }
+    res.json({ ok: true, job });
   } catch (error) {
     handleError(res, error);
   }

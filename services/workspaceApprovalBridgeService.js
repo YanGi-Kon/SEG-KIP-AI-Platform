@@ -6,6 +6,7 @@ import { sendDocumentForApproval } from './signatureApprovalService.js';
 import { verifySafeEmailTransport } from './emailDiagnosticsService.js';
 import { getHttpEmailSummary, hasHttpEmailProvider, sendHttpEmail } from './httpEmailService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
+import { testWorkspaceFinalDocumentsFolder } from './workspaceDriveFolderService.js';
 
 const SIGNERS_SHEET = 'ИМЗО_ЧЕКУВЧИЛАР';
 const APPROVALS_SHEET = 'ҲУЖЖАТ_ТАСДИҚЛАШ';
@@ -82,10 +83,6 @@ function signatureValue(signer) {
   return clean(signer.signatureUrl);
 }
 
-function pinLegacyApprovalToWorkspace(config) {
-  if (config?.spreadsheetUrl) process.env.GOOGLE_SPREADSHEET_URL = config.spreadsheetUrl;
-}
-
 function makeWorkspaceEmailError(result = {}) {
   const message = clean(result.error) || 'Email yuborishda xatolik.';
   const error = new Error(message);
@@ -151,7 +148,6 @@ async function ensureApprovalSheet(config) {
 
 async function syncWorkspaceSignersToSheet(workspace) {
   const config = resolveWorkspaceGoogleConfig(workspace);
-  pinLegacyApprovalToWorkspace(config);
   const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
   const sheets = await getSheetsClient(config.serviceAccount);
   await ensureSheet({ ...config, sheetName: SIGNERS_SHEET });
@@ -409,7 +405,13 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resol
     }
     const existing = existingApprovals.find((row) => row.signerId === signer.id);
     const approvalId = existing?.id || randomId('APR');
-    const token = signApprovalToken({ approvalId, actNo, signerId: signer.id, email: signer.email });
+    const token = signApprovalToken({
+      approvalId,
+      actNo,
+      signerId: signer.id,
+      email: signer.email,
+      workspaceId: workspace.id,
+    });
     const link = `${baseUrl}/api/document/approve/${encodeURIComponent(token)}`;
     const deliveryTag = approvalDeliveryTag(token);
     const subject = buildApprovalEmailSubject({
@@ -481,9 +483,12 @@ export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
     }
   }
 
+  // Fail before sending approval links when the destination cannot support
+  // service-account-owned files. This avoids approvals that can never export.
+  await testWorkspaceFinalDocumentsFolder(workspace, { writeTest: false });
+
   const synced = await syncWorkspaceSignersToSheet(workspace);
   if (!synced.signersCount) throw new Error('Бу объект учун актив имзо чекувчилар йўқ');
-  pinLegacyApprovalToWorkspace(synced.config);
 
   const actNo = clean(input.actNo);
   if (!actNo) throw new Error('Акт рақами киритилмаган');
@@ -498,6 +503,7 @@ export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
     }, {
       ...input,
       actNo,
+      workspaceId: workspace.id,
       workspaceName: workspace.name,
       assignedApprovers: resolvedTargets.targetSigners.map((signer) => ({
         slot: signer.slot || '',

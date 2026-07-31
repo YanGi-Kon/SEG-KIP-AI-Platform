@@ -10,6 +10,8 @@ import {
   validateServiceAccount,
 } from './googleSheetsService.js';
 import { getWorkspaceSignatureImageById } from '../repositories/workspaceSignatureRepository.js';
+import { findWorkspaceById } from '../repositories/workspaceRepository.js';
+import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
 
 const SIGNERS_SHEET = 'ИМЗО_ЧЕКУВЧИЛАР';
 const APPROVALS_SHEET = 'ҲУЖЖАТ_ТАСДИҚЛАШ';
@@ -89,10 +91,10 @@ export function resolveGoogleConfig(input = {}, { requireServer = false } = {}) 
   const envAccount = parseEnvServiceAccount();
   const envSheet = clean(process.env.GOOGLE_SPREADSHEET_URL || process.env.GOOGLE_SPREADSHEET_ID);
   const config = {
-    spreadsheetUrl: envSheet || clean(input.spreadsheetUrl || input.spreadsheetId),
-    serviceAccount: envAccount || input.serviceAccount,
+    spreadsheetUrl: clean(input.spreadsheetUrl || input.spreadsheetId) || envSheet,
+    serviceAccount: input.serviceAccount || envAccount,
   };
-  if (requireServer && (!envAccount || !envSheet)) {
+  if (requireServer && (!config.serviceAccount || !config.spreadsheetUrl)) {
     throw new Error('Railway Variables да GOOGLE_SERVICE_ACCOUNT_JSON ва GOOGLE_SPREADSHEET_URL киритилиши шарт');
   }
   if (!config.spreadsheetUrl) throw new Error('Google Sheets ҳаволаси киритилмаган');
@@ -582,7 +584,13 @@ export async function sendDocumentForApproval(configInput, input, req) {
   for (const signer of signers) {
     const existingApproval = existingApprovals.find((item) => item.signerId === signer.id);
     const approvalId = existingApproval?.id || randomId('APR');
-    const token = signApprovalToken({ approvalId, actNo, signerId: signer.id, email: signer.gmail });
+    const token = signApprovalToken({
+      approvalId,
+      actNo,
+      signerId: signer.id,
+      email: signer.gmail,
+      workspaceId: clean(input.workspaceId),
+    });
     const link = `${baseUrl}/api/document/approve/${encodeURIComponent(token)}`;
     const approval = await upsertApproval(config, {
       id: approvalId,
@@ -629,8 +637,23 @@ async function findApprovalByToken(config, token) {
   return { payload, approval };
 }
 
+async function approvalConfig(token) {
+  const payload = verifyApprovalToken(token);
+  if (!clean(payload.workspaceId)) {
+    return { payload, config: resolveGoogleConfig({}, { requireServer: true }), legacy: true };
+  }
+  const workspace = await findWorkspaceById(clean(payload.workspaceId));
+  if (!workspace) {
+    const error = new Error('Approval token workspace’i topilmadi.');
+    error.code = 'APPROVAL_WORKSPACE_NOT_FOUND';
+    error.statusCode = 404;
+    throw error;
+  }
+  return { payload, workspace, config: resolveWorkspaceGoogleConfig(workspace), legacy: false };
+}
+
 export async function openApproval(token, req) {
-  const config = resolveGoogleConfig({}, { requireServer: true });
+  const { config } = await approvalConfig(token);
   const { approval } = await findApprovalByToken(config, token);
   const document = await getRegistryDocument(config, approval.actNo);
   if (!approval.openedAt) {
@@ -644,7 +667,7 @@ export async function openApproval(token, req) {
 }
 
 export async function approveDocument(token, csrfToken, req) {
-  const config = resolveGoogleConfig({}, { requireServer: true });
+  const { config } = await approvalConfig(token);
   const { approval } = await findApprovalByToken(config, token);
   verifyCsrfToken(csrfToken, approval.id, token);
   if (approval.status !== 'Тасдиқланди') {
