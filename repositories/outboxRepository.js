@@ -124,4 +124,3 @@ export async function retryFinalPdfExport(workspaceId, jobId) {
   );
   return mapJob(result.rows[0]);
 }
-

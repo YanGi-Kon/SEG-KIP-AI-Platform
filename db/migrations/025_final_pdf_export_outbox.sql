@@ -27,4 +27,3 @@ CREATE INDEX IF NOT EXISTS outbox_jobs_final_pdf_pending_idx
   ON outbox_jobs (next_attempt_at, created_at)
   WHERE job_type = 'final_pdf_export'
     AND status IN ('pending', 'failed_retryable');
-
