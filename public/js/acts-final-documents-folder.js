@@ -27,9 +27,7 @@
     const style = document.createElement('style');
     style.id = 'actsFinalDocumentsFolderStyle';
     style.textContent = `
-      .acts-top{align-items:flex-start !important}
-      .acts-final-folder-slot{flex:1 1 470px;display:flex;justify-content:flex-end;min-width:320px;max-width:720px;margin-left:auto}
-      .final-documents-card{width:100%;display:grid;gap:7px;padding:10px 11px;border:1px solid rgba(34,211,238,.30);border-radius:13px;background:rgba(4,18,34,.74);box-shadow:0 12px 30px rgba(0,0,0,.16)}
+      .final-documents-card{width:100%;display:grid;gap:10px;margin-top:16px;padding:14px;border:1px solid rgba(34,211,238,.30);border-radius:13px;background:rgba(4,18,34,.74);box-shadow:0 12px 30px rgba(0,0,0,.16)}
       .final-documents-title-row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
       .final-documents-title{color:#e6faff;font-size:12px;font-weight:900}
       .final-documents-object{color:#9fd8e8;font-size:10px;font-weight:800}
@@ -41,8 +39,7 @@
       .final-documents-status{font-size:10px;color:#cde7f0;line-height:1.35}
       .final-documents-service-account{font-size:10px;color:#b8d8e6;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       #finalDocumentsFolderMessage{margin-top:0;padding:6px 8px;font-size:10px}
-      @media(max-width:1180px){.acts-final-folder-slot{order:3;flex-basis:100%;max-width:none}.final-documents-row{grid-template-columns:1fr auto}}
-      @media(max-width:760px){.acts-final-folder-slot{min-width:0}.final-documents-row{grid-template-columns:1fr}.final-documents-actions{justify-content:flex-start}.final-documents-service-account{white-space:normal}}
+      @media(max-width:760px){.final-documents-row{grid-template-columns:1fr}.final-documents-actions{justify-content:flex-start}.final-documents-service-account{white-space:normal}}
     `;
     document.head.appendChild(style);
   }
@@ -51,10 +48,6 @@
     $('approvedDocumentsTab')?.remove();
     $('approvedDocumentsModal')?.remove();
     document.querySelector('#signersModal #finalDocumentsFolderPanel')?.remove();
-  }
-
-  function findMainScreenHost(){
-    return $('actsFinalDocumentsFolderSlot');
   }
 
   function panelMarkup(){
@@ -90,26 +83,15 @@
   function mountFinalDocumentsFolderPanel(){
     ensureStyle();
     removeLegacyUi();
-    const host = findMainScreenHost();
-    if (!host) return { mounted:false, created:false };
-
     let panel = $(PANEL_ID);
-    let created = false;
-    if (!panel) {
-      panel = document.createElement('section');
-      panel.id = PANEL_ID;
-      panel.className = 'final-documents-card';
-      panel.innerHTML = panelMarkup();
-      created = true;
-    }
-    if (panel.parentElement !== host) host.appendChild(panel);
+    if (!panel) return { mounted:false, created:false };
     bindPanelEvents(panel);
     console.info('[acts-final-documents-folder] mounted', {
       workspaceId: workspaceId(),
-      location: 'acts-main-header',
-      created,
+      location: 'final-documents-modal',
+      created:false,
     });
-    return { mounted:true, created };
+    return { mounted:true, created:false };
   }
 
   function setMsg(text, cls=''){
@@ -259,7 +241,18 @@
     window.ActsUI.saveFinalDocumentsFolder = saveFinalDocumentsFolder;
     window.ActsUI.testFinalDocumentsFolder = testFinalDocumentsFolder;
     window.ActsUI.openFinalDocumentsFolder = openConfiguredFolder;
+    window.ActsUI.openFinalDocumentsFolderSettings = openFinalDocumentsFolderSettings;
+    window.ActsUI.closeFinalDocumentsFolderSettings = closeFinalDocumentsFolderSettings;
     return true;
+  }
+
+  function openFinalDocumentsFolderSettings(){
+    $('finalDocumentsFolderModal')?.classList.add('show');
+    loadPanelWorkspace();
+  }
+
+  function closeFinalDocumentsFolderSettings(){
+    $('finalDocumentsFolderModal')?.classList.remove('show');
   }
 
   function boot(){

@@ -26,27 +26,7 @@
         <button id="tab-reports" onclick="ActsUI.showView('reports',this)">3. Хисоботлар</button>
         <button onclick="ActsUI.openExcel()">4. Excel</button>
         <button onclick="ActsUI.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
-      </div>
-      <div id="actsFinalDocumentsFolderSlot" class="acts-final-folder-slot">
-        <section id="finalDocumentsFolderPanel" class="final-documents-card" aria-live="polite">
-          <div class="final-documents-title-row">
-            <div class="final-documents-title">Yakuniy hujjatlar Drive papkasi</div>
-            <div id="finalDocumentsWorkspaceName" class="final-documents-object">Obyekt aniqlanmoqda...</div>
-          </div>
-          <div class="final-documents-row">
-            <label>Shared Drive papka URL yoki ID
-              <input id="finalDocumentsFolderInput" placeholder="https://drive.google.com/drive/folders/... yoki folder ID">
-            </label>
-            <div class="final-documents-actions">
-              <button id="saveFinalDocumentsFolderBtn" class="btn primary" type="button">Saqlash</button>
-              <button id="testFinalDocumentsFolderBtn" class="btn ghost" type="button">Tekshirish</button>
-              <button id="openFinalDocumentsFolderBtn" class="btn ghost" type="button" disabled>Drive</button>
-            </div>
-          </div>
-          <div id="finalDocumentsFolderStatus" class="final-documents-status sync">Papka ma’lumoti yuklanmoqda...</div>
-          <div id="finalDocumentsServiceAccountInfo" class="final-documents-service-account">Service account tekshirilmagan.</div>
-          <div id="finalDocumentsFolderMessage" class="msg">Faqat Shared Drive papkasi qo‘llab-quvvatlanadi.</div>
-        </section>
+        <button id="finalDocumentsFolderSettingsBtn" onclick="ActsUI.openFinalDocumentsFolderSettings()">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
       </div>
       <button class="btn ghost" onclick="ActsUI.openSettings()">⚙ Созламалар</button>
     </div>
@@ -91,6 +71,34 @@
 </div>
 
 <div id="settingsModal" class="modal"><div class="modalbox"><div class="modal-head"><h2>⚙ Google Sheets созламалари</h2><button class="btn ghost" onclick="ActsUI.closeSettings()">Ёпиш</button></div><div class="modal-note"><b>Талаб:</b> Google Sheets силкаси, ASOSIY VAROҚ номи ва SERVICE ACCOUNT JSON файли киритилиши шарт.</div><div class="fields" style="margin-top:14px"><div class="field full"><label>Google Sheets силкаси</label><input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..."/></div><div class="field"><label>ASOSIY VAROQ номи</label><input id="sheetName" placeholder="База"/></div><div class="field"><label>SERVICE ACCOUNT JSON</label><input id="serviceFile" type="file" accept="application/json"><div id="serviceFileName" class="note" style="margin-top:6px">Файл танланмаган</div></div></div><div id="settingsMsg" class="msg">Маълумотларни киритиб “Сақлаш” тугмасини босинг.</div><div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px"><button class="btn primary" onclick="ActsUI.saveSettings()">Сақлаш</button></div></div></div>
+
+<div id="finalDocumentsFolderModal" class="modal">
+  <div class="modalbox">
+    <div class="modal-head">
+      <div><h2>📁 ЯКУНИЙ ҲУЖЖАТЛАР</h2><p class="note">Tasdiqlangan PDF hujjatlar saqlanadigan Shared Drive papkasini sozlang.</p></div>
+      <button class="btn ghost" type="button" onclick="ActsUI.closeFinalDocumentsFolderSettings()">Ёпиш</button>
+    </div>
+    <section id="finalDocumentsFolderPanel" class="final-documents-card" aria-live="polite">
+      <div class="final-documents-title-row">
+        <div class="final-documents-title">Yakuniy hujjatlar Drive papkasi</div>
+        <div id="finalDocumentsWorkspaceName" class="final-documents-object">Obyekt aniqlanmoqda...</div>
+      </div>
+      <div class="final-documents-row">
+        <label>Shared Drive papka URL yoki ID
+          <input id="finalDocumentsFolderInput" placeholder="https://drive.google.com/drive/folders/... yoki folder ID">
+        </label>
+        <div class="final-documents-actions">
+          <button id="saveFinalDocumentsFolderBtn" class="btn primary" type="button">Saqlash</button>
+          <button id="testFinalDocumentsFolderBtn" class="btn ghost" type="button">Tekshirish</button>
+          <button id="openFinalDocumentsFolderBtn" class="btn ghost" type="button" disabled>Drive</button>
+        </div>
+      </div>
+      <div id="finalDocumentsFolderStatus" class="final-documents-status sync">Papka ma’lumoti yuklanmoqda...</div>
+      <div id="finalDocumentsServiceAccountInfo" class="final-documents-service-account">Service account tekshirilmagan.</div>
+      <div id="finalDocumentsFolderMessage" class="msg">Faqat Shared Drive papkasi qo‘llab-quvvatlanadi.</div>
+    </section>
+  </div>
+</div>
 
 <div id="signersModal" class="modal">
   <div class="modalbox wide">
