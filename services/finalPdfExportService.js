@@ -1,10 +1,9 @@
-import { Readable } from 'stream';
 import { ensureSheet, extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
 import { resolveEnvServiceAccount } from './googleCredentialService.js';
-import { findWorkspaceById, findWorkspaceBySpreadsheetUrl, listActiveWorkspaces } from '../repositories/workspaceRepository.js';
+import { findWorkspaceById } from '../repositories/workspaceRepository.js';
 import {
   classifyWorkspaceDriveError,
-  createWorkspaceDriveClient,
+  createWorkspaceDriveProvider,
   ensureWorkspaceDocumentsSubfolder,
 } from './workspaceDriveFolderService.js';
 
@@ -137,15 +136,6 @@ async function getRegistryDocument(config, actNo) {
   };
 }
 
-async function tryGetRegistryDocument(config, actNo) {
-  try {
-    const document = await getRegistryDocument(config, actNo);
-    return document?.rowNumber ? document : null;
-  } catch (_) {
-    return null;
-  }
-}
-
 async function persistExportState(document, exportState) {
   await document.sheets.spreadsheets.values.update({
     spreadsheetId: document.spreadsheetId,
@@ -159,52 +149,31 @@ async function persistExportState(document, exportState) {
         clean(exportState.status),
       ]],
     },
-  }).catch(() => {});
+  });
 }
 
-async function resolveWorkspaceContext({ workspaceId = '', spreadsheetUrl = '' }) {
-  if (clean(workspaceId)) {
-    const workspace = await findWorkspaceById(clean(workspaceId));
-    if (workspace) return workspace;
+async function resolveDocumentContext({ actNo, workspaceId = '' }) {
+  if (!clean(workspaceId)) {
+    const error = new Error('Approval token workspaceId saqlashi shart. Tenantlar bo‘yicha qidiruv taqiqlangan.');
+    error.code = 'APPROVAL_WORKSPACE_CONTEXT_REQUIRED';
+    error.statusCode = 400;
+    throw error;
   }
-  if (clean(spreadsheetUrl)) {
-    const workspace = await findWorkspaceBySpreadsheetUrl(clean(spreadsheetUrl));
-    if (workspace) return workspace;
-  }
-  return null;
-}
-
-async function resolveDocumentContext({ actNo, workspaceId = '', spreadsheetUrl = '' }) {
   const serviceAccount = resolveServiceAccount();
-  const workspace = await resolveWorkspaceContext({ workspaceId, spreadsheetUrl });
-
-  if (workspace?.spreadsheetUrl) {
-    const config = makeConfig(workspace.spreadsheetUrl, serviceAccount);
-    const document = await getRegistryDocument(config, actNo);
-    return { workspace, config, document };
+  const workspace = await findWorkspaceById(clean(workspaceId));
+  if (!workspace?.spreadsheetUrl) {
+    const error = new Error('Final PDF export uchun workspace topilmadi yoki Sheet sozlanmagan.');
+    error.code = 'WORKSPACE_NOT_FOUND';
+    error.statusCode = 404;
+    throw error;
   }
-
-  if (clean(spreadsheetUrl)) {
-    const config = makeConfig(spreadsheetUrl, serviceAccount);
-    const document = await getRegistryDocument(config, actNo);
-    return { workspace, config, document };
-  }
-
-  const candidates = await listActiveWorkspaces();
-  for (const candidate of candidates) {
-    if (!clean(candidate.spreadsheetUrl)) continue;
-    const config = makeConfig(candidate.spreadsheetUrl, serviceAccount);
-    const document = await tryGetRegistryDocument(config, actNo);
-    if (document) {
-      return { workspace: candidate, config, document };
-    }
-  }
-
-  throw new Error('Final PDF export учун workspace context аниқланмади');
+  const config = makeConfig(workspace.spreadsheetUrl, serviceAccount);
+  const document = await getRegistryDocument(config, actNo);
+  return { workspace, config, document };
 }
 
-export async function finalizeApprovedActExport({ actNo, updatedHtml = '', spreadsheetUrl = '', workspaceId = '' }) {
-  const { workspace, document } = await resolveDocumentContext({ actNo, spreadsheetUrl, workspaceId });
+export async function finalizeApprovedActExport({ actNo, updatedHtml = '', workspaceId = '' }) {
+  const { workspace, document } = await resolveDocumentContext({ actNo, workspaceId });
 
   if (!workspace?.finalDocumentsFolderId) {
     const exportState = {
@@ -232,58 +201,29 @@ export async function finalizeApprovedActExport({ actNo, updatedHtml = '', sprea
     return exportState;
   }
 
-  let driveClient = null;
+  let provider = null;
   let tempDocId = '';
   try {
-    driveClient = await createWorkspaceDriveClient(workspace);
+    provider = await createWorkspaceDriveProvider(workspace);
+    await provider.validateFolder(workspace.finalDocumentsFolderId, { writeTest: false });
     const targetFolder = await ensureWorkspaceDocumentsSubfolder(workspace, {
       folderName: 'ХУЖАТЛАР',
-      client: driveClient,
+      provider,
     });
 
     const pdfHtml = wrapHtmlForPdf(updatedHtml || document.a4Html, actNo);
-    const tempDoc = await driveClient.drive.files.create({
-      requestBody: {
-        name: `TMP_${safeFilePart(actNo, 'ACT')}_${Date.now()}`,
-        mimeType: 'application/vnd.google-apps.document',
-        parents: [clean(workspace.finalDocumentsFolderId)],
-      },
-      media: {
-        mimeType: 'text/html',
-        body: Readable.from(Buffer.from(pdfHtml, 'utf8')),
-      },
-      fields: 'id,name,driveId,webViewLink',
-      supportsAllDrives: true,
-    });
-
-    tempDocId = clean(tempDoc.data?.id);
-    if (!tempDocId) throw new Error('Google Docs vaqtinchalik fayli yaratilmadi');
-
-    const exported = await driveClient.drive.files.export(
-      { fileId: tempDocId, mimeType: 'application/pdf' },
-      { responseType: 'arraybuffer' },
+    tempDocId = await provider.uploadHtmlAsTemporaryDocument(
+      workspace.finalDocumentsFolderId,
+      `TMP_${safeFilePart(actNo, 'ACT')}_${Date.now()}`,
+      pdfHtml,
     );
-    const pdfBuffer = Buffer.from(exported.data || '');
-
-    const uploaded = await driveClient.drive.files.create({
-      requestBody: {
-        name: buildPdfFileName(actNo),
-        mimeType: 'application/pdf',
-        parents: [targetFolder.folderId],
-      },
-      media: {
-        mimeType: 'application/pdf',
-        body: Readable.from(pdfBuffer),
-      },
-      fields: 'id,name,webViewLink,driveId,parents',
-      supportsAllDrives: true,
-    });
-
-    const fileId = clean(uploaded.data?.id);
+    const pdfBuffer = await provider.exportDocumentToPdf(tempDocId);
+    const uploaded = await provider.uploadPdf(targetFolder.folderId, buildPdfFileName(actNo), pdfBuffer);
+    const fileId = clean(uploaded.fileId);
     const exportState = {
       status: 'EXPORTED',
       fileId,
-      url: clean(uploaded.data?.webViewLink) || (fileId ? `https://drive.google.com/file/d/${fileId}/view` : ''),
+      url: clean(uploaded.url),
       approvedAt: nowIso(),
       folderId: clean(workspace.finalDocumentsFolderId),
       documentsFolderId: targetFolder.folderId,
@@ -305,11 +245,9 @@ export async function finalizeApprovedActExport({ actNo, updatedHtml = '', sprea
       rawReason: classified.rawReason || '',
     };
     await persistExportState(document, exportState);
-    console.error('[final-pdf-export]', { actNo: clean(actNo), workspaceId: clean(workspace?.id), folderId: clean(workspace?.finalDocumentsFolderId), exportStatus: exportState.status, errorCode: exportState.errorCode, serviceAccountEmail: driveClient?.serviceAccountEmail || '' });
+    console.error('[final-pdf-export]', { actNo: clean(actNo), workspaceId: clean(workspace?.id), folderId: clean(workspace?.finalDocumentsFolderId), exportStatus: exportState.status, errorCode: exportState.errorCode, serviceAccountEmail: provider?.serviceAccountEmail || '' });
     return exportState;
   } finally {
-    if (tempDocId && driveClient?.drive) {
-      await driveClient.drive.files.delete({ fileId: tempDocId, supportsAllDrives: true }).catch(() => {});
-    }
+    if (tempDocId && provider) await provider.deleteTemporaryFile(tempDocId);
   }
 }

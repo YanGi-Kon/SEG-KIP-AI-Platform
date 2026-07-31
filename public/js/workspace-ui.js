@@ -361,6 +361,11 @@
     } else {
       setStatus('Yangi Workspace maʼlumotlarini kiriting.', 'info');
     }
+    const detail = { workspaceId: state.selectedWorkspaceId };
+    window.dispatchEvent(new CustomEvent('seg-kip:workspace-change', { detail }));
+    document.querySelectorAll('iframe').forEach((frame) => {
+      try { frame.contentWindow?.postMessage({ type: 'SEG_KIP_WORKSPACE_CHANGE', ...detail }, '*'); } catch (_) {}
+    });
   }
 
   function collectWorkspaceInput(extra = {}) {

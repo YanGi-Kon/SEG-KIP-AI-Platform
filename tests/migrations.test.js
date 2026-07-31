@@ -29,3 +29,11 @@ test('workflow migration contains tenant-scoped workflow tables', async () => {
   }
   assert.match(sql, /workspace_id uuid NOT NULL REFERENCES workspaces/i);
 });
+
+test('final PDF migration adds export job states and diagnostics', async () => {
+  const sql = await fs.readFile(new URL('../db/migrations/025_final_pdf_export_outbox.sql', import.meta.url), 'utf8');
+  assert.match(sql, /final_pdf_export/i);
+  assert.match(sql, /failed_retryable/i);
+  assert.match(sql, /failed_permanent/i);
+  assert.match(sql, /last_error_code/i);
+});

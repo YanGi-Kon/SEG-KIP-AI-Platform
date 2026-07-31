@@ -16,7 +16,8 @@ import {
   uploadSignaturePng,
   verifyApprovalToken,
 } from '../services/signatureApprovalService.js';
-import { finalizeApprovedActExport } from '../services/finalPdfExportService.js';
+import { enqueueFinalPdfExport } from '../repositories/outboxRepository.js';
+import { isDatabaseConfigured } from '../db/pool.js';
 
 const router = express.Router();
 const upload = multer({
@@ -189,18 +190,34 @@ router.post('/document/approve', async (req, res) => {
     const result = await approveDocument(req.body?.token, req.body?.csrfToken, req);
     let finalPdfExport = null;
     if (result?.status === 'Тасдиқланди' && result?.approval?.actNo) {
-      try {
-        finalPdfExport = await finalizeApprovedActExport({
-          actNo: result.approval.actNo,
-          updatedHtml: result.updatedHtml || '',
-          spreadsheetUrl: approvalContext.spreadsheetUrl || '',
-          workspaceId: approvalContext.workspaceId || '',
-        });
-      } catch (exportError) {
+      if (approvalContext.workspaceId && isDatabaseConfigured()) {
+        try {
+          const job = await enqueueFinalPdfExport({
+            actNo: result.approval.actNo,
+            updatedHtml: result.updatedHtml || '',
+            workspaceId: approvalContext.workspaceId,
+          });
+          finalPdfExport = {
+            status: job.status === 'completed' ? 'EXPORTED' : 'PENDING',
+            jobId: job.id,
+            idempotencyKey: job.idempotencyKey,
+          };
+        } catch (queueError) {
+          finalPdfExport = {
+            status: 'FAILED_RETRYABLE',
+            code: 'FINAL_PDF_QUEUE_FAILED',
+            error: queueError.message,
+          };
+        }
+      } else {
         finalPdfExport = {
-          status: 'EXPORT_FAILED',
-          error: exportError.message,
-          code: exportError.code || 'FINAL_PDF_EXPORT_FAILED',
+          status: 'FAILED_PERMANENT',
+          code: approvalContext.workspaceId
+            ? 'FINAL_PDF_OUTBOX_DATABASE_REQUIRED'
+            : 'APPROVAL_WORKSPACE_CONTEXT_REQUIRED',
+          error: approvalContext.workspaceId
+            ? 'Final PDF outbox uchun DATABASE_URL talab qilinadi.'
+            : 'Legacy approval token workspaceId saqlamaydi; tenantlar bo‘yicha qidiruv bajarilmadi.',
         };
       }
     }

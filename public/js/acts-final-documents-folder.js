@@ -2,19 +2,14 @@
 (function setupActsFinalDocumentsFolder(){
   'use strict';
 
-  const ACCESS_TOKEN_KEY = 'seg_kip_workspace_access_token';
-  const SELECTED_WORKSPACE_KEY = 'seg_kip_selected_workspace_id';
   const PANEL_ID = 'finalDocumentsFolderPanel';
   let lastDiagnostic = null;
   let currentWorkspace = null;
   let loadPromise = null;
-  let bootstrapTimer = null;
 
   function $(id){ return document.getElementById(id); }
   function esc(value){ return String(value ?? '').replace(/[&<>"']/g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m])); }
-  function parentStorage(storageName, key){ try { return parent?.[storageName]?.getItem(key) || ''; } catch (_) { return ''; } }
-  function workspaceId(){ return localStorage.getItem(SELECTED_WORKSPACE_KEY) || parentStorage('localStorage', SELECTED_WORKSPACE_KEY) || ''; }
-  function token(){ return sessionStorage.getItem(ACCESS_TOKEN_KEY) || parentStorage('sessionStorage', ACCESS_TOKEN_KEY) || ''; }
+  function workspaceId(){ return window.WorkspaceApiClient?.workspaceId() || ''; }
   function rootPath(){
     const id = workspaceId();
     if (!id) throw new Error('Объект аниқланмади. Қайта login қилинг ёки администраторга мурожаат қилинг.');
@@ -22,46 +17,9 @@
   }
   function documentsPath(){ return `${rootPath()}/documents`; }
 
-  async function parse(res){
-    const text = await res.text();
-    if (!text) return {};
-    try { return JSON.parse(text); } catch (_) { return { raw:text }; }
-  }
-
-  async function refresh(){
-    const res = await fetch('/api/auth/refresh', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      credentials:'include',
-    });
-    const data = await parse(res);
-    if (!res.ok) throw new Error(data.error || 'Session yangilanmadi');
-    if (data.accessToken) {
-      sessionStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
-      try { parent.sessionStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken); } catch (_) {}
-    }
-  }
-
-  async function api(path, options = {}, retry = true){
-    const headers = new Headers(options.headers || {});
-    if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
-      headers.set('Content-Type', 'application/json');
-    }
-    const currentToken = token();
-    if (currentToken) headers.set('Authorization', `Bearer ${currentToken}`);
-    const res = await fetch(path, { ...options, headers, credentials:'include' });
-    const data = await parse(res);
-    if (res.status === 401 && retry) {
-      await refresh();
-      return api(path, options, false);
-    }
-    if (!res.ok || data.error) {
-      const error = new Error(data.error || `HTTP ${res.status}`);
-      error.data = data;
-      error.status = res.status;
-      throw error;
-    }
-    return data;
+  async function api(path, options = {}){
+    if (!window.WorkspaceApiClient) throw new Error('Workspace API client yuklanmadi.');
+    return window.WorkspaceApiClient.request(path, options);
   }
 
   function ensureStyle(){
@@ -69,9 +27,7 @@
     const style = document.createElement('style');
     style.id = 'actsFinalDocumentsFolderStyle';
     style.textContent = `
-      .acts-top{align-items:flex-start !important}
-      .acts-final-folder-slot{flex:1 1 470px;display:flex;justify-content:flex-end;min-width:320px;max-width:720px;margin-left:auto}
-      .final-documents-card{width:100%;display:grid;gap:7px;padding:10px 11px;border:1px solid rgba(34,211,238,.30);border-radius:13px;background:rgba(4,18,34,.74);box-shadow:0 12px 30px rgba(0,0,0,.16)}
+      .final-documents-card{width:100%;display:grid;gap:10px;margin-top:16px;padding:14px;border:1px solid rgba(34,211,238,.30);border-radius:13px;background:rgba(4,18,34,.74);box-shadow:0 12px 30px rgba(0,0,0,.16)}
       .final-documents-title-row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
       .final-documents-title{color:#e6faff;font-size:12px;font-weight:900}
       .final-documents-object{color:#9fd8e8;font-size:10px;font-weight:800}
@@ -83,8 +39,7 @@
       .final-documents-status{font-size:10px;color:#cde7f0;line-height:1.35}
       .final-documents-service-account{font-size:10px;color:#b8d8e6;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       #finalDocumentsFolderMessage{margin-top:0;padding:6px 8px;font-size:10px}
-      @media(max-width:1180px){.acts-final-folder-slot{order:3;flex-basis:100%;max-width:none}.final-documents-row{grid-template-columns:1fr auto}}
-      @media(max-width:760px){.acts-final-folder-slot{min-width:0}.final-documents-row{grid-template-columns:1fr}.final-documents-actions{justify-content:flex-start}.final-documents-service-account{white-space:normal}}
+      @media(max-width:760px){.final-documents-row{grid-template-columns:1fr}.final-documents-actions{justify-content:flex-start}.final-documents-service-account{white-space:normal}}
     `;
     document.head.appendChild(style);
   }
@@ -93,21 +48,6 @@
     $('approvedDocumentsTab')?.remove();
     $('approvedDocumentsModal')?.remove();
     document.querySelector('#signersModal #finalDocumentsFolderPanel')?.remove();
-  }
-
-  function findMainScreenHost(){
-    const top = document.querySelector('.acts-top');
-    if (!top) return null;
-    let slot = $('actsFinalDocumentsFolderSlot');
-    if (!slot) {
-      slot = document.createElement('div');
-      slot.id = 'actsFinalDocumentsFolderSlot';
-      slot.className = 'acts-final-folder-slot';
-      const settingsButton = Array.from(top.children).find((node) => node.matches?.('button') && (node.getAttribute('onclick') || '').includes('openSettings'));
-      if (settingsButton) top.insertBefore(slot, settingsButton);
-      else top.appendChild(slot);
-    }
-    return slot;
   }
 
   function panelMarkup(){
@@ -143,26 +83,15 @@
   function mountFinalDocumentsFolderPanel(){
     ensureStyle();
     removeLegacyUi();
-    const host = findMainScreenHost();
-    if (!host) return { mounted:false, created:false };
-
     let panel = $(PANEL_ID);
-    let created = false;
-    if (!panel) {
-      panel = document.createElement('section');
-      panel.id = PANEL_ID;
-      panel.className = 'final-documents-card';
-      panel.innerHTML = panelMarkup();
-      created = true;
-    }
-    if (panel.parentElement !== host) host.appendChild(panel);
+    if (!panel) return { mounted:false, created:false };
     bindPanelEvents(panel);
     console.info('[acts-final-documents-folder] mounted', {
       workspaceId: workspaceId(),
-      location: 'acts-main-header',
-      created,
+      location: 'final-documents-modal',
+      created:false,
     });
-    return { mounted:true, created };
+    return { mounted:true, created:false };
   }
 
   function setMsg(text, cls=''){
@@ -218,6 +147,7 @@
 
   function friendlyError(diag){
     const code = diag?.code || '';
+    if (code === 'DRIVE_SHARED_DRIVE_REQUIRED') return '❌ Oddiy My Drive papkasi qo‘llab-quvvatlanmaydi. Shared Drive papkasini tanlang.';
     if (code === 'SERVICE_ACCOUNT_NO_STORAGE_QUOTA') return '❌ Service account’da Drive storage quota yo‘q. Shared Drive ishlating.';
     if (code === 'DRIVE_API_DISABLED') return '❌ Google Drive API yoqilmagan.';
     if (code === 'DRIVE_FOLDER_NOT_FOUND') return '❌ Folder ID noto‘g‘ri yoki service account bilan share qilinmagan.';
@@ -253,6 +183,7 @@
   }
 
   async function saveFinalDocumentsFolder(){
+    setBusy(true);
     try {
       const value = $('finalDocumentsFolderInput')?.value.trim() || '';
       if (!value) return setMsg('Якуний ҳужжатлар папкаси Google Drive URL ёки ID киритинг.', 'bad');
@@ -266,10 +197,13 @@
       setMsg('Папка сақланди. Энди “Текшириш” тугмасини босинг.', 'ok');
     } catch (error) {
       setMsg(error.message, 'bad');
+    } finally {
+      setBusy(false);
     }
   }
 
   async function testFinalDocumentsFolder(){
+    setBusy(true);
     try {
       setMsg('Google Drive папка ва ёзиш ҳуқуқи текширилмоқда...', 'sync');
       const data = await api(`${documentsPath()}/final-folder/test`, {
@@ -290,7 +224,16 @@
       };
       updatePanel(await loadWorkspace().catch(() => null));
       setMsg(friendlyError(lastDiagnostic), 'bad');
+    } finally {
+      setBusy(false);
     }
+  }
+
+  function setBusy(busy){
+    ['saveFinalDocumentsFolderBtn', 'testFinalDocumentsFolderBtn'].forEach((id) => {
+      const button = $(id);
+      if (button) button.disabled = Boolean(busy);
+    });
   }
 
   function exposeApi(){
@@ -298,33 +241,36 @@
     window.ActsUI.saveFinalDocumentsFolder = saveFinalDocumentsFolder;
     window.ActsUI.testFinalDocumentsFolder = testFinalDocumentsFolder;
     window.ActsUI.openFinalDocumentsFolder = openConfiguredFolder;
+    window.ActsUI.openFinalDocumentsFolderSettings = openFinalDocumentsFolderSettings;
+    window.ActsUI.closeFinalDocumentsFolderSettings = closeFinalDocumentsFolderSettings;
     return true;
   }
 
-  function bootstrap(){
-    const result = mountFinalDocumentsFolderPanel();
-    exposeApi();
-    if (result.mounted && workspaceId()) {
-      if (bootstrapTimer) clearInterval(bootstrapTimer);
-      bootstrapTimer = null;
-      loadPanelWorkspace();
-      return true;
-    }
-    return false;
+  function openFinalDocumentsFolderSettings(){
+    $('finalDocumentsFolderModal')?.classList.add('show');
+    loadPanelWorkspace();
+  }
+
+  function closeFinalDocumentsFolderSettings(){
+    $('finalDocumentsFolderModal')?.classList.remove('show');
   }
 
   function boot(){
     console.info('[acts-final-documents-folder] loaded');
-    if (bootstrap()) return;
-    let attempts = 0;
-    bootstrapTimer = setInterval(() => {
-      attempts += 1;
-      if (bootstrap() || attempts >= 20) {
-        clearInterval(bootstrapTimer);
-        bootstrapTimer = null;
-      }
-    }, 500);
-    window.addEventListener('focus', () => { mountFinalDocumentsFolderPanel(); loadPanelWorkspace(); });
+    mountFinalDocumentsFolderPanel();
+    exposeApi();
+    loadPanelWorkspace();
+    window.addEventListener('seg-kip:workspace-change', () => {
+      currentWorkspace = null;
+      lastDiagnostic = null;
+      loadPanelWorkspace();
+    });
+    window.addEventListener('message', (event) => {
+      if (event.data?.type !== 'SEG_KIP_WORKSPACE_CHANGE') return;
+      currentWorkspace = null;
+      lastDiagnostic = null;
+      loadPanelWorkspace();
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });
