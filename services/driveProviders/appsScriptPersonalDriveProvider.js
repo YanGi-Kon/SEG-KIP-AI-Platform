@@ -19,7 +19,7 @@ export function canonicalJson(value) {
 
 export function signAppsScriptRequest({ action, payload, timestamp, nonce }, secret) {
   const canonical = canonicalJson({ action, nonce, payload, timestamp });
-  return crypto.createHmac('sha256', secret).update(canonical).digest('hex');
+  return crypto.createHmac('sha256', secret).update(canonical, 'utf8').digest('hex');
 }
 
 export function classifyAppsScriptDriveError(error) {

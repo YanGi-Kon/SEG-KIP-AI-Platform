@@ -46,7 +46,11 @@ function authenticate_(body) {
     payload: body.payload || {},
     timestamp: timestamp
   });
-  var expected = hex_(Utilities.computeHmacSha256Signature(canonical, secret));
+  var expected = hex_(Utilities.computeHmacSha256Signature(
+    canonical,
+    secret,
+    Utilities.Charset.UTF_8
+  ));
   if (expected !== clean_(body.signature).toLowerCase()) throw new Error('DRIVE_APPS_SCRIPT_AUTH_FAILED');
   cache.put(cacheKey, '1', 600);
 }

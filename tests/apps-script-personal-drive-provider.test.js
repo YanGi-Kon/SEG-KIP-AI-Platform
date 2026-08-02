@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
 import {
   AppsScriptPersonalDriveProvider,
   canonicalJson,
@@ -16,8 +17,35 @@ test('canonical JSON is stable regardless of object key insertion order', () => 
 });
 test('request signature matches a standard SHA-256 HMAC', () => {
   const envelope = { action: 'validate_folder', payload: { folderId: 'abc' }, timestamp: 123, nonce: 'n-1' };
-  const expected = crypto.createHmac('sha256', 'secret').update(canonicalJson(envelope)).digest('hex');
+  const expected = crypto.createHmac('sha256', 'secret').update(canonicalJson(envelope), 'utf8').digest('hex');
   assert.equal(signAppsScriptRequest(envelope, 'secret'), expected);
+});
+
+test('request signature uses UTF-8 for Cyrillic PDF content', () => {
+  const envelope = {
+    action: 'render_and_upload_pdf',
+    payload: {
+      rootFolderId: 'root-1',
+      targetFolderId: 'target-1',
+      name: 'АКТ_2026_0019 - Tasdiqlangan.pdf',
+      html: '<h1>Ўзбекча тест — Жалолов Р</h1>',
+    },
+    timestamp: 1785684540000,
+    nonce: 'unicode-test-1',
+  };
+  const expected = crypto
+    .createHmac('sha256', Buffer.from('test-secret', 'utf8'))
+    .update(Buffer.from(canonicalJson(envelope), 'utf8'))
+    .digest('hex');
+  assert.equal(signAppsScriptRequest(envelope, 'test-secret'), expected);
+});
+
+test('Apps Script verifies webhook HMAC with explicit UTF-8', async () => {
+  const source = await fs.readFile(new URL('../apps-script/Code.gs', import.meta.url), 'utf8');
+  assert.match(
+    source,
+    /computeHmacSha256Signature\([\s\S]*Utilities\.Charset\.UTF_8[\s\S]*\)/,
+  );
 });
 
 test('Personal Drive provider signs requests and maps folder diagnostics', async () => {
