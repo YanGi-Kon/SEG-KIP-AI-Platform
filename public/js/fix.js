@@ -220,20 +220,6 @@ function isSanegLoginActive(){
   document.head.appendChild(script);
 })();
 
-(function removeWorkspaceSettingsUi(){
-  function removeExistingUi(){
-    if (isSanegLoginActive()) return;
-    document.querySelectorAll('.seg-workspace-menu, #workspaceSettingsPage, #workspaceSignersPanel').forEach((node) => node.remove());
-  }
-  function setup(){
-    removeExistingUi();
-    const observer = new MutationObserver(() => { if (!isSanegLoginActive()) removeExistingUi(); });
-    observer.observe(document.body, { childList:true, subtree:true });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup);
-  else setup();
-})();
-
 (function injectSidebarExtras(){
   const CSS = `
     .sidebar-extras{margin-top:12px;display:flex;flex-direction:column;gap:8px;}

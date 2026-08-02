@@ -1,6 +1,9 @@
 // SEG KIP Workspace frontend UI
 // Stage 6: browser login, Workspace selector, settings, connection test and activation.
 (function setupWorkspaceUi() {
+  if (window.__segWorkspaceUiInstalled) return;
+  window.__segWorkspaceUiInstalled = true;
+
   const ACCESS_TOKEN_KEY = 'seg_kip_workspace_access_token';
   const SELECTED_WORKSPACE_KEY = 'seg_kip_selected_workspace_id';
   const DEFAULT_TIME_ZONE = 'Asia/Tashkent';
