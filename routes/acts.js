@@ -1,6 +1,10 @@
 import express from 'express';
+import { getAppConfig } from '../config/env.js';
+import { requireAccessToken } from '../middleware/auth.js';
+import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
 import { readSheetRows, listSheets, validateServiceAccount } from '../services/googleSheetsService.js';
 import { getDailyReports, writeActDocument } from '../services/actBlankSheetService.js';
+import { resolveWorkspaceGoogleConfig } from '../services/workspaceGoogleService.js';
 
 const router = express.Router();
 
@@ -83,6 +87,19 @@ function getPayload(req) {
   return { ...req.query, ...req.body };
 }
 
+function workspaceGuards(permission) {
+  const authorizeWorkspace = requireWorkspaceRequestPermission(permission);
+  return (req, res, next) => {
+    if (!getAppConfig().features.workspaceModeEnabled) return next();
+    return requireAccessToken(req, res, () => authorizeWorkspace(req, res, next));
+  };
+}
+
+function resolveRequestActsConfig(req) {
+  if (req.workspace) return resolveWorkspaceGoogleConfig(req.workspace);
+  return resolveActsConfig(getPayload(req));
+}
+
 async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount }) {
   const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:J' });
   const reports = await getDailyReports({ spreadsheetUrl, serviceAccount });
@@ -105,9 +122,9 @@ async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount 
   };
 }
 
-router.post('/settings/test', async (req, res) => {
+router.post('/settings/test', workspaceGuards('workspace:test'), async (req, res) => {
   try {
-    const config = resolveActsConfig(req.body || {});
+    const config = resolveRequestActsConfig(req);
     const sheets = await listSheets(config);
     res.json({ ok: true, sheets });
   } catch (err) {
@@ -115,10 +132,11 @@ router.post('/settings/test', async (req, res) => {
   }
 });
 
-router.post('/monthly-analysis', async (req, res) => {
+router.post('/monthly-analysis', workspaceGuards('documents:read'), async (req, res) => {
   try {
-    const { sheetName } = getPayload(req);
-    const config = resolveActsConfig(getPayload(req));
+    const requestedSheetName = getPayload(req).sheetName;
+    const config = resolveRequestActsConfig(req);
+    const sheetName = req.workspace?.mainSheetName || requestedSheetName;
     const data = await buildMonthlyAnalysis({ ...config, sheetName });
     res.json(data);
   } catch (err) {
@@ -130,10 +148,10 @@ router.get('/monthly-analysis', async (req, res) => {
   res.status(405).json({ error: 'Ушбу endpoint учун POST ишлатинг.' });
 });
 
-router.post('/create', async (req, res) => {
+router.post('/create', workspaceGuards('documents:create'), async (req, res) => {
   try {
     const { act } = req.body || {};
-    const config = resolveActsConfig(req.body || {});
+    const config = resolveRequestActsConfig(req);
     const result = await writeActDocument({ ...config, act });
     res.json({ ok: true, ...result });
   } catch (err) {
@@ -141,9 +159,9 @@ router.post('/create', async (req, res) => {
   }
 });
 
-router.post('/reports/daily', async (req, res) => {
+router.post('/reports/daily', workspaceGuards('documents:read'), async (req, res) => {
   try {
-    const config = resolveActsConfig(req.body || {});
+    const config = resolveRequestActsConfig(req);
     const rows = await getDailyReports(config);
     res.json({ rows });
   } catch (err) {

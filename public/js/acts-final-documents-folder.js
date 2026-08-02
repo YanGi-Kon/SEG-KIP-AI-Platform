@@ -109,17 +109,23 @@
     return String(currentWorkspace?.finalDocumentsFolderId || '').trim();
   }
 
+  function canConfigureWorkspace(){
+    return ['owner', 'administrator'].includes(String(currentWorkspace?.memberRole || '').toLowerCase());
+  }
+
   function updatePanel(workspace){
     currentWorkspace = workspace || currentWorkspace;
     const input = $('finalDocumentsFolderInput');
     const folderId = configuredFolderId();
     if (input && document.activeElement !== input) input.value = folderId;
+    if (input) input.readOnly = !canConfigureWorkspace();
     const objectName = $('finalDocumentsWorkspaceName');
     if (objectName) objectName.textContent = `Объект: ${currentWorkspace?.name || 'Аниқланмади'}`;
     const status = $('finalDocumentsFolderStatus');
     const info = $('finalDocumentsServiceAccountInfo');
     const openButton = $('openFinalDocumentsFolderBtn');
     if (openButton) openButton.disabled = !folderId;
+    setBusy(false);
 
     if (lastDiagnostic?.ok) {
       if (status) {
@@ -183,6 +189,7 @@
   }
 
   async function saveFinalDocumentsFolder(){
+    if (!canConfigureWorkspace()) return setMsg('Sizning workspace rolingiz Drive papkasini o‘zgartirishga ruxsat bermaydi.', 'bad');
     setBusy(true);
     try {
       const value = $('finalDocumentsFolderInput')?.value.trim() || '';
@@ -203,6 +210,7 @@
   }
 
   async function testFinalDocumentsFolder(){
+    if (!canConfigureWorkspace()) return setMsg('Sizning workspace rolingiz Drive ulanishini tekshirishga ruxsat bermaydi.', 'bad');
     setBusy(true);
     try {
       setMsg('Google Drive папка ва ёзиш ҳуқуқи текширилмоқда...', 'sync');
@@ -232,7 +240,7 @@
   function setBusy(busy){
     ['saveFinalDocumentsFolderBtn', 'testFinalDocumentsFolderBtn'].forEach((id) => {
       const button = $(id);
-      if (button) button.disabled = Boolean(busy);
+      if (button) button.disabled = Boolean(busy) || !canConfigureWorkspace();
     });
   }
 
