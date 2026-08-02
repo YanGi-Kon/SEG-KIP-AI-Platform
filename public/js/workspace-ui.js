@@ -396,7 +396,30 @@
   }
 
   function canReadMembers(workspace = selectedWorkspace()) {
-    return ['owner', 'administrator', 'department_manager'].includes(String(workspace?.memberRole || '').toLowerCase());
+    return ['owner', 'administrator'].includes(String(workspace?.memberRole || '').toLowerCase());
+  }
+
+  function canConfigureWorkspace(workspace = selectedWorkspace()) {
+    if (!workspace) return true;
+    return ['owner', 'administrator'].includes(String(workspace.memberRole || '').toLowerCase());
+  }
+
+  function applyWorkspaceSettingsAccess(workspace = selectedWorkspace()) {
+    const readOnly = Boolean(workspace) && !canConfigureWorkspace(workspace);
+    [
+      '#workspaceNameInput',
+      '#workspaceSheetUrlInput',
+      '#workspaceMainSheetInput',
+      '#workspaceTimeZoneInput',
+      '#workspaceDriveFolderInput',
+    ].forEach((selector) => {
+      const input = qs(selector);
+      if (input) input.readOnly = readOnly;
+    });
+    ['#workspaceSaveButton', '#workspaceTestButton', '#workspaceActivateButton'].forEach((selector) => {
+      const button = qs(selector);
+      if (button) button.disabled = readOnly;
+    });
   }
 
   function canManageMemberRole(actorRole, targetRole) {
@@ -476,7 +499,11 @@
     const workspace = selectedWorkspace();
     state.members = [];
     renderWorkspaceMembers();
-    if (!workspace || !canReadMembers(workspace)) return;
+    if (!workspace) return;
+    if (!canReadMembers(workspace)) {
+      setMemberStatus('Sizning workspace rolingiz a‘zolar ro‘yxatini ko‘rishga ruxsat bermaydi.', 'warn');
+      return;
+    }
     setMemberStatus('Workspace aʼzolari yuklanmoqda...', 'info');
     try {
       const data = await apiFetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/members`, { method: 'GET' });
@@ -552,6 +579,7 @@
     qs('#workspaceMainSheetInput') && (qs('#workspaceMainSheetInput').value = workspace?.mainSheetName || DEFAULT_MAIN_SHEET);
     qs('#workspaceTimeZoneInput') && (qs('#workspaceTimeZoneInput').value = workspace?.timeZone || DEFAULT_TIME_ZONE);
     qs('#workspaceDriveFolderInput') && (qs('#workspaceDriveFolderInput').value = workspace?.driveFolderId || '');
+    applyWorkspaceSettingsAccess(workspace || null);
   }
 
   function selectWorkspace(workspaceId) {
@@ -663,6 +691,10 @@
 
   async function saveWorkspace(event, options = {}) {
     event?.preventDefault();
+    if (state.selectedWorkspaceId && !canConfigureWorkspace()) {
+      setStatus('Sizning workspace rolingiz sozlamalarni o‘zgartirishga ruxsat bermaydi.', 'warn');
+      return null;
+    }
     const body = collectWorkspaceInput(options.extra || {});
     if (!body.name || !body.spreadsheetUrl || !body.mainSheetName) {
       setStatus('Workspace nomi, Sheet URL va mainSheetName majburiy.', 'warn');
@@ -708,6 +740,10 @@
       setStatus('Avval Workspace saqlang yoki ro‘yxatdan tanlang.', 'warn');
       return null;
     }
+    if (!canConfigureWorkspace()) {
+      setStatus('Sizning workspace rolingiz ulanish testini bajarishga ruxsat bermaydi.', 'warn');
+      return null;
+    }
     setStatus('Google Sheet connection test bajarilmoqda...', 'info');
     try {
       const data = await apiFetch(`/api/workspaces/${encodeURIComponent(state.selectedWorkspaceId)}/test`, { method: 'POST' });
@@ -732,6 +768,10 @@
   async function activateWorkspace() {
     if (!state.selectedWorkspaceId) {
       setStatus('Activate qilish uchun avval Workspace tanlang.', 'warn');
+      return;
+    }
+    if (!canConfigureWorkspace()) {
+      setStatus('Sizning workspace rolingiz workspace’ni faollashtirishga ruxsat bermaydi.', 'warn');
       return;
     }
     const test = await testWorkspaceConnection();
