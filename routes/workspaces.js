@@ -26,6 +26,8 @@ import {
   uploadWorkspaceSignaturePng,
 } from '../services/workspaceSignatureService.js';
 import {
+  configureWorkspacePersonalDrive,
+  getWorkspacePersonalDriveStatus,
   saveWorkspaceFinalDocumentsFolder,
   testWorkspaceFinalDocumentsFolder,
 } from '../services/workspaceDriveFolderService.js';
@@ -165,6 +167,23 @@ router.put('/:workspaceId/documents/final-folder', requireWorkspacePermission('w
 router.post('/:workspaceId/documents/final-folder/test', requireWorkspacePermission('workspace:test'), async (req, res) => {
   try {
     const result = await testWorkspaceFinalDocumentsFolder(req.workspace, { writeTest: true });
+    res.json({ ok: true, result });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.get('/:workspaceId/documents/personal-drive', requireWorkspacePermission('workspace:read'), async (req, res) => {
+  try {
+    res.json({ ok: true, result: await getWorkspacePersonalDriveStatus(req.params.workspaceId) });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.put('/:workspaceId/documents/personal-drive', requireWorkspacePermission('workspace:update'), async (req, res) => {
+  try {
+    const result = await configureWorkspacePersonalDrive(req.auth.userId, req.params.workspaceId, req.body || {});
     res.json({ ok: true, result });
   } catch (error) {
     handleError(res, error);

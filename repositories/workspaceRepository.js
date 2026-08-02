@@ -169,6 +169,42 @@ export async function updateWorkspaceRecord(workspaceId, input, client = null) {
   return mapWorkspace(result.rows[0]);
 }
 
+export async function getWorkspacePersonalDriveConfig(workspaceId, client = null) {
+  const result = await executor(client).query(
+    `SELECT personal_drive_apps_script_url, personal_drive_secret_encrypted
+     FROM workspaces
+     WHERE id = $1 AND status <> 'archived'
+     LIMIT 1`,
+    [workspaceId],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    appsScriptUrl: row.personal_drive_apps_script_url || '',
+    secretEncrypted: row.personal_drive_secret_encrypted || '',
+    configured: Boolean(row.personal_drive_apps_script_url && row.personal_drive_secret_encrypted),
+  };
+}
+
+export async function saveWorkspacePersonalDriveConfig(workspaceId, input = {}, client = null) {
+  const result = await executor(client).query(
+    `UPDATE workspaces
+     SET personal_drive_apps_script_url = NULLIF($2, ''),
+         personal_drive_secret_encrypted = NULLIF($3, '')
+     WHERE id = $1 AND status <> 'archived'
+     RETURNING id, personal_drive_apps_script_url,
+               personal_drive_secret_encrypted IS NOT NULL AS configured`,
+    [workspaceId, input.appsScriptUrl || '', input.secretEncrypted || ''],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    workspaceId: row.id,
+    appsScriptUrl: row.personal_drive_apps_script_url || '',
+    configured: Boolean(row.configured && row.personal_drive_apps_script_url),
+  };
+}
+
 export async function archiveWorkspaceRecord(workspaceId, client = null) {
   const result = await executor(client).query(
     `UPDATE workspaces
