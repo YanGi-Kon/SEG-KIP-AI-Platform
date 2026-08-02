@@ -16,3 +16,17 @@ test('the workspace UI is loaded by the production entrypoint', () => {
     'workspace-ui.js must load after app.js so it can extend the existing navigation',
   );
 });
+
+test('the production fix bundle preserves the workspace settings UI', () => {
+  const fixPath = new URL('../public/js/fix.js', import.meta.url);
+  const workspaceUiPath = new URL('../public/js/workspace-ui.js', import.meta.url);
+  const fixScript = fs.readFileSync(fixPath, 'utf8');
+  const workspaceUiScript = fs.readFileSync(workspaceUiPath, 'utf8');
+
+  assert.doesNotMatch(fixScript, /removeWorkspaceSettingsUi/);
+  assert.doesNotMatch(
+    fixScript,
+    /querySelectorAll\(['"]\.seg-workspace-menu, #workspaceSettingsPage/,
+  );
+  assert.match(workspaceUiScript, /window\.__segWorkspaceUiInstalled/);
+});
