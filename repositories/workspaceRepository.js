@@ -222,9 +222,10 @@ export async function listWorkspaceMembers(workspaceId) {
   const result = await query(
     `SELECT wm.id, wm.workspace_id, wm.user_id, wm.role, wm.status,
             wm.created_at, wm.updated_at,
-            u.full_name, u.email, u.platform_role, u.status AS user_status
+            u.full_name, u.email, sr.name AS platform_role, u.status AS user_status
      FROM workspace_members wm
      JOIN users u ON u.id = wm.user_id
+     JOIN system_roles sr ON sr.id = u.system_role_id
      WHERE wm.workspace_id = $1
      ORDER BY CASE wm.role
        WHEN 'owner' THEN 1 WHEN 'administrator' THEN 2
@@ -268,9 +269,10 @@ function mapWorkspaceMember(row) {
 const WORKSPACE_MEMBER_SELECT = `
   SELECT wm.id, wm.workspace_id, wm.user_id, wm.role, wm.status,
          wm.created_at, wm.updated_at,
-         u.full_name, u.email, u.platform_role, u.status AS user_status
+         u.full_name, u.email, sr.name AS platform_role, u.status AS user_status
   FROM workspace_members wm
-  JOIN users u ON u.id = wm.user_id`;
+  JOIN users u ON u.id = wm.user_id
+  JOIN system_roles sr ON sr.id = u.system_role_id`;
 
 export async function findWorkspaceMemberById(workspaceId, memberId, client = null) {
   const result = await executor(client).query(
