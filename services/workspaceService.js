@@ -2,12 +2,23 @@ import crypto from 'crypto';
 import { withTransaction } from '../db/pool.js';
 import { normalizeWorkspaceInput } from '../domain/workspace.js';
 import {
+  assertCanAssignWorkspaceRole,
+  assertCanManageWorkspaceMember,
+  normalizeWorkspaceMemberRole,
+  normalizeWorkspaceMemberStatus,
+} from '../domain/workspaceMember.js';
+import { findUserByEmail } from '../repositories/userRepository.js';
+import {
   addWorkspaceMember,
   archiveWorkspaceRecord,
   createWorkspaceRecord,
+  deleteWorkspaceMemberRecord,
+  findWorkspaceMemberById,
+  findWorkspaceMemberByUserId,
   findWorkspaceForUser,
   listUserWorkspaces,
   listWorkspaceMembers,
+  updateWorkspaceMemberRecord,
   updateWorkspaceRecord,
 } from '../repositories/workspaceRepository.js';
 
@@ -20,6 +31,8 @@ const DEFAULT_WORKSPACE = Object.freeze({
   finalDocumentsFolderId: process.env.DEFAULT_WORKSPACE_FINAL_DOCUMENTS_FOLDER_ID || '',
   timeZone: process.env.DEFAULT_WORKSPACE_TIME_ZONE || 'Asia/Tashkent',
 });
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function serviceError(message, code, statusCode) {
   const error = new Error(message);
@@ -149,4 +162,90 @@ export async function archiveWorkspace(userId, workspaceId) {
 
 export async function getWorkspaceMembers(workspaceId) {
   return listWorkspaceMembers(workspaceId);
+}
+
+function normalizeMemberEmail(value) {
+  const email = String(value || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    throw serviceError('Valid member email is required', 'WORKSPACE_MEMBER_EMAIL_REQUIRED', 400);
+  }
+  return email;
+}
+
+function normalizeMemberId(value) {
+  const memberId = String(value || '').trim();
+  if (!UUID_PATTERN.test(memberId)) {
+    throw serviceError('Workspace member ID is invalid', 'INVALID_WORKSPACE_MEMBER_ID', 400);
+  }
+  return memberId;
+}
+
+function ensureActiveUser(user) {
+  if (!user) {
+    throw serviceError('Platform user not found. Create the user first.', 'WORKSPACE_MEMBER_USER_NOT_FOUND', 404);
+  }
+  if (user.status !== 'active') {
+    throw serviceError('Only active platform users can join a workspace', 'WORKSPACE_MEMBER_USER_INACTIVE', 409);
+  }
+}
+
+export async function createWorkspaceMember(actorWorkspace, input = {}) {
+  const email = normalizeMemberEmail(input.email);
+  const role = normalizeWorkspaceMemberRole(input.role);
+  const status = normalizeWorkspaceMemberStatus(input.status);
+  assertCanAssignWorkspaceRole(actorWorkspace.memberRole, role);
+
+  const user = await findUserByEmail(email);
+  ensureActiveUser(user);
+  const existing = await findWorkspaceMemberByUserId(actorWorkspace.id, user.id);
+  if (existing) {
+    throw serviceError('User is already a member of this workspace', 'WORKSPACE_MEMBER_EXISTS', 409);
+  }
+
+  await addWorkspaceMember({
+    workspaceId: actorWorkspace.id,
+    userId: user.id,
+    role,
+    status,
+  });
+  return findWorkspaceMemberByUserId(actorWorkspace.id, user.id);
+}
+
+export async function updateWorkspaceMember(actorWorkspace, memberId, input = {}) {
+  const normalizedMemberId = normalizeMemberId(memberId);
+  const current = await findWorkspaceMemberById(actorWorkspace.id, normalizedMemberId);
+  if (!current) {
+    throw serviceError('Workspace member not found', 'WORKSPACE_MEMBER_NOT_FOUND', 404);
+  }
+
+  const role = input.role === undefined
+    ? current.role
+    : normalizeWorkspaceMemberRole(input.role);
+  const status = input.status === undefined
+    ? current.status
+    : normalizeWorkspaceMemberStatus(input.status);
+  assertCanManageWorkspaceMember(actorWorkspace.memberRole, current.role, role);
+
+  if (status === 'active') {
+    ensureActiveUser({ status: current.userStatus });
+  }
+  const member = await updateWorkspaceMemberRecord(actorWorkspace.id, normalizedMemberId, { role, status });
+  if (!member) {
+    throw serviceError('Workspace member not found', 'WORKSPACE_MEMBER_NOT_FOUND', 404);
+  }
+  return member;
+}
+
+export async function deleteWorkspaceMember(actorWorkspace, memberId) {
+  const normalizedMemberId = normalizeMemberId(memberId);
+  const current = await findWorkspaceMemberById(actorWorkspace.id, normalizedMemberId);
+  if (!current) {
+    throw serviceError('Workspace member not found', 'WORKSPACE_MEMBER_NOT_FOUND', 404);
+  }
+  assertCanManageWorkspaceMember(actorWorkspace.memberRole, current.role);
+  const deleted = await deleteWorkspaceMemberRecord(actorWorkspace.id, normalizedMemberId);
+  if (!deleted) {
+    throw serviceError('Workspace member not found', 'WORKSPACE_MEMBER_NOT_FOUND', 404);
+  }
+  return { deleted: true, memberId: deleted.id, userId: deleted.user_id };
 }

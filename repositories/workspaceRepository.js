@@ -247,3 +247,69 @@ export async function listWorkspaceMembers(workspaceId) {
     updatedAt: row.updated_at,
   }));
 }
+
+function mapWorkspaceMember(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    userId: row.user_id,
+    role: row.role,
+    status: row.status,
+    fullName: row.full_name,
+    email: row.email,
+    platformRole: row.platform_role,
+    userStatus: row.user_status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+const WORKSPACE_MEMBER_SELECT = `
+  SELECT wm.id, wm.workspace_id, wm.user_id, wm.role, wm.status,
+         wm.created_at, wm.updated_at,
+         u.full_name, u.email, u.platform_role, u.status AS user_status
+  FROM workspace_members wm
+  JOIN users u ON u.id = wm.user_id`;
+
+export async function findWorkspaceMemberById(workspaceId, memberId, client = null) {
+  const result = await executor(client).query(
+    `${WORKSPACE_MEMBER_SELECT}
+     WHERE wm.workspace_id = $1 AND wm.id = $2
+     LIMIT 1`,
+    [workspaceId, memberId],
+  );
+  return mapWorkspaceMember(result.rows[0]);
+}
+
+export async function findWorkspaceMemberByUserId(workspaceId, userId, client = null) {
+  const result = await executor(client).query(
+    `${WORKSPACE_MEMBER_SELECT}
+     WHERE wm.workspace_id = $1 AND wm.user_id = $2
+     LIMIT 1`,
+    [workspaceId, userId],
+  );
+  return mapWorkspaceMember(result.rows[0]);
+}
+
+export async function updateWorkspaceMemberRecord(workspaceId, memberId, input, client = null) {
+  const result = await executor(client).query(
+    `UPDATE workspace_members
+     SET role = $3, status = $4
+     WHERE workspace_id = $1 AND id = $2
+     RETURNING id`,
+    [workspaceId, memberId, input.role, input.status],
+  );
+  if (!result.rows[0]) return null;
+  return findWorkspaceMemberById(workspaceId, memberId, client);
+}
+
+export async function deleteWorkspaceMemberRecord(workspaceId, memberId, client = null) {
+  const result = await executor(client).query(
+    `DELETE FROM workspace_members
+     WHERE workspace_id = $1 AND id = $2
+     RETURNING id, workspace_id, user_id, role, status`,
+    [workspaceId, memberId],
+  );
+  return result.rows[0] || null;
+}

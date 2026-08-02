@@ -6,9 +6,12 @@ import { requireWorkspacePermission } from '../middleware/workspaceAccess.js';
 import {
   archiveWorkspace,
   createWorkspace,
+  createWorkspaceMember,
+  deleteWorkspaceMember,
   getUserWorkspaces,
   getWorkspace,
   getWorkspaceMembers,
+  updateWorkspaceMember,
   updateWorkspace,
 } from '../services/workspaceService.js';
 import {
@@ -131,6 +134,33 @@ router.get('/:workspaceId/members', requireWorkspacePermission('members:read'), 
   try {
     const rows = await getWorkspaceMembers(req.params.workspaceId);
     res.json({ rows });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.post('/:workspaceId/members', requireWorkspacePermission('members:create'), async (req, res) => {
+  try {
+    const member = await createWorkspaceMember(req.workspace, req.body || {});
+    res.status(201).json({ ok: true, member });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.put('/:workspaceId/members/:memberId', requireWorkspacePermission('members:update'), async (req, res) => {
+  try {
+    const member = await updateWorkspaceMember(req.workspace, req.params.memberId, req.body || {});
+    res.json({ ok: true, member });
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+router.delete('/:workspaceId/members/:memberId', requireWorkspacePermission('members:delete'), async (req, res) => {
+  try {
+    const result = await deleteWorkspaceMember(req.workspace, req.params.memberId);
+    res.json({ ok: true, ...result });
   } catch (error) {
     handleError(res, error);
   }

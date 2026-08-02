@@ -11,6 +11,7 @@
     accessToken: sessionStorage.getItem(ACCESS_TOKEN_KEY) || '',
     user: null,
     workspaces: [],
+    members: [],
     selectedWorkspaceId: localStorage.getItem(SELECTED_WORKSPACE_KEY) || '',
     lastSheetTest: null,
   };
@@ -97,9 +98,16 @@
       .workspace-status.warn{border-color:rgba(245,158,11,.44);color:#fde68a;background:rgba(245,158,11,.08);}
       .workspace-result{max-height:280px;overflow:auto;border-radius:18px;border:1px solid rgba(255,255,255,.09);background:rgba(2,8,23,.70);padding:13px;color:#dffaff;font-size:12px;line-height:1.45;white-space:pre-wrap;}
       .workspace-note{margin-top:12px;color:#9fb7c7;font-size:12px;line-height:1.45;}
+      .workspace-members-card{grid-column:1 / -1;display:grid;gap:14px;}
+      .workspace-member-add-grid{display:grid;grid-template-columns:minmax(240px,1fr) 220px auto;gap:10px;align-items:end;}
+      .workspace-member-list{display:grid;gap:10px;}
+      .workspace-member-row{display:grid;grid-template-columns:minmax(220px,1fr) 190px 160px auto;gap:10px;align-items:center;padding:13px;border:1px solid rgba(255,255,255,.10);border-radius:18px;background:rgba(255,255,255,.04);}
+      .workspace-member-identity strong,.workspace-member-identity small{display:block;}
+      .workspace-member-identity small{margin-top:4px;color:#9fb7c7;word-break:break-word;}
+      .workspace-member-actions{display:flex;gap:8px;justify-content:flex-end;}
       .seg-workspace-menu{cursor:pointer;}
-      @media(max-width:1180px){.workspace-grid{grid-template-columns:1fr}.workspace-hero{grid-template-columns:1fr}.workspace-hero-badge{justify-self:start}}
-      @media(max-width:720px){.workspace-editor-grid{grid-template-columns:1fr}.workspace-hero h1{font-size:27px}.workspace-card{padding:16px}}
+      @media(max-width:1180px){.workspace-grid{grid-template-columns:1fr}.workspace-hero{grid-template-columns:1fr}.workspace-hero-badge{justify-self:start}.workspace-member-row{grid-template-columns:1fr 1fr}.workspace-member-actions{justify-content:flex-start}}
+      @media(max-width:720px){.workspace-editor-grid,.workspace-member-add-grid,.workspace-member-row{grid-template-columns:1fr}.workspace-hero h1{font-size:27px}.workspace-card{padding:16px}}
     `;
     document.head.appendChild(style);
   }
@@ -203,6 +211,24 @@
           </form>
 
           <pre id="workspaceTestResult" class="workspace-result">Sheet testi natijasi shu yerda chiqadi.</pre>
+        </div>
+
+        <div class="workspace-card workspace-members-card">
+          <div>
+            <h3>👥 Workspace aʼzolari</h3>
+            <div class="workspace-note">Mavjud platforma foydalanuvchisini email orqali workspaceʼga qo‘shing. Owner o‘zgarmaydi; administrator faqat o‘zidan past rollarni boshqaradi.</div>
+          </div>
+          <form id="workspaceMemberAddForm" class="workspace-member-add-grid">
+            <label class="workspace-label">Foydalanuvchi emaili
+              <input class="workspace-input" id="workspaceMemberEmailInput" type="email" placeholder="manager@example.com" required>
+            </label>
+            <label class="workspace-label">Workspace roli
+              <select class="workspace-select" id="workspaceMemberRoleInput"></select>
+            </label>
+            <button class="workspace-btn primary" id="workspaceMemberAddButton" type="submit">Aʼzo qo‘shish</button>
+          </form>
+          <div id="workspaceMemberStatus" class="workspace-status">Workspace tanlang.</div>
+          <div id="workspaceMemberList" class="workspace-member-list"></div>
         </div>
       </div>
     `;
@@ -341,6 +367,182 @@
     });
   }
 
+  const MEMBER_ROLE_LABELS = Object.freeze({
+    owner: 'Owner',
+    administrator: 'Administrator',
+    department_manager: 'Rahbariyat / bo‘lim boshlig‘i',
+    operator: 'Operator',
+    engineer: 'Muhandis',
+    viewer: 'Faqat ko‘rish',
+  });
+
+  const MEMBER_ROLE_RANK = Object.freeze({
+    owner: 6,
+    administrator: 5,
+    department_manager: 4,
+    operator: 3,
+    engineer: 2,
+    viewer: 1,
+  });
+
+  function setMemberStatus(message, tone = 'info') {
+    const box = qs('#workspaceMemberStatus');
+    if (!box) return;
+    box.className = `workspace-status ${tone}`;
+    box.textContent = message || '';
+  }
+
+  function canReadMembers(workspace = selectedWorkspace()) {
+    return ['owner', 'administrator', 'department_manager'].includes(String(workspace?.memberRole || '').toLowerCase());
+  }
+
+  function canManageMemberRole(actorRole, targetRole) {
+    const actor = MEMBER_ROLE_RANK[String(actorRole || '').toLowerCase()] || 0;
+    const target = MEMBER_ROLE_RANK[String(targetRole || '').toLowerCase()] || 0;
+    return actor >= MEMBER_ROLE_RANK.administrator && target > 0 && target < actor && targetRole !== 'owner';
+  }
+
+  function assignableRoles(actorRole) {
+    return Object.keys(MEMBER_ROLE_LABELS).filter((role) => canManageMemberRole(actorRole, role));
+  }
+
+  function roleOptions(actorRole, selectedRole = '') {
+    return assignableRoles(actorRole).map((role) => (
+      `<option value="${role}"${role === selectedRole ? ' selected' : ''}>${escapeHtml(MEMBER_ROLE_LABELS[role])}</option>`
+    )).join('');
+  }
+
+  function renderWorkspaceMembers() {
+    const list = qs('#workspaceMemberList');
+    const addForm = qs('#workspaceMemberAddForm');
+    const roleInput = qs('#workspaceMemberRoleInput');
+    if (!list || !addForm || !roleInput) return;
+
+    const workspace = selectedWorkspace();
+    const actorRole = String(workspace?.memberRole || '').toLowerCase();
+    const roles = assignableRoles(actorRole);
+    const canManage = roles.length > 0;
+    addForm.style.display = canManage ? 'grid' : 'none';
+    roleInput.innerHTML = roleOptions(actorRole, roles.at(-1) || '');
+
+    if (!workspace) {
+      list.innerHTML = '<div class="workspace-note">Aʼzolarni ko‘rish uchun workspace tanlang.</div>';
+      return;
+    }
+    if (!canReadMembers(workspace)) {
+      list.innerHTML = '<div class="workspace-note">Sizning workspace rolingiz aʼzolar ro‘yxatini ko‘rishga ruxsat bermaydi.</div>';
+      return;
+    }
+    if (!state.members.length) {
+      list.innerHTML = '<div class="workspace-note">Workspace aʼzolari topilmadi.</div>';
+      return;
+    }
+
+    list.innerHTML = state.members.map((member) => {
+      const editable = canManageMemberRole(actorRole, member.role);
+      const roleControl = editable
+        ? `<select class="workspace-select" data-member-role="${escapeHtml(member.id)}">${roleOptions(actorRole, member.role)}</select>`
+        : `<span class="workspace-chip">${escapeHtml(MEMBER_ROLE_LABELS[member.role] || member.role)}</span>`;
+      const statusControl = editable
+        ? `<select class="workspace-select" data-member-status="${escapeHtml(member.id)}">
+             <option value="active"${member.status === 'active' ? ' selected' : ''}>Active</option>
+             <option value="disabled"${member.status === 'disabled' ? ' selected' : ''}>Disabled</option>
+             <option value="invited"${member.status === 'invited' ? ' selected' : ''}>Invited</option>
+           </select>`
+        : `<span class="workspace-chip ${member.status === 'active' ? 'active' : 'draft'}">${escapeHtml(member.status)}</span>`;
+      const actions = editable
+        ? `<div class="workspace-member-actions">
+             <button class="workspace-btn" type="button" data-member-action="save" data-member-id="${escapeHtml(member.id)}">Saqlash</button>
+             <button class="workspace-btn danger" type="button" data-member-action="remove" data-member-id="${escapeHtml(member.id)}">O‘chirish</button>
+           </div>`
+        : '<div class="workspace-member-actions"></div>';
+      return `
+        <div class="workspace-member-row">
+          <div class="workspace-member-identity">
+            <strong>${escapeHtml(member.fullName || member.email)}</strong>
+            <small>${escapeHtml(member.email || '')}</small>
+          </div>
+          ${roleControl}
+          ${statusControl}
+          ${actions}
+        </div>`;
+    }).join('');
+  }
+
+  async function loadWorkspaceMembers() {
+    const workspace = selectedWorkspace();
+    state.members = [];
+    renderWorkspaceMembers();
+    if (!workspace || !canReadMembers(workspace)) return;
+    setMemberStatus('Workspace aʼzolari yuklanmoqda...', 'info');
+    try {
+      const data = await apiFetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/members`, { method: 'GET' });
+      state.members = Array.isArray(data.rows) ? data.rows : [];
+      renderWorkspaceMembers();
+      setMemberStatus(`${state.members.length} ta workspace aʼzosi topildi.`, 'ok');
+    } catch (error) {
+      renderWorkspaceMembers();
+      setMemberStatus(`Aʼzolarni yuklash xato: ${error.message}`, 'error');
+    }
+  }
+
+  async function addWorkspaceMember(event) {
+    event?.preventDefault();
+    const workspace = selectedWorkspace();
+    const email = qs('#workspaceMemberEmailInput')?.value.trim();
+    const role = qs('#workspaceMemberRoleInput')?.value;
+    if (!workspace || !email || !role) {
+      setMemberStatus('Workspace, email va rol majburiy.', 'warn');
+      return;
+    }
+    setMemberStatus('Workspace aʼzosi qo‘shilmoqda...', 'info');
+    try {
+      await apiFetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ email, role, status: 'active' }),
+      });
+      qs('#workspaceMemberEmailInput') && (qs('#workspaceMemberEmailInput').value = '');
+      await loadWorkspaceMembers();
+      setMemberStatus('Foydalanuvchi workspaceʼga qo‘shildi.', 'ok');
+    } catch (error) {
+      setMemberStatus(`Aʼzo qo‘shish xato: ${error.message}`, 'error');
+    }
+  }
+
+  async function updateWorkspaceMemberFromRow(memberId) {
+    const workspace = selectedWorkspace();
+    const list = qs('#workspaceMemberList');
+    const role = qsa('[data-member-role]', list).find((input) => input.dataset.memberRole === memberId)?.value;
+    const status = qsa('[data-member-status]', list).find((input) => input.dataset.memberStatus === memberId)?.value;
+    if (!workspace || !role || !status) return;
+    setMemberStatus('Workspace aʼzosi yangilanmoqda...', 'info');
+    try {
+      await apiFetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/members/${encodeURIComponent(memberId)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ role, status }),
+      });
+      await loadWorkspaceMembers();
+      setMemberStatus('Workspace aʼzosi yangilandi.', 'ok');
+    } catch (error) {
+      setMemberStatus(`Aʼzoni yangilash xato: ${error.message}`, 'error');
+    }
+  }
+
+  async function removeWorkspaceMember(memberId) {
+    const workspace = selectedWorkspace();
+    if (!workspace || !window.confirm('Bu foydalanuvchini workspaceʼdan o‘chirishni tasdiqlaysizmi?')) return;
+    setMemberStatus('Workspace aʼzosi o‘chirilmoqda...', 'info');
+    try {
+      await apiFetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/members/${encodeURIComponent(memberId)}`, {
+        method: 'DELETE',
+      });
+      await loadWorkspaceMembers();
+      setMemberStatus('Foydalanuvchi workspaceʼdan o‘chirildi.', 'ok');
+    } catch (error) {
+      setMemberStatus(`Aʼzoni o‘chirish xato: ${error.message}`, 'error');
+    }
+  }
+
   function setFormWorkspace(workspace) {
     qs('#workspaceNameInput') && (qs('#workspaceNameInput').value = workspace?.name || '');
     qs('#workspaceSheetUrlInput') && (qs('#workspaceSheetUrlInput').value = workspace?.spreadsheetUrl || '');
@@ -366,6 +568,7 @@
     document.querySelectorAll('iframe').forEach((frame) => {
       try { frame.contentWindow?.postMessage({ type: 'SEG_KIP_WORKSPACE_CHANGE', ...detail }, '*'); } catch (_) {}
     });
+    void loadWorkspaceMembers();
   }
 
   function collectWorkspaceInput(extra = {}) {
@@ -417,10 +620,12 @@
     setToken('');
     state.user = null;
     state.workspaces = [];
+    state.members = [];
     state.selectedWorkspaceId = '';
     localStorage.removeItem(SELECTED_WORKSPACE_KEY);
     renderUser();
     renderWorkspaceList();
+    renderWorkspaceMembers();
     setFormWorkspace(null);
     setStatus('Logout bajarildi.', 'ok');
   }
@@ -445,6 +650,7 @@
       if (state.selectedWorkspaceId) localStorage.setItem(SELECTED_WORKSPACE_KEY, state.selectedWorkspaceId);
       renderWorkspaceList();
       setFormWorkspace(selectedWorkspace());
+      await loadWorkspaceMembers();
       setStatus(state.workspaces.length ? 'Workspace ro‘yxati yuklandi.' : 'Workspace topilmadi. Yangi Workspace yarating.', state.workspaces.length ? 'ok' : 'warn');
     } catch (error) {
       renderUser();
@@ -540,6 +746,8 @@
     localStorage.removeItem(SELECTED_WORKSPACE_KEY);
     setFormWorkspace({ mainSheetName: DEFAULT_MAIN_SHEET, timeZone: DEFAULT_TIME_ZONE });
     renderWorkspaceList();
+    state.members = [];
+    renderWorkspaceMembers();
     renderSheetTestResult('Yangi Workspace uchun maʼlumot kiriting.');
     setStatus('Yangi Workspace yaratish rejimi.', 'info');
   }
@@ -581,6 +789,14 @@
     qs('#workspaceSettingsForm')?.addEventListener('submit', saveWorkspace);
     qs('#workspaceTestButton')?.addEventListener('click', testWorkspaceConnection);
     qs('#workspaceActivateButton')?.addEventListener('click', activateWorkspace);
+    qs('#workspaceMemberAddForm')?.addEventListener('submit', addWorkspaceMember);
+    qs('#workspaceMemberList')?.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-member-action]');
+      if (!button) return;
+      const memberId = button.dataset.memberId;
+      if (button.dataset.memberAction === 'save') void updateWorkspaceMemberFromRow(memberId);
+      if (button.dataset.memberAction === 'remove') void removeWorkspaceMember(memberId);
+    });
   }
 
   function setup() {
@@ -591,6 +807,7 @@
     attachEvents();
     renderUser();
     renderWorkspaceList();
+    renderWorkspaceMembers();
   }
 
   if (document.readyState === 'loading') {
