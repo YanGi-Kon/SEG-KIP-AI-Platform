@@ -4,8 +4,16 @@ import {
   createSharedDriveProvider,
   classifySharedDriveError,
 } from './driveProviders/sharedDriveServiceAccountProvider.js';
+import { AppsScriptPersonalDriveProvider } from './driveProviders/appsScriptPersonalDriveProvider.js';
+import {
+  decryptWorkspaceSecret,
+  encryptWorkspaceSecret,
+  validateAppsScriptDeploymentUrl,
+} from './workspaceSecretService.js';
 import {
   findWorkspaceForUser,
+  getWorkspacePersonalDriveConfig,
+  saveWorkspacePersonalDriveConfig,
   updateWorkspaceRecord,
 } from '../repositories/workspaceRepository.js';
 
@@ -49,7 +57,43 @@ export function resolveWorkspaceFinalDocumentsFolderId(workspace) {
 
 export async function createWorkspaceDriveProvider(workspace) {
   if (!workspace?.id) throw makeError('Workspace context required', 'WORKSPACE_CONTEXT_REQUIRED', 400);
+  const personalDrive = await getWorkspacePersonalDriveConfig(workspace.id);
+  if (personalDrive?.configured) {
+    return new AppsScriptPersonalDriveProvider({
+      url: personalDrive.appsScriptUrl,
+      secret: decryptWorkspaceSecret(personalDrive.secretEncrypted),
+      timeoutMs: process.env.PERSONAL_DRIVE_APPS_SCRIPT_TIMEOUT_MS || 30000,
+    });
+  }
   return createSharedDriveProvider();
+}
+
+export async function configureWorkspacePersonalDrive(userId, workspaceId, input = {}) {
+  return withTransaction(async (client) => {
+    const workspace = await findWorkspaceForUser(workspaceId, userId, { forUpdate: true, client });
+    if (!workspace || workspace.memberStatus !== 'active' || workspace.status === 'archived') {
+      throw makeError('Workspace not found', 'WORKSPACE_NOT_FOUND', 404);
+    }
+    const appsScriptUrl = validateAppsScriptDeploymentUrl(input.appsScriptUrl || input.url || '');
+    const secret = clean(input.secret);
+    if (!appsScriptUrl && !secret) return saveWorkspacePersonalDriveConfig(workspaceId, {}, client);
+    if (!appsScriptUrl || secret.length < 32) {
+      throw makeError('Apps Script URL va kamida 32 belgili secret talab qilinadi.', 'DRIVE_APPS_SCRIPT_CONFIG_REQUIRED');
+    }
+    return saveWorkspacePersonalDriveConfig(workspaceId, {
+      appsScriptUrl,
+      secretEncrypted: encryptWorkspaceSecret(secret),
+    }, client);
+  });
+}
+
+export async function getWorkspacePersonalDriveStatus(workspaceId) {
+  const config = await getWorkspacePersonalDriveConfig(workspaceId);
+  return {
+    configured: Boolean(config?.configured),
+    appsScriptUrl: config?.appsScriptUrl || '',
+    secretConfigured: Boolean(config?.secretEncrypted),
+  };
 }
 
 // Compatibility wrapper for existing callers while the export service migrates to the provider API.

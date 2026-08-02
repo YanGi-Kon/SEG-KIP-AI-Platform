@@ -212,13 +212,23 @@ export async function finalizeApprovedActExport({ actNo, updatedHtml = '', works
     });
 
     const pdfHtml = wrapHtmlForPdf(updatedHtml || document.a4Html, actNo);
-    tempDocId = await provider.uploadHtmlAsTemporaryDocument(
-      workspace.finalDocumentsFolderId,
-      `TMP_${safeFilePart(actNo, 'ACT')}_${Date.now()}`,
-      pdfHtml,
-    );
-    const pdfBuffer = await provider.exportDocumentToPdf(tempDocId);
-    const uploaded = await provider.uploadPdf(targetFolder.folderId, buildPdfFileName(actNo), pdfBuffer);
+    let uploaded;
+    if (typeof provider.renderAndUploadPdf === 'function') {
+      uploaded = await provider.renderAndUploadPdf({
+        rootFolderId: workspace.finalDocumentsFolderId,
+        targetFolderId: targetFolder.folderId,
+        name: buildPdfFileName(actNo),
+        html: pdfHtml,
+      });
+    } else {
+      tempDocId = await provider.uploadHtmlAsTemporaryDocument(
+        workspace.finalDocumentsFolderId,
+        `TMP_${safeFilePart(actNo, 'ACT')}_${Date.now()}`,
+        pdfHtml,
+      );
+      const pdfBuffer = await provider.exportDocumentToPdf(tempDocId);
+      uploaded = await provider.uploadPdf(targetFolder.folderId, buildPdfFileName(actNo), pdfBuffer);
+    }
     const fileId = clean(uploaded.fileId);
     const exportState = {
       status: 'EXPORTED',
