@@ -126,6 +126,7 @@ export async function updateWorkspace(userId, workspaceId, input) {
       finalDocumentsFolderUrl: input.finalDocumentsFolderUrl,
       finalDocumentsFolderId: input.finalDocumentsFolderId ?? current.finalDocumentsFolderId,
       timeZone: input.timeZone ?? current.timeZone,
+      serviceAccountBase64: input.serviceAccountBase64 !== undefined ? input.serviceAccountBase64 : current.serviceAccountBase64,
     });
 
     const nextStatus = input.status === undefined ? current.status : String(input.status).trim();
@@ -148,9 +149,17 @@ export async function updateWorkspace(userId, workspaceId, input) {
   });
 }
 
-export async function archiveWorkspace(userId, workspaceId) {
+export async function archiveWorkspace(userId, workspaceId, options = {}) {
   return withTransaction(async (client) => {
-    const current = await findWorkspaceForUser(workspaceId, userId, { forUpdate: true, client });
+    let current;
+    if (options.preAuthorized) {
+      // Platform admin bypasses membership check — workspace already verified by middleware
+      const { findWorkspaceById } = await import('../repositories/workspaceRepository.js');
+      current = await findWorkspaceById(workspaceId, client);
+      if (current) { current.memberRole = 'owner'; current.memberStatus = 'active'; }
+    } else {
+      current = await findWorkspaceForUser(workspaceId, userId, { forUpdate: true, client });
+    }
     if (!current || current.memberStatus !== 'active' || current.status === 'archived') {
       throw serviceError('Workspace not found', 'WORKSPACE_NOT_FOUND', 404);
     }
@@ -191,12 +200,19 @@ function ensureActiveUser(user) {
 
 export async function createWorkspaceMember(actorWorkspace, input = {}) {
   const email = normalizeMemberEmail(input.email);
-  const role = normalizeWorkspaceMemberRole(input.role);
+  const user = await findUserByEmail(email);
+  ensureActiveUser(user);
+  
+  const platformRole = String(user.platformRole || '').toLowerCase();
+  let mappedRole = 'viewer';
+  if (platformRole === 'super admin') mappedRole = 'administrator';
+  else if (platformRole === 'кип мастер') mappedRole = 'engineer';
+  
+  const role = normalizeWorkspaceMemberRole(mappedRole);
   const status = normalizeWorkspaceMemberStatus(input.status);
   assertCanAssignWorkspaceRole(actorWorkspace.memberRole, role);
 
-  const user = await findUserByEmail(email);
-  ensureActiveUser(user);
+
   const existing = await findWorkspaceMemberByUserId(actorWorkspace.id, user.id);
   if (existing) {
     throw serviceError('User is already a member of this workspace', 'WORKSPACE_MEMBER_EXISTS', 409);

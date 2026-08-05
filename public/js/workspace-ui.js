@@ -111,6 +111,9 @@
       .seg-workspace-menu{cursor:pointer;}
       @media(max-width:1180px){.workspace-grid{grid-template-columns:1fr}.workspace-hero{grid-template-columns:1fr}.workspace-hero-badge{justify-self:start}.workspace-member-row{grid-template-columns:1fr 1fr}.workspace-member-actions{justify-content:flex-start}}
       @media(max-width:720px){.workspace-editor-grid,.workspace-member-add-grid,.workspace-member-row{grid-template-columns:1fr}.workspace-hero h1{font-size:27px}.workspace-card{padding:16px}}
+      .workspace-delete-zone{text-align:center;margin-top:6px;}
+      .workspace-delete-link{background:none;border:none;color:rgba(255,255,255,0.3);font-size:11px;cursor:pointer;text-decoration:underline;padding:6px 12px;letter-spacing:0.03em;transition:color .2s;}
+      .workspace-delete-link:hover{color:#ff4d4f;}
     `;
     document.head.appendChild(style);
   }
@@ -152,28 +155,15 @@
 
       <div class="workspace-grid">
         <div class="workspace-card">
-          <h3>👤 Login</h3>
-          <form id="workspaceLoginForm" class="workspace-form">
-            <label class="workspace-label">Email
-              <input class="workspace-input" id="workspaceLoginEmail" type="email" autocomplete="username" placeholder="email@example.com" required>
-            </label>
-            <label class="workspace-label">Parol
-              <input class="workspace-input" id="workspaceLoginPassword" type="password" autocomplete="current-password" placeholder="••••••••••••" required>
-            </label>
-            <div class="workspace-actions">
-              <button class="workspace-btn primary" type="submit">Kirish</button>
-              <button class="workspace-btn ghost" id="workspaceRefreshSessionButton" type="button">Session tekshir</button>
-              <button class="workspace-btn danger" id="workspaceLogoutButton" type="button">Logout</button>
-            </div>
-          </form>
-          <div class="workspace-note">Access token faqat browser session ichida saqlanadi. Refresh token httpOnly cookie orqali yuradi.</div>
-          <div id="workspaceUserBox" class="workspace-user" style="margin-top:14px;">Login qilinmagan.</div>
+          <div id="workspaceUserBox" class="workspace-user"></div>
 
-          <div style="height:18px"></div>
-          <h3>📁 Workspace ro‘yxati</h3>
-          <div class="workspace-actions" style="margin-bottom:12px;">
-            <button class="workspace-btn ghost" id="workspaceLoadListButton" type="button">Ro‘yxatni yangilash</button>
-            <button class="workspace-btn ghost" id="workspaceNewButton" type="button">Yangi Workspace</button>
+          <div style="margin: 16px 0;">
+            <button class="workspace-btn primary" id="workspaceNewButton" type="button" style="width: 100%; padding: 12px; font-size: 14px;">➕ Yangi Workspace yaratish</button>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0;">📁 Workspace ro‘yxati</h3>
+            <button class="workspace-btn ghost" id="workspaceLoadListButton" type="button" style="padding: 4px 10px; font-size: 11px;">🔄 Yangilash</button>
           </div>
           <div id="workspaceList" class="workspace-list"></div>
         </div>
@@ -204,12 +194,19 @@
               <label class="workspace-label wide">Drive folder URL yoki ID, keyingi bosqichlar uchun ixtiyoriy
                 <input class="workspace-input" id="workspaceDriveFolderInput" placeholder="https://drive.google.com/drive/folders/...">
               </label>
+              <label class="workspace-label wide" style="margin-top: 12px;">Service Account JSON (individual)
+                <input type="file" id="workspaceServiceAccountInput" accept=".json" class="workspace-input">
+                <div id="workspaceServiceAccountStatus" style="font-size: 13px; margin-top: 4px; color: #555;"></div>
+              </label>
             </div>
 
             <div class="workspace-actions">
               <button class="workspace-btn primary" id="workspaceSaveButton" type="submit">Saqlash</button>
               <button class="workspace-btn" id="workspaceTestButton" type="button">Connection test</button>
               <button class="workspace-btn warning" id="workspaceActivateButton" type="button">Activate</button>
+            </div>
+            <div class="workspace-delete-zone">
+              <button class="workspace-delete-link" id="workspaceDeleteButton" type="button" style="display:none;">Workspace'ni o'chirish</button>
             </div>
           </form>
 
@@ -223,7 +220,9 @@
           </div>
           <form id="workspaceMemberAddForm" class="workspace-member-add-grid">
             <label class="workspace-label">Foydalanuvchi emaili
-              <input class="workspace-input" id="workspaceMemberEmailInput" type="email" placeholder="manager@example.com" required>
+              <select class="workspace-select" id="workspaceMemberEmailInput" required>
+                <option value="">Foydalanuvchini tanlang...</option>
+              </select>
             </label>
             <label class="workspace-label">Workspace roli
               <select class="workspace-select" id="workspaceMemberRoleInput"></select>
@@ -326,6 +325,21 @@
     return data;
   }
 
+  async function loadPlatformUsersDirectory() {
+    try {
+      if (!state.accessToken) return;
+      const data = await apiFetch('/api/users/directory', { method: 'GET' }, false);
+      const selectEl = qs('#workspaceMemberEmailInput');
+      if (selectEl && data.users) {
+        selectEl.innerHTML = '<option value="">Foydalanuvchini tanlang...</option>' + data.users.map((u) =>
+          `<option value="${escapeHtml(u.email)}">${escapeHtml(u.fullName || u.email)} (${escapeHtml(u.email)})</option>`
+        ).join('');
+      }
+    } catch (err) {
+      console.error('Failed to load users directory:', err);
+    }
+  }
+
   function renderUser() {
     const box = qs('#workspaceUserBox');
     if (!box) return;
@@ -356,10 +370,15 @@
             <span>${escapeHtml(workspace.name)}</span>
             <span class="workspace-chip ${statusClass}">${escapeHtml(workspace.status)}</span>
           </div>
-          <div class="workspace-meta">
-            slug: ${escapeHtml(workspace.slug)}<br>
-            role: ${escapeHtml(workspace.memberRole || '')} · member: ${escapeHtml(workspace.memberStatus || '')}<br>
-            mainSheetName: ${escapeHtml(workspace.mainSheetName || '')}
+          <div class="workspace-meta" style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="opacity: 0.7;">👤 Rolingiz:</span> 
+              <strong style="color: #dffaff;">${escapeHtml(MEMBER_ROLE_LABELS[String(workspace.memberRole || '').toLowerCase()] || workspace.memberRole || 'Aniqlanmadi')}</strong>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="opacity: 0.7;">📄 Asosiy jadval:</span>
+              <strong style="color: #dffaff;">${escapeHtml(workspace.mainSheetName || 'Kiritilmagan')}</strong>
+            </div>
           </div>
         </button>
       `;
@@ -373,6 +392,7 @@
   const MEMBER_ROLE_LABELS = Object.freeze({
     owner: 'Owner',
     administrator: 'Administrator',
+    workspace_manager: 'Menejer (boshliq)',
     department_manager: 'Rahbariyat / bo‘lim boshlig‘i',
     operator: 'Operator',
     engineer: 'Muhandis',
@@ -380,8 +400,9 @@
   });
 
   const MEMBER_ROLE_RANK = Object.freeze({
-    owner: 6,
-    administrator: 5,
+    owner: 7,
+    administrator: 6,
+    workspace_manager: 5,
     department_manager: 4,
     operator: 3,
     engineer: 2,
@@ -396,30 +417,34 @@
   }
 
   function canReadMembers(workspace = selectedWorkspace()) {
-    return ['owner', 'administrator'].includes(String(workspace?.memberRole || '').toLowerCase());
+    return ['owner', 'administrator', 'workspace_manager'].includes(String(workspace?.memberRole || '').toLowerCase());
   }
 
   function canConfigureWorkspace(workspace = selectedWorkspace()) {
     if (!workspace) return true;
-    return ['owner', 'administrator'].includes(String(workspace.memberRole || '').toLowerCase());
+    return ['owner', 'administrator', 'workspace_manager'].includes(String(workspace.memberRole || '').toLowerCase());
   }
 
   function applyWorkspaceSettingsAccess(workspace = selectedWorkspace()) {
-    const readOnly = Boolean(workspace) && !canConfigureWorkspace(workspace);
+    const isExisting = Boolean(workspace && workspace.id);
+    const readOnly = isExisting && !canConfigureWorkspace(workspace);
     [
       '#workspaceNameInput',
       '#workspaceSheetUrlInput',
       '#workspaceMainSheetInput',
       '#workspaceTimeZoneInput',
       '#workspaceDriveFolderInput',
+      '#workspaceServiceAccountInput',
     ].forEach((selector) => {
       const input = qs(selector);
       if (input) input.readOnly = readOnly;
     });
-    ['#workspaceSaveButton', '#workspaceTestButton', '#workspaceActivateButton'].forEach((selector) => {
+    ['#workspaceSaveButton', '#workspaceTestButton'].forEach((selector) => {
       const button = qs(selector);
       if (button) button.disabled = readOnly;
     });
+    const deleteBtn = qs('#workspaceDeleteButton');
+    if (deleteBtn) deleteBtn.style.display = (isExisting && !readOnly) ? 'inline-block' : 'none';
   }
 
   function canManageMemberRole(actorRole, targetRole) {
@@ -579,6 +604,14 @@
     qs('#workspaceMainSheetInput') && (qs('#workspaceMainSheetInput').value = workspace?.mainSheetName || DEFAULT_MAIN_SHEET);
     qs('#workspaceTimeZoneInput') && (qs('#workspaceTimeZoneInput').value = workspace?.timeZone || DEFAULT_TIME_ZONE);
     qs('#workspaceDriveFolderInput') && (qs('#workspaceDriveFolderInput').value = workspace?.driveFolderId || '');
+    const saInput = qs('#workspaceServiceAccountInput');
+    const saStatus = qs('#workspaceServiceAccountStatus');
+    if (saInput) saInput.value = '';
+    if (saStatus) {
+      saStatus.textContent = workspace?.hasServiceAccount
+        ? '✅ Individual JSON ulangan'
+        : 'Sistemadagi global kalit ishlatilmoqda';
+    }
     applyWorkspaceSettingsAccess(workspace || null);
   }
 
@@ -594,7 +627,7 @@
     } else {
       setStatus('Yangi Workspace maʼlumotlarini kiriting.', 'info');
     }
-    const detail = { workspaceId: state.selectedWorkspaceId };
+    const detail = { workspaceId: state.selectedWorkspaceId, workspace: workspace };
     window.dispatchEvent(new CustomEvent('seg-kip:workspace-change', { detail }));
     document.querySelectorAll('iframe').forEach((frame) => {
       try { frame.contentWindow?.postMessage({ type: 'SEG_KIP_WORKSPACE_CHANGE', ...detail }, '*'); } catch (_) {}
@@ -640,27 +673,6 @@
     }
   }
 
-  async function logout() {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-    } catch (_) {}
-    setToken('');
-    state.user = null;
-    state.workspaces = [];
-    state.members = [];
-    state.selectedWorkspaceId = '';
-    localStorage.removeItem(SELECTED_WORKSPACE_KEY);
-    renderUser();
-    renderWorkspaceList();
-    renderWorkspaceMembers();
-    setFormWorkspace(null);
-    setStatus('Logout bajarildi.', 'ok');
-  }
-
   async function loadMe() {
     if (!state.accessToken) await refreshSession();
     const data = await apiFetch('/api/auth/me', { method: 'GET' });
@@ -682,6 +694,7 @@
       renderWorkspaceList();
       setFormWorkspace(selectedWorkspace());
       await loadWorkspaceMembers();
+      void loadPlatformUsersDirectory();
       setStatus(state.workspaces.length ? 'Workspace ro‘yxati yuklandi.' : 'Workspace topilmadi. Yangi Workspace yarating.', state.workspaces.length ? 'ok' : 'warn');
     } catch (error) {
       renderUser();
@@ -695,7 +708,34 @@
       setStatus('Sizning workspace rolingiz sozlamalarni o‘zgartirishga ruxsat bermaydi.', 'warn');
       return null;
     }
+
+    const saInput = qs('#workspaceServiceAccountInput');
+    let serviceAccountBase64 = undefined;
+    if (saInput && saInput.files.length > 0) {
+      const file = saInput.files[0];
+      try {
+        const text = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('Faylni o‘qishda xato'));
+          reader.readAsText(file);
+        });
+        const parsed = JSON.parse(text);
+        if (!parsed.client_email || !parsed.private_key) {
+          throw new Error('JSON ichida client_email yoki private_key topilmadi');
+        }
+        serviceAccountBase64 = btoa(unescape(encodeURIComponent(text)));
+      } catch (err) {
+        setStatus(`Service Account faylida xato: ${err.message}`, 'error');
+        return null;
+      }
+    }
+
     const body = collectWorkspaceInput(options.extra || {});
+    if (serviceAccountBase64 !== undefined) {
+      body.serviceAccountBase64 = serviceAccountBase64;
+    }
+
     if (!body.name || !body.spreadsheetUrl || !body.mainSheetName) {
       setStatus('Workspace nomi, Sheet URL va mainSheetName majburiy.', 'warn');
       return null;
@@ -795,6 +835,22 @@
     setStatus('Yangi Workspace yaratish rejimi.', 'info');
   }
 
+  async function deleteWorkspace() {
+    const workspace = selectedWorkspace();
+    if (!workspace) return;
+    const confirmed = window.confirm(`Rostdan ham "${workspace.name}" workspace'ni o'chirmoqchimisiz?\n\nBu amalni ortga qaytarib bo'lmaydi!`);
+    if (!confirmed) return;
+    setStatus(`Workspace o'chirilmoqda...`, 'info');
+    try {
+      await apiFetch(`/api/workspaces/${encodeURIComponent(workspace.id)}`, { method: 'DELETE' });
+      setStatus(`Workspace muvaffaqiyatli o'chirildi.`, 'ok');
+      clearWorkspaceForm();
+      await loadWorkspaces();
+    } catch (error) {
+      setStatus(`O'chirishda xatolik: ${error.message}`, 'error');
+    }
+  }
+
   async function bootstrapAuthState() {
     renderUser();
     renderWorkspaceList();
@@ -816,20 +872,11 @@
   }
 
   function attachEvents() {
-    qs('#workspaceLoginForm')?.addEventListener('submit', login);
-    qs('#workspaceLogoutButton')?.addEventListener('click', logout);
-    qs('#workspaceRefreshSessionButton')?.addEventListener('click', async () => {
-      try {
-        await refreshSession();
-        await loadWorkspaces();
-        setStatus('Session yangilandi.', 'ok');
-      } catch (error) {
-        setStatus(`Session xato: ${error.message}`, 'error');
-      }
-    });
+
     qs('#workspaceLoadListButton')?.addEventListener('click', loadWorkspaces);
     qs('#workspaceNewButton')?.addEventListener('click', clearWorkspaceForm);
     qs('#workspaceSettingsForm')?.addEventListener('submit', saveWorkspace);
+    qs('#workspaceDeleteButton')?.addEventListener('click', deleteWorkspace);
     qs('#workspaceTestButton')?.addEventListener('click', testWorkspaceConnection);
     qs('#workspaceActivateButton')?.addEventListener('click', activateWorkspace);
     qs('#workspaceMemberAddForm')?.addEventListener('submit', addWorkspaceMember);

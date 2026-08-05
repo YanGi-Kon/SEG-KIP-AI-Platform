@@ -20,7 +20,21 @@ function authorizeWorkspace(permission, resolveWorkspaceId) {
     }
 
     try {
-      const workspace = await findWorkspaceForUser(workspaceId, req.auth?.userId);
+      const pRole = String(req.auth?.platformRole || '').toLowerCase();
+      const isAdmin = pRole === 'admin' || pRole === 'manager' || pRole === 'super admin' || pRole === 'кип мастер';
+      
+      let workspace;
+      if (isAdmin) {
+        const { findWorkspaceById } = await import('../repositories/workspaceRepository.js');
+        workspace = await findWorkspaceById(workspaceId);
+        if (workspace) {
+          workspace.memberRole = 'owner';
+          workspace.memberStatus = 'active';
+        }
+      } else {
+        workspace = await findWorkspaceForUser(workspaceId, req.auth?.userId);
+      }
+
       if (!workspace || workspace.memberStatus !== 'active' || workspace.status === 'archived') {
         return res.status(404).json({
           error: 'Workspace not found',

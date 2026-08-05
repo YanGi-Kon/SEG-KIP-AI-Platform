@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="../js/i18n.js"></script>
 <title>ПОЛЬЗОВАТЕЛИ</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>
@@ -26,65 +27,65 @@
 </head>
 <body>
 
-<h1>👥 Управление пользователями</h1>
-<button onclick="parent.postMessage({type:'SEG_CLOSE_MODULE'}, '*')">← Назад</button>
-<button onclick="openModal()" style="margin-left: 10px;">+ Добавить пользователя</button>
+<h1>👥 <span data-i18n="Управление пользователями">Управление пользователями</span></h1>
+<button onclick="parent.postMessage({type:'SEG_CLOSE_MODULE'}, '*')"><span data-i18n="← Назад">← Назад</span></button>
+<button onclick="openModal()" style="margin-left: 10px;"><span data-i18n="+ Добавить пользователя">+ Добавить пользователя</span></button>
 
 <div class="table-container">
   <table>
     <thead>
       <tr>
-        <th>Имя</th>
-        <th>Email</th>
-        <th>Роль</th>
-        <th>Статус</th>
-        <th>Действия</th>
+        <th data-i18n="Имя">Имя</th>
+        <th data-i18n="Email">Email</th>
+        <th data-i18n="Роль">Роль</th>
+        <th data-i18n="Статус">Статус</th>
+        <th data-i18n="Действия">Действия</th>
       </tr>
     </thead>
     <tbody id="usersTableBody">
-      <tr><td colspan="5">Загрузка...</td></tr>
+      <tr><td colspan="5" data-i18n="Загрузка...">Загрузка...</td></tr>
     </tbody>
   </table>
 </div>
 
 <div class="modal" id="userModal">
   <div class="modal-content">
-    <h3 id="modalTitle">Добавить пользователя</h3>
+    <h3 id="modalTitle" data-i18n="Добавить пользователя">Добавить пользователя</h3>
     <input type="hidden" id="userId">
     
     <div class="form-group">
-      <label>ФИО</label>
+      <label data-i18n="ФИО">ФИО</label>
       <input type="text" id="userFullName" placeholder="Иванов Иван">
     </div>
     
     <div class="form-group">
-      <label>Email</label>
+      <label data-i18n="Email">Email</label>
       <input type="email" id="userEmail" placeholder="ivan@example.com">
     </div>
     
     <div class="form-group">
-      <label>Системная Роль</label>
+      <label data-i18n="Системная Роль">Системная Роль</label>
       <select id="userRole"></select>
     </div>
 
     <div class="form-group">
-      <label>Статус</label>
+      <label data-i18n="Статус">Статус</label>
       <select id="userStatus">
-        <option value="active">Активен</option>
-        <option value="suspended">Заблокирован</option>
+        <option value="active" data-i18n="Активен">Активен</option>
+        <option value="suspended" data-i18n="Заблокирован">Заблокирован</option>
       </select>
     </div>
     
     <div class="form-group">
-      <label>Пароль <span id="pwdHint" style="font-size:12px; color:#666;"></span></label>
-      <input type="password" id="userPassword" placeholder="12+ символов: A-Z, a-z, 0-9">
+      <label><span data-i18n="Пароль">Пароль</span> <span id="pwdHint" style="font-size:12px; color:#666;"></span></label>
+      <input type="password" id="userPassword" placeholder="6+ символов" data-i18n-placeholder="6+ символов">
     </div>
     
     <div class="error" id="modalError"></div>
     
     <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
-      <button onclick="closeModal()">Отмена</button>
-      <button onclick="saveUser()" style="background: rgba(34,211,238,0.2);">Сохранить</button>
+      <button onclick="closeModal()" data-i18n="Отмена">Отмена</button>
+      <button onclick="saveUser()" style="background: rgba(34,211,238,0.2);" data-i18n="Сохранить">Сохранить</button>
     </div>
   </div>
 </div>
@@ -134,11 +135,8 @@ async function readApiPayload(res) {
 
 function validatePasswordClient(password) {
   const value = String(password || '');
-  if (value.length < 12 || value.length > 200) {
-    return 'Пароль должен содержать 12-200 символов';
-  }
-  if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/\d/.test(value)) {
-    return 'Пароль должен содержать строчные, заглавные буквы и цифры';
+  if (value.length < 6 || value.length > 200) {
+    return 'Пароль должен содержать 6-200 символов';
   }
   return '';
 }
@@ -171,13 +169,14 @@ async function loadData() {
         <td>${user.fullName}</td>
         <td>${user.email}</td>
         <td><span class="badge">${user.platformRole}</span></td>
-        <td>${user.status === 'active' ? 'Активен' : '<span style="color:#ff6b6b">Заблокирован</span>'}</td>
+        <td>${user.status === 'active' ? '<span data-i18n="Активен">Активен</span>' : '<span style="color:#ff6b6b" data-i18n="Заблокирован">Заблокирован</span>'}</td>
         <td>
-          <button onclick="editUser('${user.id}', '${encodeURIComponent(user.fullName)}', '${user.systemRoleId}', '${user.status}')">Редактировать</button>
+          <button onclick="editUser('${user.id}', '${encodeURIComponent(user.fullName)}', '${user.systemRoleId}', '${user.status}')" data-i18n="Редактировать">Редактировать</button>
         </td>
       `;
       tbody.appendChild(tr);
     });
+    setTimeout(() => window.applyTranslations?.(), 0);
   } catch (err) {
     document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="5">Ошибка загрузки (нужны права)</td></tr>';
   }
@@ -191,8 +190,11 @@ function openModal() {
   document.getElementById('userPassword').value = '';
   document.getElementById('userStatus').value = 'active';
   if(rolesList.length > 0) document.getElementById('userRole').value = rolesList[0].id;
+  document.getElementById('modalTitle').setAttribute('data-i18n', 'Добавить пользователя');
   document.getElementById('modalTitle').innerText = 'Добавить пользователя';
-  document.getElementById('pwdHint').innerText = '(12+ символов, A-Z, a-z, 0-9)';
+  setTimeout(() => window.applyTranslations?.(), 0);
+  document.getElementById('pwdHint').innerText = '(6+ символов)';
+  document.getElementById('pwdHint').setAttribute('data-i18n', '(6+ символов)');
   hideModalError();
   document.getElementById('userModal').classList.add('open');
 }
@@ -203,14 +205,17 @@ function closeModal() {
 
 function editUser(id, fullNameEnc, roleId, status) {
   openModal();
+  document.getElementById('modalTitle').setAttribute('data-i18n', 'Редактировать пользователя');
   document.getElementById('modalTitle').innerText = 'Редактировать пользователя';
+  setTimeout(() => window.applyTranslations?.(), 0);
   document.getElementById('userId').value = id;
   document.getElementById('userFullName').value = decodeURIComponent(fullNameEnc);
   document.getElementById('userEmail').value = 'Скрыто (нельзя изменить)';
   document.getElementById('userEmail').disabled = true;
   document.getElementById('userRole').value = roleId;
   document.getElementById('userStatus').value = status;
-  document.getElementById('pwdHint').innerText = '(оставьте пустым, чтобы не менять; если меняете: 12+ символов, A-Z, a-z, 0-9)';
+  document.getElementById('pwdHint').innerText = '(оставьте пустым, чтобы не менять; если меняете: 6+ символов)';
+  document.getElementById('pwdHint').setAttribute('data-i18n', '(оставьте пустым, чтобы не менять; если меняете: 6+ символов)');
 }
 
 async function saveUser() {

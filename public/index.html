@@ -5,53 +5,59 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SEG KIP Platform — Журналлар</title>
 <link rel="stylesheet" href="css/style.css">
-
-
+<script src="js/i18n.js"></script>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
     <div>
-      <div class="brand">
+      <div class="brand" style="display: flex; align-items: center; width: 100%;">
         <div class="logo">SEG</div>
-        <div>
+        <div class="brand-text">
           <h1>KIP</h1>
           <p>DIGITAL PLATFORM</p>
         </div>
+        <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Менюни ёпиш/очиш">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
       </div>
 
       <nav class="menu">
         <div class="menu-item active" onclick="openDashboard()">
           <div class="menu-icon">📍</div>
-          <div><div class="menu-title">1. ЖУРНАЛ УЧЕТА</div><div class="empty-note">Асосий ҳисоб журнали</div></div>
+          <div><div class="menu-title" data-i18n="1. ЖУРНАЛ УЧЕТА">1. ЖУРНАЛ УЧЕТА</div><div class="empty-note" data-i18n="Асосий ҳисоб журнали">Асосий ҳисоб журнали</div></div>
         </div>
         <div class="menu-item" onclick="openUlchovVositalari()">
           <div class="menu-icon">🧰</div>
-          <div><div class="menu-title">2. УЛЧОВ ВОСИТАЛАРИ</div><div class="empty-note">Реестр ва паспорт маълумотлари</div></div>
+          <div><div class="menu-title" data-i18n="2. УЛЧОВ ВОСИТАЛАРИ">2. УЛЧОВ ВОСИТАЛАРИ</div><div class="empty-note" data-i18n="Реестр ва паспорт маълумотлари">Реестр ва паспорт маълумотлари</div></div>
         </div>
         <div class="menu-item" onclick="openModulePage('acts', 'SEG KIP AI Platform — Актлар журнали')">
           <div class="menu-icon">📜</div>
-          <div><div class="menu-title">3. АКТЛАР ЖУРНАЛИ</div><div class="empty-note">Актлар архиви</div></div>
+          <div><div class="menu-title" data-i18n="3. АКТЛАР ЖУРНАЛИ">3. АКТЛАР ЖУРНАЛИ</div><div class="empty-note" data-i18n="Актлар архиви">Актлар архиви</div></div>
         </div>
         <div class="menu-item" onclick="openModulePage('faults', 'SEG KIP AI Platform — Носозликлар журнали')">
           <div class="menu-icon">⚠️</div>
-          <div><div class="menu-title">4. НОСОЗЛИКЛАР ЖУРНАЛИ</div><div class="empty-note">Носозликлар назорати</div></div>
+          <div><div class="menu-title" data-i18n="4. НОСОЗЛИКЛАР ЖУРНАЛИ">4. НОСОЗЛИКЛАР ЖУРНАЛИ</div><div class="empty-note" data-i18n="Носозликлар назорати">Носозликлар назорати</div></div>
         </div>
         <div class="menu-item" onclick="openModulePage('to', 'SEG KIP AI Platform — ТО журнал')">
           <div class="menu-icon">📊</div>
-          <div><div class="menu-title">5. ТО ЖУРНАЛ</div><div class="empty-note">Техник хизмат кўрсатиш</div></div>
+          <div><div class="menu-title" data-i18n="5. ТО ЖУРНАЛ">5. ТО ЖУРНАЛ</div><div class="empty-note" data-i18n="Техник хизмат кўрсатиш">Техник хизмат кўрсатиш</div></div>
         </div>
         <div class="menu-item" onclick="openModulePage('replacement', 'SEG KIP AI Platform — Алмашиш журнали')">
           <div class="menu-icon">🔍</div>
-          <div><div class="menu-title">6. АЛМАШИШ ЖУРНАЛИ</div><div class="empty-note">Алмаштириш тарихи</div></div>
+          <div><div class="menu-title" data-i18n="6. АЛМАШИШ ЖУРНАЛИ">6. АЛМАШИШ ЖУРНАЛИ</div><div class="empty-note" data-i18n="Алмаштириш тарихи">Алмаштириш тарихи</div></div>
         </div>
         <div class="menu-item" onclick="openModulePage('users', 'Управление пользователями')">
           <div class="menu-icon">👥</div>
-          <div><div class="menu-title">7. ПОЛЬЗОВАТЕЛИ</div><div class="empty-note">Управление доступом</div></div>
+          <div><div class="menu-title" data-i18n="7. ПОЛЬЗОВАТЕЛИ">7. ПОЛЬЗОВАТЕЛИ</div><div class="empty-note" data-i18n="Управление доступом">Управление доступом</div></div>
         </div>
         <div class="menu-item" onclick="openModulePage('roles', 'Конструктор ролей')">
           <div class="menu-icon">🔐</div>
-          <div><div class="menu-title">8. РОЛИ</div><div class="empty-note">Права и настройки</div></div>
+          <div><div class="menu-title" data-i18n="8. РОЛИ">8. РОЛИ</div><div class="empty-note" data-i18n="Права и настройки">Права и настройки</div></div>
+        </div>
+        <div class="menu-item" onclick="openModulePage('settings', 'Настройки')">
+          <div class="menu-icon">⚙️</div>
+          <div><div class="menu-title" data-i18n="9. НАСТРОЙКИ">9. НАСТРОЙКИ</div><div class="empty-note" data-i18n="Язык и параметры">Язык и параметры</div></div>
         </div>
       </nav>
     </div>
@@ -66,7 +72,7 @@
     <header class="topbar">
       <div>
         <h2>SEG KIP AI Platform</h2>
-        <p>Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси</p>
+        <p data-i18n="Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси">Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси</p>
       </div>
       <div class="status">
         <div class="pill">📅 2026</div>

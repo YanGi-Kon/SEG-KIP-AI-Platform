@@ -18,11 +18,8 @@ function decode(value) {
 
 export function validatePasswordStrength(password) {
   const value = String(password || '');
-  if (value.length < 12 || value.length > 200) {
-    throw new Error('Password must contain 12-200 characters');
-  }
-  if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/\d/.test(value)) {
-    throw new Error('Password must include uppercase, lowercase and numeric characters');
+  if (value.length < 6 || value.length > 200) {
+    throw new Error('Password must contain 6-200 characters');
   }
   return value;
 }

@@ -16,7 +16,7 @@
   }
   .settings-card h2 { margin: 0 0 6px; font-size: 18px; color: #eaffff; display: flex; align-items: center; gap: 10px; }
   .settings-card p { margin: 0 0 22px; font-size: 13px; color: #64748b; }
-  .lang-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .lang-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
   .lang-option {
     border: 2px solid rgba(255,255,255,.1);
     border-radius: 16px;
@@ -73,12 +73,13 @@
 </style>
 </head>
 <body>
+<script src="../js/i18n.js"></script>
 <div class="settings-wrap">
 
   <!-- Language -->
   <div class="settings-card">
-    <h2>🌐 Язык интерфейса</h2>
-    <p>Выберите язык для отображения меню и интерфейса системы</p>
+    <h2>🌐 <span data-i18n="Язык интерфейса">Язык интерфейса</span></h2>
+    <p data-i18n="Выберите язык для отображения меню и интерфейса системы">Выберите язык для отображения меню и интерфейса системы</p>
     <div class="lang-grid">
       <div class="lang-option" id="lang-ru" onclick="selectLang('ru')">
         <span class="lang-flag">🇷🇺</span>
@@ -89,8 +90,14 @@
       <div class="lang-option" id="lang-uz" onclick="selectLang('uz')">
         <span class="lang-flag">🇺🇿</span>
         <div class="lang-name">O'zbekcha</div>
-        <div class="lang-sub">Uzbek</div>
+        <div class="lang-sub">Uzbek (Latin)</div>
         <div class="lang-badge">UZ</div>
+      </div>
+      <div class="lang-option" id="lang-uz_cyrl" onclick="selectLang('uz_cyrl')">
+        <span class="lang-flag">🇺🇿</span>
+        <div class="lang-name">Ўзбекча</div>
+        <div class="lang-sub">Uzbek (Cyrillic)</div>
+        <div class="lang-badge">UZ-CYRL</div>
       </div>
       <div class="lang-option" id="lang-en" onclick="selectLang('en')">
         <span class="lang-flag">🇬🇧</span>
@@ -101,97 +108,77 @@
     </div>
   </div>
 
+  <!-- Profile Edit -->
+  <div class="settings-card">
+    <h2>👤 <span data-i18n="Profil">Profil</span></h2>
+    <p id="profileInfo" data-i18n="Foydalanuvchi ma'lumotlari yuklanmoqda...">Foydalanuvchi ma'lumotlari yuklanmoqda...</p>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="btn-backup" id="toggleEditProfileBtn" onclick="toggleProfileForm()">✏️ <span data-i18n="Tahrirlash">Tahrirlash</span></button>
+    </div>
+    <form id="profileEditForm" style="display:none;" onsubmit="submitProfileEdit(event)">
+      <div style="display:grid;gap:12px;">
+        <div>
+          <label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;" data-i18n="Ism familiya">Ism familiya</label>
+          <input id="profileNameInput" type="text" required
+            style="width:100%;padding:10px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(34,211,238,.25);border-radius:12px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;"
+            placeholder="Full Name" />
+        </div>
+        <div>
+          <label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;" data-i18n="Yangi parol (ixtiyoriy)">Yangi parol (ixtiyoriy)</label>
+          <input id="profilePasswordInput" type="password"
+            style="width:100%;padding:10px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(34,211,238,.25);border-radius:12px;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;"
+            placeholder="O'zgartirmaslik uchun bo'sh qoldiring" />
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button type="submit" class="btn-backup">💾 <span data-i18n="Saqlash">Saqlash</span></button>
+          <button type="button" class="btn-logout" onclick="cancelProfileEdit()" style="border-color:rgba(100,116,139,.45);color:#94a3b8;background:rgba(100,116,139,.1);">✕ <span data-i18n="Bekor qilish">Bekor qilish</span></button>
+        </div>
+        <div id="profileStatus" style="font-size:13px;min-height:18px;"></div>
+      </div>
+    </form>
+  </div>
+
   <!-- Logout -->
   <div class="settings-card danger">
-    <h2>🔒 Сессия</h2>
+    <h2>🔒 <span data-i18n="Сессия">Сессия</span></h2>
     <div class="logout-row">
-      <div class="logout-info">Завершите текущую сессию. Вам потребуется снова войти в систему.</div>
-      <button class="btn-logout" onclick="doLogout()">⏻ Выйти из системы</button>
+      <div class="logout-info" data-i18n="Завершите текущую сессию. Вам потребуется снова войти в систему.">Завершите текущую сессию. Вам потребуется снова войти в систему.</div>
+      <button class="btn-logout" onclick="doLogout()">⏻ <span data-i18n="Выйти из системы">Выйти из системы</span></button>
     </div>
   </div>
 
   <!-- Database Backup (admin only) -->
   <div class="settings-card" id="backupCard" style="display:none">
-    <h2>🗄️ Резервная копия БД</h2>
-    <p>Экспорт всех данных базы данных в JSON-файл. Только для администраторов.</p>
+    <h2>🗄️ <span data-i18n="Резервная копия БД">Резервная копия БД</span></h2>
+    <p data-i18n="Экспорт всех данных базы данных в JSON-файл. Только для администраторов.">Экспорт всех данных базы данных в JSON-файл. Только для администраторов.</p>
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <button class="btn-backup" id="backupBtn" onclick="downloadBackup()">
-        ⬇ Скачать резервную копию
+        ⬇ <span data-i18n="Скачать резервную копию">Скачать резервную копию</span>
       </button>
       <div id="backupStatus" style="font-size:13px;color:#64748b"></div>
     </div>
     <div style="margin-top:14px;font-size:12px;color:#475569;line-height:1.6">
-      ⚠ Файл содержит конфиденциальные данные. Храните его в безопасном месте.
+      ⚠ <span data-i18n="Файл содержит конфиденциальные данные. Храните его в безопасном месте.">Файл содержит конфиденциальные данные. Храните его в безопасном месте.</span>
     </div>
   </div>
 
 </div>
 
-<div class="save-toast" id="saveToast">✓ Язык сохранён</div>
+<div class="save-toast" id="saveToast">✓ <span data-i18n="Язык сохранён">Язык сохранён</span></div>
 
 <script>
 const LANG_KEY = 'seg_kip_lang';
-
-const TRANSLATIONS = {
-  ru: {
-    '1. ЖУРНАЛ УЧЕТА': '1. ЖУРНАЛ УЧЕТА',
-    '2. УЛЧОВ ВОСИТАЛАРИ': '2. ИЗМЕРИТЕЛЬНЫЕ ПРИБОРЫ',
-    '3. АКТЛАР ЖУРНАЛИ': '3. ЖУРНАЛ АКТОВ',
-    '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. ЖУРНАЛ НЕИСПРАВНОСТЕЙ',
-    '5. ТО ЖУРНАЛ': '5. ЖУРНАЛ ТО',
-    '6. АЛМАШИШ ЖУРНАЛИ': '6. ЖУРНАЛ ЗАМЕН',
-    '7. ПОЛЬЗОВАТЕЛИ': '7. ПОЛЬЗОВАТЕЛИ',
-    '8. РОЛИ': '8. РОЛИ',
-    '9. НАСТРОЙКИ': '9. НАСТРОЙКИ',
-  },
-  uz: {
-    '1. ЖУРНАЛ УЧЕТА': '1. HISOBOT JURNALI',
-    '2. УЛЧОВ ВОСИТАЛАРИ': '2. ЎЛЧОВ ВОСИТАЛАРИ',
-    '3. АКТЛАР ЖУРНАЛИ': '3. АКТЛАР ЖУРНАЛИ',
-    '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. НОСОЗЛИКЛАР ЖУРНАЛИ',
-    '5. ТО ЖУРНАЛ': '5. ТО ЖУРНАЛИ',
-    '6. АЛМАШИШ ЖУРНАЛИ': '6. АЛМАШИШ ЖУРНАЛИ',
-    '7. ПОЛЬЗОВАТЕЛИ': '7. FOYDALANUVCHILAR',
-    '8. РОЛИ': '8. ROLLAR',
-    '9. НАСТРОЙКИ': '9. SOZLAMALAR',
-  },
-  en: {
-    '1. ЖУРНАЛ УЧЕТА': '1. ACCOUNTING JOURNAL',
-    '2. УЛЧОВ ВОСИТАЛАРИ': '2. MEASURING INSTRUMENTS',
-    '3. АКТЛАР ЖУРНАЛИ': '3. ACTS JOURNAL',
-    '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. FAULTS JOURNAL',
-    '5. ТО ЖУРНАЛ': '5. MAINTENANCE LOG',
-    '6. АЛМАШИШ ЖУРНАЛИ': '6. REPLACEMENT LOG',
-    '7. ПОЛЬЗОВАТЕЛИ': '7. USERS',
-    '8. РОЛИ': '8. ROLES',
-    '9. НАСТРОЙКИ': '9. SETTINGS',
-  }
-};
 
 function selectLang(lang) {
   localStorage.setItem(LANG_KEY, lang);
   document.querySelectorAll('.lang-option').forEach(el => el.classList.remove('active'));
   document.getElementById('lang-' + lang)?.classList.add('active');
-  applyLangToParent(lang);
-  showToast();
-}
-
-function applyLangToParent(lang) {
-  const t = TRANSLATIONS[lang];
-  if (!t) return;
   try {
-    const menuItems = parent.document.querySelectorAll('.menu-title');
-    menuItems.forEach(el => {
-      // Save original text on first call
-      if (!el.dataset.original) {
-        el.dataset.original = el.textContent.trim();
-      }
-      const original = el.dataset.original;
-      const mapped = t[original];
-      if (mapped) el.textContent = mapped;
-      else el.textContent = original; // fallback to original if no translation
-    });
-  } catch(_) {}
+    if (window.parent && window.parent.setLanguage) {
+      window.parent.setLanguage(lang);
+    }
+  } catch(e) {}
+  showToast();
 }
 
 function showToast() {
@@ -201,10 +188,9 @@ function showToast() {
 }
 
 function loadCurrentLang() {
-  const lang = localStorage.getItem(LANG_KEY) || 'ru';
+  const lang = localStorage.getItem('seg_kip_lang') || 'ru';
   document.querySelectorAll('.lang-option').forEach(el => el.classList.remove('active'));
   document.getElementById('lang-' + lang)?.classList.add('active');
-  applyLangToParent(lang);
 }
 
 async function doLogout() {
@@ -217,7 +203,73 @@ async function doLogout() {
   parent.location.reload();
 }
 
+// --- Profile functions ---
+function getToken() {
+  try { return parent?.sessionStorage?.getItem('seg_kip_workspace_access_token') || ''; } catch(_) { return ''; }
+}
+
+async function loadProfile() {
+  const info = document.getElementById('profileInfo');
+  try {
+    const res = await fetch('/api/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + getToken() },
+      credentials: 'include'
+    });
+    if (!res.ok) { info.textContent = '—'; return; }
+    const data = await res.json();
+    const u = data.user || data;
+    info.innerHTML = `<strong>${u.fullName || u.username || u.email || '—'}</strong> &nbsp;·&nbsp; ${u.email || ''} &nbsp;·&nbsp; <span style="color:#64748b">${u.platformRole || ''} · ${u.status || ''}</span>`;
+    const nameInput = document.getElementById('profileNameInput');
+    if (nameInput) nameInput.value = u.fullName || u.username || '';
+  } catch(e) {
+    info.textContent = '—';
+  }
+}
+
+function toggleProfileForm() {
+  const form = document.getElementById('profileEditForm');
+  if (!form) return;
+  const isHidden = form.style.display === 'none';
+  form.style.display = isHidden ? 'block' : 'none';
+  document.getElementById('profileStatus').textContent = '';
+}
+
+function cancelProfileEdit() {
+  const form = document.getElementById('profileEditForm');
+  if (form) form.style.display = 'none';
+  document.getElementById('profileStatus').textContent = '';
+  document.getElementById('profilePasswordInput').value = '';
+}
+
+async function submitProfileEdit(event) {
+  event.preventDefault();
+  const fullName = document.getElementById('profileNameInput').value.trim();
+  const password = document.getElementById('profilePasswordInput').value || '';
+  const status = document.getElementById('profileStatus');
+  if (!fullName) { status.textContent = '⚠ Ism familiya kiritilishi shart.'; status.style.color = '#f59e0b'; return; }
+  status.textContent = '⏳ Saqlanmoqda...'; status.style.color = '#94a3b8';
+  try {
+    const res = await fetch('/api/auth/me', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      credentials: 'include',
+      body: JSON.stringify({ fullName, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Xato');
+    status.textContent = '✅ Muvaffaqiyatli saqlandi!';
+    status.style.color = '#22d3ee';
+    document.getElementById('profilePasswordInput').value = '';
+    await loadProfile();
+    setTimeout(cancelProfileEdit, 1500);
+  } catch(e) {
+    status.textContent = '❌ ' + e.message;
+    status.style.color = '#f87171';
+  }
+}
+
 loadCurrentLang();
+loadProfile();
 checkAdminAccess();
 
 async function checkAdminAccess() {

@@ -1,9 +1,7 @@
-<!DOCTYPE html>
-<html lang="uz">
-<head>
+<!DOCTYPE html><html lang="uz"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>АКТЛАР ЖУРНАЛИ</title>
+<title data-i18n="АКТЛАР ЖУРНАЛИ">АКТЛАР ЖУРНАЛИ</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>
 :root{--acts-cyan:#22d3ee;--acts-green:#22c55e;--acts-orange:#f59e0b;--acts-red:#ef4444;--acts-line:rgba(39,209,255,.35);--acts-muted:#9eb8ca;--acts-card:rgba(8,25,45,.82)}
@@ -15,87 +13,86 @@
 .a4-preview .act-signers-value{width:100% !important;min-height:24px !important;padding:0 4px 2px !important;border-bottom:1px solid #111 !important;box-sizing:border-box !important;text-align:center !important;display:flex !important;align-items:flex-end !important;justify-content:center !important;color:transparent !important;text-shadow:none !important}
 .a4-preview .act-signers-label{width:100% !important;text-align:center !important;font-size:12px !important;line-height:1.2 !important}
 </style>
+
+<script src="../js/i18n.js"></script>
 </head>
 <body>
 <div class="acts-shell">
   <div class="acts-card">
     <div class="acts-top">
       <div class="tabs">
-        <button id="tab-analysis" class="active" onclick="ActsUI.showView('analysis',this)">1. Ойлик анализ</button>
-        <button id="tab-create" onclick="ActsUI.showView('create',this)">2. Хужат яратиш</button>
-        <button id="tab-reports" onclick="ActsUI.showView('reports',this)">3. Хисоботлар</button>
-        <button onclick="ActsUI.openExcel()">4. Excel</button>
-        <button onclick="ActsUI.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
-        <button id="finalDocumentsFolderSettingsBtn" onclick="ActsUI.openFinalDocumentsFolderSettings()">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
+        <button id="tab-analysis" class="active" onclick="ActsUI.showView('analysis',this)" data-i18n="1. Ойлик анализ">1. Ойлик анализ</button>
+        <button id="tab-create" onclick="ActsUI.showView('create',this)" data-i18n="2. Хужат яратиш">2. Хужат яратиш</button>
+        <button id="tab-reports" onclick="ActsUI.showView('reports',this)" data-i18n="3. Хисоботлар">3. Хисоботлар</button>
+        <button onclick="ActsUI.openExcel()" data-i18n="4. Excel">4. Excel</button>
+        <button onclick="ActsUI.openSigners()" data-i18n="5. ИМЗО ЧЕКУВЧИЛАР">5. ИМЗО ЧЕКУВЧИЛАР</button>
+        <button id="finalDocumentsFolderSettingsBtn" onclick="ActsUI.openFinalDocumentsFolderSettings()" data-i18n="6. ЯКУНИЙ ҲУЖЖАТЛАР">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
       </div>
-      <button class="btn ghost" onclick="ActsUI.openSettings()">⚙ Созламалар</button>
     </div>
-    <div id="actsStatus" class="status-line">Ҳолат: созламалар текширилмоқда...</div>
+    <div id="actsStatus" class="status-line" data-i18n="Ҳолат: созламалар текширилмоқда...">Ҳолат: созламалар текширилмоқда...</div>
 
     <div id="analysis" class="view active">
       <div class="analysis-fixed-head">
         <div class="analysis-main-info">
-          <div class="analysis-title-line"><h2>📈 Ойлик анализ</h2><button class="btn primary" onclick="ActsUI.loadAnalysis()">Ойлик анализ қилиш</button></div>
-          <p class="note analysis-desc">Таҳлил фақат созламаларда танланган <b>ASOSIY VAROQ</b> дан олинади. Жадвалда фақат I устунида ТО-2 ёки АКТ бор қаторлар кўринади.</p>
-          <div class="kpi"><div><small>Умумий тўлдирилган қаторлар</small><b id="kpiTotal">0</b></div><div><small>ТО-2 / АКТ топилган</small><b id="kpiPlanned">0</b></div><div><small>Яратилган ҳужжатлар</small><b id="kpiCreated">0</b></div><div><small>Асосий варақ</small><b id="kpiSheet" style="font-size:18px">—</b></div></div>
+          <div class="analysis-title-line"><h2 data-i18n="📈 Ойлик анализ">📈 Ойлик анализ</h2><button class="btn primary" onclick="ActsUI.loadAnalysis()" data-i18n="Ойлик анализ қилиш">Ойлик анализ қилиш</button></div>
+          <p class="note analysis-desc"><span data-i18n="Таҳлил фақат созламаларда танланган">Таҳлил фақат созламаларда танланган</span><b data-i18n="ASOSIY VAROQ">ASOSIY VAROQ</b><span data-i18n="дан олинади. Жадвалда фақат I устунида ТО-2 ёки АКТ бор қаторлар кўринади.">дан олинади. Жадвалда фақат I устунида ТО-2 ёки АКТ бор қаторлар кўринади.</span></p>
+          <div class="kpi"><div><small data-i18n="Умумий тўлдирилган қаторлар">Умумий тўлдирилган қаторлар</small><b id="kpiTotal">0</b></div><div><small data-i18n="ТО-2 / АКТ топилган">ТО-2 / АКТ топилган</small><b id="kpiPlanned">0</b></div><div><small data-i18n="Яратилган ҳужжатлар">Яратилган ҳужжатлар</small><b id="kpiCreated">0</b></div><div><small data-i18n="Асосий варақ">Асосий варақ</small><b id="kpiSheet" style="font-size:18px">—</b></div></div>
         </div>
-        <div class="side-donut-box"><h4>Ҳужжатлар бажарилиши даражаси</h4><div id="completionDonut" class="donut" style="--p:0"><span>0%</span></div><p class="note">Яратилган ҳужжатлар / ТО-2 ва АКТ қаторлари</p></div>
+        <div class="side-donut-box"><h4 data-i18n="Ҳужжатлар бажарилиши даражаси">Ҳужжатлар бажарилиши даражаси</h4><div id="completionDonut" class="donut" style="--p:0"><span>0%</span></div><p class="note" data-i18n="Яратилган ҳужжатлар / ТО-2 ва АКТ қаторлари">Яратилган ҳужжатлар / ТО-2 ва АКТ қаторлари</p></div>
       </div>
-      <div class="tablewrap"><table><thead><tr><th>№</th><th>A — Дата</th><th>B — Поз номер</th><th>C — Наименование СИ</th><th>D — Тип, марка</th><th>E — Заводской номер</th><th>F — Предел измерения</th><th>G — Место установки</th><th class="icol">I — Перечень в/р</th><th>J — Исполнитель</th><th>Амал</th></tr></thead><tbody id="analysisRows"><tr><td colspan="11">Ойлик анализ қилиш тугмасини босинг.</td></tr></tbody></table></div>
+      <div class="tablewrap"><table><thead><tr><th>№</th><th data-i18n="A — Дата">A — Дата</th><th data-i18n="B — Поз номер">B — Поз номер</th><th data-i18n="C — Наименование СИ">C — Наименование СИ</th><th data-i18n="D — Тип, марка">D — Тип, марка</th><th data-i18n="E — Заводской номер">E — Заводской номер</th><th data-i18n="F — Предел измерения">F — Предел измерения</th><th data-i18n="G — Место установки">G — Место установки</th><th class="icol" data-i18n="I — Перечень в/р">I — Перечень в/р</th><th data-i18n="J — Исполнитель">J — Исполнитель</th><th data-i18n="Амал">Амал</th></tr></thead><tbody id="analysisRows"><tr><td colspan="11" data-i18n="Ойлик анализ қилиш тугмасини босинг.">Ойлик анализ қилиш тугмасини босинг.</td></tr></tbody></table></div>
     </div>
 
     <div id="create" class="view">
-      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px"><div><h2>📄 Хужат яратиш</h2><p class="note">Анализ қаторидан 1-банд ва сана автоматик тўлдирилади. Қолган майдонлар қўлда тўлдирилади.</p></div><div><span class="note" id="fillText">Тўлдирилиш: 0%</span><div class="progress"><div id="fillBar"></div></div></div></div>
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px"><div><h2 data-i18n="📄 Хужат яратиш">📄 Хужат яратиш</h2><p class="note" data-i18n="Анализ қаторидан 1-банд ва сана автоматик тўлдирилади. Қолган майдонлар қўлда тўлдирилади.">Анализ қаторидан 1-банд ва сана автоматик тўлдирилади. Қолган майдонлар қўлда тўлдирилади.</p></div><div><span class="note" id="fillText" data-i18n="Тўлдирилиш: 0%">Тўлдирилиш: 0%</span><div class="progress"><div id="fillBar"></div></div></div></div>
       <div class="act-paper">
-        <div class="act-head"><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича</div><div style="text-align:right;font-weight:400">ТПП «Андижан»</div><div class="act-title">ДАЛОЛАТНОМА № <input id="actNo" style="width:140px;text-align:center" value=""></div><div>Ўлчов воситасининг бузилиши</div></div>
-        <div style="margin-top:20px;font-weight:700">Биз қуйида имзо чекувчилар:</div>
-        <div class="line3"><div><input id="person1"><div style="text-align:center;font-size:12px">(Ф.И.Ш.)</div></div><div><input id="position1"><div style="text-align:center;font-size:12px">(Лавозими)</div></div><div><input id="department1"><div style="text-align:center;font-size:12px">(цех ва м/р)</div></div></div>
-        <div class="line3"><div><input id="person2"><div style="text-align:center;font-size:12px">(Ф.И.Ш.)</div></div><div><input id="position2"><div style="text-align:center;font-size:12px">(Лавозими)</div></div><div><input id="department2"><div style="text-align:center;font-size:12px">(цех ва м/р)</div></div></div>
-        <div class="line3"><div><input id="person3"><div style="text-align:center;font-size:12px">(Ф.И.Ш.)</div></div><div><input id="position3"><div style="text-align:center;font-size:12px">(Лавозими)</div></div><div><input id="department3"><div style="text-align:center;font-size:12px">(цех ва м/р)</div></div></div>
-        <div class="act-section">1. Ў.В. Ишлаш жойи</div><textarea id="workPlace" readonly></textarea>
-        <div class="act-section">2. Рад этиш мазмуни, санаси, вақти:</div><textarea id="failureText"></textarea><div style="display:flex;justify-content:flex-end;gap:12px;margin-top:6px"><b>Сана:</b><input id="actDate" style="width:160px"></div>
-        <div class="act-section">3. Носозликнинг технологик оқибатлари:</div><textarea id="impactText"></textarea>
-        <div class="act-section">4. Рад этиш сабаби:</div><textarea id="reasonText"></textarea>
-        <div class="act-section">5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</div><textarea id="actionText"></textarea>
-        <div class="act-section">Хулоса:</div><textarea id="conclusion"></textarea>
+        <div class="act-head"><div class="right"><span data-i18n="Низомга илова №4">Низомга илова №4</span><br><span data-i18n="“SANEG” МЧЖ К/К объектларида">“SANEG” МЧЖ К/К объектларида</span><br><span data-i18n="назорат ўлчов воситалари ва автоматлаштириш тизимларига">назорат ўлчов воситалари ва автоматлаштириш тизимларига</span><br><span data-i18n="техник хизмат кўрсатиш бўйича">техник хизмат кўрсатиш бўйича</span></div><div style="text-align:right;font-weight:400" data-i18n="ТПП «Андижан»">ТПП «Андижан»</div><div class="act-title"><span data-i18n="ДАЛОЛАТНОМА №">ДАЛОЛАТНОМА №</span><input id="actNo" style="width:140px;text-align:center" value=""></div><div data-i18n="Ўлчов воситасининг бузилиши">Ўлчов воситасининг бузилиши</div></div>
+        <div style="margin-top:20px;font-weight:700" data-i18n="Биз қуйида имзо чекувчилар:">Биз қуйида имзо чекувчилар:</div>
+        <div class="line3"><div><input id="person1"><div style="text-align:center;font-size:12px" data-i18n="(Ф.И.Ш.)">(Ф.И.Ш.)</div></div><div><input id="position1"><div style="text-align:center;font-size:12px" data-i18n="(Лавозими)">(Лавозими)</div></div><div><input id="department1"><div style="text-align:center;font-size:12px" data-i18n="(цех ва м/р)">(цех ва м/р)</div></div></div>
+        <div class="line3"><div><input id="person2"><div style="text-align:center;font-size:12px" data-i18n="(Ф.И.Ш.)">(Ф.И.Ш.)</div></div><div><input id="position2"><div style="text-align:center;font-size:12px" data-i18n="(Лавозими)">(Лавозими)</div></div><div><input id="department2"><div style="text-align:center;font-size:12px" data-i18n="(цех ва м/р)">(цех ва м/р)</div></div></div>
+        <div class="line3"><div><input id="person3"><div style="text-align:center;font-size:12px" data-i18n="(Ф.И.Ш.)">(Ф.И.Ш.)</div></div><div><input id="position3"><div style="text-align:center;font-size:12px" data-i18n="(Лавозими)">(Лавозими)</div></div><div><input id="department3"><div style="text-align:center;font-size:12px" data-i18n="(цех ва м/р)">(цех ва м/р)</div></div></div>
+        <div class="act-section" data-i18n="1. Ў.В. Ишлаш жойи">1. Ў.В. Ишлаш жойи</div><textarea id="workPlace" readonly=""></textarea>
+        <div class="act-section" data-i18n="2. Рад этиш мазмуни, санаси, вақти:">2. Рад этиш мазмуни, санаси, вақти:</div><textarea id="failureText"></textarea><div style="display:flex;justify-content:flex-end;gap:12px;margin-top:6px"><b data-i18n="Сана:">Сана:</b><input id="actDate" style="width:160px"></div>
+        <div class="act-section" data-i18n="3. Носозликнинг технологик оқибатлари:">3. Носозликнинг технологик оқибатлари:</div><textarea id="impactText"></textarea>
+        <div class="act-section" data-i18n="4. Рад этиш сабаби:">4. Рад этиш сабаби:</div><textarea id="reasonText"></textarea>
+        <div class="act-section" data-i18n="5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:">5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</div><textarea id="actionText"></textarea>
+        <div class="act-section" data-i18n="Хулоса:">Хулоса:</div><textarea id="conclusion"></textarea>
       </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px"><button id="saveActBtn" class="btn green" onclick="ActsUI.saveAct()" disabled>Сақлаш</button></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px"><button id="saveActBtn" class="btn green" onclick="ActsUI.saveAct()" disabled="" data-i18n="Сақлаш">Сақлаш</button></div>
     </div>
 
     <div id="reports" class="view">
-      <div class="subtabs" style="margin-bottom:12px"><button class="active" onclick="ActsUI.showReport('daily',this)">Кунлик</button><button onclick="ActsUI.showReport('monthly',this)">Ойлик</button></div>
-      <div id="daily" class="report-view active"><div class="tablewrap"><table><thead><tr><th>№</th><th>Акт рақами</th><th>Сана</th><th>Асбоб номи</th><th>Завод рақами</th><th>Жой</th><th>Ижрочи</th><th>Ҳолат</th><th>Амал</th></tr></thead><tbody id="dailyRows"><tr><td colspan="9">Ҳисобот юкланмоқда...</td></tr></tbody></table></div></div>
-      <div id="monthly" class="report-view"><div class="empty-month"><h3>Ойлик ҳисобот</h3><p class="note">Ойлик ҳисобот Excel орқали олинади. “Excel” тугмасини босинг.</p></div></div>
+      <div class="subtabs" style="margin-bottom:12px"><button class="active" onclick="ActsUI.showReport('daily',this)" data-i18n="Кунлик">Кунлик</button><button onclick="ActsUI.showReport('monthly',this)" data-i18n="Ойлик">Ойлик</button></div>
+      <div id="daily" class="report-view active"><div class="tablewrap"><table><thead><tr><th>№</th><th data-i18n="Акт рақами">Акт рақами</th><th data-i18n="Сана">Сана</th><th data-i18n="Асбоб номи">Асбоб номи</th><th data-i18n="Завод рақами">Завод рақами</th><th data-i18n="Жой">Жой</th><th data-i18n="Ижрочи">Ижрочи</th><th data-i18n="Ҳолат">Ҳолат</th><th data-i18n="Амал">Амал</th></tr></thead><tbody id="dailyRows"><tr><td colspan="9" data-i18n="Ҳисобот юкланмоқда...">Ҳисобот юкланмоқда...</td></tr></tbody></table></div></div>
+      <div id="monthly" class="report-view"><div class="empty-month"><h3 data-i18n="Ойлик ҳисобот">Ойлик ҳисобот</h3><p class="note" data-i18n="Ойлик ҳисобот Excel орқали олинади. “Excel” тугмасини босинг.">Ойлик ҳисобот Excel орқали олинади. “Excel” тугмасини босинг.</p></div></div>
     </div>
   </div>
 </div>
 
-<div id="settingsModal" class="modal"><div class="modalbox"><div class="modal-head"><h2>⚙ Google Sheets созламалари</h2><button class="btn ghost" onclick="ActsUI.closeSettings()">Ёпиш</button></div><div class="modal-note"><b>Талаб:</b> Google Sheets силкаси, ASOSIY VAROҚ номи ва SERVICE ACCOUNT JSON файли киритилиши шарт.</div><div class="fields" style="margin-top:14px"><div class="field full"><label>Google Sheets силкаси</label><input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..."/></div><div class="field"><label>ASOSIY VAROQ номи</label><input id="sheetName" placeholder="База"/></div><div class="field"><label>SERVICE ACCOUNT JSON</label><input id="serviceFile" type="file" accept="application/json"><div id="serviceFileName" class="note" style="margin-top:6px">Файл танланмаган</div></div></div><div id="settingsMsg" class="msg">Маълумотларни киритиб “Сақлаш” тугмасини босинг.</div><div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px"><button class="btn primary" onclick="ActsUI.saveSettings()">Сақлаш</button></div></div></div>
 
 <div id="finalDocumentsFolderModal" class="modal">
   <div class="modalbox">
     <div class="modal-head">
-      <div><h2>📁 ЯКУНИЙ ҲУЖЖАТЛАР</h2><p class="note">Tasdiqlangan PDF hujjatlar saqlanadigan Shared Drive papkasini sozlang.</p></div>
-      <button class="btn ghost" type="button" onclick="ActsUI.closeFinalDocumentsFolderSettings()">Ёпиш</button>
+      <div><h2 data-i18n="📁 ЯКУНИЙ ҲУЖЖАТЛАР">📁 ЯКУНИЙ ҲУЖЖАТЛАР</h2><p class="note" data-i18n="Tasdiqlangan PDF hujjatlar saqlanadigan Shared Drive papkasini sozlang.">Tasdiqlangan PDF hujjatlar saqlanadigan Shared Drive papkasini sozlang.</p></div>
+      <button class="btn ghost" type="button" onclick="ActsUI.closeFinalDocumentsFolderSettings()" data-i18n="Ёпиш">Ёпиш</button>
     </div>
     <section id="finalDocumentsFolderPanel" class="final-documents-card" aria-live="polite">
       <div class="final-documents-title-row">
-        <div class="final-documents-title">Yakuniy hujjatlar Drive papkasi</div>
-        <div id="finalDocumentsWorkspaceName" class="final-documents-object">Obyekt aniqlanmoqda...</div>
+        <div class="final-documents-title" data-i18n="Yakuniy hujjatlar Drive papkasi">Yakuniy hujjatlar Drive papkasi</div>
+        <div id="finalDocumentsWorkspaceName" class="final-documents-object" data-i18n="Obyekt aniqlanmoqda...">Obyekt aniqlanmoqda...</div>
       </div>
       <div class="final-documents-row">
-        <label>Shared Drive papka URL yoki ID
-          <input id="finalDocumentsFolderInput" placeholder="https://drive.google.com/drive/folders/... yoki folder ID">
+        <label><span data-i18n="Shared Drive papka URL yoki ID">Shared Drive papka URL yoki ID</span><input id="finalDocumentsFolderInput" placeholder="https://drive.google.com/drive/folders/... yoki folder ID" data-i18n-placeholder="https://drive.google.com/drive/folders/... yoki folder ID">
         </label>
         <div class="final-documents-actions">
-          <button id="saveFinalDocumentsFolderBtn" class="btn primary" type="button">Saqlash</button>
-          <button id="testFinalDocumentsFolderBtn" class="btn ghost" type="button">Tekshirish</button>
-          <button id="openFinalDocumentsFolderBtn" class="btn ghost" type="button" disabled>Drive</button>
+          <button id="saveFinalDocumentsFolderBtn" class="btn primary" type="button" data-i18n="Saqlash">Saqlash</button>
+          <button id="testFinalDocumentsFolderBtn" class="btn ghost" type="button" data-i18n="Tekshirish">Tekshirish</button>
+          <button id="openFinalDocumentsFolderBtn" class="btn ghost" type="button" disabled="" data-i18n="Drive">Drive</button>
         </div>
       </div>
-      <div id="finalDocumentsFolderStatus" class="final-documents-status sync">Papka ma’lumoti yuklanmoqda...</div>
-      <div id="finalDocumentsServiceAccountInfo" class="final-documents-service-account">Service account tekshirilmagan.</div>
-      <div id="finalDocumentsFolderMessage" class="msg">Faqat Shared Drive papkasi qo‘llab-quvvatlanadi.</div>
+      <div id="finalDocumentsFolderStatus" class="final-documents-status sync" data-i18n="Papka ma’lumoti yuklanmoqda...">Papka ma’lumoti yuklanmoqda...</div>
+      <div id="finalDocumentsServiceAccountInfo" class="final-documents-service-account" data-i18n="Service account tekshirilmagan.">Service account tekshirilmagan.</div>
+      <div id="finalDocumentsFolderMessage" class="msg" data-i18n="Faqat Shared Drive papkasi qo‘llab-quvvatlanadi.">Faqat Shared Drive papkasi qo‘llab-quvvatlanadi.</div>
     </section>
   </div>
 </div>
@@ -104,30 +101,30 @@
   <div class="modalbox wide">
     <div class="modal-head">
       <div>
-        <h2>🖋 ИМЗО ЧЕКУВЧИЛАР</h2>
-        <p class="note">Lavozim, F.I.O, Gmail ва ҳақиқий <b>PNG</b> имзо файлини сақланг. Бу маълумотлар ИМЗО_ЧЕКУВЧИЛАР варағига ёзилади ва approval workflow учун ишлатилади.</p>
+        <h2 data-i18n="🖋 ИМЗО ЧЕКУВЧИЛАР">🖋 ИМЗО ЧЕКУВЧИЛАР</h2>
+        <p class="note"><span data-i18n="Lavozim, F.I.O, Gmail ва ҳақиқий">Lavozim, F.I.O, Gmail ва ҳақиқий</span><b data-i18n="PNG">PNG</b><span data-i18n="имзо файлини сақланг. Бу маълумотлар ИМЗО_ЧЕКУВЧИЛАР варағига ёзилади ва approval workflow учун ишлатилади.">имзо файлини сақланг. Бу маълумотлар ИМЗО_ЧЕКУВЧИЛАР варағига ёзилади ва approval workflow учун ишлатилади.</span></p>
       </div>
-      <button class="btn ghost" onclick="ActsUI.closeSigners()">Ёпиш</button>
+      <button class="btn ghost" onclick="ActsUI.closeSigners()" data-i18n="Ёпиш">Ёпиш</button>
     </div>
     <div class="signer-toolbar">
-      <div class="note">PNG ҳажми 2 MB дан ошмаслиги керак. Gmail майдонига фақат <b>@gmail.com</b> манзил қабул қилинади.</div>
-      <button class="btn primary" onclick="ActsUI.addSignerRow()">+ Қўшиш</button>
+      <div class="note"><span data-i18n="PNG ҳажми 2 MB дан ошмаслиги керак. Gmail майдонига фақат">PNG ҳажми 2 MB дан ошмаслиги керак. Gmail майдонига фақат</span><b data-i18n="@gmail.com">@gmail.com</b><span data-i18n="манзил қабул қилинади.">манзил қабул қилинади.</span></div>
+      <button class="btn primary" onclick="ActsUI.addSignerRow()" data-i18n="+ Қўшиш">+ Қўшиш</button>
     </div>
     <div class="tablewrap">
       <table class="signer-table">
         <thead>
           <tr>
-            <th>Лавозими</th>
-            <th>F.I.O</th>
-            <th>Имзо PNG</th>
-            <th>Gmail</th>
-            <th>Амаллар</th>
+            <th data-i18n="Лавозими">Лавозими</th>
+            <th data-i18n="F.I.O">F.I.O</th>
+            <th data-i18n="Имзо PNG">Имзо PNG</th>
+            <th data-i18n="Gmail">Gmail</th>
+            <th data-i18n="Амаллар">Амаллар</th>
           </tr>
         </thead>
-        <tbody id="signersRows"><tr><td colspan="5">Юкланмоқда...</td></tr></tbody>
+        <tbody id="signersRows"><tr><td colspan="5" data-i18n="Юкланмоқда...">Юкланмоқда...</td></tr></tbody>
       </table>
     </div>
-    <div id="signersMsg" class="msg">Google Sheets дан имзо чекувчиларни юклаш мумкин.</div>
+    <div id="signersMsg" class="msg" data-i18n="Google Sheets дан имзо чекувчиларни юклаш мумкин.">Google Sheets дан имзо чекувчиларни юклаш мумкин.</div>
   </div>
 </div>
 
@@ -135,5 +132,6 @@
 <script src="../js/acts.js"></script>
 <script src="../js/acts-final-documents-folder.js"></script>
 <script src="../js/acts-personal-drive-settings.js"></script>
-</body>
-</html>
+
+
+</body></html>

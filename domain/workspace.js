@@ -1,6 +1,7 @@
 const WORKSPACE_ROLES = new Set([
   'owner',
   'administrator',
+  'workspace_manager',
   'operator',
   'engineer',
   'department_manager',
@@ -25,15 +26,32 @@ export function extractDriveFolderId(value = '') {
   return match[1];
 }
 
+const CYRILLIC_MAP = {
+  'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
+  'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+  'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'ts',
+  'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu',
+  'я': 'ya', 'қ': 'q', 'ў': 'o', 'ғ': 'g', 'ҳ': 'h'
+};
+
+function transliterateCyrillic(text) {
+  return text.split('').map(char => CYRILLIC_MAP[char] || char).join('');
+}
+
 export function slugifyWorkspaceName(value = '') {
-  const slug = String(value)
+  const lowercased = String(value)
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
+    .toLowerCase();
+    
+  const transliterated = transliterateCyrillic(lowercased);
+  
+  const slug = transliterated
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .replace(/-{2,}/g, '-');
-  if (!slug) throw new Error('Workspace name must contain Latin letters or numbers for slug generation');
+    
+  if (!slug) throw new Error('Workspace name must contain letters or numbers for slug generation');
   return slug.slice(0, 80).replace(/-+$/g, '');
 }
 
@@ -96,7 +114,16 @@ export function normalizeWorkspaceInput(input = {}) {
     driveFolderId,
     finalDocumentsFolderId,
     timeZone,
+    serviceAccountBase64: input.serviceAccountBase64 || '',
   };
+}
+
+export function sanitizeWorkspace(workspace) {
+  if (!workspace) return workspace;
+  const sanitized = { ...workspace };
+  sanitized.hasServiceAccount = !!sanitized.serviceAccountBase64;
+  delete sanitized.serviceAccountBase64;
+  return sanitized;
 }
 
 export const workspaceRoles = Object.freeze([...WORKSPACE_ROLES]);

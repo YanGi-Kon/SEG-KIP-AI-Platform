@@ -86,6 +86,20 @@ function handleUserMutationError(res, next, error, context) {
   return next(error);
 }
 
+router.get('/directory', requireAuth, async (req, res, next) => {
+  try {
+    const result = await query(`
+      SELECT id, full_name as "fullName", email
+      FROM users
+      WHERE status = 'active'
+      ORDER BY full_name ASC
+    `);
+    res.json({ users: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.use(requireAuth, requireUserManager);
 
 router.get('/', async (req, res, next) => {

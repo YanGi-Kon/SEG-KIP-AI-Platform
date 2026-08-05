@@ -144,6 +144,7 @@ body::after {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 292px minmax(0, 1fr);
+  transition: grid-template-columns 0.3s ease;
 }
 .sidebar {
   position: sticky;
@@ -680,3 +681,59 @@ body::after {
   backdrop-filter:blur(12px);
 }
 .seg-excel-button:hover{border-color:rgba(34,211,238,.86);color:#67e8f9;}
+
+/* Sidebar Collapse Styles */
+.app.sidebar-collapsed {
+  grid-template-columns: 88px minmax(0, 1fr) !important;
+}
+
+.app.sidebar-collapsed .brand {
+  flex-direction: column;
+  gap: 12px;
+}
+
+.app.sidebar-collapsed .brand .brand-text {
+  display: none;
+}
+
+.app.sidebar-collapsed .menu-item,
+.app.sidebar-collapsed .menu-item-settings {
+  padding: 0;
+  justify-content: center;
+  min-height: 52px;
+  height: 52px;
+}
+
+.app.sidebar-collapsed .menu-item > div:nth-child(2),
+.app.sidebar-collapsed .menu-item-settings > div:nth-child(2) {
+  display: none;
+}
+
+.app.sidebar-collapsed .side-footer {
+  display: none;
+}
+
+.sidebar-toggle-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #a7c6d4;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s;
+  margin-left: auto;
+}
+
+.app.sidebar-collapsed .sidebar-toggle-btn {
+  margin-left: 0;
+  margin: 0 auto;
+}
+
+.sidebar-toggle-btn:hover {
+  background: rgba(255,255,255,0.15);
+  color: white;
+}

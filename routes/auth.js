@@ -7,6 +7,8 @@ import {
   registerUser,
   rotateUserSession,
 } from '../services/authService.js';
+import { query } from '../db/pool.js';
+import { hashPassword } from '../services/passwordService.js';
 
 const router = express.Router();
 const REFRESH_COOKIE = 'seg_kip_refresh';
@@ -126,6 +128,46 @@ router.post('/logout', async (req, res) => {
 
 router.get('/me', requireAccessToken, (req, res) => {
   res.json({ user: req.auth.user });
+});
+
+router.put('/me', requireAccessToken, async (req, res) => {
+  try {
+    const { fullName, password } = req.body;
+    const userId = req.auth.user.id;
+    
+    if (!fullName || typeof fullName !== 'string' || !fullName.trim()) {
+      return res.status(400).json({ error: 'Ism familiya kiritilishi shart', code: 'VALIDATION_ERROR' });
+    }
+
+    let queryText = 'UPDATE users SET full_name = $1, updated_at = NOW()';
+    let params = [fullName.trim()];
+    let paramIndex = 2;
+
+    if (password && typeof password === 'string' && password.trim().length > 0) {
+      try {
+        const passwordHash = await hashPassword(password);
+        queryText += `, password_hash = $${paramIndex++}`;
+        params.push(passwordHash);
+      } catch (error) {
+        return res.status(400).json({
+          error: error.message || 'Yangi parol talablarga javob bermaydi',
+          code: error.code || 'WEAK_PASSWORD',
+        });
+      }
+    }
+
+    queryText += ` WHERE id = $${paramIndex} RETURNING id, full_name as "fullName", email, status`;
+    params.push(userId);
+
+    const result = await query(queryText, params);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Foydalanuvchi topilmadi', code: 'USER_NOT_FOUND' });
+    }
+
+    res.json({ ok: true, user: result.rows[0] });
+  } catch (error) {
+    handleError(res, error);
+  }
 });
 
 export default router;

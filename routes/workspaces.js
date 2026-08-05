@@ -3,6 +3,7 @@ import multer from 'multer';
 import { requireAccessToken } from '../middleware/auth.js';
 import { requireWorkspaceMode } from '../middleware/featureGate.js';
 import { requireWorkspacePermission } from '../middleware/workspaceAccess.js';
+import { sanitizeWorkspace } from '../domain/workspace.js';
 import {
   archiveWorkspace,
   createWorkspace,
@@ -79,7 +80,7 @@ router.use(requireWorkspaceMode, requireAccessToken);
 router.post('/', async (req, res) => {
   try {
     const workspace = await createWorkspace(req.auth.userId, req.body || {});
-    res.status(201).json({ workspace });
+    res.status(201).json({ workspace: sanitizeWorkspace(workspace) });
   } catch (error) {
     handleError(res, error);
   }
@@ -87,8 +88,17 @@ router.post('/', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const rows = await getUserWorkspaces(req.auth.userId);
-    res.json({ rows });
+    const pRole = String(req.auth.platformRole || '').toLowerCase();
+    const isAdmin = pRole === 'admin' || pRole === 'manager' || pRole === 'super admin' || pRole === 'кип мастер';
+    
+    let rows;
+    if (isAdmin) {
+      const { listActiveWorkspaces } = await import('../repositories/workspaceRepository.js');
+      rows = await listActiveWorkspaces();
+    } else {
+      rows = await getUserWorkspaces(req.auth.userId);
+    }
+    res.json({ rows: rows.map(sanitizeWorkspace) });
   } catch (error) {
     handleError(res, error);
   }
@@ -96,8 +106,7 @@ router.get('/', async (req, res) => {
 
 router.get('/:workspaceId', requireWorkspacePermission('workspace:read'), async (req, res) => {
   try {
-    const workspace = await getWorkspace(req.auth.userId, req.params.workspaceId);
-    res.json({ workspace });
+    res.json({ workspace: sanitizeWorkspace(req.workspace) });
   } catch (error) {
     handleError(res, error);
   }
@@ -106,7 +115,7 @@ router.get('/:workspaceId', requireWorkspacePermission('workspace:read'), async 
 router.put('/:workspaceId', requireWorkspacePermission('workspace:update'), async (req, res) => {
   try {
     const workspace = await updateWorkspace(req.auth.userId, req.params.workspaceId, req.body || {});
-    res.json({ workspace });
+    res.json({ workspace: sanitizeWorkspace(workspace) });
   } catch (error) {
     handleError(res, error);
   }
@@ -114,8 +123,8 @@ router.put('/:workspaceId', requireWorkspacePermission('workspace:update'), asyn
 
 router.delete('/:workspaceId', requireWorkspacePermission('workspace:archive'), async (req, res) => {
   try {
-    const workspace = await archiveWorkspace(req.auth.userId, req.params.workspaceId);
-    res.json({ ok: true, workspace });
+    const workspace = await archiveWorkspace(req.auth.userId, req.params.workspaceId, { preAuthorized: true });
+    res.json({ ok: true, workspace: sanitizeWorkspace(workspace) });
   } catch (error) {
     handleError(res, error);
   }

@@ -59,15 +59,23 @@ function readLocalSheetUrl() {
 
 async function readServerSheetUrl() {
   if (lastServerSheetUrl) return lastServerSheetUrl;
-  const candidates = ['/api/kuduk/state?sexId=sex_4', '/api/kuduk/state?sexId=sex_default'];
-  for (const endpoint of candidates) {
-    try {
-      const res = await fetch(endpoint);
-      const data = await res.json().catch(() => ({}));
-      const url = normalizeSpreadsheetUrl(data.spreadsheetUrl || data.spreadsheetId || data.url);
-      if (url) { lastServerSheetUrl = url; return url; }
-    } catch (_) {}
-  }
+  
+  // Get current workspace ID from localStorage
+  const workspaceId = localStorage.getItem('seg_kip_selected_workspace_id');
+  if (!workspaceId) return '';
+
+  try {
+    const res = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      const url = normalizeSpreadsheetUrl(data.workspace?.spreadsheetUrl || data.spreadsheetUrl);
+      if (url) {
+        lastServerSheetUrl = url;
+        return url;
+      }
+    }
+  } catch (_) {}
+  
   return '';
 }
 
@@ -122,8 +130,19 @@ function setActiveMenu(label) {
 function setTopbar(title, subtitle) {
   const h = document.querySelector('.topbar h2');
   const p = document.querySelector('.topbar p');
-  if (h) h.textContent = title || 'SEG KIP AI Platform';
-  if (p) p.textContent = subtitle || 'Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси';
+  const t = title || 'SEG KIP AI Platform';
+  const s = subtitle || 'Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси';
+  if (h) {
+    h.setAttribute('data-i18n', t);
+    h.textContent = t;
+  }
+  if (p) {
+    p.setAttribute('data-i18n', s);
+    p.textContent = s;
+  }
+  if (typeof window.applyTranslations === 'function') {
+    window.applyTranslations(document.querySelector('.topbar'));
+  }
 }
 
 function hideAllPages() {
@@ -516,6 +535,10 @@ function bindAiUi() {
 document.addEventListener('DOMContentLoaded', () => {
   bindAiUi();
   checkAiStatus();
+  if (localStorage.getItem('sidebarCollapsed') === 'true') {
+    const app = document.querySelector('.app');
+    if (app) app.classList.add('sidebar-collapsed');
+  }
 });
 
 window.addEventListener('message', (event) => {
@@ -530,3 +553,12 @@ window.addEventListener('message', (event) => {
 window.clearSegAiHistory = clearAiHistory;
 window.getSegCurrentPageContext = getCurrentPageContext;
 window.segKipSendAiMessage = sendAiMessage;
+
+window.toggleSidebar = function() {
+  const app = document.querySelector('.app');
+  if (app) {
+    app.classList.toggle('sidebar-collapsed');
+    localStorage.setItem('sidebarCollapsed', app.classList.contains('sidebar-collapsed'));
+  }
+};
+

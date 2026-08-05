@@ -4,11 +4,10 @@ import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { google } from "googleapis";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, "..", "data", "tenants");
-fs.mkdirSync(DATA_DIR, { recursive: true });
+import { findWorkspaceById } from '../repositories/workspaceRepository.js';
+import { resolveWorkspaceGoogleConfig } from "../services/workspaceGoogleService.js";
+import { requireWorkspaceRequestPermission } from "../middleware/workspaceAccess.js";
+import { requireAccessToken } from "../middleware/auth.js";
 
 const TENANTS = new Map();
 const TIMERS = new Map();
@@ -46,11 +45,10 @@ const SYSTEM_SHEETS = new Set([
 ].map(norm));
 
 function safeSexId(value) {
-  const raw = String(value || "").trim().toLowerCase();
-  const safe = raw.replace(/[^a-z0-9_-]+/gi, "_").replace(/^_+|_+$/g, "");
-  return safe || "sex_default";
+  const raw = String(value || "").trim();
+  const safe = raw.replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
+  return safe || "default";
 }
-function tenantFile(sexId) { return path.join(DATA_DIR, `${safeSexId(sexId)}.json`); }
 function norm(s) { return String(s || "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/ё/g, "е").trim().toLowerCase(); }
 function hardNorm(s) { return norm(s).replace(/[\s\-_.,:;()"'`«»№#]+/g, ""); }
 function sha(obj) { return crypto.createHash("sha256").update(JSON.stringify(obj)).digest("hex"); }
@@ -199,29 +197,37 @@ function log(t, level, message, meta = {}) {
   const item = { level, message, meta, ts: new Date().toISOString() };
   t.logs = [...(t.logs || []), item].slice(-150);
   console.log(`[KUDUK ${t.sexId} ${level.toUpperCase()}] ${message}`);
-  IO?.to(`sex:${t.sexId}`).emit("kuduk-log", item);
+  IO?.to(`workspace:${t.sexId}`).emit("kuduk-log", item);
 }
-function saveTenant(t) {
-  const payload = {
-    sexId: t.sexId,
-    spreadsheetUrl: t.spreadsheetUrl,
-    spreadsheetId: t.spreadsheetId,
-    menuSheet: t.menuSheet,
-    syncSeconds: t.syncSeconds,
-    service: t.service
-  };
-  fs.writeFileSync(tenantFile(t.sexId), JSON.stringify(payload, null, 2));
-}
-async function loadTenant(sexId) {
-  sexId = safeSexId(sexId);
-  if (TENANTS.has(sexId)) return TENANTS.get(sexId);
-  const t = { sexId, connected: false, routes: [], sheets: {}, statuses: {}, hashes: {}, logs: [], version: 0 };
-  TENANTS.set(sexId, t);
-  if (fs.existsSync(tenantFile(sexId))) {
-    const cfg = JSON.parse(fs.readFileSync(tenantFile(sexId), "utf8"));
-    await applyConfig(sexId, cfg, false);
+
+async function loadTenant(workspaceId) {
+  workspaceId = safeSexId(workspaceId);
+  if (TENANTS.has(workspaceId)) return TENANTS.get(workspaceId);
+  const t = { sexId: workspaceId, connected: false, routes: [], sheets: {}, statuses: {}, hashes: {}, logs: [], version: 0 };
+  TENANTS.set(workspaceId, t);
+  
+  try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(workspaceId)) {
+      throw new Error(`Yaroqsiz Workspace ID formati: ${workspaceId}`);
+    }
+    const workspace = await findWorkspaceById(workspaceId);
+    if (workspace && workspace.spreadsheetUrl) {
+      const config = resolveWorkspaceGoogleConfig(workspace);
+      await applyConfig(workspaceId, {
+        spreadsheetUrl: config.spreadsheetUrl,
+        menuSheet: workspace.mainSheetName || "кудук руйхати",
+        service: config.serviceAccount,
+        syncSeconds: 30
+      }, false);
+    } else {
+      TENANTS.delete(workspaceId);
+    }
+  } catch (e) {
+    log(t, 'error', `Workspace config xatosi: ${e.message}`);
+    TENANTS.delete(workspaceId);
   }
-  return TENANTS.get(sexId);
+  return TENANTS.get(workspaceId) || t;
 }
 async function getGrid(t, sheetName) {
   const res = await t.sheetsApi.spreadsheets.get({
@@ -266,7 +272,8 @@ async function extractRoutes(t) {
       if (!title && !cellFormula(cell)) continue;
 
       let sheet = "", source = "", linkUsed = "", targetGid = null;
-      for (const link of extractLinksFromCell(cell)) {
+      const links = extractLinksFromCell(cell);
+      for (const link of links) {
         const gid = gidFromLink(link);
         if (gid != null && maps.byId.has(gid)) { sheet = maps.byId.get(gid); source = "range-hyperlink-gid"; linkUsed = link; targetGid = gid; break; }
         const h = sheetNameFromHashLink(link);
@@ -286,7 +293,9 @@ async function extractRoutes(t) {
       const absoluteRow = MENU_START_ROW_INDEX + r;
       const absoluteCol = MENU_START_COL_INDEX + c;
       if (!sheet) {
-        log(t, "error", `Menu katak target varoq bilan moslashmadi: ${a1(absoluteRow, absoluteCol)} = ${title}`);
+        if (links.length > 0) {
+          log(t, "warn", `Menu katakdagi link target varoq bilan moslashmadi: ${a1(absoluteRow, absoluteCol)} = ${title}`);
+        }
         continue;
       }
       const isJournal = isJournalTitle(title);
@@ -373,8 +382,8 @@ async function loadSheet(t, route) {
     return { changed: false, rows: t.sheets[route.sheet] };
   }
 }
-async function syncTenant(sexId, reason = "manual") {
-  const t = await loadTenant(sexId);
+async function syncTenant(workspaceId, reason = "manual") {
+  const t = await loadTenant(workspaceId);
   if (!t.sheetsApi) throw new Error("Backend konfiguratsiya qilinmagan.");
   if (t.syncRunning) return publicState(t);
   t.syncRunning = true;
@@ -391,26 +400,25 @@ async function syncTenant(sexId, reason = "manual") {
     t.updatedAt = new Date().toISOString();
     t.version += 1;
     log(t, "ok", `Sync bajarildi (${reason}). Status: READY`);
-    IO?.to(`sex:${t.sexId}`).emit("kuduk-data-update", publicState(t));
+    IO?.to(`workspace:${t.sexId}`).emit("kuduk-data-update", publicState(t));
     return publicState(t);
   } finally { t.syncRunning = false; }
 }
-async function applyConfig(sexId, input, persist = true) {
-  sexId = safeSexId(sexId || input.sexId);
+async function applyConfig(workspaceId, input, persist = false) {
+  workspaceId = safeSexId(workspaceId || input.workspaceId || input.sexId);
   const spreadsheetId = extractSpreadsheetId(input.spreadsheetUrl || input.url || input.spreadsheetId);
   if (!spreadsheetId) throw new Error("Google Sheets ssilkasi/ID noto‘g‘ri.");
   const service = sanitizeService(input.service || input.serviceAccount || input.json);
-  const t = TENANTS.get(sexId) || { sexId, routes: [], sheets: {}, statuses: {}, hashes: {}, logs: [], version: 0 };
+  const t = TENANTS.get(workspaceId) || { sexId: workspaceId, routes: [], sheets: {}, statuses: {}, hashes: {}, logs: [], version: 0 };
   t.spreadsheetUrl = input.spreadsheetUrl || input.url || spreadsheetId;
   t.spreadsheetId = spreadsheetId;
   t.menuSheet = input.menuSheet || input.baseSheet || "кудук руйхати";
   t.syncSeconds = Math.max(10, Number(input.syncSeconds || 30));
   t.service = service;
   t.sheetsApi = await makeSheets(service);
-  TENANTS.set(sexId, t);
-  if (persist) saveTenant(t);
+  TENANTS.set(workspaceId, t);
   startTimer(t);
-  return await syncTenant(sexId, "config");
+  return await syncTenant(workspaceId, "config");
 }
 function startTimer(t) {
   const old = TIMERS.get(t.sexId);
@@ -457,8 +465,8 @@ async function findBaseRowNumber(t, sourceSheet, rowNumber, values = {}) {
   return { baseSheet, rowNumber: Number(baseRow._rowNumber) };
 }
 
-async function updateRow(sexId, sheet, rowNumber, values) {
-  const t = await loadTenant(sexId);
+async function updateRow(workspaceId, sheet, rowNumber, values = {}) {
+  const t = await loadTenant(workspaceId);
   if (!t.sheetsApi) throw new Error("Sex konfiguratsiyasi topilmadi.");
   await validateRowValues(t, values);
   const target = await findBaseRowNumber(t, sheet, rowNumber, values);
@@ -472,10 +480,10 @@ async function updateRow(sexId, sheet, rowNumber, values) {
   for (const f of FIELD_ORDER) if (idx[f] >= 0 && Object.prototype.hasOwnProperty.call(values, f)) updates.push({ range: rangeA1(sheet, rowNumber - 1, idx[f]), values: [[values[f] ?? ""]] });
   if (!updates.length) return;
   await t.sheetsApi.spreadsheets.values.batchUpdate({ spreadsheetId: t.spreadsheetId, requestBody: { valueInputOption: "USER_ENTERED", data: updates } });
-  await syncTenant(sexId, "base-row-update");
+  await syncTenant(workspaceId, "base-row-update");
 }
-async function appendRow(sexId, sheet, values) {
-  const t = await loadTenant(sexId);
+async function appendRow(workspaceId, sheet, values) {
+  const t = await loadTenant(workspaceId);
   if (!t.sheetsApi) throw new Error("Sex konfiguratsiyasi topilmadi.");
   await validateRowValues(t, values);
   sheet = await getBaseSheetName(t);
@@ -486,7 +494,7 @@ async function appendRow(sexId, sheet, values) {
   const row = Array(width).fill("");
   for (const f of FIELD_ORDER) if (idx[f] >= 0) row[idx[f]] = values[f] ?? "";
   await t.sheetsApi.spreadsheets.values.append({ spreadsheetId: t.spreadsheetId, range: `'${safeSheetTitle(sheet)}'!A:Z`, valueInputOption: "USER_ENTERED", insertDataOption: "INSERT_ROWS", requestBody: { values: [row] } });
-  await syncTenant(sexId, "base-row-append");
+  await syncTenant(workspaceId, "base-row-append");
 }
 
 
@@ -612,8 +620,8 @@ async function validateRowValues(t, values = {}) {
     if (allowed.size && !allowed.has(optionKey(value))) throw new Error(`${label} qiymati Google Sheets dropdown ro'yxatida yo'q: ${value}`);
   }
 }
-async function deleteRow(sexId, sheet, rowNumber) {
-  const t = await loadTenant(sexId);
+async function deleteRow(workspaceId, sheet, rowNumber) {
+  const t = await loadTenant(workspaceId);
   const target = await findBaseRowNumber(t, sheet, rowNumber, {});
   sheet = target.baseSheet;
   rowNumber = target.rowNumber;
@@ -621,89 +629,54 @@ async function deleteRow(sexId, sheet, rowNumber) {
   const sh = meta.sheets.find(s => s.properties.title === sheet);
   if (!sh) throw new Error(`"${sheet}" varog‘i topilmadi.`);
   await t.sheetsApi.spreadsheets.batchUpdate({ spreadsheetId: t.spreadsheetId, requestBody: { requests: [{ deleteDimension: { range: { sheetId: sh.properties.sheetId, dimension: "ROWS", startIndex: rowNumber - 1, endIndex: rowNumber } } }] } });
-  await syncTenant(sexId, "base-row-delete");
+  await syncTenant(workspaceId, "base-row-delete");
 }
 
 export function createKudukRouter(io) {
   IO = io;
   const router = express.Router();
   router.get("/health", async (req, res) => {
-    const sexId = safeSexId(req.query.sexId || req.query.sex || "sex_default");
-    const t = await loadTenant(sexId).catch(() => null);
-    res.json({ ok: true, sexId, connected: Boolean(t?.connected), status: t?.connected ? "READY" : "OFFLINE" });
+    const workspaceId = safeSexId(req.query.workspaceId || req.query.sexId || req.query.sex);
+    const t = await loadTenant(workspaceId).catch(() => null);
+    res.json({ ok: true, workspaceId, connected: Boolean(t?.connected), status: t?.connected ? "READY" : "OFFLINE" });
   });
   router.get("/state", async (req, res) => {
-    try { res.json(publicState(await loadTenant(req.query.sexId || "sex_default"))); }
-    catch (e) { res.status(400).json({ ok: false, error: e.message }); }
-  });
-  // Frontend/future compatibility aliases required by the project specification.
-  router.post("/connect", async (req, res) => {
-    try { res.json(await applyConfig(req.body.sexId, req.body, true)); }
+    try { res.json(publicState(await loadTenant(req.query.workspaceId))); }
     catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   router.get("/menu", async (req, res) => {
-    try { const t = await loadTenant(req.query.sexId || "sex_default"); if (!t.connected && t.sheetsApi) await syncTenant(t.sexId, "menu-api"); res.json({ ok: true, routes: t.routes || [], menuRange: `'${t.menuSheet || "кудук руйхати"}'!${MENU_RANGE_A1}` }); }
+    try { const t = await loadTenant(req.query.workspaceId); if (!t.connected && t.sheetsApi) await syncTenant(t.sexId, "menu-api"); res.json({ ok: true, routes: t.routes || [], menuRange: `'${t.menuSheet || "кудук руйхати"}'!${MENU_RANGE_A1}` }); }
     catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   router.get("/sheet", async (req, res) => {
-    try { const t = await loadTenant(req.query.sexId || "sex_default"); const sheet = req.query.sheet || req.query.targetSheet; if (!sheet) throw new Error("sheet parametri kerak."); if (!t.sheets?.[sheet]) await loadSheet(t, { sheet }); res.json({ ok: true, sheet, rows: t.sheets[sheet] || [], status: t.statuses[sheet] || null }); }
+    try { const t = await loadTenant(req.query.workspaceId); const sheet = req.query.sheet || req.query.targetSheet; if (!sheet) throw new Error("sheet parametri kerak."); if (!t.sheets?.[sheet]) await loadSheet(t, { sheet }); res.json({ ok: true, sheet, rows: t.sheets[sheet] || [], status: t.statuses[sheet] || null }); }
     catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   router.post("/update", async (req, res) => {
-    try { await updateRow(req.body.sexId, req.body.sheet, Number(req.body.rowNumber), req.body.values || {}); res.json(publicState(await loadTenant(req.body.sexId))); }
+    try { await updateRow(req.body.workspaceId || req.query.workspaceId, req.body.sheet, Number(req.body.rowNumber), req.body.values || {}); res.json(publicState(await loadTenant(req.body.workspaceId || req.query.workspaceId))); }
     catch (e) { res.status(400).json({ ok: false, error: e.message }); }
-  });
-  router.delete("/clear", async (req, res) => {
-    const sexId = safeSexId(req.query.sexId || req.body?.sexId || "sex_default");
-    const old = TIMERS.get(sexId); if (old) clearInterval(old); TIMERS.delete(sexId);
-    TENANTS.delete(sexId);
-    try { if (fs.existsSync(tenantFile(sexId))) fs.unlinkSync(tenantFile(sexId)); } catch {}
-    const fresh = { sexId, connected: false, routes: [], sheets: {}, statuses: {}, logs: [{ level: "ok", message: "Faqat joriy sex xotirasi tozalandi.", ts: new Date().toISOString() }], version: Date.now() };
-    TENANTS.set(sexId, fresh);
-    io.to(`sex:${sexId}`).emit("kuduk-data-update", publicState(fresh));
-    res.json(publicState(fresh));
   });
   router.get("/metadata", async (req, res) => {
     try {
-      const t = await loadTenant(req.query.sexId || "sex_default");
+      const t = await loadTenant(req.query.workspaceId);
       if (!t.sheetsApi) throw new Error("Sex konfiguratsiyasi topilmadi.");
       res.json(await loadMetadata(t));
     } catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
-  router.get("/debug/mapping", async (req, res) => {
-    try {
-      const t = await loadTenant(req.query.sexId || "sex_default");
-      res.json({ ok: true, sexId: t.sexId, spreadsheetId: t.spreadsheetId || "", menuSheet: t.menuSheet || "", routes: t.routes || [], statuses: t.statuses || {}, fields: FIELD_ORDER });
-    } catch (e) { res.status(400).json({ ok: false, error: e.message }); }
-  });
-  router.post("/config", async (req, res) => {
-    try { res.json(await applyConfig(req.body.sexId, req.body, true)); }
-    catch (e) { res.status(400).json({ ok: false, error: e.message }); }
-  });
-  router.delete("/config/:sexId", async (req, res) => {
-    const sexId = safeSexId(req.params.sexId);
-    const old = TIMERS.get(sexId); if (old) clearInterval(old); TIMERS.delete(sexId);
-    TENANTS.delete(sexId);
-    try { if (fs.existsSync(tenantFile(sexId))) fs.unlinkSync(tenantFile(sexId)); } catch {}
-    const fresh = { sexId, connected: false, routes: [], sheets: {}, statuses: {}, logs: [{ level: "ok", message: "Faqat joriy sex xotirasi tozalandi.", ts: new Date().toISOString() }], version: Date.now() };
-    TENANTS.set(sexId, fresh);
-    io.to(`sex:${sexId}`).emit("kuduk-data-update", publicState(fresh));
-    res.json(publicState(fresh));
-  });
   router.post("/sync", async (req, res) => {
-    try { res.json(await syncTenant(req.body.sexId || req.query.sexId || "sex_default", "manual-api")); }
+    try { res.json(await syncTenant(req.body.workspaceId || req.query.workspaceId, "manual-api")); }
     catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   router.post("/rows", async (req, res) => {
-    try { await appendRow(req.body.sexId, req.body.sheet, req.body.values || {}); res.json(publicState(await loadTenant(req.body.sexId))); }
+    try { await appendRow(req.body.workspaceId || req.query.workspaceId, req.body.sheet, req.body.values || {}); res.json(publicState(await loadTenant(req.body.workspaceId || req.query.workspaceId))); }
     catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   router.put("/rows", async (req, res) => {
-    try { await updateRow(req.body.sexId, req.body.sheet, Number(req.body.rowNumber), req.body.values || {}); res.json(publicState(await loadTenant(req.body.sexId))); }
+    try { await updateRow(req.body.workspaceId || req.query.workspaceId, req.body.sheet, Number(req.body.rowNumber), req.body.values || {}); res.json(publicState(await loadTenant(req.body.workspaceId || req.query.workspaceId))); }
     catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   router.delete("/rows", async (req, res) => {
-    try { await deleteRow(req.query.sexId, req.query.sheet, Number(req.query.rowNumber)); res.json(publicState(await loadTenant(req.query.sexId))); }
+    try { await deleteRow(req.query.workspaceId, req.query.sheet, Number(req.query.rowNumber)); res.json(publicState(await loadTenant(req.query.workspaceId))); }
     catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   return router;
@@ -712,12 +685,9 @@ export function createKudukRouter(io) {
 export function initKudukRealtime(io) {
   IO = io;
   io.on("connection", socket => {
-    const sexId = safeSexId(socket.handshake.query.sexId || "sex_default");
-    socket.join(`sex:${sexId}`);
-    loadTenant(sexId).then(t => socket.emit("kuduk-data-update", publicState(t))).catch(e => socket.emit("kuduk-log", { level: "error", message: e.message, ts: new Date().toISOString() }));
+    const workspaceId = safeSexId(socket.handshake.query.workspaceId);
+    if (!workspaceId) return;
+    socket.join(`workspace:${workspaceId}`);
+    loadTenant(workspaceId).then(t => socket.emit("kuduk-data-update", publicState(t))).catch(e => socket.emit("kuduk-log", { level: "error", message: e.message, ts: new Date().toISOString() }));
   });
-  for (const file of fs.readdirSync(DATA_DIR).filter(f => f.endsWith(".json"))) {
-    const sexId = path.basename(file, ".json");
-    loadTenant(sexId).catch(e => console.error(`Tenant ${sexId} boot error:`, e.message));
-  }
 }

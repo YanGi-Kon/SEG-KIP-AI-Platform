@@ -23,6 +23,12 @@ const ROLE_PERMISSIONS = Object.freeze({
     'signers:read',
     'documents:read', 'documents:create',
   ]),
+  workspace_manager: new Set([
+    'workspace:read', 'workspace:update', 'workspace:test',
+    'members:read',
+    'signers:read',
+    'documents:read', 'documents:create', 'documents:send',
+  ]),
   department_manager: new Set([
     'workspace:read',
     'signers:read',
@@ -54,8 +60,9 @@ export function requirePermission(role, permission) {
 
 export function canManageRole(actorRole, targetRole) {
   const rank = {
-    owner: 6,
-    administrator: 5,
+    owner: 7,
+    administrator: 6,
+    workspace_manager: 5,
     department_manager: 4,
     operator: 3,
     engineer: 2,
