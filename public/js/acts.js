@@ -1,16 +1,9 @@
 (function(){
+  const KEYS = { url:'acts_sheet_url', sheet:'acts_sheet_name', service:'acts_service_account' };
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const WORKSPACE_ID_KEY = 'seg_kip_selected_workspace_id';
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
-  const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null, workspace: null };
-  const WORKSPACE_PERMISSIONS = Object.freeze({
-    owner: new Set(['documents:read','documents:create','documents:send']),
-    administrator: new Set(['documents:read','documents:create','documents:send']),
-    operator: new Set(['documents:read','documents:create','documents:send']),
-    engineer: new Set(['documents:read','documents:create']),
-    department_manager: new Set(['documents:read','documents:send']),
-    viewer: new Set(['documents:read'])
-  });
+  const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null };
   const PDF_MONTHS = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
 
   function $(id){ return document.getElementById(id); }
@@ -21,18 +14,11 @@
   function pget(store,key){ try { return parent?.[store]?.getItem(key) || ''; } catch(_) { return ''; } }
 
   function settings(){
-    if(state.workspace){
-      return { spreadsheetUrl:state.workspace.spreadsheetUrl||'', sheetName:state.workspace.mainSheetName||'', serviceAccount:null };
-    }
-    return { spreadsheetUrl: '', sheetName: '', serviceAccount: null };
+    let serviceAccount = null;
+    try { serviceAccount = JSON.parse(localStorage.getItem(KEYS.service) || 'null'); } catch(_) {}
+    return { spreadsheetUrl: localStorage.getItem(KEYS.url) || '', sheetName: localStorage.getItem(KEYS.sheet) || '', serviceAccount };
   }
-  function workspaceMode(){ return Boolean(workspaceId() && workspaceToken()); }
-  function hasPermission(permission){
-    if(!workspaceMode()) return true;
-    const role=String(state.workspace?.memberRole||'').toLowerCase();
-    return Boolean(WORKSPACE_PERMISSIONS[role]?.has(permission));
-  }
-  function hasSettings(){ return Boolean(state.workspace && state.workspace.spreadsheetUrl && state.workspace.mainSheetName); }
+  function hasSettings(){ const s=settings(); return Boolean(s.spreadsheetUrl && s.sheetName && s.serviceAccount); }
   function setStatus(text, cls=''){ const el=$('actsStatus'); if(el) el.innerHTML = `Ҳолат: <span class="${cls}">${esc(text)}</span>`; }
   function setSignersMsg(text, cls=''){ const el=$('signersMsg'); if(el) el.innerHTML = `<span class="${cls}">${esc(text)}</span>`; }
   function parentOnline(status){ try { parent.postMessage({ type:'SEG_ACTS_STATUS', status }, '*'); } catch(_) {} }
@@ -63,15 +49,10 @@
 
   async function apiFetch(url, options={}, retry=true){
     const headers = new Headers(options.headers || {});
-    const id=workspaceId();
-    if(workspaceMode()){
-      headers.set('x-workspace-id',id);
-      if(window.WorkspaceApiClient) return window.WorkspaceApiClient.request(url,{...options,headers});
-      headers.set('Authorization',`Bearer ${workspaceToken()}`);
-    }else{
-      if(hasSettings()) headers.set('x-seg-kip-config',configHeader());
-      if(adminToken()) headers.set('Authorization',`Bearer ${adminToken()}`);
-    }
+    if(hasSettings()) headers.set('x-seg-kip-config',configHeader());
+    const globalToken = sessionStorage.getItem('seg_kip_workspace_access_token');
+    if(globalToken) headers.set('Authorization', `Bearer ${globalToken}`);
+    else if(adminToken()) headers.set('Authorization',`Bearer ${adminToken()}`);
     const res = await fetch(url,{...options,headers});
     const data = await res.json().catch(()=>({}));
     if(res.status===401 && data.code==='ADMIN_AUTH_REQUIRED' && retry){
@@ -88,26 +69,10 @@
     const id = workspaceId();
     const token = workspaceToken();
     if(!id || !token) return null;
-    if(window.WorkspaceApiClient) return window.WorkspaceApiClient.request(`/api/workspaces/${encodeURIComponent(id)}${path}`, { method:'GET' });
     const headers = new Headers({ Authorization:`Bearer ${token}` });
     const res = await fetch(`/api/workspaces/${encodeURIComponent(id)}${path}`, { headers, credentials:'include' });
     if(!res.ok) return null;
     return res.json().catch(()=>null);
-  }
-  async function loadWorkspaceContext(){
-    if(!workspaceMode()) return null;
-    const data=await workspaceFetch('');
-    if(!data?.workspace) throw new Error('Tanlangan workspace ma’lumoti yuklanmadi. Qayta login qiling.');
-    state.workspace=data.workspace;
-    applyWorkspacePermissions();
-    return state.workspace;
-  }
-  async function handleWorkspaceChange(){
-    state.workspace=null;
-    state.workspaceApprovers=null;
-    if(!workspaceMode()) return;
-    try{await loadWorkspaceContext();await loadAnalysis();}
-    catch(err){setStatus(err.message,'bad');}
   }
   async function loadWorkspaceApproverRegistry(force=false){
     if(!force && Array.isArray(state.workspaceApprovers)) return state.workspaceApprovers;
@@ -214,19 +179,6 @@
   function formatWorkPlace(row){ return `${row.deviceName||''} ${row.typeMark||''}, завод рақами ${row.serialNo||''},\nўлчаш чегараси ${row.measureRange||''},\n${row.place||''}, поз. №${row.positionNo||''}`.replace(/ +,/g,',').trim(); }
   function today(){ const d=new Date(); return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; }
 
-  function applyWorkspacePermissions(){
-    const createAllowed=hasPermission('documents:create');
-    const createTab=$('tab-create');
-    if(createTab){
-      createTab.disabled=!createAllowed;
-      createTab.title=createAllowed?'':'Sizning workspace rolingiz hujjat yaratishga ruxsat bermaydi.';
-    }
-    const settingsButton=document.querySelector('[onclick="ActsUI.openSettings()"]');
-    if(settingsButton) settingsButton.style.display=workspaceMode()?'none':'';
-    if(!createAllowed && $('create')?.classList.contains('active')) showView('analysis',$('tab-analysis'));
-    validateDoc();
-  }
-
   function parsePdfDate(raw){
     const value = clean(raw);
     const match = value.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})$/);
@@ -244,25 +196,23 @@
   function renderRows(rows){
     const tb=$('analysisRows');
     if(!rows||!rows.length){tb.innerHTML='<tr><td colspan="11">ТО-2 / АКТ қаторлари топилмади.</td></tr>';return;}
-    tb.innerHTML=rows.map((r,i)=>{const action=r.isCompleted?`<button class="btn done" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Хужат якунланди</button>`:hasPermission('documents:create')?`<button class="btn green" onclick="ActsUI.fillDoc(${i})">Хужат яратиш</button>`:'<span class="note">Yaratish huquqi yoʻq</span>';return `<tr data-source-key="${esc(r.sourceKey||'')}"><td>${i+1}</td><td>${esc(r.date)}</td><td>${esc(r.positionNo)}</td><td>${esc(r.deviceName)}</td><td>${esc(r.typeMark)}</td><td>${esc(r.serialNo)}</td><td>${esc(r.measureRange)}</td><td>${esc(r.place)}</td><td class="icol">${esc(r.workType)}</td><td>${esc(r.executor)}</td><td>${action}</td></tr>`;}).join('');
+    tb.innerHTML=rows.map((r,i)=>{const action=r.isCompleted?`<button class="btn done" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Хужат якунланди</button>`:`<button class="btn green" onclick="ActsUI.fillDoc(${i})">Хужат яратиш</button>`;return `<tr data-source-key="${esc(r.sourceKey||'')}"><td>${i+1}</td><td>${esc(r.date)}</td><td>${esc(r.positionNo)}</td><td>${esc(r.deviceName)}</td><td>${esc(r.typeMark)}</td><td>${esc(r.serialNo)}</td><td>${esc(r.measureRange)}</td><td>${esc(r.place)}</td><td class="icol">${esc(r.workType)}</td><td>${esc(r.executor)}</td><td>${action}</td></tr>`;}).join('');
   }
   async function loadAnalysis(){
-    if(workspaceMode()&&!state.workspace) await loadWorkspaceContext();
-    if(!hasSettings()){setStatus('Workspace Google Sheets созламалари киритилмаган.','bad');return;}
+    if(!hasSettings()){openSettings();setStatus('Google Sheets созламалари киритилмаган.','bad');return;}
     try{setStatus('Google Sheets билан синхронланмоқда...','sync');parentOnline('SYNCING');const data=await postJson('/api/acts/monthly-analysis',settings());state.analysisRows=data.rows||[];updateKpi(data);renderRows(state.analysisRows);setStatus('Google Sheets уланди. Маълумотлар янгиланди.','ok');parentOnline('ONLINE');}
     catch(err){setStatus(err.message,'bad');parentOnline('OFFLINE');}
   }
   async function loadReports(){
     const tb=$('dailyRows');
-    if(workspaceMode()&&!state.workspace) await loadWorkspaceContext();
     if(!hasSettings()){tb.innerHTML='<tr><td colspan="9">Google Sheets созламалари киритилмаган.</td></tr>';return[];}
-    try{const data=await postJson('/api/acts/reports/daily',settings());const rows=data.rows||[];state.dailyRows=rows;if(!rows.length){tb.innerHTML='<tr><td colspan="9">Кунлик ҳисоботда ҳужжатлар йўқ.</td></tr>';return rows;}tb.innerHTML=rows.map((r,i)=>{const send=hasPermission('documents:send')?` <button class="btn orange small" onclick="ActsUI.sendDoc('${ref(r.actNo)}')">Хужатни юбориш</button>`:'';return `<tr><td>${i+1}</td><td>${esc(r.actNo)}</td><td>${esc(r.date)}</td><td>${esc(r.device)}</td><td>${esc(r.serial)}</td><td>${esc(r.place)}</td><td>${esc(r.executor)}</td><td>${esc(r.status)}</td><td><button class="btn primary small" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Кўриш</button>${send}</td></tr>`;}).join('');return rows;}
+    try{const data=await postJson('/api/acts/reports/daily',settings());const rows=data.rows||[];state.dailyRows=rows;if(!rows.length){tb.innerHTML='<tr><td colspan="9">Кунлик ҳисоботда ҳужжатлар йўқ.</td></tr>';return rows;}tb.innerHTML=rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.actNo)}</td><td>${esc(r.date)}</td><td>${esc(r.device)}</td><td>${esc(r.serial)}</td><td>${esc(r.place)}</td><td>${esc(r.executor)}</td><td>${esc(r.status)}</td><td><button class="btn primary small" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Кўриш</button> <button class="btn orange small" onclick="ActsUI.sendDoc('${ref(r.actNo)}')">Хужатни юбориш</button></td></tr>`).join('');return rows;}
     catch(err){tb.innerHTML=`<tr><td colspan="9">${esc(err.message)}</td></tr>`;return[];}
   }
 
   function resetSaveButton(){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');b.textContent='Сақлаш';}
   function saveButton(mode){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');if(mode==='saving'){b.classList.add('saving');b.textContent='⏳ Сақланмоқда...';b.disabled=true;return;}if(mode==='saved'){b.classList.add('saved');b.textContent='Сақланди ✓';b.disabled=true;return;}resetSaveButton();}
-  function fillDoc(index){if(!hasPermission('documents:create'))return setStatus('Sizning workspace rolingiz hujjat yaratishga ruxsat bermaydi.','bad');const row=state.analysisRows[index];if(!row)return;if(row.isCompleted){viewDoc(ref(row.actNo));return;}state.selected=row;$('workPlace').value=formatWorkPlace(row);$('actDate').value=row.date||today();$('actNo').value='';['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>{if($(id))$(id).value='';});resetSaveButton();showView('create',$('tab-create'));validateDoc();}
+  function fillDoc(index){const row=state.analysisRows[index];if(!row)return;if(row.isCompleted){viewDoc(ref(row.actNo));return;}state.selected=row;$('workPlace').value=formatWorkPlace(row);$('actDate').value=row.date||today();$('actNo').value='';['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>{if($(id))$(id).value='';});resetSaveButton();showView('create',$('tab-create'));validateDoc();}
   function collectActBase(){const r=state.selected||{};return{actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value.trim(),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:$('person2').value.trim(),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:$('person3').value.trim(),position3:$('position3').value.trim(),department3:$('department3').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||'',failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),conclusion:$('conclusion').value.trim()};}
   function collectAssignedApproverSlots(base){
     return [1,2,3].map((slot)=>({ slot, fio: clean(base[`person${slot}`]), position: clean(base[`position${slot}`]), department: clean(base[`department${slot}`]) })).filter((row)=>row.fio || row.position || row.department);
@@ -278,11 +228,10 @@
     return `<div class="a4-preview"><div class="act-meta"><div class="act-date-head">&quot;<span class="line">${esc(dateParts.day)}</span>&quot; <span class="month">${esc(dateParts.month)}</span> <span class="year">${esc(dateParts.year)}</span> г.</div><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича<br>ТПП «Андижан»</div></div><div class="act-head"><div class="act-title"><span>ДАЛОЛАТНОМА №</span><span class="act-no-line">${esc(a.actNo||'')}</span></div><div class="act-subtitle">Ўлчов воситасининг бузилиши</div></div>${signerBlock}${sectionHtml('1. Ў.В. Ишлаш жойи', a.workPlace)}${sectionHtml('2. Рад этиш мазмуни, санаси, вақти:', a.failureText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(a.date || '')}</span></div>`)}${sectionHtml('3. Носозликнинг технологик оқибатлари:', a.impactText, '', 'tall')}${sectionHtml('4. Рад этиш сабаби:', a.reasonText, '', 'tall')}${sectionHtml('5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:', a.actionText, '', 'xl')}<div class="act-conclusion">${sectionHtml('Хулоса:', a.conclusion, '', 'xl')}</div></div>`;
   }
   function collectAct(){ const base=collectActBase(); const payload={...base, assignedApprovers: collectAssignedApproverSlots(base)}; return {...payload,a4Html:stripLegacyManualSignatureBlock(buildA4ActHtml(payload)),a4Json:JSON.stringify(payload)}; }
-  function validateDoc(){const a=collectActBase();const required=['date','workPlace','failureText','impactText','reasonText','actionText','conclusion'];const done=required.filter(k=>a[k]).length;const pct=Math.round(done/required.length*100);$('fillBar').style.width=pct+'%';$('fillText').textContent=`Тўлдирилиш: ${pct}%`;const b=$('saveActBtn');if(b&&!state.saving&&!b.classList.contains('saved'))b.disabled=!hasPermission('documents:create')||pct<100||!state.selected;return pct>=100;}
+  function validateDoc(){const a=collectActBase();const required=['date','workPlace','failureText','impactText','reasonText','actionText','conclusion'];const done=required.filter(k=>a[k]).length;const pct=Math.round(done/required.length*100);$('fillBar').style.width=pct+'%';$('fillText').textContent=`Тўлдирилиш: ${pct}%`;const b=$('saveActBtn');if(b&&!state.saving&&!b.classList.contains('saved'))b.disabled=pct<100||!state.selected;return pct>=100;}
   function markCompleted(actNo){const key=state.selected?.sourceKey;if(!key)return;state.analysisRows=state.analysisRows.map(r=>r.sourceKey===key?{...r,isCompleted:true,actNo,status:'Хужат якунланди'}:r);renderRows(state.analysisRows);}
   async function saveAct(){
     if(state.saving)return;
-    if(!hasPermission('documents:create')){setStatus('Sizning workspace rolingiz hujjat yaratishga ruxsat bermaydi.','bad');return;}
     if(!validateDoc()){setStatus('Мажбурий майдонларни тўлдиринг.','bad');return;}
     state.saving=true;saveButton('saving');
     try{await loadWorkspaceApproverRegistry().catch(()=>[]);setStatus('Ҳужжат Google Sheets га сақланмоқда...','sync');const result=await postJson('/api/acts/create',{...settings(),act:collectAct()});$('actNo').value=result.actNo||'';saveButton('saved');markCompleted(result.actNo||'');setStatus(result.message||'Ҳужжат сақланди.','ok');await loadReports();}
@@ -290,18 +239,20 @@
     finally{state.saving=false;}
   }
 
-  function showView(id,btn){if(id==='create'&&!hasPermission('documents:create'))return setStatus('Sizning workspace rolingiz hujjat yaratishga ruxsat bermaydi.','bad');document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.acts-top .tabs button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');if(id==='reports')loadReports();}
+  function showView(id,btn){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.acts-top .tabs button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');if(id==='reports')loadReports();}
   function showReport(id,btn){document.querySelectorAll('.report-view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.subtabs button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');}
   function openExcel(){const url=settings().spreadsheetUrl;if(!url){alert('Google Sheets ҳаволаси киритилмаган.');return;}window.open(url,'_blank','noopener,noreferrer');}
-  function openSettings(){ setStatus('Google Sheets sozlamalari Workspace Settings boʻlimida boshqariladi.','sync'); }
+  function openSettings(){const s=settings();$('sheetUrl').value=s.spreadsheetUrl||'';$('sheetName').value=s.sheetName||'';$('settingsModal').classList.add('show');}
+  function closeSettings(){$('settingsModal').classList.remove('show');}
+  async function saveSettings(){const spreadsheetUrl=$('sheetUrl').value.trim();const sheetName=$('sheetName').value.trim();let serviceAccount=settings().serviceAccount;if(!spreadsheetUrl||!sheetName){$('settingsMsg').innerHTML='<span class="bad">Google Sheets силкаси ва ASOSIY VAROQ киритилиши шарт.</span>';return;}if(!serviceAccount){$('settingsMsg').innerHTML='<span class="bad">SERVICE ACCOUNT JSON файлини танланг.</span>';return;}try{$('settingsMsg').innerHTML='<span class="sync">Уланиш текширилмоқда...</span>';await postJson('/api/acts/settings/test',{spreadsheetUrl,serviceAccount});localStorage.setItem(KEYS.url,spreadsheetUrl);localStorage.setItem(KEYS.sheet,sheetName);localStorage.setItem(KEYS.service,JSON.stringify(serviceAccount));closeSettings();setStatus('Созламалар сақланди.','ok');await loadAnalysis();}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}}
 
   async function findReport(actNo){const no=unref(actNo);if(!state.dailyRows.length)await loadReports();return state.dailyRows.find(r=>String(r.actNo||'')===no);}
   function ensureA4Modal(){let modal=$('actsA4Modal');if(modal)return modal;modal=document.createElement('div');modal.id='actsA4Modal';modal.className='acts-a4-modal';modal.innerHTML='<div class="acts-a4-wrap"><div class="acts-a4-toolbar"><button onclick="window.print()">PDF / Print</button><button onclick="document.getElementById(\'actsA4Modal\').classList.remove(\'show\')">Yopish</button></div><div id="actsA4Content"></div></div>';document.body.appendChild(modal);return modal;}
   function reportToAct(report){return {actNo:report.actNo,date:report.date,workPlace:report.workPlace,failureText:report.failureText,impactText:report.impactText,reasonText:report.reasonText,actionText:report.actionText,conclusion:report.conclusion,person1:report.person1||'',position1:report.position1||'',department1:report.department1||'',person2:report.person2||'',position2:report.position2||'',department2:report.department2||'',person3:report.person3||'',position3:report.position3||'',department3:report.department3||''};}
   async function viewDoc(actNo){const report=await findReport(actNo);if(!report){alert('Ҳужжат топилмади. Excel очилади.');openExcel();return;}let act=null;try{act=JSON.parse(report.a4Json||'null');}catch(_){}const html=stripLegacyManualSignatureBlock(buildA4ActHtml(act||reportToAct(report)));ensureA4Modal();$('actsA4Content').innerHTML=html;$('actsA4Modal').classList.add('show');}
-  async function sendDoc(actNo){ if(!hasPermission('documents:send'))return setStatus('Sizning workspace rolingiz hujjat yuborishga ruxsat bermaydi.','bad'); const no=unref(actNo); if(!confirm(`${no} ҳужжатини тайинланган тасдиқловчиларга Gmail орқали юборишни тасдиқлайсизми?`))return; try{setStatus(`${no} тасдиқловчиларга юборилмоқда...`,'sync');const result=await postJson('/api/document/send',{...settings(),actNo:no,sentBy:'KIP Administrator'});const sent=(result.results||[]).filter(x=>x.status==='sent').length;const failed=(result.results||[]).filter(x=>x.status==='email-failed').length;setStatus(`${no}: ${sent} та Gmail юборилди${failed?`, ${failed} та хатолик`:''}. Ҳолат: ${result.status}` ,failed?'sync':'ok');await loadReports();}catch(err){setStatus(err.message,'bad');} }
+  async function sendDoc(actNo){ const no=unref(actNo); if(!confirm(`${no} ҳужжатини тайинланган тасдиқловчиларга Gmail орқали юборишни тасдиқлайсизми?`))return; try{setStatus(`${no} тасдиқловчиларга юборилмоқда...`,'sync');const result=await postJson('/api/document/send',{...settings(),actNo:no,sentBy:'KIP Administrator'});const sent=(result.results||[]).filter(x=>x.status==='sent').length;const failed=(result.results||[]).filter(x=>x.status==='email-failed').length;setStatus(`${no}: ${sent} та Gmail юборилди${failed?`, ${failed} та хатолик`:''}. Ҳолат: ${result.status}` ,failed?'sync':'ok');await loadReports();}catch(err){setStatus(err.message,'bad');} }
 
-  function openSigners(){ if(!hasSettings()){setStatus('Аввал Google Sheets созламаларини киритинг.','bad');return;} $('signersModal').classList.add('show'); loadSigners(); }
+  function openSigners(){ if(!hasSettings()){openSettings();setStatus('Аввал Google Sheets созламаларини киритинг.','bad');return;} $('signersModal').classList.add('show'); loadSigners(); }
   function closeSigners(){$('signersModal').classList.remove('show');}
   function signerRowHtml(signer, isNew=false){ const id=signer.id||`new_${Date.now()}_${Math.random().toString(16).slice(2)}`; const disabled=isNew?'':'disabled'; const fileInfo=signer.signatureUrl?`<a class="file-link" href="${esc(signer.signatureUrl)}" target="_blank" rel="noopener">Drive imzo</a>`:'PNG tanlanmagan'; return `<tr data-signer-id="${esc(id)}" data-new="${isNew?'1':'0'}" data-signature-url="${esc(signer.signatureUrl||'')}"><td><input data-field="position" value="${esc(signer.position||'')}" ${disabled}></td><td><input data-field="fio" value="${esc(signer.fio||'')}" ${disabled}></td><td><div data-file-info>${fileInfo}</div><input data-field="file" type="file" accept="image/png,.png" ${disabled}></td><td><input data-field="gmail" type="email" value="${esc(signer.gmail||'')}" placeholder="name@gmail.com" ${disabled}></td><td><div class="signer-actions"><button class="btn ghost small" title="Tahrirlash" onclick="ActsUI.editSigner('${esc(id)}')">✏️</button><button class="btn green small" title="Saqlash" onclick="ActsUI.saveSigner('${esc(id)}')" ${isNew?'':'disabled'}>💾</button><button class="btn red small" title="O‘chirish" onclick="ActsUI.deleteSigner('${esc(id)}')">🗑</button></div></td></tr>`; }
   function renderSigners(){const tb=$('signersRows');if(!state.signers.length){tb.innerHTML='<tr><td colspan="5">Имзо чекувчилар йўқ. “Қўшиш” тугмасини босинг.</td></tr>';return;}tb.innerHTML=state.signers.map(s=>signerRowHtml(s,false)).join('');}
@@ -314,15 +265,9 @@
   async function deleteSigner(id){ const tr=rowBySignerId(id);if(!tr)return;if(tr.dataset.new==='1'){tr.remove();return setSignersMsg('Янги сатр бекор қилинди.','sync');}if(!confirm('Ушбу имзо чекувчини ўчиришни тасдиқлайсизми?'))return; try{setSignersMsg('Ўчирилмоқда...','sync');await apiFetch(`/api/signers/${encodeURIComponent(id)}`,{method:'DELETE'});await loadSigners();setSignersMsg('Имзо чекувчи ўчирилди.','ok');}catch(err){setSignersMsg(err.message,'bad');} }
 
   function clearLegacyDonutOverrides(){const legacy=document.getElementById('actsDonutPositionOverride');if(legacy)legacy.remove();}
-  async function bind(){
+  function bind(){
     injectStyles();
     clearLegacyDonutOverrides();
-    if(workspaceMode()){
-      try{await loadWorkspaceContext();}
-      catch(err){setStatus(err.message,'bad');applyWorkspacePermissions();return;}
-    }else{
-      applyWorkspacePermissions();
-    }
     loadWorkspaceApproverRegistry().then((rows)=>{
       if(!rows?.length) return;
       let list = $('actsApproverList');
@@ -330,15 +275,11 @@
       list.innerHTML = rows.map((row)=>`<option value="${esc(row.fio)}">${esc(row.position || row.gmail || '')}</option>`).join('');
       ['person1','person2','person3'].forEach((id)=>{ const input=$(id); if(input) input.setAttribute('list','actsApproverList'); });
     }).catch(()=>{});
-
+    $('serviceFile')?.addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{const json=JSON.parse(await file.text());if(!json.client_email||!json.private_key||!json.project_id)throw new Error('client_email, private_key ёки project_id топилмади');localStorage.setItem(KEYS.service,JSON.stringify(json));$('serviceFileName').innerHTML=`${esc(file.name)} ✓`;$('settingsMsg').innerHTML='<span class="ok">SERVICE ACCOUNT JSON юкланди.</span>';}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}});
     ['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>$(id)?.addEventListener('input',validateDoc));
-    window.addEventListener('message',(event)=>{if(event.data?.type==='SEG_KIP_WORKSPACE_CHANGE')void handleWorkspaceChange();});
-    if(!hasSettings()){
-      if(workspaceMode())setStatus('Workspace Google Sheets sozlamalari toʻliq emas. Workspace administratoriga murojaat qiling.','bad');
-      if(workspaceMode())setStatus('Workspace Google Sheets sozlamalari toʻliq emas. Workspace administratoriga murojaat qiling.','bad');
-    }else loadAnalysis();
+    if(!hasSettings())openSettings();else loadAnalysis();
   }
 
-  window.ActsUI={showView,showReport,openSettings,loadAnalysis,fillDoc,saveAct,openExcel,setStatus,viewDoc,sendDoc,openSigners,closeSigners,loadSigners,addSignerRow,editSigner,saveSigner,deleteSigner};
+  window.ActsUI={showView,showReport,openSettings,closeSettings,saveSettings,loadAnalysis,fillDoc,saveAct,openExcel,setStatus,viewDoc,sendDoc,openSigners,closeSigners,loadSigners,addSignerRow,editSigner,saveSigner,deleteSigner};
   document.addEventListener('DOMContentLoaded',bind);
 })();

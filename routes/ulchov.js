@@ -18,22 +18,11 @@ function normalize(value) {
     .replace(/ҳ/g, 'х');
 }
 
-import { resolveWorkspaceGoogleConfig } from '../services/workspaceGoogleService.js';
-import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
-import { requireAccessToken } from '../middleware/auth.js';
-
-function resolveConfig(req) {
-  if (req.workspace) {
-    const config = resolveWorkspaceGoogleConfig(req.workspace);
-    const sheetName = clean(req.body?.sheetName || req.body?.mainSheetName);
-    if (sheetName) config.sheetName = sheetName;
-    return config;
-  }
-  const input = req.body || {};
+function resolveConfig(input = {}) {
   const spreadsheetUrl = clean(input.spreadsheetUrl || input.spreadsheetId);
   const sheetName = clean(input.sheetName || input.mainSheetName);
   if (!spreadsheetUrl) {
-    const error = new Error('Google Sheets ссылкаси киритилмаган (Workspace tanlanmagan)');
+    const error = new Error('Google Sheets ссылкаси киритилмаган');
     error.code = 'SHEET_URL_REQUIRED';
     throw error;
   }
@@ -181,18 +170,9 @@ function missingSheets(sheets, names) {
   return names.filter((name) => !sheets.includes(name));
 }
 
-const optionalWorkspace = (req, res, next) => {
-  if (req.headers['x-workspace-id']) {
-    return requireAccessToken(req, res, () => {
-      requireWorkspaceRequestPermission('workspace:read')(req, res, next);
-    });
-  }
-  next();
-};
-
-router.post('/settings/test', optionalWorkspace, async (req, res) => {
+router.post('/settings/test', async (req, res) => {
   try {
-    const config = resolveConfig(req);
+    const config = resolveConfig(req.body || {});
     const menuItems = normalizeMenuItems(req.body?.menuItems);
     validateMenuItems(menuItems);
     const sheets = await listSheets(config);
@@ -213,9 +193,9 @@ router.post('/settings/test', optionalWorkspace, async (req, res) => {
   }
 });
 
-router.post('/instruments', optionalWorkspace, async (req, res) => {
+router.post('/instruments', async (req, res) => {
   try {
-    const config = resolveConfig(req);
+    const config = resolveConfig(req.body || {});
     const sheets = await listSheets(config);
     if (!sheets.includes(config.sheetName)) {
       return res.status(400).json({

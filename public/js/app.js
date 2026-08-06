@@ -59,23 +59,15 @@ function readLocalSheetUrl() {
 
 async function readServerSheetUrl() {
   if (lastServerSheetUrl) return lastServerSheetUrl;
-  
-  // Get current workspace ID from localStorage
-  const workspaceId = localStorage.getItem('seg_kip_selected_workspace_id');
-  if (!workspaceId) return '';
-
-  try {
-    const res = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}`);
-    if (res.ok) {
-      const data = await res.json();
-      const url = normalizeSpreadsheetUrl(data.workspace?.spreadsheetUrl || data.spreadsheetUrl);
-      if (url) {
-        lastServerSheetUrl = url;
-        return url;
-      }
-    }
-  } catch (_) {}
-  
+  const candidates = ['/api/kuduk/state?sexId=sex_4', '/api/kuduk/state?sexId=sex_default'];
+  for (const endpoint of candidates) {
+    try {
+      const res = await fetch(endpoint);
+      const data = await res.json().catch(() => ({}));
+      const url = normalizeSpreadsheetUrl(data.spreadsheetUrl || data.spreadsheetId || data.url);
+      if (url) { lastServerSheetUrl = url; return url; }
+    } catch (_) {}
+  }
   return '';
 }
 
@@ -121,7 +113,7 @@ function setActiveMenu(label) {
   document.querySelectorAll('.menu-item, .menu-item-settings').forEach(item => item.classList.remove('active'));
   const target = Array.from(document.querySelectorAll('.menu-item, .menu-item-settings')).find(item => {
     const titleEl = item.querySelector('.menu-title');
-    const original = titleEl?.dataset?.original || '';
+    const original = titleEl?.getAttribute('data-i18n') || '';
     return item.textContent.includes(label) || original.includes(label);
   });
   if (target) target.classList.add('active');
