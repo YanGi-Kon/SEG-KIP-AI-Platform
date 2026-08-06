@@ -18,8 +18,17 @@ import {
 } from '../services/signatureApprovalService.js';
 import { enqueueFinalPdfExport } from '../repositories/outboxRepository.js';
 import { isDatabaseConfigured } from '../db/pool.js';
+import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
+import { requireAccessToken } from '../middleware/auth.js';
 
 const router = express.Router();
+
+function workspaceGuards(permission) {
+  const authorizeWorkspace = requireWorkspaceRequestPermission(permission);
+  return (req, res, next) => requireAccessToken(req, res, () => authorizeWorkspace(req, res, next));
+}
+
+router.use(workspaceGuards('workspace:read'));
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024, files: 1 },
@@ -27,14 +36,17 @@ const upload = multer({
 
 function configFromRequest(req) {
   const headerConfig = parseConfigHeader(req.get('x-seg-kip-config'));
+  const workspace = req.workspace || {};
+  const spreadsheetUrl = req.body?.spreadsheetUrl || req.query?.spreadsheetUrl || headerConfig.spreadsheetUrl || workspace.spreadsheetUrl;
   let serviceAccount = req.body?.serviceAccount || headerConfig.serviceAccount;
-  if (typeof serviceAccount === 'string') {
+  
+  if (workspace.serviceAccountBase64) {
+    try { serviceAccount = JSON.parse(Buffer.from(workspace.serviceAccountBase64, 'base64').toString('utf8')); } catch (_) {}
+  } else if (typeof serviceAccount === 'string') {
     try { serviceAccount = JSON.parse(serviceAccount); } catch (_) { throw new Error('serviceAccount JSON формати нотўғри'); }
   }
-  return {
-    spreadsheetUrl: req.body?.spreadsheetUrl || req.query?.spreadsheetUrl || headerConfig.spreadsheetUrl,
-    serviceAccount,
-  };
+  
+  return { spreadsheetUrl, serviceAccount };
 }
 
 function requestContext(req) {

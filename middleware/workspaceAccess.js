@@ -21,7 +21,7 @@ function authorizeWorkspace(permission, resolveWorkspaceId) {
 
     try {
       const pRole = String(req.auth?.platformRole || '').toLowerCase();
-      const isAdmin = pRole === 'admin' || pRole === 'manager' || pRole === 'super admin' || pRole === 'кип мастер';
+      const isAdmin = pRole === 'super admin';
       
       let workspace;
       if (isAdmin) {

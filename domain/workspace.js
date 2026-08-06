@@ -95,8 +95,6 @@ export function normalizeWorkspaceInput(input = {}) {
     throw new Error('Workspace name must contain 2-200 characters');
   }
   const spreadsheetId = extractSpreadsheetId(input.spreadsheetUrl || input.spreadsheetId);
-  const mainSheetName = String(input.mainSheetName || '').trim();
-  if (!mainSheetName) throw new Error('Main sheet name is required');
 
   const driveFolderId = normalizeOptionalDriveFolder(input.driveFolderUrl || input.driveFolderId, '');
   const finalDocumentsFolderId = normalizeOptionalDriveFolder(
@@ -110,7 +108,6 @@ export function normalizeWorkspaceInput(input = {}) {
     slug: String(input.slug || '').trim() || slugifyWorkspaceName(name),
     spreadsheetId,
     spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
-    mainSheetName,
     driveFolderId,
     finalDocumentsFolderId,
     timeZone,

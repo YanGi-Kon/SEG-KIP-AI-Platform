@@ -1,7 +1,16 @@
 import express from 'express';
 import { listSheets, readSheetRows, validateServiceAccount } from '../services/googleSheetsService.js';
+import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
+import { requireAccessToken } from '../middleware/auth.js';
 
 const router = express.Router();
+
+function workspaceGuards(permission) {
+  const authorizeWorkspace = requireWorkspaceRequestPermission(permission);
+  return (req, res, next) => requireAccessToken(req, res, () => authorizeWorkspace(req, res, next));
+}
+
+router.use(workspaceGuards('workspace:read'));
 
 function clean(value) {
   return String(value ?? '').trim();
@@ -18,8 +27,10 @@ function normalize(value) {
     .replace(/ҳ/g, 'х');
 }
 
-function resolveConfig(input = {}) {
-  const spreadsheetUrl = clean(input.spreadsheetUrl || input.spreadsheetId);
+function resolveConfig(req) {
+  const input = req.body || req.query || {};
+  const workspace = req.workspace || {};
+  const spreadsheetUrl = clean(workspace.spreadsheetUrl || input.spreadsheetUrl || input.spreadsheetId);
   const sheetName = clean(input.sheetName || input.mainSheetName);
   if (!spreadsheetUrl) {
     const error = new Error('Google Sheets ссылкаси киритилмаган');
@@ -31,10 +42,18 @@ function resolveConfig(input = {}) {
     error.code = 'SHEET_NAME_REQUIRED';
     throw error;
   }
+  
+  let serviceAccountRaw = input.serviceAccount;
+  if (workspace.serviceAccountBase64) {
+    try {
+      serviceAccountRaw = JSON.parse(Buffer.from(workspace.serviceAccountBase64, 'base64').toString('utf8'));
+    } catch (_) {}
+  }
+  
   return {
     spreadsheetUrl,
     sheetName,
-    serviceAccount: validateServiceAccount(input.serviceAccount),
+    serviceAccount: validateServiceAccount(serviceAccountRaw),
   };
 }
 
@@ -172,7 +191,7 @@ function missingSheets(sheets, names) {
 
 router.post('/settings/test', async (req, res) => {
   try {
-    const config = resolveConfig(req.body || {});
+    const config = resolveConfig(req);
     const menuItems = normalizeMenuItems(req.body?.menuItems);
     validateMenuItems(menuItems);
     const sheets = await listSheets(config);
@@ -195,7 +214,7 @@ router.post('/settings/test', async (req, res) => {
 
 router.post('/instruments', async (req, res) => {
   try {
-    const config = resolveConfig(req.body || {});
+    const config = resolveConfig(req);
     const sheets = await listSheets(config);
     if (!sheets.includes(config.sheetName)) {
       return res.status(400).json({

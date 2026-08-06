@@ -108,6 +108,17 @@
     </div>
   </div>
 
+  <!-- Workspace Selection -->
+  <div class="settings-card" id="workspaceCard">
+    <h2>🏢 <span data-i18n="Рабочая область">Рабочая область</span></h2>
+    <p data-i18n="Выберите активную рабочую область для работы с данными">Выберите активную рабочую область для работы с данными</p>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+      <select id="workspaceSelect" style="width:100%;padding:10px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(34,211,238,.25);border-radius:12px;color:#e2e8f0;font-size:14px;outline:none;" onchange="selectWorkspace(this.value)">
+        <option value="" data-i18n="Загрузка...">Загрузка...</option>
+      </select>
+    </div>
+  </div>
+
   <!-- Profile Edit -->
   <div class="settings-card">
     <h2>👤 <span data-i18n="Profil">Profil</span></h2>
@@ -270,7 +281,56 @@ async function submitProfileEdit(event) {
 
 loadCurrentLang();
 loadProfile();
+loadWorkspaces();
 checkAdminAccess();
+
+async function loadWorkspaces() {
+  const token = getToken();
+  if (!token) {
+    document.getElementById('workspaceCard').style.display = 'none';
+    return;
+  }
+  try {
+    const res = await fetch('/api/workspaces', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Failed');
+    const data = await res.json();
+    const sel = document.getElementById('workspaceSelect');
+    sel.innerHTML = '<option value="">-- ' + (window.i18n?.t?.('Tanlang') || 'Выберите') + ' --</option>';
+    
+    let activeId = localStorage.getItem('seg_kip_selected_workspace_id') || '';
+    if (!activeId) {
+       try { activeId = parent?.localStorage?.getItem('seg_kip_selected_workspace_id') || ''; } catch(_) {}
+    }
+
+    data.workspaces.forEach(w => {
+      const opt = document.createElement('option');
+      opt.value = w.id;
+      opt.textContent = w.name;
+      if (w.id === activeId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    document.getElementById('workspaceCard').style.display = 'none';
+  }
+}
+
+function selectWorkspace(id) {
+  if (!id) return;
+  localStorage.setItem('seg_kip_selected_workspace_id', id);
+  try {
+    if (parent && parent.localStorage) {
+      parent.localStorage.setItem('seg_kip_selected_workspace_id', id);
+    }
+    if (parent && parent.loadDashboardStats) parent.loadDashboardStats();
+  } catch(_) {}
+  
+  const toast = document.getElementById('saveToast');
+  const span = toast.querySelector('span');
+  if (span) span.textContent = window.i18n?.t?.("Рабочая область изменена") || "Рабочая область изменена";
+  showToast();
+}
 
 async function checkAdminAccess() {
   try {

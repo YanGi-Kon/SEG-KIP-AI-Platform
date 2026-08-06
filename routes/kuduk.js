@@ -4,6 +4,8 @@ import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { google } from "googleapis";
+import { requireWorkspaceRequestPermission } from "../middleware/workspaceAccess.js";
+import { requireAccessToken } from "../middleware/auth.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -373,19 +375,67 @@ async function loadSheet(t, route) {
     return { changed: false, rows: t.sheets[route.sheet] };
   }
 }
+async function loadMultipleSheets(t, routes) {
+  if (!routes || routes.length === 0) return;
+  
+  // Batch requests in chunks of 10 to avoid URI too long errors
+  const chunkSize = 10;
+  for (let i = 0; i < routes.length; i += chunkSize) {
+    const chunk = routes.slice(i, i + chunkSize);
+    const ranges = chunk.map(r => `'${safeSheetTitle(r.sheet)}'`);
+    try {
+      const res = await t.sheetsApi.spreadsheets.get({
+        spreadsheetId: t.spreadsheetId,
+        includeGridData: true,
+        ranges,
+        fields: "sheets.properties(sheetId,title),sheets.data.rowData.values(formattedValue,userEnteredValue,effectiveValue,hyperlink,textFormatRuns,dataValidation)"
+      });
+      
+      const returnedSheets = res.data.sheets || [];
+      for (const route of chunk) {
+        const grid = returnedSheets.find(s => norm(s.properties.title) === norm(route.sheet));
+        if (!grid) {
+          if (!Array.isArray(t.sheets[route.sheet])) t.sheets[route.sheet] = [];
+          t.statuses[route.sheet] = { status: "error", message: `"${route.sheet}" varog‘i topilmadi.`, updatedAt: new Date().toISOString() };
+          continue;
+        }
+        try {
+          const matrix = valuesMatrixFromGrid(grid);
+          const parsed = normalizeDataSheet(route.sheet, matrix);
+          const hash = sha(parsed.rows);
+          const changed = hash !== t.hashes[route.sheet];
+          if (changed) { t.sheets[route.sheet] = parsed.rows; t.hashes[route.sheet] = hash; }
+          t.statuses[route.sheet] = { status: parsed.rows.length ? "ok" : "empty", message: "OK", updatedAt: new Date().toISOString(), headerRow: parsed.header.row + 1, indexMap: parsed.header.idx, headers: parsed.header.headers };
+        } catch (e) {
+          if (!Array.isArray(t.sheets[route.sheet])) t.sheets[route.sheet] = [];
+          t.statuses[route.sheet] = { status: "error", message: e.message, updatedAt: new Date().toISOString() };
+          log(t, "error", e.message, { sheet: route.sheet });
+        }
+      }
+    } catch (err) {
+      log(t, "error", "Batch sheet yuklashda xato: " + err.message);
+      for (const r of chunk) {
+         if (!Array.isArray(t.sheets[r.sheet])) t.sheets[r.sheet] = [];
+         t.statuses[r.sheet] = { status: "error", message: err.message, updatedAt: new Date().toISOString() };
+      }
+    }
+  }
+}
+
 async function syncTenant(sexId, reason = "manual") {
   const t = await loadTenant(sexId);
   if (!t.sheetsApi) throw new Error("Backend konfiguratsiya qilinmagan.");
   if (t.syncRunning) return publicState(t);
   t.syncRunning = true;
   try {
-    // Faqat qat'iy belgilangan menyu diapazoni o'qiladi: 'кудук руйхати'!C9:Q49.
-    // Barcha sheet tablarini avtomatik skanerlash qasddan o'chirilgan.
     const routes = await extractRoutes(t).catch(e => { log(t, "error", "Route map o'qishda xato: " + e.message); return []; });
     const routeHash = sha(routes.map(r => ({ title: r.title, sheet: r.sheet, a1: r.a1, source: r.source })));
     const routesChanged = routeHash !== t.hashes.__routes;
     if (routesChanged) { t.routes = routes; t.hashes.__routes = routeHash; }
-    await Promise.all(routes.map(r => loadSheet(t, r)));
+    
+    // Use batched loading instead of 1 request per sheet
+    await loadMultipleSheets(t, routes);
+    
     for (const r of t.routes) { r.count = Array.isArray(t.sheets[r.sheet]) ? t.sheets[r.sheet].length : 0; r.status = t.statuses[r.sheet]?.status || "pending"; r.message = t.statuses[r.sheet]?.message || ""; }
     t.connected = true;
     t.updatedAt = new Date().toISOString();
@@ -395,6 +445,7 @@ async function syncTenant(sexId, reason = "manual") {
     return publicState(t);
   } finally { t.syncRunning = false; }
 }
+
 async function applyConfig(sexId, input, persist = true) {
   sexId = safeSexId(sexId || input.sexId);
   const spreadsheetId = extractSpreadsheetId(input.spreadsheetUrl || input.url || input.spreadsheetId);
@@ -627,6 +678,14 @@ async function deleteRow(sexId, sheet, rowNumber) {
 export function createKudukRouter(io) {
   IO = io;
   const router = express.Router();
+
+  function workspaceGuards(permission) {
+    const authorizeWorkspace = requireWorkspaceRequestPermission(permission);
+    return (req, res, next) => requireAccessToken(req, res, () => authorizeWorkspace(req, res, next));
+  }
+
+  router.use(workspaceGuards('workspace:read'));
+
   router.get("/health", async (req, res) => {
     const sexId = safeSexId(req.query.sexId || req.query.sex || "sex_default");
     const t = await loadTenant(sexId).catch(() => null);
@@ -677,7 +736,18 @@ export function createKudukRouter(io) {
     } catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   router.post("/config", async (req, res) => {
-    try { res.json(await applyConfig(req.body.sexId, req.body, true)); }
+    try { 
+      const body = { ...req.body };
+      if (req.workspace) {
+        if (req.workspace.spreadsheetUrl) body.spreadsheetUrl = req.workspace.spreadsheetUrl;
+        if (req.workspace.serviceAccountBase64) {
+          try {
+            body.serviceAccount = JSON.parse(Buffer.from(req.workspace.serviceAccountBase64, 'base64').toString('utf8'));
+          } catch (_) {}
+        }
+      }
+      res.json(await applyConfig(req.body.sexId, body, true)); 
+    }
     catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   router.delete("/config/:sexId", async (req, res) => {

@@ -14,11 +14,9 @@
   function pget(store,key){ try { return parent?.[store]?.getItem(key) || ''; } catch(_) { return ''; } }
 
   function settings(){
-    let serviceAccount = null;
-    try { serviceAccount = JSON.parse(localStorage.getItem(KEYS.service) || 'null'); } catch(_) {}
-    return { spreadsheetUrl: localStorage.getItem(KEYS.url) || '', sheetName: localStorage.getItem(KEYS.sheet) || '', serviceAccount };
+    return { sheetName: localStorage.getItem(KEYS.sheet) || '' };
   }
-  function hasSettings(){ const s=settings(); return Boolean(s.spreadsheetUrl && s.sheetName && s.serviceAccount); }
+  function hasSettings(){ const s=settings(); return Boolean(s.sheetName); }
   function setStatus(text, cls=''){ const el=$('actsStatus'); if(el) el.innerHTML = `Ҳолат: <span class="${cls}">${esc(text)}</span>`; }
   function setSignersMsg(text, cls=''){ const el=$('signersMsg'); if(el) el.innerHTML = `<span class="${cls}">${esc(text)}</span>`; }
   function parentOnline(status){ try { parent.postMessage({ type:'SEG_ACTS_STATUS', status }, '*'); } catch(_) {} }
@@ -30,8 +28,7 @@
     return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   }
   function configHeader(){
-    const s=settings();
-    return toBase64Url(JSON.stringify({ spreadsheetUrl:s.spreadsheetUrl, serviceAccount:s.serviceAccount }));
+    return '';
   }
   function adminToken(){ return sessionStorage.getItem(ADMIN_TOKEN_KEY) || ''; }
   function workspaceId(){ return localStorage.getItem(WORKSPACE_ID_KEY) || pget('localStorage', WORKSPACE_ID_KEY) || ''; }
@@ -49,7 +46,8 @@
 
   async function apiFetch(url, options={}, retry=true){
     const headers = new Headers(options.headers || {});
-    if(hasSettings()) headers.set('x-seg-kip-config',configHeader());
+    const wid = localStorage.getItem('seg_kip_selected_workspace_id');
+    if(wid) headers.set('x-workspace-id', wid);
     const globalToken = sessionStorage.getItem('seg_kip_workspace_access_token');
     if(globalToken) headers.set('Authorization', `Bearer ${globalToken}`);
     else if(adminToken()) headers.set('Authorization',`Bearer ${adminToken()}`);
@@ -242,9 +240,9 @@
   function showView(id,btn){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.acts-top .tabs button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');if(id==='reports')loadReports();}
   function showReport(id,btn){document.querySelectorAll('.report-view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.subtabs button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');}
   function openExcel(){const url=settings().spreadsheetUrl;if(!url){alert('Google Sheets ҳаволаси киритилмаган.');return;}window.open(url,'_blank','noopener,noreferrer');}
-  function openSettings(){const s=settings();$('sheetUrl').value=s.spreadsheetUrl||'';$('sheetName').value=s.sheetName||'';$('settingsModal').classList.add('show');}
+  function openSettings(){const s=settings();$('sheetName').value=s.sheetName||'';$('settingsModal').classList.add('show');}
   function closeSettings(){$('settingsModal').classList.remove('show');}
-  async function saveSettings(){const spreadsheetUrl=$('sheetUrl').value.trim();const sheetName=$('sheetName').value.trim();let serviceAccount=settings().serviceAccount;if(!spreadsheetUrl||!sheetName){$('settingsMsg').innerHTML='<span class="bad">Google Sheets силкаси ва ASOSIY VAROQ киритилиши шарт.</span>';return;}if(!serviceAccount){$('settingsMsg').innerHTML='<span class="bad">SERVICE ACCOUNT JSON файлини танланг.</span>';return;}try{$('settingsMsg').innerHTML='<span class="sync">Уланиш текширилмоқда...</span>';await postJson('/api/acts/settings/test',{spreadsheetUrl,serviceAccount});localStorage.setItem(KEYS.url,spreadsheetUrl);localStorage.setItem(KEYS.sheet,sheetName);localStorage.setItem(KEYS.service,JSON.stringify(serviceAccount));closeSettings();setStatus('Созламалар сақланди.','ok');await loadAnalysis();}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}}
+  async function saveSettings(){const sheetName=$('sheetName').value.trim();if(!sheetName){$('settingsMsg').innerHTML='<span class="bad">ASOSIY VAROQ киритилиши шарт.</span>';return;}try{$('settingsMsg').innerHTML='<span class="sync">Уланиш текширилмоқда...</span>';await postJson('/api/acts/settings/test',{sheetName});localStorage.setItem(KEYS.sheet,sheetName);closeSettings();setStatus('Созламалар сақланди.','ok');await loadAnalysis();}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}}
 
   async function findReport(actNo){const no=unref(actNo);if(!state.dailyRows.length)await loadReports();return state.dailyRows.find(r=>String(r.actNo||'')===no);}
   function ensureA4Modal(){let modal=$('actsA4Modal');if(modal)return modal;modal=document.createElement('div');modal.id='actsA4Modal';modal.className='acts-a4-modal';modal.innerHTML='<div class="acts-a4-wrap"><div class="acts-a4-toolbar"><button onclick="window.print()">PDF / Print</button><button onclick="document.getElementById(\'actsA4Modal\').classList.remove(\'show\')">Yopish</button></div><div id="actsA4Content"></div></div>';document.body.appendChild(modal);return modal;}

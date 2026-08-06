@@ -19,13 +19,12 @@
   <div class="panel">
     <div class="grid">
       <div><label class="label">Sex ID</label><input id="sexId" class="input" value="sex_4" placeholder="sex_4"></div>
-      <div><label class="label">Google Sheets ssilkasi yoki ID</label><input id="sheetUrl" class="input" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
       <div><label class="label">Asosiy varoq nomi</label><input id="menuSheet" class="input" value="кудук руйхати"></div>
       <div><label class="label">Auto sync sekund</label><input id="syncSeconds" class="input" type="number" min="10" value="30"></div>
       <button class="btn primary" onclick="saveAndConnect()">🔐 SAQLASH & ULASH</button>
       <button class="btn red" onclick="clearMemory()">🧹 XOTIRANI TOZALASH</button>
     </div>
-    <div style="margin-top:10px"><label class="label">Service Account JSON</label><input id="serviceFile" class="input" type="file" accept=".json,application/json"></div>
+    <div style="margin-top:10px; font-size:12px; color:#555;">Google Sheets ҳаволаси ва Service Account умумий Workspace созламаларидан автоматик олинади.</div>
     <div id="message" class="msg">Ma’lumotlar sex ID bo‘yicha alohida saqlanadi. Masalan: sex_4 boshqa sex konfiguratsiyasiga tegmaydi.</div>
   </div>
 
@@ -101,7 +100,14 @@ function connectSocket(){
   socket.on('kuduk-log', l => msg(l.message || '', l.level === 'error' ? 'err' : 'ok'));
 }
 async function request(path, opts={}){
-  const res = await fetch(api(path), { headers:{'Content-Type':'application/json'}, ...opts });
+  const headers = new Headers({'Content-Type':'application/json'});
+  let pget = (s,k) => { try { return parent?.[s]?.getItem(k) || ''; } catch(_) { return ''; } };
+  const wid = localStorage.getItem('seg_kip_selected_workspace_id') || pget('localStorage', 'seg_kip_selected_workspace_id');
+  if(wid) headers.set('x-workspace-id', wid);
+  const globalToken = sessionStorage.getItem('seg_kip_workspace_access_token') || pget('sessionStorage', 'seg_kip_workspace_access_token');
+  if(globalToken) headers.set('Authorization', 'Bearer ' + globalToken);
+  
+  const res = await fetch(api(path), { headers, ...opts });
   const data = await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(data.error || data.message || ('HTTP ' + res.status));
   return data;
@@ -115,7 +121,6 @@ function rememberSheetUrl(url){
 function hydrateFromState(){
   if(state.spreadsheetUrl) rememberSheetUrl(state.spreadsheetUrl);
   if(state.sexId) $('sexId').value = state.sexId;
-  if(state.spreadsheetUrl) $('sheetUrl').value = state.spreadsheetUrl;
   if(state.menuSheet) $('menuSheet').value = state.menuSheet;
   if(state.syncSeconds) $('syncSeconds').value = state.syncSeconds;
   if(state.connected) setStatus('READY','ready', 'Sex: '+state.sexId+' | '+(state.updatedAt||'')); else setStatus('OFFLINE','offline','Ulanish sozlanmagan');
@@ -163,9 +168,7 @@ async function readJsonFile(input){
 async function saveAndConnect(){
   try{
     setStatus('CONNECTING','offline','Google Sheets tekshirilmoqda...');
-    const service = await readJsonFile($('serviceFile'));
-    rememberSheetUrl($('sheetUrl').value);
-    state = { ...state, ...(await request('/config', { method:'POST', body:JSON.stringify({ sexId:sexId(), spreadsheetUrl:$('sheetUrl').value, menuSheet:$('menuSheet').value, syncSeconds:$('syncSeconds').value, service }) })) };
+    state = { ...state, ...(await request('/config', { method:'POST', body:JSON.stringify({ sexId:sexId(), menuSheet:$('menuSheet').value, syncSeconds:$('syncSeconds').value }) })) };
     state.currentView = 'menu'; currentSheet = ''; state.selectedRoute = null;
     connectSocket(); await loadMetadata(true); hydrateFromState(); renderAll(); msg('Ulanish muvaffaqiyatli. Status: READY', 'ok');
   }catch(e){ setStatus('ERROR','error','Ulanish xatosi'); msg(e.message, 'err'); }
@@ -253,7 +256,7 @@ async function removeRow(rowNumber){
 }
 $('sexId').addEventListener('change', () => { currentSheet=''; state.currentView='menu'; connectSocket(); fetchState(); });
 window.addEventListener('load', () => {
-  try{ const saved = localStorage.getItem('seg_kip_sheet_url') || localStorage.getItem('spreadsheetUrl'); if(saved && !$('sheetUrl').value) $('sheetUrl').value = saved; }catch(_){}
+  try{ const saved = localStorage.getItem('seg_kip_sheet_url') || localStorage.getItem('spreadsheetUrl'); }catch(_){}
   connectSocket(); fetchState();
 });
 </script>

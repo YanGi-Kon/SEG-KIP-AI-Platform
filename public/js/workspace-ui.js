@@ -126,8 +126,13 @@
     item.setAttribute('role', 'button');
     item.setAttribute('tabindex', '0');
     item.innerHTML = `
-      <div class="menu-icon">⚙️</div>
-      <div><div class="menu-title">WORKSPACE SETTINGS</div><div class="empty-note">Login, Sheet ва Workspace</div></div>
+      <div class="menu-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-briefcase"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+      </div>
+      <div>
+        <div style="font-weight:900;color:#fff;font-size:13px;margin-bottom:2px" data-i18n="menu:workspace">WORKSPACE SETTINGS</div>
+        <div style="color:#64748b;font-size:11px" data-i18n="menu:workspaceDesc">Platform workspaces</div>
+      </div>
     `;
     item.addEventListener('click', openWorkspaceSettings);
     item.addEventListener('keydown', (event) => {
@@ -148,7 +153,7 @@
       <div class="workspace-hero">
         <div>
           <h1>Workspace Settings</h1>
-          <p>Login, Workspace tanlash, Google Sheet URL va mainSheetName tekshirish. Service Account private key brauzerga kiritilmaydi va localStorage’da saqlanmaydi.</p>
+          <p>Login, Workspace tanlash, Google Sheet URL tekshirish. Service Account private key brauzerga kiritilmaydi va localStorage’da saqlanmaydi.</p>
         </div>
         <div class="workspace-hero-badge" id="workspaceModeBadge">WORKSPACE MODE</div>
       </div>
@@ -181,12 +186,6 @@
               </label>
               <label class="workspace-label wide">Google Sheets URL
                 <input class="workspace-input" id="workspaceSheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/.../edit" required>
-              </label>
-              <label class="workspace-label">mainSheetName
-                <input class="workspace-input" id="workspaceMainSheetInput" list="workspaceSheetNames" value="${DEFAULT_MAIN_SHEET}" required>
-                <datalist id="workspaceSheetNames">
-                  ${REQUIRED_ACT_TABS.map((tab) => `<option value="${escapeHtml(tab)}"></option>`).join('')}
-                </datalist>
               </label>
               <label class="workspace-label">Time zone
                 <input class="workspace-input" id="workspaceTimeZoneInput" value="${DEFAULT_TIME_ZONE}" required>
@@ -374,10 +373,6 @@
             <div style="display: flex; align-items: center; gap: 6px;">
               <span style="opacity: 0.7;">👤 Rolingiz:</span> 
               <strong style="color: #dffaff;">${escapeHtml(MEMBER_ROLE_LABELS[String(workspace.memberRole || '').toLowerCase()] || workspace.memberRole || 'Aniqlanmadi')}</strong>
-            </div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="opacity: 0.7;">📄 Asosiy jadval:</span>
-              <strong style="color: #dffaff;">${escapeHtml(workspace.mainSheetName || 'Kiritilmagan')}</strong>
             </div>
           </div>
         </button>
@@ -599,10 +594,9 @@
   }
 
   function setFormWorkspace(workspace) {
-    qs('#workspaceNameInput') && (qs('#workspaceNameInput').value = workspace?.name || '');
-    qs('#workspaceSheetUrlInput') && (qs('#workspaceSheetUrlInput').value = workspace?.spreadsheetUrl || '');
-    qs('#workspaceMainSheetInput') && (qs('#workspaceMainSheetInput').value = workspace?.mainSheetName || DEFAULT_MAIN_SHEET);
-    qs('#workspaceTimeZoneInput') && (qs('#workspaceTimeZoneInput').value = workspace?.timeZone || DEFAULT_TIME_ZONE);
+    if (qs('#workspaceNameInput')) qs('#workspaceNameInput').value = workspace?.name || '';
+    if (qs('#workspaceSheetUrlInput')) qs('#workspaceSheetUrlInput').value = workspace?.spreadsheetUrl || '';
+    if (qs('#workspaceTimeZoneInput')) qs('#workspaceTimeZoneInput').value = workspace?.timeZone || DEFAULT_TIME_ZONE;
     qs('#workspaceDriveFolderInput') && (qs('#workspaceDriveFolderInput').value = workspace?.driveFolderId || '');
     const saInput = qs('#workspaceServiceAccountInput');
     const saStatus = qs('#workspaceServiceAccountStatus');
@@ -637,10 +631,9 @@
 
   function collectWorkspaceInput(extra = {}) {
     const body = {
-      name: qs('#workspaceNameInput')?.value.trim(),
-      spreadsheetUrl: qs('#workspaceSheetUrlInput')?.value.trim(),
-      mainSheetName: qs('#workspaceMainSheetInput')?.value.trim(),
-      timeZone: qs('#workspaceTimeZoneInput')?.value.trim() || DEFAULT_TIME_ZONE,
+      name: String(qs('#workspaceNameInput')?.value || '').trim(),
+      spreadsheetUrl: String(qs('#workspaceSheetUrlInput')?.value || '').trim(),
+      timeZone: String(qs('#workspaceTimeZoneInput')?.value || '').trim() || DEFAULT_TIME_ZONE,
       ...extra,
     };
     const driveFolderValue = qs('#workspaceDriveFolderInput')?.value.trim();
@@ -736,9 +729,9 @@
       body.serviceAccountBase64 = serviceAccountBase64;
     }
 
-    if (!body.name || !body.spreadsheetUrl || !body.mainSheetName) {
-      setStatus('Workspace nomi, Sheet URL va mainSheetName majburiy.', 'warn');
-      return null;
+    if (!body.name || !body.spreadsheetUrl) {
+      setStatus('Workspace nomi va Sheet URL majburiy.', 'warn');
+      return;
     }
 
     const id = state.selectedWorkspaceId;
@@ -792,10 +785,10 @@
       populateSheetNames(result.tabs || []);
       renderSheetTestResult(data);
       const missing = Array.isArray(result.missingRequiredTabs) ? result.missingRequiredTabs : [];
-      if (data.ok && result.accessVerified && result.mainSheetExists && missing.length === 0) {
-        setStatus(`Sheet test muvaffaqiyatli.\nTitle: ${result.spreadsheetTitle || ''}\nmainSheetExists: true\nRequired tabs: mavjud`, 'ok');
+      if (data.ok && result.accessVerified && missing.length === 0) {
+        setStatus(`Sheet test muvaffaqiyatli.\nTitle: ${result.spreadsheetTitle || ''}\nRequired tabs: mavjud`, 'ok');
       } else {
-        setStatus(`Sheet test yakunlandi, lekin tekshirish kerak.\nmainSheetExists: ${result.mainSheetExists}\nmissingRequiredTabs: ${missing.join(', ') || 'yo‘q'}`, 'warn');
+        setStatus(`Sheet test yakunlandi, lekin tekshirish kerak.\nmissingRequiredTabs: ${missing.join(', ') || 'yo‘q'}`, 'warn');
       }
       return data;
     } catch (error) {
@@ -827,7 +820,7 @@
   function clearWorkspaceForm() {
     state.selectedWorkspaceId = '';
     localStorage.removeItem(SELECTED_WORKSPACE_KEY);
-    setFormWorkspace({ mainSheetName: DEFAULT_MAIN_SHEET, timeZone: DEFAULT_TIME_ZONE });
+    setFormWorkspace({ timeZone: DEFAULT_TIME_ZONE });
     renderWorkspaceList();
     state.members = [];
     renderWorkspaceMembers();

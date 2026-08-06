@@ -8,7 +8,7 @@ const REQUIRED_ACT_TABS = [
 ];
 
 export function resolveWorkspaceGoogleConfig(workspace) {
-  if (!workspace?.spreadsheetUrl || !workspace?.mainSheetName) {
+  if (!workspace?.spreadsheetUrl) {
     throw new Error('Workspace Google Sheets configuration is incomplete');
   }
 
@@ -51,17 +51,14 @@ export async function testWorkspaceSheetConnection(workspace) {
     .filter(Boolean);
   const tabSet = new Set(tabs);
   const missingRequiredTabs = REQUIRED_ACT_TABS.filter((name) => !tabSet.has(name));
-  const mainSheetExists = tabSet.has(workspace.mainSheetName);
 
   return {
-    ok: mainSheetExists,
+    ok: true,
     spreadsheetId,
     spreadsheetTitle: response.data.properties?.title || '',
     locale: response.data.properties?.locale || '',
     sheetTimeZone: response.data.properties?.timeZone || '',
     workspaceTimeZone: workspace.timeZone || 'Asia/Tashkent',
-    mainSheetName: workspace.mainSheetName,
-    mainSheetExists,
     tabs,
     requiredTabs: REQUIRED_ACT_TABS,
     missingRequiredTabs: [], // Relaxed for Kuduk/Ulchov workspaces

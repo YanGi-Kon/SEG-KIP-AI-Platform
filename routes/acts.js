@@ -1,8 +1,17 @@
 import express from 'express';
 import { readSheetRows, listSheets, validateServiceAccount } from '../services/googleSheetsService.js';
 import { getDailyReports, writeActDocument } from '../services/actBlankSheetService.js';
+import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
+import { requireAccessToken } from '../middleware/auth.js';
 
 const router = express.Router();
+
+function workspaceGuards(permission) {
+  const authorizeWorkspace = requireWorkspaceRequestPermission(permission);
+  return (req, res, next) => requireAccessToken(req, res, () => authorizeWorkspace(req, res, next));
+}
+
+router.use(workspaceGuards('workspace:read'));
 
 function clean(value) {
   return String(value ?? '').trim();
@@ -28,12 +37,14 @@ function parseServerServiceAccount() {
   }
 }
 
-function resolveActsConfig(input = {}) {
-  const spreadsheetUrl = clean(input.spreadsheetUrl || input.spreadsheetId);
+function resolveActsConfig(req) {
+  const input = req.body || {};
+  const workspace = req.workspace || {};
+  const spreadsheetUrl = clean(workspace.spreadsheetUrl || input.spreadsheetUrl || input.spreadsheetId);
   if (!spreadsheetUrl) throw new Error('Google Sheets ҳаволаси киритилмаган');
   return {
     spreadsheetUrl,
-    serviceAccount: validateServiceAccount(input.serviceAccount || parseServerServiceAccount()),
+    serviceAccount: validateServiceAccount(workspace.serviceAccountBase64 ? safeJsonParse(Buffer.from(workspace.serviceAccountBase64, 'base64').toString('utf8')) : input.serviceAccount || parseServerServiceAccount()),
   };
 }
 
@@ -107,7 +118,7 @@ async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount 
 
 router.post('/settings/test', async (req, res) => {
   try {
-    const config = resolveActsConfig(req.body || {});
+    const config = resolveActsConfig(req);
     const sheets = await listSheets(config);
     res.json({ ok: true, sheets });
   } catch (err) {
@@ -118,7 +129,7 @@ router.post('/settings/test', async (req, res) => {
 router.post('/monthly-analysis', async (req, res) => {
   try {
     const { sheetName } = getPayload(req);
-    const config = resolveActsConfig(getPayload(req));
+    const config = resolveActsConfig(req);
     const data = await buildMonthlyAnalysis({ ...config, sheetName });
     res.json(data);
   } catch (err) {
@@ -133,7 +144,7 @@ router.get('/monthly-analysis', async (req, res) => {
 router.post('/create', async (req, res) => {
   try {
     const { act } = req.body || {};
-    const config = resolveActsConfig(req.body || {});
+    const config = resolveActsConfig(req);
     const result = await writeActDocument({ ...config, act });
     res.json({ ok: true, ...result });
   } catch (err) {
@@ -143,7 +154,7 @@ router.post('/create', async (req, res) => {
 
 router.post('/reports/daily', async (req, res) => {
   try {
-    const config = resolveActsConfig(req.body || {});
+    const config = resolveActsConfig(req);
     const rows = await getDailyReports(config);
     res.json({ rows });
   } catch (err) {

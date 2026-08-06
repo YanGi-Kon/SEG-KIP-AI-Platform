@@ -75,9 +75,17 @@ function handleError(res, error) {
   });
 }
 
+function requireWorkspaceCreator(req, res, next) {
+  const permissions = req.auth?.permissions || [];
+  if (permissions.includes('*') || permissions.includes('workspace:create')) {
+    return next();
+  }
+  return res.status(403).json({ error: 'Permission denied: workspace:create' });
+}
+
 router.use(requireWorkspaceMode, requireAccessToken);
 
-router.post('/', async (req, res) => {
+router.post('/', requireWorkspaceCreator, async (req, res) => {
   try {
     const workspace = await createWorkspace(req.auth.userId, req.body || {});
     res.status(201).json({ workspace: sanitizeWorkspace(workspace) });
@@ -89,7 +97,7 @@ router.post('/', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const pRole = String(req.auth.platformRole || '').toLowerCase();
-    const isAdmin = pRole === 'admin' || pRole === 'manager' || pRole === 'super admin' || pRole === 'кип мастер';
+    const isAdmin = pRole === 'super admin';
     
     let rows;
     if (isAdmin) {
