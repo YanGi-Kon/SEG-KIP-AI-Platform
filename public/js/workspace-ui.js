@@ -122,7 +122,7 @@
     const menu = qs('.menu');
     if (!menu || qs('.seg-workspace-menu')) return;
     const item = document.createElement('div');
-    item.className = 'menu-item seg-workspace-menu';
+    item.className = 'menu-item seg-workspace-menu admin-only';
     item.setAttribute('role', 'button');
     item.setAttribute('tabindex', '0');
     item.innerHTML = `
@@ -197,6 +197,7 @@
                 <input type="file" id="workspaceServiceAccountInput" accept=".json" class="workspace-input">
                 <div id="workspaceServiceAccountStatus" style="font-size: 13px; margin-top: 4px; color: #555;"></div>
               </label>
+
             </div>
 
             <div class="workspace-actions">
@@ -382,7 +383,25 @@
     qsa('.workspace-list-item', list).forEach((button) => {
       button.addEventListener('click', () => selectWorkspace(button.dataset.workspaceId));
     });
+
+    const topbarSelect = document.getElementById('topbarWorkspaceSwitcher');
+    if (topbarSelect) {
+      if (state.workspaces.length > 0) {
+        topbarSelect.style.display = 'block';
+        topbarSelect.innerHTML = state.workspaces.map(w => 
+          `<option value="${escapeHtml(w.id)}" ${w.id === state.selectedWorkspaceId ? 'selected' : ''}>${escapeHtml(w.name)}</option>`
+        ).join('');
+      } else {
+        topbarSelect.style.display = 'none';
+      }
+    }
   }
+
+  window.topbarSelectWorkspace = function(workspaceId) {
+    if (workspaceId) {
+      selectWorkspace(workspaceId);
+    }
+  };
 
   const MEMBER_ROLE_LABELS = Object.freeze({
     owner: 'Owner',
@@ -606,6 +625,8 @@
         ? '✅ Individual JSON ulangan'
         : 'Sistemadagi global kalit ishlatilmoqda';
     }
+
+
     applyWorkspaceSettingsAccess(workspace || null);
   }
 
@@ -618,10 +639,44 @@
     renderWorkspaceList();
     if (workspace) {
       setStatus(`Tanlandi: ${workspace.name}\nstatus: ${workspace.status}\nrole: ${workspace.memberRole || ''}`, 'ok');
+      const sidebarName = document.getElementById('activeWorkspaceNameSidebar');
+      if (sidebarName) sidebarName.textContent = workspace.name;
     } else {
       setStatus('Yangi Workspace maʼlumotlarini kiriting.', 'info');
+      const sidebarName = document.getElementById('activeWorkspaceNameSidebar');
+      if (sidebarName) sidebarName.textContent = 'Workspace tanlanmagan';
     }
-    const detail = { workspaceId: state.selectedWorkspaceId, workspace: workspace };
+    const topbarSelect = document.getElementById('topbarWorkspaceSwitcher');
+    if (topbarSelect && topbarSelect.value !== state.selectedWorkspaceId) {
+      topbarSelect.value = state.selectedWorkspaceId;
+    }
+    
+    // Inject module settings into localStorage for legacy modules (acts, ulchov)
+    if (workspace && workspace.moduleSettings) {
+      if (workspace.moduleSettings.acts_sheet_name) {
+        localStorage.setItem('acts_sheet_name', workspace.moduleSettings.acts_sheet_name);
+      } else {
+        localStorage.removeItem('acts_sheet_name');
+      }
+      
+      if (workspace.moduleSettings.ulchov_sheet_name) {
+        localStorage.setItem('ulchov_sheet_name', workspace.moduleSettings.ulchov_sheet_name);
+      } else {
+        localStorage.removeItem('ulchov_sheet_name');
+      }
+      
+      if (workspace.moduleSettings.ulchov_menu_sheet_map) {
+        localStorage.setItem('ulchov_menu_sheet_map', workspace.moduleSettings.ulchov_menu_sheet_map);
+      } else {
+        localStorage.removeItem('ulchov_menu_sheet_map');
+      }
+    }
+    
+    const detail = { 
+      workspaceId: state.selectedWorkspaceId, 
+      workspace: workspace,
+      isAdmin: canConfigureWorkspace(workspace)
+    };
     window.dispatchEvent(new CustomEvent('seg-kip:workspace-change', { detail }));
     document.querySelectorAll('iframe').forEach((frame) => {
       try { frame.contentWindow?.postMessage({ type: 'SEG_KIP_WORKSPACE_CHANGE', ...detail }, '*'); } catch (_) {}
@@ -657,6 +712,8 @@
       }, false);
       setToken(data.accessToken || '');
       state.user = data.user || null;
+      if (state.user) document.body.setAttribute('data-platform-role', state.user.platformRole || 'user');
+      else document.body.removeAttribute('data-platform-role');
       renderUser();
       qs('#workspaceLoginPassword') && (qs('#workspaceLoginPassword').value = '');
       setStatus('Login muvaffaqiyatli. Workspace ro‘yxati yuklanmoqda...', 'ok');
@@ -893,6 +950,68 @@
     renderWorkspaceMembers();
   }
 
+  // Listen for messages from iframes (save requests, workspace info requests)
+  window.addEventListener('message', async (e) => {
+    if (e.data && e.data.type === 'SAVE_MODULE_SETTINGS') {
+      if (!canConfigureWorkspace()) {
+        setStatus('Sizning workspace rolingiz sozlamalarni o\'zgartirishga ruxsat bermaydi.', 'warn');
+        return;
+      }
+      const ws = selectedWorkspace();
+      if (!ws) return;
+      
+      // Merge existing moduleSettings with new ones
+      const updatedModuleSettings = { ...(ws.moduleSettings || {}), ...(e.data.settings || {}) };
+      
+      // Collect all other workspace fields so we can PUT
+      const body = {
+        name: ws.name,
+        spreadsheetUrl: ws.spreadsheetUrl,
+        timeZone: ws.timeZone,
+        moduleSettings: updatedModuleSettings
+      };
+      // Only send driveFolderUrl if it exists (avoid clearing it)
+      if (ws.driveFolderUrl || ws.driveFolderId) {
+        body.driveFolderUrl = ws.driveFolderUrl || ws.driveFolderId;
+      }
+      
+      try {
+        setStatus('Module sozlamalari saqlanmoqda...', 'info');
+        const data = await apiFetch(`/api/workspaces/${encodeURIComponent(ws.id)}`, { method: 'PUT', body: JSON.stringify(body) });
+        if (data.workspace) {
+          state.selectedWorkspaceId = data.workspace.id;
+          localStorage.setItem(SELECTED_WORKSPACE_KEY, data.workspace.id);
+        }
+        await loadWorkspaces();
+        setStatus('Module sozlamalari workspacega saqlandi!', 'ok');
+        
+        // Notify iframe that save succeeded
+        if (e.source) {
+          e.source.postMessage({ type: 'MODULE_SETTINGS_SAVED' }, '*');
+        }
+      } catch (err) {
+        setStatus(`Module sozlamalari xato: ${err.message}`, 'error');
+        // Still notify iframe so it doesn't hang
+        if (e.source) {
+          e.source.postMessage({ type: 'MODULE_SETTINGS_SAVED', error: err.message }, '*');
+        }
+      }
+    }
+    
+    // iframe loaded after workspace was selected — respond with current workspace info
+    if (e.data && e.data.type === 'REQUEST_WORKSPACE_INFO') {
+      const ws = selectedWorkspace();
+      if (ws && e.source) {
+        e.source.postMessage({
+          type: 'SEG_KIP_WORKSPACE_CHANGE',
+          workspaceId: ws.id,
+          workspace: ws,
+          isAdmin: canConfigureWorkspace(ws)
+        }, '*');
+      }
+    }
+  });
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setup);
   } else {
@@ -903,6 +1022,9 @@
   window.segWorkspaceUi = {
     open: openWorkspaceSettings,
     refresh: loadWorkspaces,
+    renderWorkspaceList: renderWorkspaceList,
+    selectedWorkspace: selectedWorkspace,
+    canConfigureWorkspace: canConfigureWorkspace,
     state,
   };
 })();

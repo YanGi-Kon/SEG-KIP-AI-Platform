@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { requireAccessToken as requireAuth } from '../middleware/auth.js';
 import * as userRepository from '../repositories/userRepository.js';
-import * as roleRepository from '../repositories/roleRepository.js';
 import { hashPassword } from '../services/passwordService.js';
 import { query } from '../db/pool.js';
 
@@ -9,11 +8,11 @@ const router = Router();
 const VALID_USER_STATUSES = new Set(['active', 'suspended']);
 
 function requireUserManager(req, res, next) {
-  const permissions = req.auth?.permissions || [];
-  if (permissions.includes('*') || permissions.includes('users:manage')) {
+  const role = req.auth?.platformRole;
+  if (role === 'super_admin' || role === 'admin') {
     return next();
   }
-  return res.status(403).json({ error: 'Permission denied: users:manage' });
+  return res.status(403).json({ error: 'Permission denied: platform admins only' });
 }
 
 function createValidationError(message, code = 'VALIDATION_ERROR') {
@@ -45,13 +44,7 @@ function normalizeStatus(value, { fallback = 'active', required = false } = {}) 
   return normalized;
 }
 
-async function ensureSystemRoleExists(systemRoleId) {
-  const role = await roleRepository.findRoleById(systemRoleId);
-  if (!role) {
-    throw createValidationError('Invalid systemRoleId', 'INVALID_SYSTEM_ROLE');
-  }
-  return role;
-}
+
 
 function logUserMutationContext(label, req, payload = {}) {
   console.info(`[users] ${label}`, {
@@ -60,7 +53,7 @@ function logUserMutationContext(label, req, payload = {}) {
     bodyKeys: Object.keys(req.body || {}),
     fullName: payload.fullName || null,
     email: payload.email || null,
-    systemRoleId: payload.systemRoleId || null,
+    platformRole: payload.platformRole || null,
     status: payload.status || null,
     hasPassword: Boolean(payload.password),
   });
@@ -105,10 +98,9 @@ router.use(requireAuth, requireUserManager);
 router.get('/', async (req, res, next) => {
   try {
     const result = await query(`
-      SELECT u.id, u.full_name as "fullName", u.email, r.name as "platformRole", r.id as "systemRoleId", u.status, u.created_at as "createdAt"
-      FROM users u
-      JOIN system_roles r ON u.system_role_id = r.id
-      ORDER BY u.created_at DESC
+      SELECT id, full_name as "fullName", email, platform_role as "platformRole", status, created_at as "createdAt"
+      FROM users
+      ORDER BY created_at DESC
     `);
     res.json({ users: result.rows });
   } catch (error) {
@@ -122,12 +114,11 @@ router.post('/', async (req, res, next) => {
       fullName: normalizeRequiredText(req.body?.fullName, 'Full name', 'FULL_NAME_REQUIRED'),
       email: normalizeRequiredText(req.body?.email, 'Email', 'EMAIL_REQUIRED').toLowerCase(),
       password: normalizeRequiredText(req.body?.password, 'Password', 'PASSWORD_REQUIRED'),
-      systemRoleId: normalizeRequiredText(req.body?.systemRoleId, 'systemRoleId', 'SYSTEM_ROLE_ID_REQUIRED'),
+      platformRole: normalizeRequiredText(req.body?.platformRole, 'platformRole', 'PLATFORM_ROLE_REQUIRED'),
       status: normalizeStatus(req.body?.status, { fallback: 'active' }),
     };
 
     logUserMutationContext('create request', req, payload);
-    await ensureSystemRoleExists(payload.systemRoleId);
 
     let passwordHash;
     try {
@@ -143,7 +134,7 @@ router.post('/', async (req, res, next) => {
       fullName: payload.fullName,
       email: payload.email,
       passwordHash,
-      systemRoleId: payload.systemRoleId,
+      platformRole: payload.platformRole,
       status: payload.status,
     });
     const hydratedUser = await userRepository.findUserById(createdUser.id);
@@ -158,16 +149,15 @@ router.put('/:id', async (req, res, next) => {
     const { id } = req.params;
     const payload = {
       fullName: normalizeRequiredText(req.body?.fullName, 'Full name', 'FULL_NAME_REQUIRED'),
-      systemRoleId: normalizeRequiredText(req.body?.systemRoleId, 'systemRoleId', 'SYSTEM_ROLE_ID_REQUIRED'),
+      platformRole: normalizeRequiredText(req.body?.platformRole, 'platformRole', 'PLATFORM_ROLE_REQUIRED'),
       status: normalizeStatus(req.body?.status, { required: true }),
       password: String(req.body?.password || ''),
     };
 
     logUserMutationContext(`update request:${id}`, req, payload);
-    await ensureSystemRoleExists(payload.systemRoleId);
 
-    let queryText = 'UPDATE users SET full_name = $2, system_role_id = $3, status = $4';
-    let params = [id, payload.fullName, payload.systemRoleId, payload.status];
+    let queryText = 'UPDATE users SET full_name = $2, platform_role = $3, status = $4';
+    let params = [id, payload.fullName, payload.platformRole, payload.status];
 
     if (payload.password) {
       try {

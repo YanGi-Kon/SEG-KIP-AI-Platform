@@ -18,7 +18,6 @@ import actsRouter from "./routes/acts.js";
 import ulchovRouter from "./routes/ulchov.js";
 import signaturesRouter from "./routes/signatures.js";
 import authRouter from "./routes/auth.js";
-import rolesRouter from "./routes/roles.js";
 import usersRouter from "./routes/users.js";
 import workspacesRouter from "./routes/workspaces.js";
 import backupRouter from "./routes/backup.js";
@@ -139,7 +138,6 @@ app.use(express.static(publicDir, staticNoCacheOptions));
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
-app.use("/api/roles", rolesRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/workspaces", workspacesRouter);
 app.use("/api/chat", chatRouter);

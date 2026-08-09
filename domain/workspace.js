@@ -1,10 +1,7 @@
 const WORKSPACE_ROLES = new Set([
   'owner',
   'administrator',
-  'workspace_manager',
   'operator',
-  'engineer',
-  'department_manager',
   'viewer',
 ]);
 
@@ -96,9 +93,12 @@ export function normalizeWorkspaceInput(input = {}) {
   }
   const spreadsheetId = extractSpreadsheetId(input.spreadsheetUrl || input.spreadsheetId);
 
-  const driveFolderId = normalizeOptionalDriveFolder(input.driveFolderUrl || input.driveFolderId, '');
+  const driveFolderId = normalizeOptionalDriveFolder(
+    input.driveFolderUrl !== undefined ? input.driveFolderUrl : input.driveFolderId, 
+    ''
+  );
   const finalDocumentsFolderId = normalizeOptionalDriveFolder(
-    input.finalDocumentsFolderUrl || input.finalDocumentsFolderId,
+    input.finalDocumentsFolderUrl !== undefined ? input.finalDocumentsFolderUrl : input.finalDocumentsFolderId,
     '',
   );
   const timeZone = String(input.timeZone || 'Asia/Tashkent').trim();
@@ -112,6 +112,7 @@ export function normalizeWorkspaceInput(input = {}) {
     finalDocumentsFolderId,
     timeZone,
     serviceAccountBase64: input.serviceAccountBase64 || '',
+    moduleSettings: (input.moduleSettings && typeof input.moduleSettings === 'object') ? input.moduleSettings : {},
   };
 }
 

@@ -76,11 +76,11 @@ function handleError(res, error) {
 }
 
 function requireWorkspaceCreator(req, res, next) {
-  const permissions = req.auth?.permissions || [];
-  if (permissions.includes('*') || permissions.includes('workspace:create')) {
+  const role = req.auth?.platformRole;
+  if (role === 'super_admin' || role === 'admin') {
     return next();
   }
-  return res.status(403).json({ error: 'Permission denied: workspace:create' });
+  return res.status(403).json({ error: 'Permission denied: platform admins only' });
 }
 
 router.use(requireWorkspaceMode, requireAccessToken);

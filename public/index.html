@@ -47,14 +47,11 @@
           <div class="menu-icon">🔍</div>
           <div><div class="menu-title" data-i18n="6. АЛМАШИШ ЖУРНАЛИ">6. АЛМАШИШ ЖУРНАЛИ</div><div class="empty-note" data-i18n="Алмаштириш тарихи">Алмаштириш тарихи</div></div>
         </div>
-        <div class="menu-item" onclick="openModulePage('users', 'Управление пользователями')">
+        <div class="menu-item admin-only" onclick="openModulePage('users', 'Управление пользователями')">
           <div class="menu-icon">👥</div>
           <div><div class="menu-title" data-i18n="7. ПОЛЬЗОВАТЕЛИ">7. ПОЛЬЗОВАТЕЛИ</div><div class="empty-note" data-i18n="Управление доступом">Управление доступом</div></div>
         </div>
-        <div class="menu-item" onclick="openModulePage('roles', 'Конструктор ролей')">
-          <div class="menu-icon">🔐</div>
-          <div><div class="menu-title" data-i18n="8. РОЛИ">8. РОЛИ</div><div class="empty-note" data-i18n="Права и настройки">Права и настройки</div></div>
-        </div>
+
         <div class="menu-item" onclick="openModulePage('settings', 'Настройки')">
           <div class="menu-icon">⚙️</div>
           <div><div class="menu-title" data-i18n="9. НАСТРОЙКИ">9. НАСТРОЙКИ</div><div class="empty-note" data-i18n="Язык и параметры">Язык и параметры</div></div>
@@ -64,7 +61,7 @@
 
     <div class="side-footer">
       <b>СП ООО “SANOAT ENERGETIKA GURUHI”</b><br>
-      ТПП “АНДИЖАН” · KIP Digital Control System
+      <span id="activeWorkspaceNameSidebar">ТПП “АНДИЖАН”</span> · Sanegplatform
     </div>
   </aside>
 
@@ -74,7 +71,10 @@
         <h2>SEG KIP AI Platform</h2>
         <p data-i18n="Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси">Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси</p>
       </div>
-      <div class="status">
+      <div class="status" style="display:flex; align-items:center; gap:8px;">
+        <select id="topbarWorkspaceSwitcher" style="display:none; margin-right:12px; background:rgba(255,255,255,0.06); border:1px solid rgba(34,211,238,0.25); border-radius:10px; color:#e2e8f0; padding:6px 12px; font-size:12px; outline:none; max-width:240px; cursor:pointer;" onchange="window.topbarSelectWorkspace(this.value)">
+          <option value="">-- Workspace --</option>
+        </select>
         <div class="pill">📅 2026</div>
         <div class="pill online">ONLINE</div>
         <div class="pill">KIP MASTER</div>

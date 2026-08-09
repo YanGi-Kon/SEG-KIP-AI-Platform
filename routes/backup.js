@@ -4,10 +4,10 @@ import { query } from '../db/pool.js';
 
 const router = Router();
 
-// Only admins (permissions includes '*') can create backups
+// Only admins can create backups
 function requireAdmin(req, res, next) {
-  const permissions = req.auth?.permissions || [];
-  if (permissions.includes('*')) return next();
+  const role = req.auth?.platformRole;
+  if (role === 'super_admin' || role === 'admin') return next();
   return res.status(403).json({ error: 'Только администратор может создавать резервные копии' });
 }
 

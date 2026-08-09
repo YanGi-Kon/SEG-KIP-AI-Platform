@@ -57,6 +57,8 @@
     }
     setToken(data.accessToken || '');
     state.user = data.user || null;
+    if (state.user) document.body.setAttribute('data-platform-role', state.user.platformRole || 'user');
+    else document.body.removeAttribute('data-platform-role');
     return data;
   }
   async function loadWorkspacesAndSelect(){
@@ -67,6 +69,7 @@
     const preferred = current || state.workspaces.find((workspace) => workspace.status === 'active') || state.workspaces[0] || null;
     if (preferred?.id) localStorage.setItem(SELECTED_WORKSPACE_KEY, preferred.id);
     else localStorage.removeItem(SELECTED_WORKSPACE_KEY);
+    if (window.segWorkspaceUi?.refresh) window.segWorkspaceUi.refresh();
     return preferred;
   }
 
@@ -136,6 +139,8 @@
       const data = await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }, false);
       setToken(data.accessToken || '');
       state.user = data.user || null;
+      if (state.user) document.body.setAttribute('data-platform-role', state.user.platformRole || 'user');
+      else document.body.removeAttribute('data-platform-role');
       localStorage.setItem(LOGIN_EMAIL_KEY, email);
       const workspace = await loadWorkspacesAndSelect();
       if (!workspace) {
@@ -165,6 +170,8 @@
       if (res.ok && data.accessToken) {
         setToken(data.accessToken);
         state.user = data.user || null;
+        if (state.user) document.body.setAttribute('data-platform-role', state.user.platformRole || 'user');
+        else document.body.removeAttribute('data-platform-role');
         state.manualLoginStarted = true;
         // Load workspaces silently
         try { await loadWorkspacesAndSelect(); } catch (_) {}

@@ -18,10 +18,9 @@ function mapUser(row) {
 export async function findUserByEmail(email, client = null) {
   const executor = client || { query };
   const result = await executor.query(
-    `SELECT u.id, u.full_name, u.email, u.password_hash, r.name as platform_role, r.permissions, u.status, u.created_at, u.updated_at
-     FROM users u
-     JOIN system_roles r ON u.system_role_id = r.id
-     WHERE u.email = $1
+    `SELECT id, full_name, email, password_hash, platform_role, status, created_at, updated_at
+     FROM users
+     WHERE email = $1
      LIMIT 1`,
     [String(email || '').trim().toLowerCase()],
   );
@@ -31,10 +30,9 @@ export async function findUserByEmail(email, client = null) {
 export async function findUserById(id, client = null) {
   const executor = client || { query };
   const result = await executor.query(
-    `SELECT u.id, u.full_name, u.email, u.password_hash, r.name as platform_role, r.permissions, u.status, u.created_at, u.updated_at
-     FROM users u
-     JOIN system_roles r ON u.system_role_id = r.id
-     WHERE u.id = $1
+    `SELECT id, full_name, email, password_hash, platform_role, status, created_at, updated_at
+     FROM users
+     WHERE id = $1
      LIMIT 1`,
     [id],
   );
@@ -45,14 +43,14 @@ export async function createUser(input, client = null) {
   const executor = client || { query };
   try {
     const result = await executor.query(
-      `INSERT INTO users (full_name, email, password_hash, system_role_id, status)
+      `INSERT INTO users (full_name, email, password_hash, platform_role, status)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, full_name, email, password_hash, status, created_at, updated_at`,
+       RETURNING id, full_name, email, password_hash, platform_role, status, created_at, updated_at`,
       [
         String(input.fullName || '').trim(),
         String(input.email || '').trim().toLowerCase(),
         input.passwordHash,
-        input.systemRoleId,
+        input.platformRole || 'user',
         input.status || 'active',
       ],
     );
@@ -60,14 +58,8 @@ export async function createUser(input, client = null) {
   } catch (error) {
     console.error('[userRepository.createUser] insert failed', {
       message: error?.message,
-      code: error?.code,
-      detail: error?.detail,
-      constraint: error?.constraint,
-      table: error?.table,
-      column: error?.column,
       email: String(input.email || '').trim().toLowerCase(),
-      systemRoleId: input.systemRoleId,
-      status: input.status || 'active',
+      platformRole: input.platformRole,
     });
     throw error;
   }

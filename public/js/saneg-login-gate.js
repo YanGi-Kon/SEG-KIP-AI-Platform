@@ -55,6 +55,7 @@
       || null;
     if (selected?.id) localStorage.setItem(SELECTED_WORKSPACE_KEY, selected.id);
     else localStorage.removeItem(SELECTED_WORKSPACE_KEY);
+    if (window.segWorkspaceUi?.refresh) window.segWorkspaceUi.refresh();
     return selected;
   }
 
@@ -201,6 +202,8 @@
       const session = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
       setToken(session.accessToken || '');
       state.user = session.user || null;
+      if (state.user) document.body.setAttribute('data-platform-role', state.user.platformRole || 'user');
+      else document.body.removeAttribute('data-platform-role');
       localStorage.setItem(LOGIN_EMAIL_KEY, email);
       const workspace = await loadWorkspaces();
       if (!workspace) {
@@ -208,6 +211,7 @@
         return;
       }
       setMessage(`Kirish muvaffaqiyatli. Workspace: ${workspace.name}`, 'ok');
+      window.segWorkspaceUi?.refresh();
       setTimeout(() => {
         document.documentElement.classList.remove('saneg-login-active');
         document.body.classList.remove('saneg-login-active');
@@ -236,8 +240,12 @@
       if (!data.accessToken) throw new Error('no token');
       setToken(data.accessToken);
       state.user = data.user || null;
+      if (state.user) document.body.setAttribute('data-platform-role', state.user.platformRole || 'user');
+      else document.body.removeAttribute('data-platform-role');
       // Also load workspaces silently so workspace-ui works
-      try { await loadWorkspaces(); } catch (_) {}
+      try { 
+        await loadWorkspaces();
+      } catch (_) {}
       // Session restored — don't show login screen
       releaseAuthBootGuard();
       return true;

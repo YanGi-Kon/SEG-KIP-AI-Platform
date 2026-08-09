@@ -39,12 +39,49 @@
   function renderMenuRows(rows){const wrap=$('ulchovMenuRows');if(!wrap)return;const data=rows.length?rows:[{menuName:'',sheetName:''}];wrap.innerHTML=data.map(row=>`<div class="ulchov-menu-row" data-menu-row><input class="ulchov-input" data-menu-name placeholder="Menyu nomi" value="${esc(row.menuName||'')}"><input class="ulchov-input" data-menu-sheet placeholder="ASOSIY VAROQ" value="${esc(row.sheetName||'')}"><button class="ulchov-row-delete" type="button" data-delete-row title="Qatorni o'chirish">×</button></div>`).join('');wrap.querySelectorAll('[data-delete-row]').forEach(btn=>{btn.onclick=()=>{const row=btn.closest('[data-menu-row]');if(wrap.querySelectorAll('[data-menu-row]').length>1)row.remove();else row.querySelectorAll('input').forEach(i=>i.value='')}})}
   function collectMenuRows(){return Array.from(document.querySelectorAll('[data-menu-row]')).map(row=>({menuName:row.querySelector('[data-menu-name]')?.value.trim()||'',sheetName:row.querySelector('[data-menu-sheet]')?.value.trim()||''}))}
   function cleanMenuRows(rows){return rows.filter(x=>x.menuName||x.sheetName)}
-  function injectModal(){if($('ulchovSettingsModal'))return;const m=document.createElement('div');m.id='ulchovSettingsModal';m.className='ulchov-modal-overlay';m.innerHTML=`<div class="ulchov-modal"><div class="ulchov-modal-head"><div><h2>Google Sheets уланиш созламалари</h2><p>Google Sheets ҳаволаси ва ҳар бир меню учун ASOSIY VAROQ киритилади.</p></div><button class="ulchov-close" id="ulchovCloseSettingsBtn" type="button">×</button></div><div class="ulchov-grid"><div class="ulchov-menu-block"><div class="ulchov-menu-head"><div class="ulchov-menu-title">Menyular ro'yxati</div><button class="ulchov-plus" id="ulchovAddMenuRow" type="button" title="Yangi menyu qo'shish">+</button></div><div class="ulchov-menu-columns"><div>Menyu nomi</div><div>ASOSIY VAROQ</div><div></div></div><div id="ulchovMenuRows"></div></div></div><div class="ulchov-note">O'ng tomondagi kataklar har bir menyu uchun ASOSIY VAROQ hisoblanadi. Google Sheets ҳаволаси ва Service Account умумий Workspace созламаларидан автоматик олинади.</div><div id="ulchovSettingsMsg" class="ulchov-msg">Созламалар киритилмаган.</div><div class="ulchov-actions"><button class="ulchov-action danger" id="ulchovClearSettingsBtn" type="button">Созламаларни тозалаш</button><div class="ulchov-actions-right"><button class="ulchov-action primary" id="ulchovSaveSettingsBtn" type="button">Сақлаш ва кириш</button></div></div></div>`;document.body.appendChild(m);$('ulchovCloseSettingsBtn').onclick=closeSettings;$('ulchovClearSettingsBtn').onclick=clearSettings;$('ulchovSaveSettingsBtn').onclick=saveSettings;$('ulchovAddMenuRow').onclick=()=>renderMenuRows([...collectMenuRows(),{menuName:'',sheetName:''}]);m.onclick=e=>{if(e.target===m)closeSettings()}}
+  function injectModal(){if($('ulchovSettingsModal'))return;const m=document.createElement('div');m.id='ulchovSettingsModal';m.className='ulchov-modal-overlay';m.innerHTML=`<div class="ulchov-modal"><div class="ulchov-modal-head"><div><h2>Google Sheets уланиш созламалари</h2><p>Google Sheets ҳаволаси ва ҳар бир меню учун ASOSIY VAROQ киритилади.</p></div><button class="ulchov-close" id="ulchovCloseSettingsBtn" type="button">×</button></div><div class="ulchov-grid"><div class="ulchov-menu-block"><div class="ulchov-menu-head"><div class="ulchov-menu-title">Menyular ro'yxati</div><button class="ulchov-plus" id="ulchovAddMenuRow" type="button" title="Yangi menyu qo'shish">+</button></div><div class="ulchov-menu-columns"><div>Menyu nomi</div><div>ASOSIY VAROQ</div><div></div></div><div id="ulchovMenuRows"></div></div></div><div class="ulchov-note">O'ng tomondagi kataklar har bir menyu uchun ASOSIY VAROQ hisoblanadi. Google Sheets ҳаволаси ва Service Account умумий Workspace созламаларидан автоматик олинади.</div><div id="ulchovSettingsMsg" class="ulchov-msg">Созламалар киритилмаган.</div><div class="ulchov-actions"><button class="ulchov-action danger" id="ulchovClearSettingsBtn" type="button">Созламаларни тозалаш</button><div class="ulchov-actions-right"><button class="ulchov-action primary" id="ulchovSaveSettingsBtn" type="button">Сақлаш ва кириш</button></div></div></div>`;document.body.appendChild(m);$('ulchovCloseSettingsBtn').onclick=closeSettings;$('ulchovClearSettingsBtn').onclick=clearSettings;$('ulchovSaveSettingsBtn').onclick=saveSettings;$('ulchovAddMenuRow').onclick=()=>renderMenuRows([...collectMenuRows(),{menuName:'',sheetName:''}]);m.onclick=e=>{if(e.target===m)closeSettings()}
+    // Check if user is admin via parent window
+    let canEdit = true;
+    try { 
+      if (typeof window.ulchovIsAdmin !== 'undefined') {
+        canEdit = window.ulchovIsAdmin;
+      } else if (window.parent && window.parent.segWorkspaceUi && !window.parent.segWorkspaceUi.canConfigureWorkspace()) {
+        canEdit = false;
+      }
+    } catch(e) {}
+    
+    if (!canEdit) {
+      $('ulchovSaveSettingsBtn').style.display = 'none';
+      $('ulchovClearSettingsBtn').style.display = 'none';
+      $('ulchovAddMenuRow').style.display = 'none';
+      $('ulchovSettingsMsg').innerHTML = '<strong>Эслатма:</strong> Модул созламалари эндиликда Workspace Администратори томонидан марказлашган ҳолда бошқарилади.';
+      $('ulchovSettingsMsg').className = 'ulchov-msg warn';
+    }
+  }
   function openSettings(){injectModal();const s=settings();renderMenuRows(s.menuItems.length?s.menuItems:DEFAULT_MENUS);setMsg(s.confirmed?'Созламалар сақланган.':'Созламалар киритилмаган.',s.confirmed?'ok':'warn');$('ulchovSettingsModal').classList.add('open')}
   function closeSettings(){$('ulchovSettingsModal')?.classList.remove('open')}
   async function readJsonFile(e){const file=e.target.files?.[0];if(!file)return;try{const json=JSON.parse(await file.text());if(!json.client_email||!json.private_key||!json.project_id)throw new Error('JSON ichida client_email, private_key yoki project_id topilmadi');state.credential=json;state.credentialName=file.name;$('ulchovJsonFileName').textContent=file.name;setMsg(`${file.name} қабул қилинди. Private key кўрсатилмайди.`,'ok')}catch(err){state.credential=null;state.credentialName='';$('ulchovJsonFileName').textContent='JSON танланмаган';setMsg(err.message,'bad')}}
   function validateBeforeSave(payload){if(!payload.menuItems.length)throw new Error('Menyular ro\'yxatiga kamida bitta qator kiriting');payload.menuItems.forEach((m,i)=>{if(!m.menuName||!m.sheetName)throw new Error(`Menyular ro'yxati ${i+1}-qatorida Menyu nomi va ASOSIY VAROQ to'liq to'ldirilsin`)})}
-  async function saveSettings(){const menuItems=cleanMenuRows(collectMenuRows());const payload={sheetName:menuItems[0]?.sheetName||'',menuItems};try{validateBeforeSave(payload);setMsg('Уланиш текширилмоқда...','warn');await post('/api/ulchov/settings/test',payload);localStorage.setItem(KEYS.menus,JSON.stringify(payload.menuItems));localStorage.setItem(KEYS.legacySheet,payload.sheetName);localStorage.setItem(KEYS.confirmed,'true');state.activeMenu=payload.menuItems[0].menuName;state.loaded=false;await loadSheet(true);closeSettings()}catch(e){localStorage.setItem(KEYS.confirmed,'false');setMsg(e.message,'bad');setStatus(e.message,'bad')}}
+  async function saveSettings(){const menuItems=cleanMenuRows(collectMenuRows());const payload={sheetName:menuItems[0]?.sheetName||'',menuItems};try{validateBeforeSave(payload);setMsg('Уланиш текширилмоқда...','warn');await post('/api/ulchov/settings/test',payload);localStorage.setItem(KEYS.menus,JSON.stringify(payload.menuItems));localStorage.setItem(KEYS.legacySheet,payload.sheetName);localStorage.setItem(KEYS.confirmed,'true');state.activeMenu=payload.menuItems[0].menuName;state.loaded=false;
+    if (window.parent) {
+      window.parent.postMessage({
+        type: 'SAVE_MODULE_SETTINGS',
+        module: 'ulchov',
+        settings: {
+          ulchov_sheet_name: payload.sheetName,
+          ulchov_menu_sheet_map: JSON.stringify(payload.menuItems)
+        }
+      }, '*');
+    }
+    await loadSheet(true);closeSettings()
+    }catch(e){
+      let errMsg = e.message;
+      if (errMsg.includes('invalid_grant') || errMsg.includes('account not found')) {
+        errMsg = 'Workspace uchun Service Account kiritilmagan! Iltimos, yon paneldagi "WORKSPACE SETTINGS" orqali JSON faylni yuklang.';
+      }
+      localStorage.setItem(KEYS.confirmed,'false');setMsg(errMsg,'bad');setStatus(errMsg,'bad')
+    }
+  }
   function clearSettings(){localStorage.removeItem(KEYS.menus);localStorage.removeItem(KEYS.legacySheet);localStorage.removeItem(KEYS.confirmed);state.instruments=[];state.loaded=false;state.loadedSheet='';clearCards('Созламалар тозаланди. Google Sheets уланиш созламаларини киритинг.');setStatus('Созламалар тозаланди.','warn');setMsg('Созламалар тозаланди.','warn')}
   function color(b){if(typeof window.getBrandColor==='function')return window.getBrandColor(b);const k=String(b||'').toLowerCase();if(k.includes('wika'))return'#00aaff';if(k.includes('физ'))return'#00cc66';if(k.includes('полит'))return'#ffaa00';if(k.includes('метран'))return'#aa44ff';if(k.includes('росма'))return'#ff4444';if(k.includes('темпу'))return'#ff6600';return'#00d4ff'}
   function devIcon(n){if(typeof window.getDeviceIcon==='function')return window.getDeviceIcon(n);const k=String(n||'').toLowerCase();if(k.includes('темп'))return'🌡️';if(k.includes('уров'))return'📏';if(k.includes('дат'))return'📡';return'⚙️'}
@@ -55,12 +92,90 @@
   function renderSummary(data){const r=$('summary-row');if(!r)return;const c={};data.forEach(x=>{c[x.brand]=(c[x.brand]||0)+1});r.innerHTML=Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([b,n])=>`<div class="summary-chip"><div class="chip-dot" style="background:${color(b)}"></div><span>${esc(b)}</span><span class="num" style="color:${color(b)}">${n}</span></div>`).join('')}
   function renderCards(data){setPageTitle();const g=$('cards-grid');if($('total-count'))$('total-count').textContent=data.length;if(!g)return;if(!data.length)return clearCards('Ҳеч нарса топилмади. Қидирув шартларини ўзгартиринг.');g.innerHTML=data.map(x=>{const c=color(x.brand),wc=String(x.work||'').toLowerCase().includes('то-2')||String(x.work||'').toLowerCase().includes('to-2')?'work-to2':'work-akt',u=`https://drive.google.com/drive/search?q=${encodeURIComponent(x.serial||x.name||'')}`;return `<div class="instrument-card" style="--card-color:${c}"><div class="card-top"><div><div class="pos-label">ПОЗИЦИЯ</div><div class="pos-badge">${esc(x.pos||'—')}</div></div><div style="text-align:center"><div style="font-size:32px">${esc(devIcon(x.name))}</div></div><div style="text-align:right"><div class="card-brand"><div class="brand-badge" style="background:${c}">${esc(x.brand||'Бошқа')}</div></div><div style="font-size:18px;margin-top:4px">${esc(brandIcon(x.brand))}</div></div></div><div class="card-body"><div class="card-name">${esc(x.name||'Асбоб')}</div><div class="serial-row"><div class="serial-label">ЗАВОД РАҚАМИ</div><div class="serial-val">${esc(x.serial||'—')}</div></div><div class="card-info"><div class="info-item"><div class="info-label">Ўлчов диап.</div><div class="info-value">${esc(x.range||'—')}</div></div><div class="info-item"><div class="info-label">Хизмат тури</div><div class="info-value">${esc(x.work||'—')}</div></div></div><div><span class="location-tag">📍 ${esc(x.location||'—')}</span><span class="work-tag ${wc}">${esc(x.work||'—')}</span></div><div style="height:10px"></div><a href="${u}" target="_blank" rel="noopener" class="pdf-btn">📄 Паспортни кўриш</a></div></div>`}).join('')}
   function filterCards(){const q=($('search-input')?.value||'').toLowerCase(),b=$('filter-brand')?.value||'',l=$('filter-location')?.value||'';const data=state.instruments.filter(x=>{const h=`${x.pos} ${x.name} ${x.brand} ${x.serial} ${x.range} ${x.location} ${x.work}`.toLowerCase();return(!q||h.includes(q))&&(!b||x.brand===b)&&(!l||x.location===l)});renderSummary(data);renderCards(data)}
-  async function loadSheet(openAfter=false){const s=settings();if(!hasSettings()){clearCards('Созламалар киритилмаган ёки JSON қайта танланмаган.');setStatus('Google Sheets созламалари киритилмаган ёки JSON қайта танланмаган.','warn');openSettings();return false}try{setStatus(`${state.activeMenu}: ASOSIY VAROQ маълумотлари юкланмоқда...`,'warn');const d=await post('/api/ulchov/instruments',s);state.instruments=d.instruments||[];state.loaded=true;state.loadedSheet=s.sheetName;updateFilters(state.instruments);renderSummary(state.instruments);renderCards(state.instruments);setStatus(`${state.activeMenu}: ${state.instruments.length} та маълумот юкланди. ASOSIY VAROQ: ${d.sheetName}`,'ok');if(openAfter)showConfiguredPage();return true}catch(e){state.instruments=[];state.loaded=false;state.loadedSheet='';clearCards(e.message);setStatus(e.message,'bad');return false}}
+  async function loadSheet(openAfter=false){const s=settings();if(!hasSettings()){clearCards('Созламалар киритилмаган.');setStatus('Google Sheets созламалари киритилмаган.','warn');if (window.ulchovIsAdmin !== false) { openSettings(); } return false}try{setStatus(`${state.activeMenu}: ASOSIY VAROQ маълумотлари юкланмоқда...`,'warn');const d=await post('/api/ulchov/instruments',s);state.instruments=d.instruments||[];state.loaded=true;state.loadedSheet=s.sheetName;updateFilters(state.instruments);renderSummary(state.instruments);renderCards(state.instruments);setStatus(`${state.activeMenu}: ${state.instruments.length} та маълумот юкланди. ASOSIY VAROQ: ${d.sheetName}`,'ok');if(openAfter)showConfiguredPage();return true}catch(e){state.instruments=[];state.loaded=false;state.loadedSheet='';clearCards(e.message);setStatus(e.message,'bad');return false}}
   function showConfiguredPage(){if(typeof window.goPage==='function')window.goPage('pasport');setPageTitle();renderSummary(state.instruments);renderCards(state.instruments)}
-  async function openConfiguredMenu(menuName){state.activeMenu=menuName;state.loaded=false;const wanted=sheetFor(menuName);if(!wanted){setStatus(`${menuName} учун ASOSIY VAROQ киритилмаган.`,'bad');openSettings();return}if(!hasSettings()){clearCards('Созламалар киритилмаган ёки JSON қайта танланмаган.');setStatus(`${menuName} учун аввал Google Sheets созламаларини киритинг.`,'warn');openSettings();return}const ok=await loadSheet(false);if(ok)showConfiguredPage()}
+  async function openConfiguredMenu(menuName){state.activeMenu=menuName;state.loaded=false;const wanted=sheetFor(menuName);if(!wanted){setStatus(`${menuName} учун ASOSIY VAROQ киритилмаган.`,'bad');if (window.ulchovIsAdmin !== false) { openSettings(); } return}if(!hasSettings()){clearCards('Созламалар киритилмаган.');setStatus(`${menuName} учун аввал Google Sheets созламаларини киритинг.`,'warn');if (window.ulchovIsAdmin !== false) { openSettings(); } return}const ok=await loadSheet(false);if(ok)showConfiguredPage()}
   function patchCards(){const grid=document.querySelector('#page-submenu .submenu-grid');if(!grid||grid.dataset.ulchovPatched==='true')return;Array.from(grid.children).forEach(ch=>ch.remove());MENU_ORDER.forEach(name=>{const b=document.createElement('button');b.type='button';b.className='sub-card ulchov-nav-card';b.innerHTML=`<div class="sub-icon">${ICONS[name]}</div><h3>${esc(name)}</h3><p>${esc(DESCS[name])}</p>`;b.onclick=()=>openConfiguredMenu(name);grid.appendChild(b)});grid.dataset.ulchovPatched='true'}
   function fixText(){[document.querySelector('.stats-bar'),document.querySelector('#page-main'),document.querySelector('#page-pasport')].filter(Boolean).forEach(root=>{const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode()))n.nodeValue=n.nodeValue.replace(/аслоб/g,'асбоб').replace(/Аслоб/g,'Асбоб')})}
-  function setup(){injectStyle();injectModal();const st=document.querySelector('.stats-bar');if(st&&!$('ulchovOpenSettingsBtn')){const b=document.createElement('button');b.id='ulchovOpenSettingsBtn';b.type='button';b.className='ulchov-settings-btn';b.textContent='⚙️ Созламалар';b.onclick=openSettings;st.appendChild(b)}patchCards();fixText();window.filterCards=filterCards;window.goPasport=()=>openConfiguredMenu('ПАСПОРТ МАНОМЕТР');if(!hasSettings())setStatus('Google Sheets созламалари киритилмаган ёки JSON қайта танланмаган.','warn')}
+  async function handleWorkspace(ws, isAdmin) {
+    window.ulchovIsAdmin = isAdmin;
+    const btn = $('ulchovOpenSettingsBtn');
+    // Only hide the button if we are SURE the user is NOT admin.
+    if (btn) btn.style.display = (isAdmin === false) ? 'none' : '';
+    
+    if (ws?.moduleSettings?.ulchov_sheet_name) {
+      localStorage.setItem(KEYS.legacySheet, ws.moduleSettings.ulchov_sheet_name);
+    } else {
+      localStorage.removeItem(KEYS.legacySheet);
+    }
+    
+    if (ws?.moduleSettings?.ulchov_menu_sheet_map) {
+      localStorage.setItem(KEYS.menus, ws.moduleSettings.ulchov_menu_sheet_map);
+      localStorage.setItem(KEYS.confirmed, 'true');
+    } else {
+      localStorage.removeItem(KEYS.menus);
+      localStorage.removeItem(KEYS.confirmed);
+    }
+    
+    if (!hasSettings()) {
+      if (isAdmin) {
+        openSettings();
+        setStatus('Google Sheets созламалари киритилмаган.', 'warn');
+      } else {
+        setStatus('Google Sheets созламалари киритилмаган. Администраторга мурожаат қилинг.', 'warn');
+      }
+    } else {
+      setStatus('Google Sheets уланди.', 'ok');
+    }
+  }
+
+  window.addEventListener('message', async (e) => {
+    if (e.data && e.data.type === 'SEG_KIP_WORKSPACE_CHANGE') {
+      await handleWorkspace(e.data.workspace, e.data.isAdmin);
+    }
+  });
+
+  function setup(){
+    injectStyle();
+    injectModal();
+    
+    // Insert settings button in a dedicated toolbar below the header — not inside stats-bar
+    if (!$('ulchovOpenSettingsBtn')) {
+      const toolbar = document.createElement('div');
+      toolbar.id = 'ulchovToolbar';
+      toolbar.style.cssText = 'display:flex;justify-content:flex-end;padding:6px 20px 0;';
+      
+      const b = document.createElement('button');
+      b.id = 'ulchovOpenSettingsBtn';
+      b.type = 'button';
+      b.className = 'ulchov-settings-btn';
+      b.innerHTML = '⚙️ Созламалар';
+      b.onclick = openSettings;
+      toolbar.appendChild(b);
+      
+      // Insert after the .header element
+      const header = document.querySelector('.header');
+      if (header && header.parentNode) {
+        header.parentNode.insertBefore(toolbar, header.nextSibling);
+      } else {
+        document.body.prepend(toolbar);
+      }
+    }
+    
+    patchCards();
+    fixText();
+    window.filterCards=filterCards;
+    window.goPasport=()=>openConfiguredMenu('ПАСПОРТ МАНОМЕТР');
+    
+    if (window.parent && window.parent !== window) {
+      setStatus('Иш жойи созланмоқда...', 'warn');
+      // Ask parent for workspace info (works even if iframe loaded after workspace-change event)
+      window.parent.postMessage({ type: 'REQUEST_WORKSPACE_INFO' }, '*');
+    } else {
+      if(!hasSettings())setStatus('Google Sheets созламалари киритилмаган.','warn')
+    }
+  }
+
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup);else setup();
   window.UlchovSheets={openSettings,clearSettings,loadSheet,openConfiguredMenu,state};
 })();

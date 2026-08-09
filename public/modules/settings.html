@@ -159,7 +159,7 @@
   </div>
 
   <!-- Database Backup (admin only) -->
-  <div class="settings-card" id="backupCard" style="display:none">
+  <div class="settings-card admin-only" id="backupCard">
     <h2>🗄️ <span data-i18n="Резервная копия БД">Резервная копия БД</span></h2>
     <p data-i18n="Экспорт всех данных базы данных в JSON-файл. Только для администраторов.">Экспорт всех данных базы данных в JSON-файл. Только для администраторов.</p>
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
@@ -230,6 +230,7 @@ async function loadProfile() {
     const data = await res.json();
     const u = data.user || data;
     info.innerHTML = `<strong>${u.fullName || u.username || u.email || '—'}</strong> &nbsp;·&nbsp; ${u.email || ''} &nbsp;·&nbsp; <span style="color:#64748b">${u.platformRole || ''} · ${u.status || ''}</span>`;
+    document.body.setAttribute('data-platform-role', u.platformRole || 'user');
     const nameInput = document.getElementById('profileNameInput');
     if (nameInput) nameInput.value = u.fullName || u.username || '';
   } catch(e) {
@@ -282,7 +283,6 @@ async function submitProfileEdit(event) {
 loadCurrentLang();
 loadProfile();
 loadWorkspaces();
-checkAdminAccess();
 
 async function loadWorkspaces() {
   const token = getToken();
@@ -332,27 +332,7 @@ function selectWorkspace(id) {
   showToast();
 }
 
-async function checkAdminAccess() {
-  try {
-    const token = parent?.sessionStorage?.getItem('seg_kip_workspace_access_token') || '';
-    const res = await fetch('/api/roles', {
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    // If we can access roles endpoint — user has admin rights
-    if (res.ok || res.status === 403) {
-      // Try a HEAD to /api/backup to detect admin
-      const bRes = await fetch('/api/backup', {
-        method: 'HEAD',
-        headers: { Authorization: 'Bearer ' + token },
-        credentials: 'include'
-      });
-      // Show backup card if not 403
-      if (bRes.status !== 403) {
-        document.getElementById('backupCard').style.display = '';
-      }
-    }
-  } catch(_) {}
-}
+
 
 async function downloadBackup() {
   const btn = document.getElementById('backupBtn');

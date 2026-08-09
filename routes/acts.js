@@ -53,11 +53,41 @@ function isTargetWork(value) {
   return ['то-2','то2','to-2','to2','акт','akt'].includes(v);
 }
 
-function isDataRow(row) {
-  const joined = row.map(v => String(v || '').toLowerCase()).join(' ');
+// Find the header row and map column names to their indices
+function buildColumnMap(rows) {
+  const HEADER_KEYWORDS = ['наименование', 'заводской', 'перечень', 'предел'];
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const joined = rows[i].map(v => String(v || '').toLowerCase()).join(' ');
+    if (HEADER_KEYWORDS.filter(k => joined.includes(k)).length >= 2) {
+      // This is the header row
+      const map = {};
+      rows[i].forEach((cell, idx) => {
+        const key = String(cell || '').trim().toLowerCase().replace(/\s+/g, '');
+        map[key] = idx;
+      });
+      return { headerRowIndex: i, map };
+    }
+  }
+  // fallback: assume standard layout (База style)
+  return { headerRowIndex: -1, map: {} };
+}
+
+// Resolve column index with fallback
+function colIdx(map, keys, fallback) {
+  for (const key of keys) {
+    if (map[key] !== undefined) return map[key];
+  }
+  return fallback;
+}
+
+function isDataRow(row, headerRowIndex, colMap) {
   if (!row.some(v => String(v || '').trim())) return false;
+  const joined = row.map(v => String(v || '').toLowerCase()).join(' ');
   if (joined.includes('наименование') || joined.includes('заводской') || joined.includes('перечень')) return false;
-  return Boolean(row[1] || row[2] || row[8]);
+  const posIdx = colIdx(colMap, ['позномер', 'поз', 'pos'], 1);
+  const devIdx = colIdx(colMap, ['наименованиеси', 'наименование'], 2);
+  const workIdx = colIdx(colMap, ['переченьв/р', 'переченьвр', 'перечень', 'worktype'], 8);
+  return Boolean(row[posIdx] || row[devIdx] || row[workIdx]);
 }
 
 function makeSourceKey({ sheetName, rowNumber, positionNo, serialNo, deviceName, measureRange, place }) {
@@ -65,19 +95,28 @@ function makeSourceKey({ sheetName, rowNumber, positionNo, serialNo, deviceName,
   return [sheetName, rowNumber, positionNo || '', serialOrFallback].map(v => String(v || '').trim()).join('::');
 }
 
-function mapRow(row, index, sheetName, completedByKey = new Map()) {
+function mapRow(row, index, sheetName, completedByKey = new Map(), colMap = {}) {
+  const posIdx  = colIdx(colMap, ['позномер','поз','pos'], 1);
+  const devIdx  = colIdx(colMap, ['наименованиеси','наименование'], 2);
+  const typIdx  = colIdx(colMap, ['тип,марка','типмарка','тип'], 3);
+  const serIdx  = colIdx(colMap, ['заводскойномер','заводской','serial'], 4);
+  const rngIdx  = colIdx(colMap, ['пределизмерения','предел','range'], 5);
+  const plcIdx  = colIdx(colMap, ['местоустановки','место','place'], 6);
+  const skvIdx  = colIdx(colMap, ['скв','скважина','skv'], 7);
+  const wrkIdx  = colIdx(colMap, ['переченьв/р','переченьвр','перечень','worktype'], 8);
+  const excIdx  = colIdx(colMap, ['исполнительработ','исполнитель','executor'], 9);
   const mapped = {
     rowNumber: index + 1,
     date: row[0] || '',
-    positionNo: row[1] || '',
-    deviceName: row[2] || '',
-    typeMark: row[3] || '',
-    serialNo: row[4] || '',
-    measureRange: row[5] || '',
-    place: row[6] || '',
-    suv: row[7] || '',
-    workType: row[8] || '',
-    executor: row[9] || '',
+    positionNo: row[posIdx] || '',
+    deviceName: row[devIdx] || '',
+    typeMark: row[typIdx] || '',
+    serialNo: row[serIdx] || '',
+    measureRange: row[rngIdx] || '',
+    place: row[plcIdx] || '',
+    suv: row[skvIdx] || '',
+    workType: row[wrkIdx] || '',
+    executor: row[excIdx] || '',
     sourceSheet: sheetName,
     sourceRowNumber: index + 1
   };
@@ -95,15 +134,27 @@ function getPayload(req) {
 }
 
 async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount }) {
-  const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:J' });
+  const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:K' });
   const reports = await getDailyReports({ spreadsheetUrl, serviceAccount });
   const completedByKey = new Map(
     reports
       .filter(r => String(r.sourceKey || '').trim())
       .map(r => [String(r.sourceKey).trim(), r])
   );
-  const dataRows = rows.map((row, index) => ({ row, index })).filter(x => isDataRow(x.row));
-  const matched = dataRows.filter(x => isTargetWork(x.row[8])).map(x => mapRow(x.row, x.index, sheetName, completedByKey));
+  
+  // Auto-detect column positions from the header row
+  const { headerRowIndex, map: colMap } = buildColumnMap(rows);
+  const wrkIdx = colIdx(colMap, ['переченьв/р','переченьвр','перечень','worktype'], 8);
+  
+  const dataRows = rows
+    .map((row, index) => ({ row, index }))
+    .filter(x => x.index > headerRowIndex) // skip header rows
+    .filter(x => isDataRow(x.row, headerRowIndex, colMap));
+  
+  const matched = dataRows
+    .filter(x => isTargetWork(x.row[wrkIdx]))
+    .map(x => mapRow(x.row, x.index, sheetName, completedByKey, colMap));
+  
   const createdDocuments = matched.filter(row => row.isCompleted).length || reports.length;
   const completionPercentage = matched.length ? Math.min(100, Math.round((createdDocuments / matched.length) * 100)) : 0;
   return {

@@ -242,7 +242,31 @@
   function openExcel(){const url=settings().spreadsheetUrl;if(!url){alert('Google Sheets ҳаволаси киритилмаган.');return;}window.open(url,'_blank','noopener,noreferrer');}
   function openSettings(){const s=settings();$('sheetName').value=s.sheetName||'';$('settingsModal').classList.add('show');}
   function closeSettings(){$('settingsModal').classList.remove('show');}
-  async function saveSettings(){const sheetName=$('sheetName').value.trim();if(!sheetName){$('settingsMsg').innerHTML='<span class="bad">ASOSIY VAROQ киритилиши шарт.</span>';return;}try{$('settingsMsg').innerHTML='<span class="sync">Уланиш текширилмоқда...</span>';await postJson('/api/acts/settings/test',{sheetName});localStorage.setItem(KEYS.sheet,sheetName);closeSettings();setStatus('Созламалар сақланди.','ok');await loadAnalysis();}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}}
+  async function saveSettings(){
+    const sheetName=$('sheetName').value.trim();
+    if(!sheetName){$('settingsMsg').innerHTML='<span class="bad">ASOSIY VAROQ киритилиши шарт.</span>';return;}
+    try{
+      $('settingsMsg').innerHTML='<span class="sync">Уланиш текширилмоқда...</span>';
+      await postJson('/api/acts/settings/test',{sheetName});
+      localStorage.setItem(KEYS.sheet, sheetName);
+      
+      // Also save to Workspace so it persists after page refresh
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'SAVE_MODULE_SETTINGS', settings: { acts_sheet_name: sheetName } }, '*');
+        $('settingsMsg').innerHTML='<span class="sync">Workspace га сақланмоқда...</span>';
+        // Wait for confirmation from parent
+        await new Promise((resolve) => {
+          const onMsg = (e) => { if (e.data && e.data.type === 'MODULE_SETTINGS_SAVED') { window.removeEventListener('message', onMsg); resolve(); } };
+          window.addEventListener('message', onMsg);
+          setTimeout(resolve, 3000); // fallback timeout
+        });
+      }
+      
+      closeSettings();
+      setStatus('Созламалар сақланди.','ok');
+      await loadAnalysis();
+    }catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}
+  }
 
   async function findReport(actNo){const no=unref(actNo);if(!state.dailyRows.length)await loadReports();return state.dailyRows.find(r=>String(r.actNo||'')===no);}
   function ensureA4Modal(){let modal=$('actsA4Modal');if(modal)return modal;modal=document.createElement('div');modal.id='actsA4Modal';modal.className='acts-a4-modal';modal.innerHTML='<div class="acts-a4-wrap"><div class="acts-a4-toolbar"><button onclick="window.print()">PDF / Print</button><button onclick="document.getElementById(\'actsA4Modal\').classList.remove(\'show\')">Yopish</button></div><div id="actsA4Content"></div></div>';document.body.appendChild(modal);return modal;}
@@ -275,8 +299,46 @@
     }).catch(()=>{});
     $('serviceFile')?.addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{const json=JSON.parse(await file.text());if(!json.client_email||!json.private_key||!json.project_id)throw new Error('client_email, private_key ёки project_id топилмади');localStorage.setItem(KEYS.service,JSON.stringify(json));$('serviceFileName').innerHTML=`${esc(file.name)} ✓`;$('settingsMsg').innerHTML='<span class="ok">SERVICE ACCOUNT JSON юкланди.</span>';}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}});
     ['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>$(id)?.addEventListener('input',validateDoc));
-    if(!hasSettings())openSettings();else loadAnalysis();
+    
+    if (window.parent && window.parent !== window) {
+      setStatus('Иш жойи созланмоқда...', 'sync');
+      // Ask parent for workspace info (works even if iframe loaded after workspace-change event)
+      window.parent.postMessage({ type: 'REQUEST_WORKSPACE_INFO' }, '*');
+    } else {
+      if(!hasSettings())openSettings();else loadAnalysis();
+    }
   }
+
+  async function handleWorkspace(ws, isAdmin) {
+    window.actsIsAdmin = isAdmin;
+    // Only hide the button if we are SURE the user is NOT admin.
+    // Leave it visible if isAdmin is true or unknown.
+    const btn = $('actsSettingsBtn');
+    if (btn) btn.style.display = (isAdmin === false) ? 'none' : '';
+    
+    if (ws?.moduleSettings?.acts_sheet_name) {
+      localStorage.setItem(KEYS.sheet, ws.moduleSettings.acts_sheet_name);
+    } else {
+      localStorage.removeItem(KEYS.sheet);
+    }
+    
+    if (!hasSettings()) {
+      if (isAdmin) {
+        openSettings();
+        setStatus('Google Sheets созламалари киритилмаган.', 'bad');
+      } else {
+        setStatus('Google Sheets созламалари киритилмаган. Администраторга мурожаат қилинг.', 'bad');
+      }
+    } else {
+      await loadAnalysis();
+    }
+  }
+
+  window.addEventListener('message', async (e) => {
+    if (e.data && e.data.type === 'SEG_KIP_WORKSPACE_CHANGE') {
+      await handleWorkspace(e.data.workspace, e.data.isAdmin);
+    }
+  });
 
   window.ActsUI={showView,showReport,openSettings,closeSettings,saveSettings,loadAnalysis,fillDoc,saveAct,openExcel,setStatus,viewDoc,sendDoc,openSigners,closeSigners,loadSigners,addSignerRow,editSigner,saveSigner,deleteSigner};
   document.addEventListener('DOMContentLoaded',bind);

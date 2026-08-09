@@ -7,8 +7,8 @@ const MODULES = {
   replacement: 'modules/replacement.html',
   openai: 'modules/openai.html',
   users: 'modules/users.html',
-  roles: 'modules/roles.html',
-  settings: 'modules/settings.html'
+  settings: 'modules/settings.html',
+  kuduk: 'modules/kuduk.html'
 };
 
 const SHEET_LINK_KEYS = [
@@ -76,7 +76,18 @@ async function getConfiguredSheetUrl() {
 }
 
 async function openCurrentExcel() {
-  const url = await getConfiguredSheetUrl();
+  // First try to get the URL from the currently selected workspace
+  let url = '';
+  try {
+    const ws = window.segWorkspaceUi?.selectedWorkspace?.();
+    if (ws?.spreadsheetUrl) {
+      url = normalizeSpreadsheetUrl(ws.spreadsheetUrl);
+    }
+  } catch (_) {}
+  
+  // Fallback: read from localStorage or server
+  if (!url) url = readLocalSheetUrl() || await readServerSheetUrl();
+  
   if (!url) {
     alert('Google Sheets ҳаволаси киритилмаган');
     return;
@@ -553,4 +564,33 @@ window.toggleSidebar = function() {
     localStorage.setItem('sidebarCollapsed', app.classList.contains('sidebar-collapsed'));
   }
 };
+
+
+window.addEventListener('seg-kip:workspace-change', (e) => {
+  const wsName = e.detail?.workspace?.name;
+  if (wsName) {
+    const sidebarName = document.getElementById('activeWorkspaceNameSidebar');
+    if (sidebarName) sidebarName.textContent = wsName;
+  }
+  
+  const genericPage = document.getElementById('genericModulePage');
+  if (genericPage?.classList.contains('active')) {
+    const frame = document.getElementById('genericModuleFrame');
+    if (frame && frame.src) {
+      const currentSrc = frame.src;
+      frame.src = 'about:blank';
+      setTimeout(() => { frame.src = currentSrc; }, 50);
+    }
+  }
+
+  const ulchovPage = document.getElementById('ulchovIntegratedPage');
+  if (ulchovPage?.classList.contains('active')) {
+    const frame = document.getElementById('claUlchovFrame');
+    if (frame && frame.src) {
+      const currentSrc = frame.src;
+      frame.src = 'about:blank';
+      setTimeout(() => { frame.src = currentSrc; }, 50);
+    }
+  }
+});
 

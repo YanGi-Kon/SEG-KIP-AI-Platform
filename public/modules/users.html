@@ -65,7 +65,11 @@
     
     <div class="form-group">
       <label data-i18n="Системная Роль">Системная Роль</label>
-      <select id="userRole"></select>
+      <select id="userRole">
+        <option value="super_admin">Super Admin</option>
+        <option value="admin">Admin</option>
+        <option value="user">User</option>
+      </select>
     </div>
 
     <div class="form-group">
@@ -91,7 +95,7 @@
 </div>
 
 <script>
-let rolesList = [];
+
 
 function getHeaders() {
   let token = '';
@@ -143,13 +147,7 @@ function validatePasswordClient(password) {
 
 async function loadData() {
   try {
-    const rolesRes = await fetch('/api/roles', { headers: getHeaders() });
-    const rolesPayload = await readApiPayload(rolesRes);
-    if (rolesRes.ok && rolesPayload.isJson) {
-      rolesList = Array.isArray(rolesPayload.data.roles) ? rolesPayload.data.roles : [];
-      const select = document.getElementById('userRole');
-      select.innerHTML = rolesList.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
-    }
+
 
     const res = await fetch('/api/users', { headers: getHeaders() });
     const payload = await readApiPayload(res);
@@ -171,7 +169,7 @@ async function loadData() {
         <td><span class="badge">${user.platformRole}</span></td>
         <td>${user.status === 'active' ? '<span data-i18n="Активен">Активен</span>' : '<span style="color:#ff6b6b" data-i18n="Заблокирован">Заблокирован</span>'}</td>
         <td>
-          <button onclick="editUser('${user.id}', '${encodeURIComponent(user.fullName)}', '${user.systemRoleId}', '${user.status}')" data-i18n="Редактировать">Редактировать</button>
+          <button onclick="editUser('${user.id}', '${encodeURIComponent(user.fullName)}', '${user.platformRole}', '${user.status}')" data-i18n="Редактировать">Редактировать</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -189,7 +187,7 @@ function openModal() {
   document.getElementById('userEmail').disabled = false;
   document.getElementById('userPassword').value = '';
   document.getElementById('userStatus').value = 'active';
-  if(rolesList.length > 0) document.getElementById('userRole').value = rolesList[0].id;
+  document.getElementById('userRole').value = 'user';
   document.getElementById('modalTitle').setAttribute('data-i18n', 'Добавить пользователя');
   document.getElementById('modalTitle').innerText = 'Добавить пользователя';
   setTimeout(() => window.applyTranslations?.(), 0);
@@ -222,7 +220,7 @@ async function saveUser() {
   const id = document.getElementById('userId').value;
   const fullName = document.getElementById('userFullName').value.trim();
   const email = document.getElementById('userEmail').value.trim();
-  const systemRoleId = document.getElementById('userRole').value.trim();
+  const platformRole = document.getElementById('userRole').value.trim();
   const status = document.getElementById('userStatus').value;
   const password = document.getElementById('userPassword').value;
 
@@ -233,7 +231,7 @@ async function saveUser() {
     return;
   }
 
-  if (!systemRoleId) {
+  if (!platformRole) {
     showModalError('Системная роль обязательна');
     return;
   }
@@ -259,7 +257,7 @@ async function saveUser() {
   const url = id ? `/api/users/${id}` : '/api/users';
   const method = id ? 'PUT' : 'POST';
 
-  const body = { fullName, systemRoleId, status };
+  const body = { fullName, platformRole, status };
   if (!id) body.email = email;
   if (password) body.password = password;
 

@@ -125,6 +125,7 @@ export async function updateWorkspace(userId, workspaceId, input) {
       finalDocumentsFolderId: input.finalDocumentsFolderId ?? current.finalDocumentsFolderId,
       timeZone: input.timeZone ?? current.timeZone,
       serviceAccountBase64: input.serviceAccountBase64 !== undefined ? input.serviceAccountBase64 : current.serviceAccountBase64,
+      moduleSettings: input.moduleSettings ?? current.moduleSettings,
     });
 
     const nextStatus = input.status === undefined ? current.status : String(input.status).trim();
