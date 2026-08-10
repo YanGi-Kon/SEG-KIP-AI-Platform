@@ -158,9 +158,24 @@ export async function rotateUserSession(refreshToken, context = {}) {
     if (!session) throw authError('Refresh session is invalid', 'INVALID_REFRESH_SESSION');
 
     const expired = new Date(session.expiresAt).getTime() <= Date.now();
-    if (session.revokedAt || session.rotatedAt || expired) {
+    if (session.revokedAt || expired) {
       await revokeRefreshFamily(session.familyId, new Date(), client);
       throw authError('Refresh token reuse or expiry detected', 'REFRESH_TOKEN_REJECTED');
+    }
+
+    if (session.rotatedAt) {
+      const gracePeriodMs = 15000;
+      const rotatedTime = new Date(session.rotatedAt).getTime();
+      if (Date.now() - rotatedTime < gracePeriodMs) {
+        const user = await findUserById(session.userId, client);
+        if (!user || user.status !== 'active') {
+          throw authError('User account is not active', 'ACCOUNT_NOT_ACTIVE', 403);
+        }
+        return issueSession(user, context, { client, familyId: session.familyId });
+      } else {
+        await revokeRefreshFamily(session.familyId, new Date(), client);
+        throw authError('Refresh token reuse or expiry detected', 'REFRESH_TOKEN_REJECTED');
+      }
     }
 
     const user = await findUserById(session.userId, client);
