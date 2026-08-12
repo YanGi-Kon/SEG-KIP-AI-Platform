@@ -1,8 +1,10 @@
 FROM node:20-bookworm
 
-# Install PostgreSQL client for pg_dump
-RUN apt-get update && \
-    apt-get install -y postgresql-client && \
+# Install PostgreSQL 16 client for pg_dump (Neon uses Postgres 16)
+RUN apt-get update && apt-get install -y wget gnupg2 lsb-release && \
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+    echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list && \
+    apt-get update && apt-get install -y postgresql-client-16 && \
     rm -rf /var/lib/apt/lists/*
 
 # Set working directory
