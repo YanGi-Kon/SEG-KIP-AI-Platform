@@ -21,6 +21,7 @@ import authRouter from "./routes/auth.js";
 import usersRouter from "./routes/users.js";
 import workspacesRouter from "./routes/workspaces.js";
 import backupRouter from "./routes/backup.js";
+import webhookRouter from "./routes/webhook.js";
 import { createKudukRouter, initKudukRealtime } from "./routes/kuduk.js";
 import { isDatabaseConfigured } from "./db/pool.js";
 import { runMigrations } from "./db/migrate.js";
@@ -150,6 +151,7 @@ app.use("/api/acts", actsRouter);
 app.use("/api/ulchov", ulchovRouter);
 app.use("/api/kuduk", createKudukRouter(io));
 app.use("/api/backup", backupRouter);
+app.use("/api/webhook", webhookRouter);
 app.use("/api", signaturesRouter);
 
 app.use("/api", (_req, res) => {

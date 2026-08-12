@@ -1,4 +1,4 @@
-FROM node:20-bullseye
+FROM node:20-bookworm
 
 # Install PostgreSQL client for pg_dump
 RUN apt-get update && \

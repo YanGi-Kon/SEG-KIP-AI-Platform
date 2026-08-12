@@ -21,6 +21,23 @@ export const backupState = {
   sheets: { lastRun: null, status: 'idle', message: '' }
 };
 
+export async function sendTelegramMessage(message) {
+  if (!bot) {
+    console.warn('[Telegram] Bot not initialized, skipping message:', message);
+    return false;
+  }
+  try {
+    const chatId = getConfig().telegram.backupChatId;
+    if (!chatId) return false;
+    await bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+    return true;
+  } catch (err) {
+    console.error('[Telegram] Failed to send generic message:', err.message);
+    return false;
+  }
+}
+
+
 function getTashkentTime() {
   return new Date().toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent' }) + ' (UTC+5)';
 }
@@ -129,7 +146,14 @@ async function performDatabaseBackup() {
     if (!dbUrl) throw new Error('DATABASE_URL is not configured.');
 
     // pg_dump often fails with channel_binding=require on Neon/older clients
-    const dumpUrl = dbUrl.replace(/[\?&]channel_binding=require/g, '');
+    let dumpUrl = dbUrl.replace(/[\?&]channel_binding=require/g, '');
+
+    // Neon requires SNI or explicit endpoint ID parameter for older libpq versions
+    const neonMatch = dumpUrl.match(/@(ep-[a-zA-Z0-9\-]+)(?:-pooler)?\./);
+    if (neonMatch) {
+      const endpointId = neonMatch[1];
+      dumpUrl += dumpUrl.includes('?') ? `&options=endpoint%3D${endpointId}` : `?options=endpoint%3D${endpointId}`;
+    }
 
     // Execute pg_dump
     // Notice: pg_dump must be installed on the system where Node is running
