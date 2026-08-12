@@ -26,6 +26,7 @@
         <button id="tab-reports" onclick="ActsUI.showView('reports',this)">3. Хисоботлар</button>
         <button onclick="ActsUI.openExcel()">4. Excel</button>
         <button onclick="ActsUI.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
+        <button id="finalDocumentsFolderSettingsBtn" onclick="ActsUI.openFinalDocumentsFolderSettings()" data-i18n="6. ЯКУНИЙ ҲУЖЖАТЛАР">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
         <button class="btn ghost" id="actsSettingsBtn" onclick="ActsUI.openSettings()">⚙ Созламалар</button>
       </div>
     </div>
@@ -70,8 +71,42 @@
   </div>
 </div>
 <div id="settingsModal" class="modal"><div class="modalbox"><div class="modal-head"><h2>Google Sheets уланиш созламалари</h2><button class="btn ghost" onclick="ActsUI.closeSettings()">✕</button></div><p class="note">Google Sheets ҳаволаси ва Service Account умумий Workspace созламаларидан олинади.</p><div class="fields"><div class="field"><label>ASOSIY VAROQ</label><input id="sheetName" placeholder="Асосий варақ номи"></div></div><div class="note" id="actsSettingsNote" style="margin-top:12px">Private key интерфейсда кўрсатилмайди. Электрон тасдиқлаш учун Railway Variables ҳам созланиши шарт.</div><div id="settingsMsg" class="msg">Созламалар киритилмаган.</div><div class="tabs" style="justify-content:flex-end"><button class="btn primary" id="actsSaveSettingsBtn" onclick="ActsUI.saveSettings()">Сақлаш ва кириш</button><button class="btn ghost" onclick="ActsUI.closeSettings()">Ёпиш</button></div></div></div>
+<div id="finalDocumentsFolderModal" class="modal">
+  <div class="modalbox">
+    <div class="modal-head">
+      <div>
+        <h2 data-i18n="📁 ЯКУНИЙ ҲУЖЖАТЛАР">📁 ЯКУНИЙ ҲУЖЖАТЛАР</h2>
+        <p class="note" data-i18n="Tasdiqlangan PDF hujjatlar saqlanadigan Shared Drive papkasini sozlang.">Tasdiqlangan PDF hujjatlar saqlanadigan Shared Drive papkasini sozlang.</p>
+      </div>
+      <button class="btn ghost" type="button" onclick="ActsUI.closeFinalDocumentsFolderSettings()" data-i18n="Ёпиш">Ёпиш</button>
+    </div>
+    <section id="finalDocumentsFolderPanel" class="final-documents-card" aria-live="polite">
+      <div class="final-documents-title-row">
+        <div class="final-documents-title" data-i18n="Yakuniy hujjatlar Drive papkasi">Yakuniy hujjatlar Drive papkasi</div>
+        <div id="finalDocumentsWorkspaceName" class="final-documents-object" data-i18n="Obyekt aniqlanmoqda...">Obyekt aniqlanmoqda...</div>
+      </div>
+      <div class="final-documents-row">
+        <label>
+          <span data-i18n="Shared Drive papka URL yoki ID">Shared Drive papka URL yoki ID</span>
+          <input id="finalDocumentsFolderInput" placeholder="https://drive.google.com/drive/folders/... yoki folder ID" data-i18n-placeholder="https://drive.google.com/drive/folders/... yoki folder ID">
+        </label>
+        <div class="final-documents-actions">
+          <button id="saveFinalDocumentsFolderBtn" class="btn primary" type="button" data-i18n="Saqlash">Saqlash</button>
+          <button id="testFinalDocumentsFolderBtn" class="btn ghost" type="button" data-i18n="Tekshirish">Tekshirish</button>
+          <button id="openFinalDocumentsFolderBtn" class="btn ghost" type="button" disabled data-i18n="Drive">Drive</button>
+        </div>
+      </div>
+      <div id="finalDocumentsFolderStatus" class="final-documents-status sync" data-i18n="Papka ma’lumoti yuklanmoqda...">Papka ma’lumoti yuklanmoqda...</div>
+      <div id="finalDocumentsServiceAccountInfo" class="final-documents-service-account" data-i18n="Service account tekshirilmagan.">Service account tekshirilmagan.</div>
+      <div id="finalDocumentsFolderMessage" class="msg" data-i18n="Faqat Shared Drive papkasi qo‘llab-quvvatlanadi.">Faqat Shared Drive papkasi qo‘llab-quvvatlanadi.</div>
+    </section>
+  </div>
+</div>
 <div id="signersModal" class="modal"><div class="modalbox wide"><div class="modal-head"><div><h2>ИМЗО ЧЕКУВЧИЛАР</h2><p class="note">Лавозим, F.I.O, PNG имзо ва Gmail Google Sheets/Drive да доимий сақланади.</p></div><button class="btn ghost" onclick="ActsUI.closeSigners()">✕</button></div><div class="modal-note note">PNG: максимум 2 MB. Drive папкаси оммавий қилинмайди. Email тасдиқлаш сервердаги Railway Variables орқали ишлайди.</div><div class="signer-toolbar"><button class="btn green" onclick="ActsUI.addSignerRow()">＋ Қўшиш</button><button class="btn primary" onclick="ActsUI.loadSigners()">↻ Янгилаш</button></div><div class="tablewrap" style="max-height:58vh"><table class="signer-table"><thead><tr><th>Lavozimi</th><th>F.I.O</th><th>Imzo (.png)</th><th>Gmail</th><th>Амал</th></tr></thead><tbody id="signersRows"><tr><td colspan="5">Маълумот юкланмоқда...</td></tr></tbody></table></div><div id="signersMsg" class="msg">Тайёр.</div></div></div>
 
+<script src="../js/workspace-api-client.js"></script>
 <script src="../js/acts.js"></script>
+<script src="../js/acts-final-documents-folder.js"></script>
+<script src="../js/acts-personal-drive-settings.js"></script>
 </body>
 </html>

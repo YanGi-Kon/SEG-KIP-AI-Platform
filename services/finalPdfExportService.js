@@ -1,6 +1,6 @@
 import { ensureSheet, extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
-import { resolveEnvServiceAccount } from './googleCredentialService.js';
 import { findWorkspaceById } from '../repositories/workspaceRepository.js';
+import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
 import {
   classifyWorkspaceDriveError,
   createWorkspaceDriveProvider,
@@ -63,11 +63,6 @@ function buildPdfFileName(actNo) {
 function wrapHtmlForPdf(html, actNo) {
   const body = clean(html) || `<div style="padding:24px;font-family:Arial,sans-serif"><h1>${safeFilePart(actNo, 'ACT')}</h1></div>`;
   return `<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>${safeFilePart(actNo, 'ACT')}</title><style>body{margin:0;padding:0;background:#ffffff;color:#111827;font-family:Arial,sans-serif}.pdf-wrap{padding:18px}.paper{background:#ffffff}.a4-preview{max-width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:18mm;box-sizing:border-box;font-family:"Times New Roman",serif}img{max-width:100%;height:auto;display:inline-block}</style></head><body><div class="pdf-wrap">${body}</div></body></html>`;
-}
-
-function resolveServiceAccount() {
-  const { serviceAccount } = resolveEnvServiceAccount();
-  return serviceAccount;
 }
 
 function makeConfig(spreadsheetUrl, serviceAccount) {
@@ -159,7 +154,6 @@ async function resolveDocumentContext({ actNo, workspaceId = '' }) {
     error.statusCode = 400;
     throw error;
   }
-  const serviceAccount = resolveServiceAccount();
   const workspace = await findWorkspaceById(clean(workspaceId));
   if (!workspace?.spreadsheetUrl) {
     const error = new Error('Final PDF export uchun workspace topilmadi yoki Sheet sozlanmagan.');
@@ -167,7 +161,8 @@ async function resolveDocumentContext({ actNo, workspaceId = '' }) {
     error.statusCode = 404;
     throw error;
   }
-  const config = makeConfig(workspace.spreadsheetUrl, serviceAccount);
+  const workspaceGoogleConfig = resolveWorkspaceGoogleConfig(workspace);
+  const config = makeConfig(workspaceGoogleConfig.spreadsheetUrl, workspaceGoogleConfig.serviceAccount);
   const document = await getRegistryDocument(config, actNo);
   return { workspace, config, document };
 }

@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n="ТО ЖУРНАЛ">ТО ЖУРНАЛ</title>
 <link rel="stylesheet" href="../css/style.css">
-<style>body{margin:0;background:#061427;color:#eafcff;font-family:Arial,sans-serif}.module-placeholder{min-height:70vh;display:grid;place-items:center;padding:32px}.module-card{max-width:760px;border:1px solid rgba(34,211,238,.28);background:rgba(0,0,0,.35);border-radius:28px;padding:34px;box-shadow:0 20px 50px rgba(0,0,0,.35)}h1{margin-top:0;color:#22d3ee}p{line-height:1.7;color:#bdefff}button{border:1px solid rgba(34,211,238,.35);background:rgba(255,255,255,.06);color:#eafcff;border-radius:16px;padding:12px 16px;cursor:pointer}</style>
+<style>body{margin:0;background:#061427;color:#eafcff;font-family:Arial,sans-serif}.module-placeholder{min-height:70vh;display:grid;place-items:center;padding:32px}.module-card{max-width:760px;border:1px solid rgba(34,211,238,.28);background:rgba(0,0,0,.35);border-radius:28px;padding:34px;box-shadow:0 20px 50px rgba(0,0,0,.35)}h1{margin-top:0;color:#22d3ee}p{line-height:1.7;color:#bdefff}.workspace-card{margin:20px 0;padding:14px 16px;border:1px solid rgba(34,211,238,.3);border-radius:16px;background:rgba(34,211,238,.07)}.workspace-card small{display:block;color:#8eb8ca;margin-bottom:5px}.workspace-card strong{color:#67e8f9}.workspace-status{margin-top:7px;color:#86efac;font-size:12px}button{border:1px solid rgba(34,211,238,.35);background:rgba(255,255,255,.06);color:#eafcff;border-radius:16px;padding:12px 16px;cursor:pointer}</style>
 
 <script src="../js/i18n.js"></script>
 </head>
@@ -13,9 +13,28 @@
     <h1 data-i18n="📊 ТО ЖУРНАЛ">📊 ТО ЖУРНАЛ</h1>
     <p data-i18n="ТО-1, ТО-2 ва режали техник хизмат кўрсатиш журнали.">ТО-1, ТО-2 ва режали техник хизмат кўрсатиш журнали.</p>
     <p data-i18n="Bu bo‘lim alohida modul faylga ajratildi. Keyingi bosqichda real jadval, filter, API va hisobotlar shu fayl ichida rivojlantiriladi.">Bu bo‘lim alohida modul faylga ajratildi. Keyingi bosqichda real jadval, filter, API va hisobotlar shu fayl ichida rivojlantiriladi.</p>
+    <div class="workspace-card"><small>Tanlangan Workspace</small><strong id="toWorkspaceName">Aniqlanmoqda...</strong><div id="toWorkspaceStatus" class="workspace-status">Workspace ma’lumoti kutilmoqda.</div></div>
     <button onclick="parent.postMessage({type:'SEG_CLOSE_MODULE'}, '*')" data-i18n="← Журналлар панели">← Журналлар панели</button>
   </div>
 </div>
 
+<script>
+(function setupToWorkspace(){
+  const KEY='seg_kip_selected_workspace_id';
+  const state={workspaceId:'',workspaceName:''};
+  const pget=(key)=>{try{return parent?.localStorage?.getItem(key)||''}catch(_){return''}};
+  const selected=()=>localStorage.getItem(KEY)||pget(KEY)||'';
+  function activateWorkspace(workspace=null,nextWorkspaceId=''){
+    const id=String(nextWorkspaceId||workspace?.id||selected()||'').trim();
+    if(id)localStorage.setItem(KEY,id);state.workspaceId=id;state.workspaceName=String(workspace?.name||id||'Workspace tanlanmagan');
+    document.getElementById('toWorkspaceName').textContent=state.workspaceName;
+    document.getElementById('toWorkspaceStatus').textContent=id?'Workspace avtomatik almashtirildi. Real jadval/API hali ulanmagan.':'Workspace tanlanmagan.';
+  }
+  window.addEventListener('message',(event)=>{if(event.data?.type==='SEG_KIP_WORKSPACE_CHANGE')activateWorkspace(event.data.workspace,event.data.workspaceId)});
+  function boot(){activateWorkspace(null,selected());if(parent&&parent!==window)parent.postMessage({type:'REQUEST_WORKSPACE_INFO'},'*')}
+  window.ToJournalWorkspace={state,activateWorkspace};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+})();
+</script>
 
 </body></html>

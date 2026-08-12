@@ -6,7 +6,7 @@
 <title>SEG KIP — Quduqlar ro‘yxati jurnali</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-:root{--bg:#020817;--panel:rgba(2,14,28,.92);--panel2:rgba(7,24,42,.96);--line:rgba(34,211,238,.22);--cyan:#22d3ee;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--muted:#9fb7c7;--white:#f8fafc}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 10%,rgba(34,211,238,.16),transparent 32%),linear-gradient(135deg,#020817,#071a2f 45%,#020817);color:var(--white);font-family:Arial,Helvetica,sans-serif}.wrap{padding:20px}.top{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:16px}.title h1{margin:0;font-size:24px}.title p{margin:6px 0 0;color:var(--muted)}.status{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:12px 16px;min-width:220px}.status b{font-size:22px}.ready{color:var(--green)}.offline{color:var(--orange)}.error{color:var(--red)}.panel{border:1px solid var(--line);background:var(--panel);border-radius:20px;padding:16px;margin-bottom:16px;box-shadow:0 18px 60px rgba(0,0,0,.28)}.grid{display:grid;grid-template-columns:160px 1.5fr 1fr 150px auto auto;gap:10px;align-items:end}.label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}.input,.select,textarea{width:100%;background:rgba(2,8,23,.88);border:1px solid rgba(34,211,238,.32);border-radius:12px;padding:11px;color:var(--white);outline:none}.input:focus,.select:focus,textarea:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.13)}.btn{border:0;border-radius:13px;padding:11px 14px;font-weight:800;cursor:pointer;color:white;background:#334155}.btn.primary{background:linear-gradient(135deg,#0891b2,#22d3ee);color:#00111b}.btn.green{background:linear-gradient(135deg,#059669,#10b981)}.btn.red{background:linear-gradient(135deg,#dc2626,#ef4444)}.btn.orange{background:linear-gradient(135deg,#d97706,#f59e0b);color:#111827}.msg{margin-top:10px;color:var(--muted);font-size:13px}.routes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}.card{border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(2,8,23,.94));border-radius:18px;padding:15px;cursor:pointer;transition:.18s}.card:hover{transform:translateY(-2px);border-color:var(--cyan)}.card.active{outline:2px solid var(--cyan)}.card h3{margin:0 0 8px}.badge{display:inline-flex;padding:6px 10px;border-radius:999px;background:rgba(34,211,238,.12);border:1px solid var(--line);color:var(--cyan);font-weight:800}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.toolbar .input{max-width:380px}.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:18px;background:var(--panel)}table{width:100%;border-collapse:collapse;min-width:1100px}th,td{padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.14);text-align:left;vertical-align:top}th{position:sticky;top:0;background:#071a2f;color:#67e8f9;z-index:1}tr:hover td{background:rgba(34,211,238,.04)}.small{font-size:12px;color:var(--muted)}.actions{white-space:nowrap}.actions .btn{padding:7px 9px;margin:2px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}.modal.show{display:flex}.modalbox{width:min(820px,100%);max-height:92vh;overflow:auto;background:#071a2f;border:1px solid var(--line);border-radius:20px;padding:18px}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.empty{padding:24px;text-align:center;color:var(--muted)}@media(max-width:980px){.grid{grid-template-columns:1fr}.top{display:block}.status{margin-top:12px}.formgrid{grid-template-columns:1fr}}
+:root{--bg:#020817;--panel:rgba(2,14,28,.92);--panel2:rgba(7,24,42,.96);--line:rgba(34,211,238,.22);--cyan:#22d3ee;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--muted:#9fb7c7;--white:#f8fafc}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 10%,rgba(34,211,238,.16),transparent 32%),linear-gradient(135deg,#020817,#071a2f 45%,#020817);color:var(--white);font-family:Arial,Helvetica,sans-serif}.wrap{padding:20px}.top{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:16px}.title h1{margin:0;font-size:24px}.title p{margin:6px 0 0;color:var(--muted)}.status{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:12px 16px;min-width:220px}.status b{font-size:22px}.ready{color:var(--green)}.offline{color:var(--orange)}.error{color:var(--red)}.panel{border:1px solid var(--line);background:var(--panel);border-radius:20px;padding:16px;margin-bottom:16px;box-shadow:0 18px 60px rgba(0,0,0,.28)}.grid{display:grid;grid-template-columns:1.5fr 1fr 150px auto auto;gap:10px;align-items:end}.label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}.input,.select,textarea{width:100%;background:rgba(2,8,23,.88);border:1px solid rgba(34,211,238,.32);border-radius:12px;padding:11px;color:var(--white);outline:none}.input:focus,.select:focus,textarea:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.13)}.btn{border:0;border-radius:13px;padding:11px 14px;font-weight:800;cursor:pointer;color:white;background:#334155}.btn.primary{background:linear-gradient(135deg,#0891b2,#22d3ee);color:#00111b}.btn.green{background:linear-gradient(135deg,#059669,#10b981)}.btn.red{background:linear-gradient(135deg,#dc2626,#ef4444)}.btn.orange{background:linear-gradient(135deg,#d97706,#f59e0b);color:#111827}.msg{margin-top:10px;color:var(--muted);font-size:13px}.routes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}.card{border:1px solid var(--line);background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(2,8,23,.94));border-radius:18px;padding:15px;cursor:pointer;transition:.18s}.card:hover{transform:translateY(-2px);border-color:var(--cyan)}.card.active{outline:2px solid var(--cyan)}.card h3{margin:0 0 8px}.badge{display:inline-flex;padding:6px 10px;border-radius:999px;background:rgba(34,211,238,.12);border:1px solid var(--line);color:var(--cyan);font-weight:800}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.toolbar .input{max-width:380px}.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:18px;background:var(--panel)}table{width:100%;border-collapse:collapse;min-width:1100px}th,td{padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.14);text-align:left;vertical-align:top}th{position:sticky;top:0;background:#071a2f;color:#67e8f9;z-index:1}tr:hover td{background:rgba(34,211,238,.04)}.small{font-size:12px;color:var(--muted)}.actions{white-space:nowrap}.actions .btn{padding:7px 9px;margin:2px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}.modal.show{display:flex}.modalbox{width:min(820px,100%);max-height:92vh;overflow:auto;background:#071a2f;border:1px solid var(--line);border-radius:20px;padding:18px}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.empty{padding:24px;text-align:center;color:var(--muted)}@media(max-width:980px){.grid{grid-template-columns:1fr}.top{display:block}.status{margin-top:12px}.formgrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -18,14 +18,13 @@
 
   <div class="panel">
     <div class="grid">
-      <div><label class="label">Sex ID</label><input id="sexId" class="input" value="sex_4" placeholder="sex_4"></div>
       <div><label class="label">Asosiy varoq nomi</label><input id="menuSheet" class="input" value="кудук руйхати"></div>
       <div><label class="label">Auto sync sekund</label><input id="syncSeconds" class="input" type="number" min="10" value="30"></div>
       <button class="btn primary" onclick="saveAndConnect()">🔐 SAQLASH & ULASH</button>
       <button class="btn red" onclick="clearMemory()">🧹 XOTIRANI TOZALASH</button>
     </div>
     <div style="margin-top:10px; font-size:12px; color:#555;">Google Sheets ҳаволаси ва Service Account умумий Workspace созламаларидан автоматик олинади.</div>
-    <div id="message" class="msg">Ma’lumotlar sex ID bo‘yicha alohida saqlanadi. Masalan: sex_4 boshqa sex konfiguratsiyasiga tegmaydi.</div>
+    <div id="message" class="msg">Ma’lumotlar tanlangan Workspace bo‘yicha alohida saqlanadi.</div>
   </div>
 
   <div id="menuView">
@@ -75,11 +74,14 @@ let metadataLoadedFor = '';
 let socket = null;
 let currentSheet = '';
 let editing = null;
+let activeWorkspaceId = '';
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api = p => '/api/kuduk' + p;
-function sexId(){ return ($('sexId').value || 'sex_default').trim().replace(/[^a-zA-Z0-9_-]+/g,'_') || 'sex_default'; }
+function parentStorage(name, key){ try{ return parent?.[name]?.getItem(key) || ''; }catch(_){ return ''; } }
+function workspaceId(){ return localStorage.getItem('seg_kip_selected_workspace_id') || parentStorage('localStorage', 'seg_kip_selected_workspace_id'); }
+function sexId(){ return String(state.sexId || 'sex_4').trim().replace(/[^a-zA-Z0-9_-]+/g,'_') || 'sex_4'; }
 function msg(text, type='info'){ $('message').innerHTML = esc(text); $('message').className = 'msg ' + type; }
 function setStatus(text, type='offline', sub=''){ $('statusText').textContent = text; $('statusText').className = type; $('statusSub').textContent = sub || ''; }
 function currentRoute(){ return (state.routes||[]).find(r => r.sheet === currentSheet) || state.selectedRoute || null; }
@@ -87,7 +89,7 @@ function isMasterRoute(route){ return Boolean(route?.isMasterJournal || route?.k
 
 function connectSocket(){
   if(socket) socket.disconnect();
-  socket = io({ query:{ sexId: sexId() } });
+  socket = io({ query:{ workspaceId: workspaceId(), sexId: sexId() } });
   socket.on('connect', () => msg('Backend bilan aloqa bor. Socket.IO ulandi.', 'ok'));
   socket.on('connect_error', e => { setStatus('ERROR','error','Backend bilan aloqa yo‘q'); msg('Backend bilan aloqa yo‘q: ' + e.message, 'err'); });
   socket.on('kuduk-data-update', s => {
@@ -101,10 +103,9 @@ function connectSocket(){
 }
 async function request(path, opts={}){
   const headers = new Headers({'Content-Type':'application/json'});
-  let pget = (s,k) => { try { return parent?.[s]?.getItem(k) || ''; } catch(_) { return ''; } };
-  const wid = localStorage.getItem('seg_kip_selected_workspace_id') || pget('localStorage', 'seg_kip_selected_workspace_id');
+  const wid = workspaceId();
   if(wid) headers.set('x-workspace-id', wid);
-  const globalToken = sessionStorage.getItem('seg_kip_workspace_access_token') || pget('sessionStorage', 'seg_kip_workspace_access_token');
+  const globalToken = sessionStorage.getItem('seg_kip_workspace_access_token') || parentStorage('sessionStorage', 'seg_kip_workspace_access_token');
   if(globalToken) headers.set('Authorization', 'Bearer ' + globalToken);
   
   const res = await fetch(api(path), { headers, ...opts });
@@ -120,10 +121,9 @@ function rememberSheetUrl(url){
 }
 function hydrateFromState(){
   if(state.spreadsheetUrl) rememberSheetUrl(state.spreadsheetUrl);
-  if(state.sexId) $('sexId').value = state.sexId;
   if(state.menuSheet) $('menuSheet').value = state.menuSheet;
   if(state.syncSeconds) $('syncSeconds').value = state.syncSeconds;
-  if(state.connected) setStatus('READY','ready', 'Sex: '+state.sexId+' | '+(state.updatedAt||'')); else setStatus('OFFLINE','offline','Ulanish sozlanmagan');
+  if(state.connected) setStatus('READY','ready', state.updatedAt||''); else setStatus('OFFLINE','offline','Ulanish sozlanmagan');
 }
 async function loadMetadata(force=false){
   if(!force && metadataLoadedFor === sexId() && state.metadata && (state.metadata.installationPlaces||[]).length) return state.metadata;
@@ -156,9 +156,30 @@ function renderFieldEditor(key, label, value=''){
   }
   return `<div><label class="label">${esc(label)}</label><input class="input" id="f_${key}" value="${esc(value)}"></div>`;
 }
-async function fetchState(){
-  try { state = { ...state, ...(await request('/state?sexId=' + encodeURIComponent(sexId()))) }; if(state.connected) await loadMetadata(true); hydrateFromState(); renderAll(); }
+async function fetchState(expectedWorkspaceId = workspaceId()){
+  try {
+    const nextState = await request('/state?sexId=' + encodeURIComponent(sexId()));
+    if(expectedWorkspaceId && expectedWorkspaceId !== workspaceId()) return;
+    state = { ...state, ...nextState };
+    if(state.connected) await loadMetadata(true);
+    hydrateFromState(); renderAll();
+  }
   catch(e){ setStatus('ERROR','error','Failed to fetch'); msg('Backend bilan aloqa yo‘q: ' + e.message, 'err'); }
+}
+
+async function activateWorkspace(nextWorkspaceId){
+  const nextId = String(nextWorkspaceId || workspaceId() || '').trim();
+  if(!nextId || nextId === activeWorkspaceId) return;
+  activeWorkspaceId = nextId;
+  localStorage.setItem('seg_kip_selected_workspace_id', nextId);
+  metadataLoadedFor = '';
+  currentSheet = '';
+  editing = null;
+  state = { connected:false, routes:[], sheets:{}, statuses:{}, sexId:'sex_4', currentView:'menu', selectedRoute:null, rows:[], metadata:{ installationPlaces:[], deviceTypes:[], workTypes:[] } };
+  setStatus('SYNCING','offline','Yangi Workspace ma’lumotlari yuklanmoqda...');
+  renderAll();
+  connectSocket();
+  await fetchState(nextId);
 }
 async function readJsonFile(input){
   const file = input.files?.[0];
@@ -174,7 +195,7 @@ async function saveAndConnect(){
   }catch(e){ setStatus('ERROR','error','Ulanish xatosi'); msg(e.message, 'err'); }
 }
 async function clearMemory(){
-  if(!confirm('Faqat '+sexId()+' sex xotirasi butunlay o‘chiriladi. Davom etasizmi?')) return;
+  if(!confirm('Joriy jurnal xotirasi butunlay o‘chiriladi. Davom etasizmi?')) return;
   try{ state = { ...state, ...(await request('/config/' + encodeURIComponent(sexId()), { method:'DELETE' })), currentView:'menu', selectedRoute:null, rows:[] }; currentSheet=''; hydrateFromState(); renderAll(); msg('Faqat joriy sex xotirasi tozalandi.', 'ok'); }
   catch(e){ msg(e.message, 'err'); }
 }
@@ -254,10 +275,14 @@ async function removeRow(rowNumber){
   try{ state = { ...state, ...(await request(`/rows?sexId=${encodeURIComponent(sexId())}&sheet=${encodeURIComponent(currentSheet)}&rowNumber=${rowNumber}`, { method:'DELETE' })) }; hydrateFromState(); renderAll(); msg('Qator База varog‘idan o‘chirildi va Google Sheets yangilandi.', 'ok'); }
   catch(e){ msg(e.message, 'err'); }
 }
-$('sexId').addEventListener('change', () => { currentSheet=''; state.currentView='menu'; connectSocket(); fetchState(); });
+window.addEventListener('message', event => {
+  if(event.data?.type === 'SEG_KIP_WORKSPACE_CHANGE') void activateWorkspace(event.data.workspaceId);
+});
 window.addEventListener('load', () => {
+  activeWorkspaceId = workspaceId();
   try{ const saved = localStorage.getItem('seg_kip_sheet_url') || localStorage.getItem('spreadsheetUrl'); }catch(_){}
   connectSocket(); fetchState();
+  try{ parent.postMessage({ type:'REQUEST_WORKSPACE_INFO' }, '*'); }catch(_){}
 });
 </script>
 </body>

@@ -36,7 +36,8 @@ export function decryptWorkspaceSecret(value, env = process.env) {
     const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey(env), Buffer.from(ivRaw, 'base64url'));
     decipher.setAuthTag(Buffer.from(tagRaw, 'base64url'));
     return Buffer.concat([decipher.update(Buffer.from(encryptedRaw, 'base64url')), decipher.final()]).toString('utf8');
-  } catch (_) {
+  } catch (error) {
+    if (error?.code === 'WORKSPACE_ENCRYPTION_KEY_REQUIRED') throw error;
     throw secretError('Workspace secretni ochib bo‘lmadi.', 'WORKSPACE_SECRET_DECRYPT_FAILED', 500);
   }
 }

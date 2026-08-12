@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import { migrationChecksum } from '../db/migrate.js';
 
 const migrationFiles = [
   new URL('../db/migrations/001_core_identity.sql', import.meta.url),
@@ -13,6 +14,13 @@ test('migration files leave transaction boundaries to the runner', async () => {
     assert.equal(/^\s*BEGIN\s*;/i.test(sql), false);
     assert.equal(/COMMIT\s*;\s*$/i.test(sql), false);
   }
+});
+
+test('migration checksums are stable across operating-system line endings', () => {
+  const lf = 'CREATE TABLE example (id integer);\n-- next statement\n';
+  const crlf = lf.replace(/\n/g, '\r\n');
+
+  assert.equal(migrationChecksum(crlf), migrationChecksum(lf));
 });
 
 test('core migration contains tenant identity tables', async () => {

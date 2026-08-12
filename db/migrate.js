@@ -9,8 +9,9 @@ const __dirname = path.dirname(__filename);
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 const LOCK_KEY = 732451987;
 
-function checksum(content) {
-  return crypto.createHash('sha256').update(content).digest('hex');
+export function migrationChecksum(content) {
+  const normalized = String(content).replace(/\r\n?/g, '\n');
+  return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
 async function ensureMigrationTable(client) {
@@ -32,7 +33,7 @@ async function loadMigrationFiles() {
 
   return Promise.all(files.map(async (filename) => {
     const sql = await fs.readFile(path.join(MIGRATIONS_DIR, filename), 'utf8');
-    return { filename, sql, checksum: checksum(sql) };
+    return { filename, sql, checksum: migrationChecksum(sql) };
   }));
 }
 

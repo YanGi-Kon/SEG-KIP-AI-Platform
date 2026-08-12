@@ -8,6 +8,7 @@ import {
   signAppsScriptRequest,
 } from '../services/driveProviders/appsScriptPersonalDriveProvider.js';
 import { isRetryableFinalPdfError } from '../services/finalPdfExportWorker.js';
+import { classifyWorkspaceDriveError } from '../services/workspaceDriveFolderService.js';
 
 test('canonical JSON is stable regardless of object key insertion order', () => {
   assert.equal(
@@ -109,6 +110,41 @@ test('Apps Script auth failure is permanent but a remote 5xx is retryable', asyn
   await assert.rejects(serverProvider.validateFolder('folder'), (error) => {
     assert.equal(error.code, 'DRIVE_UPLOAD_FAILED');
     assert.equal(isRetryableFinalPdfError(error), true);
+    return true;
+  });
+});
+
+test('workspace secret configuration failures are permanent', () => {
+  assert.equal(isRetryableFinalPdfError({ code: 'WORKSPACE_ENCRYPTION_KEY_REQUIRED' }), false);
+  assert.equal(isRetryableFinalPdfError({ code: 'WORKSPACE_SECRET_INVALID' }), false);
+  assert.equal(isRetryableFinalPdfError({ code: 'WORKSPACE_SECRET_DECRYPT_FAILED' }), false);
+});
+
+test('workspace secret errors remain actionable instead of becoming Shared Drive errors', () => {
+  const error = Object.assign(new Error('Workspace secretni ochib bo‘lmadi.'), {
+    code: 'WORKSPACE_SECRET_DECRYPT_FAILED',
+    statusCode: 500,
+  });
+  const classified = classifyWorkspaceDriveError(error);
+  assert.equal(classified.code, 'WORKSPACE_SECRET_DECRYPT_FAILED');
+  assert.match(classified.recommendedFix, /qayta ulang/i);
+});
+
+test('HTML 404 from an expired Apps Script deployment is actionable and permanent', async () => {
+  const provider = new AppsScriptPersonalDriveProvider({
+    url: 'https://script.google.com/macros/s/expired/exec',
+    secret: 'secret',
+    fetchImpl: async () => ({
+      ok: false,
+      status: 404,
+      headers: { get: () => 'text/html; charset=utf-8' },
+      text: async () => '<!doctype html><title>Not Found</title>',
+    }),
+  });
+  await assert.rejects(provider.validateFolder('folder'), (error) => {
+    assert.equal(error.code, 'DRIVE_APPS_SCRIPT_DEPLOYMENT_NOT_FOUND');
+    assert.match(error.recommendedFix, /Manage deployments/i);
+    assert.equal(isRetryableFinalPdfError(error), false);
     return true;
   });
 });

@@ -1,6 +1,7 @@
 (function setupPersonalDriveSettings(){
   'use strict';
   const $ = (id) => document.getElementById(id);
+  let mountQueue = Promise.resolve();
   const workspaceId = () => window.WorkspaceApiClient?.workspaceId() || '';
   const path = () => `/api/workspaces/${encodeURIComponent(workspaceId())}/documents/personal-drive`;
   const api = (url, options = {}) => window.WorkspaceApiClient.request(url, options);
@@ -14,9 +15,10 @@
   function message(text, cls = ''){ const el=$('personalDriveMessage'); if(el) el.innerHTML=`<span class="${cls}">${String(text||'')}</span>`; }
   async function loadStatus(){
     const result=(await api(path(),{method:'GET'})).result||{};
-    if($('personalDriveConfigured')) $('personalDriveConfigured').textContent=result.configured?'✅ Ulangan':'Ulanmagan';
+    const ready=Boolean(result.configured&&result.ready);
+    if($('personalDriveConfigured')) $('personalDriveConfigured').textContent=ready?'✅ Sozlangan':result.needsReconfiguration?'⚠ Qayta ulash kerak':'Ulanmagan';
     if($('personalDriveAppsScriptUrl')&&document.activeElement!==$('personalDriveAppsScriptUrl')) $('personalDriveAppsScriptUrl').value=result.appsScriptUrl||'';
-    message(result.configured?'Secret shifrlangan. PDF shu workspace Drive’iga yuboriladi.':'Apps Script URL va unga mos secretni kiriting.',result.configured?'ok':'sync');
+    message(ready?'Secret o‘qildi. Drive yozuvini “Tekshirish” tugmasi orqali tasdiqlang.':result.needsReconfiguration?(result.recommendedFix||result.message||'Apps Script URL va webhook secretni qayta ulang.'):'Apps Script URL va unga mos secretni kiriting.',ready?'ok':result.needsReconfiguration?'bad':'sync');
   }
   async function save(){
     const appsScriptUrl=$('personalDriveAppsScriptUrl')?.value.trim()||'', secret=$('personalDriveSecret')?.value||'';
@@ -27,10 +29,15 @@
     if(!confirm('Bu workspace Personal Drive ulanishini uzishni tasdiqlaysizmi?'))return;
     try{await api(path(),{method:'PUT',body:JSON.stringify({appsScriptUrl:'',secret:''})});await loadStatus();}catch(error){message(error.message,'bad');}
   }
+  function removePanels(){document.querySelectorAll('[id="personalDriveSettingsPanel"]').forEach((panel)=>panel.remove());}
   async function mount(){
-    const host=$('finalDocumentsFolderPanel');if(!host||$('personalDriveSettingsPanel')||!workspaceId())return;
-    try{const workspace=(await api(`/api/workspaces/${encodeURIComponent(workspaceId())}`,{method:'GET'})).workspace||{};const canConfigure=['owner','administrator'].includes(String(workspace.memberRole||'').toLowerCase());host.insertAdjacentHTML('afterend',markup(canConfigure));$('savePersonalDriveBtn')?.addEventListener('click',save);$('clearPersonalDriveBtn')?.addEventListener('click',clear);await loadStatus();}catch(error){console.warn('[personal-drive-settings]',error.message);}
+    const requestedWorkspaceId=workspaceId();
+    const host=$('finalDocumentsFolderPanel');if(!host||!requestedWorkspaceId)return;
+    try{const workspace=(await api(`/api/workspaces/${encodeURIComponent(requestedWorkspaceId)}`,{method:'GET'})).workspace||{};if(requestedWorkspaceId!==workspaceId())return;removePanels();const liveHost=$('finalDocumentsFolderPanel');if(!liveHost)return;const canConfigure=['owner','administrator'].includes(String(workspace.memberRole||'').toLowerCase());liveHost.insertAdjacentHTML('afterend',markup(canConfigure));$('savePersonalDriveBtn')?.addEventListener('click',save);$('clearPersonalDriveBtn')?.addEventListener('click',clear);await loadStatus();}catch(error){console.warn('[personal-drive-settings]',error.message);}
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
-  window.addEventListener('seg-kip:workspace-change',()=>{$('personalDriveSettingsPanel')?.remove();setTimeout(mount,0);});
+  function queueMount(){mountQueue=mountQueue.catch(()=>{}).then(mount);return mountQueue;}
+  function remount(){removePanels();queueMount();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',queueMount,{once:true});else queueMount();
+  window.addEventListener('seg-kip:workspace-change',remount);
+  window.addEventListener('message',(event)=>{if(event.data?.type==='SEG_KIP_WORKSPACE_CHANGE')remount();});
 })();

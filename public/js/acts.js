@@ -4,6 +4,8 @@
   const WORKSPACE_ID_KEY = 'seg_kip_selected_workspace_id';
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
   const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null };
+  let activeWorkspaceId = '';
+  let workspaceLoadVersion = 0;
   const PDF_MONTHS = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
 
   function $(id){ return document.getElementById(id); }
@@ -44,37 +46,47 @@
     return data.token;
   }
 
-  async function apiFetch(url, options={}, retry=true){
+  function staleWorkspaceError(expectedWorkspaceId){
+    const error = new Error('Workspace алмашди. Эски сўров натижаси бекор қилинди.');
+    error.code = 'STALE_WORKSPACE_RESPONSE';
+    error.expectedWorkspaceId = expectedWorkspaceId;
+    return error;
+  }
+
+  async function apiFetch(url, options={}, retry=true, expectedWorkspaceId=workspaceId()){
     const headers = new Headers(options.headers || {});
-    const wid = localStorage.getItem('seg_kip_selected_workspace_id');
+    const wid = String(expectedWorkspaceId || workspaceId() || '').trim();
     if(wid) headers.set('x-workspace-id', wid);
-    const globalToken = sessionStorage.getItem('seg_kip_workspace_access_token');
+    const globalToken = workspaceToken();
     if(globalToken) headers.set('Authorization', `Bearer ${globalToken}`);
     else if(adminToken()) headers.set('Authorization',`Bearer ${adminToken()}`);
     const res = await fetch(url,{...options,headers});
     const data = await res.json().catch(()=>({}));
+    if(wid && wid !== workspaceId()) throw staleWorkspaceError(wid);
     if(res.status===401 && data.code==='ADMIN_AUTH_REQUIRED' && retry){
       await loginAdmin();
-      return apiFetch(url,options,false);
+      if(wid && wid !== workspaceId()) throw staleWorkspaceError(wid);
+      return apiFetch(url,options,false,wid);
     }
     if(!res.ok || data.error) throw new Error(data.error || 'API хатоси');
     return data;
   }
-  async function postJson(url, body){
-    return apiFetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  async function postJson(url, body, expectedWorkspaceId=workspaceId()){
+    return apiFetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)},true,expectedWorkspaceId);
   }
-  async function workspaceFetch(path){
-    const id = workspaceId();
+  async function workspaceFetch(path, expectedWorkspaceId=workspaceId()){
+    const id = String(expectedWorkspaceId || workspaceId() || '').trim();
     const token = workspaceToken();
     if(!id || !token) return null;
     const headers = new Headers({ Authorization:`Bearer ${token}` });
     const res = await fetch(`/api/workspaces/${encodeURIComponent(id)}${path}`, { headers, credentials:'include' });
+    if(id !== workspaceId()) throw staleWorkspaceError(id);
     if(!res.ok) return null;
     return res.json().catch(()=>null);
   }
-  async function loadWorkspaceApproverRegistry(force=false){
+  async function loadWorkspaceApproverRegistry(force=false, expectedWorkspaceId=workspaceId()){
     if(!force && Array.isArray(state.workspaceApprovers)) return state.workspaceApprovers;
-    const data = await workspaceFetch('/signers?includeInactive=true');
+    const data = await workspaceFetch('/signers?includeInactive=true', expectedWorkspaceId);
     const rows = Array.isArray(data?.rows) ? data.rows : [];
     state.workspaceApprovers = rows.map((row)=>({
       signerId: clean(row.id),
@@ -196,16 +208,16 @@
     if(!rows||!rows.length){tb.innerHTML='<tr><td colspan="11">ТО-2 / АКТ қаторлари топилмади.</td></tr>';return;}
     tb.innerHTML=rows.map((r,i)=>{const action=r.isCompleted?`<button class="btn done" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Хужат якунланди</button>`:`<button class="btn green" onclick="ActsUI.fillDoc(${i})">Хужат яратиш</button>`;return `<tr data-source-key="${esc(r.sourceKey||'')}"><td>${i+1}</td><td>${esc(r.date)}</td><td>${esc(r.positionNo)}</td><td>${esc(r.deviceName)}</td><td>${esc(r.typeMark)}</td><td>${esc(r.serialNo)}</td><td>${esc(r.measureRange)}</td><td>${esc(r.place)}</td><td class="icol">${esc(r.workType)}</td><td>${esc(r.executor)}</td><td>${action}</td></tr>`;}).join('');
   }
-  async function loadAnalysis(){
+  async function loadAnalysis(expectedWorkspaceId=workspaceId()){
     if(!hasSettings()){openSettings();setStatus('Google Sheets созламалари киритилмаган.','bad');return;}
-    try{setStatus('Google Sheets билан синхронланмоқда...','sync');parentOnline('SYNCING');const data=await postJson('/api/acts/monthly-analysis',settings());state.analysisRows=data.rows||[];updateKpi(data);renderRows(state.analysisRows);setStatus('Google Sheets уланди. Маълумотлар янгиланди.','ok');parentOnline('ONLINE');}
-    catch(err){setStatus(err.message,'bad');parentOnline('OFFLINE');}
+    try{setStatus('Google Sheets билан синхронланмоқда...','sync');parentOnline('SYNCING');const data=await postJson('/api/acts/monthly-analysis',settings(),expectedWorkspaceId);if(expectedWorkspaceId&&expectedWorkspaceId!==workspaceId())return false;state.analysisRows=data.rows||[];updateKpi(data);renderRows(state.analysisRows);setStatus('Google Sheets уланди. Маълумотлар янгиланди.','ok');parentOnline('ONLINE');return data;}
+    catch(err){if(err.code==='STALE_WORKSPACE_RESPONSE')return false;setStatus(err.message,'bad');parentOnline('OFFLINE');return false;}
   }
-  async function loadReports(){
+  async function loadReports(expectedWorkspaceId=workspaceId()){
     const tb=$('dailyRows');
     if(!hasSettings()){tb.innerHTML='<tr><td colspan="9">Google Sheets созламалари киритилмаган.</td></tr>';return[];}
-    try{const data=await postJson('/api/acts/reports/daily',settings());const rows=data.rows||[];state.dailyRows=rows;if(!rows.length){tb.innerHTML='<tr><td colspan="9">Кунлик ҳисоботда ҳужжатлар йўқ.</td></tr>';return rows;}tb.innerHTML=rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.actNo)}</td><td>${esc(r.date)}</td><td>${esc(r.device)}</td><td>${esc(r.serial)}</td><td>${esc(r.place)}</td><td>${esc(r.executor)}</td><td>${esc(r.status)}</td><td><button class="btn primary small" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Кўриш</button> <button class="btn orange small" onclick="ActsUI.sendDoc('${ref(r.actNo)}')">Хужатни юбориш</button></td></tr>`).join('');return rows;}
-    catch(err){tb.innerHTML=`<tr><td colspan="9">${esc(err.message)}</td></tr>`;return[];}
+    try{const data=await postJson('/api/acts/reports/daily',settings(),expectedWorkspaceId);if(expectedWorkspaceId&&expectedWorkspaceId!==workspaceId())return[];const rows=data.rows||[];state.dailyRows=rows;if(!rows.length){tb.innerHTML='<tr><td colspan="9">Кунлик ҳисоботда ҳужжатлар йўқ.</td></tr>';return rows;}tb.innerHTML=rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.actNo)}</td><td>${esc(r.date)}</td><td>${esc(r.device)}</td><td>${esc(r.serial)}</td><td>${esc(r.place)}</td><td>${esc(r.executor)}</td><td>${esc(r.status)}</td><td><button class="btn primary small" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Кўриш</button> <button class="btn orange small" onclick="ActsUI.sendDoc('${ref(r.actNo)}')">Хужатни юбориш</button></td></tr>`).join('');return rows;}
+    catch(err){if(err.code==='STALE_WORKSPACE_RESPONSE')return[];tb.innerHTML=`<tr><td colspan="9">${esc(err.message)}</td></tr>`;return[];}
   }
 
   function resetSaveButton(){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');b.textContent='Сақлаш';}
@@ -309,7 +321,28 @@
     }
   }
 
-  async function handleWorkspace(ws, isAdmin) {
+  function clearWorkspaceState(){
+    state.analysisRows = [];
+    state.dailyRows = [];
+    state.signers = [];
+    state.selected = null;
+    state.workspaceApprovers = null;
+    const analysisRows = $('analysisRows');
+    const dailyRows = $('dailyRows');
+    if(analysisRows) analysisRows.innerHTML = '<tr><td colspan="11">Янги Workspace маълумотлари юкланмоқда...</td></tr>';
+    if(dailyRows) dailyRows.innerHTML = '<tr><td colspan="9">Актлар архиви янгиланмоқда...</td></tr>';
+    updateKpi({ totalRows:0, plannedDocuments:0, createdDocuments:0, completionPercentage:0, sheetName:settings().sheetName||'—' });
+    $('actsA4Modal')?.classList.remove('show');
+    resetSaveButton();
+    const saveButtonElement = $('saveActBtn');
+    if(saveButtonElement) saveButtonElement.disabled = true;
+  }
+
+  async function handleWorkspace(ws, isAdmin, nextWorkspaceId='') {
+    const nextId = String(nextWorkspaceId || ws?.id || workspaceId() || '').trim();
+    const loadVersion = ++workspaceLoadVersion;
+    activeWorkspaceId = nextId;
+    if(nextId) localStorage.setItem(WORKSPACE_ID_KEY, nextId);
     window.actsIsAdmin = isAdmin;
     // Only hide the button if we are SURE the user is NOT admin.
     // Leave it visible if isAdmin is true or unknown.
@@ -321,6 +354,8 @@
     } else {
       localStorage.removeItem(KEYS.sheet);
     }
+
+    clearWorkspaceState();
     
     if (!hasSettings()) {
       if (isAdmin) {
@@ -330,16 +365,24 @@
         setStatus('Google Sheets созламалари киритилмаган. Администраторга мурожаат қилинг.', 'bad');
       }
     } else {
-      await loadAnalysis();
+      await Promise.all([
+        loadAnalysis(nextId),
+        loadReports(nextId),
+        loadWorkspaceApproverRegistry(true, nextId).catch((error)=>{
+          if(error.code!=='STALE_WORKSPACE_RESPONSE') console.warn('[acts-workspace-approvers]', error.message);
+          return [];
+        })
+      ]);
+      if(loadVersion!==workspaceLoadVersion||nextId!==activeWorkspaceId||nextId!==workspaceId())return;
     }
   }
 
   window.addEventListener('message', async (e) => {
     if (e.data && e.data.type === 'SEG_KIP_WORKSPACE_CHANGE') {
-      await handleWorkspace(e.data.workspace, e.data.isAdmin);
+      await handleWorkspace(e.data.workspace, e.data.isAdmin, e.data.workspaceId);
     }
   });
 
-  window.ActsUI={showView,showReport,openSettings,closeSettings,saveSettings,loadAnalysis,fillDoc,saveAct,openExcel,setStatus,viewDoc,sendDoc,openSigners,closeSigners,loadSigners,addSignerRow,editSigner,saveSigner,deleteSigner};
+  window.ActsUI={state,showView,showReport,openSettings,closeSettings,saveSettings,loadAnalysis,loadReports,handleWorkspace,fillDoc,saveAct,openExcel,setStatus,viewDoc,sendDoc,openSigners,closeSigners,loadSigners,addSignerRow,editSigner,saveSigner,deleteSigner};
   document.addEventListener('DOMContentLoaded',bind);
 })();

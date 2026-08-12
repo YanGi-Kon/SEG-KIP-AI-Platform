@@ -153,6 +153,9 @@
 
   function friendlyError(diag){
     const code = diag?.code || '';
+    if (code === 'WORKSPACE_SECRET_DECRYPT_FAILED' || code === 'WORKSPACE_SECRET_INVALID') return '❌ Personal Drive secretini ochib bo‘lmadi. “Bepul Personal Drive ulanishi” orqali URL va webhook secretni qayta ulang.';
+    if (code === 'WORKSPACE_ENCRYPTION_KEY_REQUIRED') return '❌ Serverda WORKSPACE_ENCRYPTION_KEY sozlanmagan.';
+    if (code === 'DRIVE_APPS_SCRIPT_DEPLOYMENT_NOT_FOUND') return '❌ Apps Script /exec deployment faol emas. Apps Script’da Web app deployment’ni qayta yarating va yangi /exec URL’ni ulang.';
     if (code === 'DRIVE_SHARED_DRIVE_REQUIRED') return '❌ Oddiy My Drive papkasi qo‘llab-quvvatlanmaydi. Shared Drive papkasini tanlang.';
     if (code === 'SERVICE_ACCOUNT_NO_STORAGE_QUOTA') return '❌ Service account’da Drive storage quota yo‘q. Shared Drive ishlating.';
     if (code === 'DRIVE_API_DISABLED') return '❌ Google Drive API yoqilmagan.';

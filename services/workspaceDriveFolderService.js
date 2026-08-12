@@ -30,6 +30,20 @@ function makeError(message, code = 'WORKSPACE_DRIVE_FOLDER_ERROR', statusCode = 
 }
 
 export function classifyWorkspaceDriveError(error) {
+  const explicitCode = clean(error?.code);
+  if (/^(WORKSPACE_SECRET_|WORKSPACE_ENCRYPTION_KEY_)/.test(explicitCode)) {
+    const needsReconfiguration = explicitCode === 'WORKSPACE_SECRET_DECRYPT_FAILED'
+      || explicitCode === 'WORKSPACE_SECRET_INVALID';
+    return {
+      code: explicitCode,
+      message: clean(error?.message) || 'Workspace Personal Drive secret xatosi.',
+      statusCode: Number(error?.statusCode) || 500,
+      rawReason: '',
+      recommendedFix: needsReconfiguration
+        ? '6. YAKUNIY HUJJATLAR bo‘limida Personal Drive Apps Script URL va webhook secretni qayta ulang.'
+        : 'Serverda WORKSPACE_ENCRYPTION_KEY qiymatini kamida 32 belgili barqaror kalit sifatida sozlang.',
+    };
+  }
   const classified = classifySharedDriveError(error);
   return {
     code: classified.code,
@@ -89,11 +103,27 @@ export async function configureWorkspacePersonalDrive(userId, workspaceId, input
 
 export async function getWorkspacePersonalDriveStatus(workspaceId) {
   const config = await getWorkspacePersonalDriveConfig(workspaceId);
-  return {
+  const status = {
     configured: Boolean(config?.configured),
     appsScriptUrl: config?.appsScriptUrl || '',
     secretConfigured: Boolean(config?.secretEncrypted),
+    ready: false,
+    needsReconfiguration: false,
   };
+  if (!status.configured) return status;
+  try {
+    decryptWorkspaceSecret(config.secretEncrypted);
+    return { ...status, ready: true };
+  } catch (error) {
+    const classified = classifyWorkspaceDriveError(error);
+    return {
+      ...status,
+      code: classified.code,
+      message: classified.message,
+      recommendedFix: classified.recommendedFix,
+      needsReconfiguration: true,
+    };
+  }
 }
 
 // Compatibility wrapper for existing callers while the export service migrates to the provider API.

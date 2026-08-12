@@ -22,6 +22,14 @@ test('workspace secret cannot be decrypted with another key', () => {
   );
 });
 
+test('missing workspace encryption key keeps its actionable error code', () => {
+  const encrypted = encryptWorkspaceSecret('secret', env);
+  assert.throws(
+    () => decryptWorkspaceSecret(encrypted, {}),
+    (error) => error.code === 'WORKSPACE_ENCRYPTION_KEY_REQUIRED',
+  );
+});
+
 test('Apps Script URL validation blocks arbitrary webhook hosts and dev URLs', () => {
   assert.equal(
     validateAppsScriptDeploymentUrl('https://script.google.com/macros/s/deployment-id/exec'),

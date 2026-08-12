@@ -1,21 +1,350 @@
-<!DOCTYPE html><html lang="uz"><head>
+<!DOCTYPE html>
+<html lang="uz">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title data-i18n="НОСОЗЛИКЛАР ЖУРНАЛИ">НОСОЗЛИКЛАР ЖУРНАЛИ</title>
-<link rel="stylesheet" href="../css/style.css">
-<style>body{margin:0;background:#061427;color:#eafcff;font-family:Arial,sans-serif}.module-placeholder{min-height:70vh;display:grid;place-items:center;padding:32px}.module-card{max-width:760px;border:1px solid rgba(34,211,238,.28);background:rgba(0,0,0,.35);border-radius:28px;padding:34px;box-shadow:0 20px 50px rgba(0,0,0,.35)}h1{margin-top:0;color:#22d3ee}p{line-height:1.7;color:#bdefff}button{border:1px solid rgba(34,211,238,.35);background:rgba(255,255,255,.06);color:#eafcff;border-radius:16px;padding:12px 16px;cursor:pointer}</style>
-
-<script src="../js/i18n.js"></script>
+<title>НОСОЗЛИКЛАР ЖУРНАЛИ</title>
+<style>
+:root{
+  --bg:#020817;
+  --panel:rgba(2,14,28,.93);
+  --panel-strong:#06182b;
+  --line:rgba(34,211,238,.24);
+  --line-strong:rgba(34,211,238,.46);
+  --cyan:#22d3ee;
+  --green:#10b981;
+  --orange:#f59e0b;
+  --red:#ef4444;
+  --blue:#38bdf8;
+  --muted:#91adbf;
+  --white:#f8fafc;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%;margin:0}
+body{
+  background:
+    radial-gradient(circle at 13% 8%,rgba(34,211,238,.15),transparent 30%),
+    linear-gradient(135deg,#020817,#071a2f 46%,#020817);
+  color:var(--white);
+  font-family:Arial,Helvetica,sans-serif;
+}
+button,input,select,textarea{font:inherit}
+.faults-wrap{padding:18px;min-height:100vh}
+.faults-top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:14px}
+.faults-title h1{margin:0;font-size:23px;letter-spacing:.2px}
+.faults-title p{margin:7px 0 0;color:#b6d8e8;font-size:13px}
+.status-card{
+  min-width:218px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--panel);
+  padding:11px 15px;
+  box-shadow:0 18px 50px rgba(0,0,0,.24);
+}
+.status-card small{display:block;color:var(--muted);font-size:11px}
+.status-card strong{display:block;margin:2px 0;color:var(--green);font-size:21px;letter-spacing:1px}
+.panel{
+  margin-bottom:14px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:19px;
+  background:var(--panel);
+  box-shadow:0 18px 55px rgba(0,0,0,.23);
+}
+.settings-grid{
+  display:grid;
+  grid-template-columns:minmax(250px,1.5fr) minmax(160px,.8fr) auto auto;
+  gap:10px;
+  align-items:end;
+}
+.field-label{display:block;margin-bottom:5px;color:#9db8c9;font-size:11px}
+.control{
+  width:100%;
+  min-height:35px;
+  border:1px solid rgba(34,211,238,.35);
+  border-radius:11px;
+  outline:0;
+  background:rgba(2,8,23,.9);
+  color:var(--white);
+  padding:9px 11px;
+}
+.control:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.12)}
+textarea.control{min-height:92px;resize:vertical;line-height:1.4}
+.btn{
+  min-height:35px;
+  border:0;
+  border-radius:12px;
+  padding:9px 14px;
+  color:#fff;
+  background:#334155;
+  font-weight:800;
+  font-size:12px;
+  cursor:pointer;
+  transition:transform .16s ease,filter .16s ease,box-shadow .16s ease;
+}
+.btn:hover{filter:brightness(1.08);box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:linear-gradient(135deg,#0891b2,#22d3ee);color:#00111b}
+.btn.green{background:linear-gradient(135deg,#059669,#10b981)}
+.btn.orange{background:linear-gradient(135deg,#d97706,#f59e0b);color:#15100a}
+.btn.red{background:linear-gradient(135deg,#dc2626,#ef4444)}
+.btn.icon{min-width:34px;padding:7px 9px;border-radius:50%}
+.settings-note{margin-top:8px;color:#607a8c;font-size:10px}
+.message{margin-top:7px;color:#a8d8eb;font-size:11px}
+.message.ok{color:#86efac}.message.warn{color:#fde68a}.message.bad{color:#fca5a5}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toolbar .search{width:min(420px,100%)}
+.toolbar .filter{width:180px}
+.journal-head{display:flex;justify-content:space-between;gap:14px;align-items:center}
+.journal-head strong{color:#f8fafc;font-size:13px}
+.journal-meta{margin-top:4px;color:#67b9dc;font-size:10px}
+.counter{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:7px 11px;
+  color:#a5e9f7;
+  background:rgba(34,211,238,.07);
+  font-size:11px;
+  white-space:nowrap;
+}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:17px;background:var(--panel)}
+table{width:100%;min-width:1320px;border-collapse:collapse}
+th,td{padding:10px 11px;border-bottom:1px solid rgba(148,163,184,.14);text-align:left;vertical-align:middle;font-size:12px}
+th{position:sticky;top:0;z-index:2;background:#071a2f;color:#67e8f9;font-weight:800;white-space:nowrap}
+tbody tr:hover td{background:rgba(34,211,238,.045)}
+.empty-row td{padding:34px;text-align:center;color:var(--muted)}
+.description-cell{max-width:250px;white-space:normal;line-height:1.35}
+.nowrap{white-space:nowrap}
+.badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:900;white-space:nowrap}
+.priority-low{background:rgba(56,189,248,.15);color:#7dd3fc}
+.priority-medium{background:rgba(245,158,11,.17);color:#fde68a}
+.priority-high{background:rgba(239,68,68,.17);color:#fca5a5}
+.status-open{background:rgba(239,68,68,.15);color:#fca5a5}
+.status-progress{background:rgba(245,158,11,.17);color:#fde68a}
+.status-closed{background:rgba(16,185,129,.16);color:#86efac}
+.row-actions{display:flex;gap:6px;white-space:nowrap}
+.modal{
+  position:fixed;
+  inset:0;
+  z-index:50;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(0,0,0,.68);
+  backdrop-filter:blur(6px);
+}
+.modal.show{display:flex}
+.modal-box{
+  width:min(920px,100%);
+  max-height:92vh;
+  overflow:auto;
+  border:1px solid var(--line-strong);
+  border-radius:20px;
+  background:#071a2f;
+  padding:18px;
+  box-shadow:0 28px 90px rgba(0,0,0,.48);
+}
+.modal-head{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:16px}
+.modal-head h2{margin:0;font-size:20px}.modal-head p{margin:5px 0 0;color:var(--muted);font-size:11px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.form-field.full{grid-column:1/-1}
+.form-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
+@media(max-width:1050px){.settings-grid{grid-template-columns:1fr 1fr}.settings-grid .btn{width:100%}}
+@media(max-width:720px){
+  .faults-wrap{padding:11px}.faults-top{display:block}.status-card{margin-top:12px;min-width:0}
+  .settings-grid,.form-grid{grid-template-columns:1fr}.form-field.full{grid-column:auto}
+  .toolbar>*{width:100%!important}.journal-head{align-items:flex-start;flex-direction:column}
+}
+</style>
 </head>
 <body>
-<div class="module-placeholder">
-  <div class="module-card">
-    <h1 data-i18n="⚠️ НОСОЗЛИКЛАР ЖУРНАЛИ">⚠️ НОСОЗЛИКЛАР ЖУРНАЛИ</h1>
-    <p data-i18n="Носозликлар, сабаблар, ижрочи ва бартараф этиш ҳолатини назорат қилиш.">Носозликлар, сабаблар, ижрочи ва бартараф этиш ҳолатини назорат қилиш.</p>
-    <p data-i18n="Bu bo‘lim alohida modul faylga ajratildi. Keyingi bosqichda real jadval, filter, API va hisobotlar shu fayl ichida rivojlantiriladi.">Bu bo‘lim alohida modul faylga ajratildi. Keyingi bosqichda real jadval, filter, API va hisobotlar shu fayl ichida rivojlantiriladi.</p>
-    <button onclick="parent.postMessage({type:'SEG_CLOSE_MODULE'}, '*')" data-i18n="← Журналлар панели">← Журналлар панели</button>
+<main class="faults-wrap">
+  <header class="faults-top">
+    <div class="faults-title">
+      <h1>⚠️ НОСОЗЛИКЛАР ЖУРНАЛИ</h1>
+      <p>Nosozliklarni ro‘yxatga olish, ijrochi biriktirish va bartaraf etish holatini nazorat qilish.</p>
+    </div>
+    <div class="status-card" aria-live="polite">
+      <small>Tizim holati</small>
+      <strong id="faultsStatus">READY</strong>
+      <small id="faultsStatusSub">Frontend · lokal jurnal</small>
+      <small id="faultsWorkspaceName">Workspace aniqlanmoqda...</small>
+    </div>
+  </header>
+
+  <section class="panel" aria-label="Jurnal sozlamalari">
+    <div class="settings-grid">
+      <label><span class="field-label">Asosiy varoq nomi</span><input id="faultsSheet" class="control" value="НОСОЗЛИКЛАР" placeholder="НОСОЗЛИКЛАР"></label>
+      <label><span class="field-label">Auto sync sekund</span><input id="faultsSyncSeconds" class="control" type="number" min="10" value="30"></label>
+      <button class="btn primary" type="button" id="faultsSaveConfig">🔐 SAQLASH &amp; ULASH</button>
+      <button class="btn red" type="button" id="faultsClearMemory">🧹 XOTIRANI TOZALASH</button>
+    </div>
+    <div class="settings-note">Google Sheets va backend ulanishi keyingi bosqichda qo‘shiladi. Hozirgi yozuvlar faqat ushbu brauzerda saqlanadi.</div>
+    <div id="faultsMessage" class="message">Frontend oynasi ishga tayyor.</div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <button class="btn" type="button" id="faultsBack">← Menyuga qaytish</button>
+      <button class="btn orange" type="button" id="faultsSync">🔄 LIVE SYNC</button>
+      <button class="btn green" type="button" id="faultsAdd">➕ Yangi nosozlik</button>
+      <input id="faultsSearch" class="control search" placeholder="Qidirish: pozitsiya, asbob, joy, nosozlik, ijrochi...">
+      <select id="faultsStatusFilter" class="control filter" aria-label="Holat bo‘yicha filtr">
+        <option value="">Barcha holatlar</option>
+        <option value="open">Ochiq</option>
+        <option value="progress">Jarayonda</option>
+        <option value="closed">Bartaraf etilgan</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="panel journal-head">
+    <div>
+      <strong>📘 ОБЩИЙ ЖУРНАЛ / БАЗА</strong>
+      <div class="journal-meta">Manba: <b id="faultsSourceName">НОСОЗЛИКЛАР</b> · <span id="faultsCountText">0 ta yozuv</span></div>
+    </div>
+    <div class="counter"><span>Faol nosozliklar</span><b id="faultsOpenCount">0</b></div>
+  </section>
+
+  <section class="table-wrap" aria-label="Nosozliklar jadvali">
+    <table>
+      <thead>
+        <tr>
+          <th>Дата</th>
+          <th>№</th>
+          <th>Поз номер</th>
+          <th>Наименование СИ</th>
+          <th>Место установки</th>
+          <th>Описание неисправности</th>
+          <th>Приоритет</th>
+          <th>Исполнитель</th>
+          <th>Статус</th>
+          <th>Срок устранения</th>
+          <th>Amal</th>
+        </tr>
+      </thead>
+      <tbody id="faultsRows"></tbody>
+    </table>
+  </section>
+</main>
+
+<div id="faultsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="faultsModalTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div><h2 id="faultsModalTitle">Yangi nosozlik</h2><p>Nosozlik haqidagi asosiy ma’lumotlarni kiriting.</p></div>
+      <button class="btn" type="button" id="faultsModalClose" aria-label="Oynani yopish">✕</button>
+    </div>
+    <form id="faultsForm">
+      <div class="form-grid">
+        <label class="form-field"><span class="field-label">Sana</span><input id="faultDate" class="control" type="date" required></label>
+        <label class="form-field"><span class="field-label">Pozitsiya raqami</span><input id="faultPosition" class="control" placeholder="Masalan: PT-101" required></label>
+        <label class="form-field"><span class="field-label">O‘lchov vositasi nomi</span><input id="faultDevice" class="control" placeholder="Manometr" required></label>
+        <label class="form-field"><span class="field-label">O‘rnatilgan joyi</span><input id="faultLocation" class="control" placeholder="Sex yoki uskuna joyi" required></label>
+        <label class="form-field full"><span class="field-label">Nosozlik tavsifi</span><textarea id="faultDescription" class="control" placeholder="Aniqlangan nosozlikni yozing" required></textarea></label>
+        <label class="form-field"><span class="field-label">Ustuvorlik</span><select id="faultPriority" class="control"><option value="low">Past</option><option value="medium" selected>O‘rta</option><option value="high">Yuqori</option></select></label>
+        <label class="form-field"><span class="field-label">Ijrochi</span><input id="faultExecutor" class="control" placeholder="F.I.O"></label>
+        <label class="form-field"><span class="field-label">Holat</span><select id="faultState" class="control"><option value="open">Ochiq</option><option value="progress">Jarayonda</option><option value="closed">Bartaraf etilgan</option></select></label>
+        <label class="form-field"><span class="field-label">Bartaraf etish muddati</span><input id="faultDeadline" class="control" type="date"></label>
+      </div>
+      <div class="form-actions"><button class="btn" type="button" id="faultsCancel">Bekor qilish</button><button class="btn green" type="submit">💾 Saqlash</button></div>
+    </form>
   </div>
 </div>
 
+<script>
+(function setupFaultsJournal(){
+  'use strict';
+  const ROWS_KEY='seg_kip_faults_frontend_rows_v1';
+  const CONFIG_KEY='seg_kip_faults_frontend_config_v1';
+  const MIGRATION_KEY='seg_kip_faults_workspace_migration_v1';
+  const WORKSPACE_ID_KEY='seg_kip_selected_workspace_id';
+  const state={rows:[],editingId:null,workspaceId:'',workspaceName:''};
+  const $=(id)=>document.getElementById(id);
+  const esc=(value)=>String(value??'').replace(/[&<>"']/g,(char)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  const today=()=>new Date().toISOString().slice(0,10);
+  const id=()=>globalThis.crypto?.randomUUID?.()||`fault_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const priorityLabels={low:'Past',medium:'O‘rta',high:'Yuqori'};
+  const statusLabels={open:'Ochiq',progress:'Jarayonda',closed:'Bartaraf etilgan'};
 
-</body></html>
+  function parentStorage(store,key){try{return parent?.[store]?.getItem(key)||''}catch(_){return''}}
+  function selectedWorkspaceId(){return localStorage.getItem(WORKSPACE_ID_KEY)||parentStorage('localStorage',WORKSPACE_ID_KEY)||''}
+  function workspaceKey(base,workspaceId=state.workspaceId||selectedWorkspaceId()){return workspaceId?`${base}:${workspaceId}`:base}
+  function readStorage(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'null')??fallback}catch(_){return fallback}}
+  function writeStorage(key,value){localStorage.setItem(key,JSON.stringify(value))}
+  function setMessage(text,tone=''){const el=$('faultsMessage');el.textContent=text;el.className=`message ${tone}`.trim()}
+  function setReady(sub='Frontend · lokal jurnal'){$('faultsStatus').textContent='READY';$('faultsStatus').style.color='var(--green)';$('faultsStatusSub').textContent=sub;$('faultsWorkspaceName').textContent=state.workspaceName||state.workspaceId||'Workspace tanlanmagan'}
+  function visibleRows(){
+    const query=$('faultsSearch').value.trim().toLowerCase();
+    const status=$('faultsStatusFilter').value;
+    return state.rows.filter((row)=>{
+      if(status&&row.status!==status)return false;
+      if(!query)return true;
+      return [row.date,row.number,row.position,row.device,row.location,row.description,row.executor,priorityLabels[row.priority],statusLabels[row.status]].join(' ').toLowerCase().includes(query);
+    });
+  }
+  function renderRows(){
+    const rows=visibleRows();
+    $('faultsCountText').textContent=`${rows.length} ta yozuv`;
+    $('faultsOpenCount').textContent=state.rows.filter((row)=>row.status!=='closed').length;
+    $('faultsSourceName').textContent=$('faultsSheet').value.trim()||'НОСОЗЛИКЛАР';
+    if(!rows.length){$('faultsRows').innerHTML='<tr class="empty-row"><td colspan="11">Hozircha yozuv mavjud emas. “Yangi nosozlik” tugmasini bosing.</td></tr>';return}
+    $('faultsRows').innerHTML=rows.map((row,index)=>`<tr>
+      <td class="nowrap">${esc(row.date||'—')}</td><td>${esc(row.number||index+1)}</td><td>${esc(row.position)}</td><td>${esc(row.device)}</td><td>${esc(row.location)}</td>
+      <td class="description-cell">${esc(row.description)}</td><td><span class="badge priority-${esc(row.priority)}">${esc(priorityLabels[row.priority]||row.priority)}</span></td>
+      <td>${esc(row.executor||'—')}</td><td><span class="badge status-${esc(row.status)}">${esc(statusLabels[row.status]||row.status)}</span></td><td class="nowrap">${esc(row.deadline||'—')}</td>
+      <td><div class="row-actions"><button class="btn orange icon" type="button" data-edit="${esc(row.id)}" title="Tahrirlash">✏️</button><button class="btn red icon" type="button" data-delete="${esc(row.id)}" title="O‘chirish">🗑</button></div></td>
+    </tr>`).join('');
+  }
+  function migrateLegacyData(workspaceId){
+    if(!workspaceId||localStorage.getItem(MIGRATION_KEY))return;
+    const scopedRows=workspaceKey(ROWS_KEY,workspaceId),scopedConfig=workspaceKey(CONFIG_KEY,workspaceId);
+    if(!localStorage.getItem(scopedRows)&&localStorage.getItem(ROWS_KEY))localStorage.setItem(scopedRows,localStorage.getItem(ROWS_KEY));
+    if(!localStorage.getItem(scopedConfig)&&localStorage.getItem(CONFIG_KEY))localStorage.setItem(scopedConfig,localStorage.getItem(CONFIG_KEY));
+    localStorage.setItem(MIGRATION_KEY,workspaceId);
+  }
+  function loadWorkspace(ws=null,nextWorkspaceId=''){
+    const workspaceId=String(nextWorkspaceId||ws?.id||selectedWorkspaceId()||'').trim();
+    if(workspaceId)localStorage.setItem(WORKSPACE_ID_KEY,workspaceId);
+    state.workspaceId=workspaceId;state.workspaceName=String(ws?.name||workspaceId||'Workspace tanlanmagan');state.editingId=null;
+    closeModal();migrateLegacyData(workspaceId);
+    const stored=readStorage(workspaceKey(CONFIG_KEY,workspaceId),{}),moduleSettings=ws?.moduleSettings||{};
+    const config={sheet:moduleSettings.faults_sheet_name||stored.sheet||'НОСОЗЛИКЛАР',syncSeconds:Number(moduleSettings.faults_sync_seconds||stored.syncSeconds||30)};
+    state.rows=readStorage(workspaceKey(ROWS_KEY,workspaceId),[]);
+    $('faultsSheet').value=config.sheet;$('faultsSyncSeconds').value=config.syncSeconds;
+    $('faultsSearch').value='';$('faultsStatusFilter').value='';renderRows();setReady(`${state.workspaceName} · lokal jurnal`);setMessage(`${state.workspaceName} Workspace ma’lumotlari avtomatik yuklandi.`,'ok');
+  }
+  function openModal(row=null){
+    state.editingId=row?.id||null;$('faultsModalTitle').textContent=row?'Nosozlikni tahrirlash':'Yangi nosozlik';
+    $('faultDate').value=row?.date||today();$('faultPosition').value=row?.position||'';$('faultDevice').value=row?.device||'';$('faultLocation').value=row?.location||'';
+    $('faultDescription').value=row?.description||'';$('faultPriority').value=row?.priority||'medium';$('faultExecutor').value=row?.executor||'';$('faultState').value=row?.status||'open';$('faultDeadline').value=row?.deadline||'';
+    $('faultsModal').classList.add('show');setTimeout(()=>$('faultPosition').focus(),0);
+  }
+  function closeModal(){$('faultsModal').classList.remove('show');state.editingId=null;$('faultsForm').reset()}
+  function saveForm(event){
+    event.preventDefault();const current=state.rows.find((row)=>row.id===state.editingId);
+    const row={id:current?.id||id(),number:current?.number||state.rows.length+1,date:$('faultDate').value,position:$('faultPosition').value.trim(),device:$('faultDevice').value.trim(),location:$('faultLocation').value.trim(),description:$('faultDescription').value.trim(),priority:$('faultPriority').value,executor:$('faultExecutor').value.trim(),status:$('faultState').value,deadline:$('faultDeadline').value};
+    if(current)state.rows=state.rows.map((item)=>item.id===current.id?row:item);else state.rows.unshift(row);
+    writeStorage(workspaceKey(ROWS_KEY),state.rows);closeModal();renderRows();setMessage(current?'Nosozlik ma’lumoti yangilandi.':'Yangi nosozlik jurnalga qo‘shildi.','ok');
+  }
+  function removeRow(rowId){const row=state.rows.find((item)=>item.id===rowId);if(!row||!confirm(`${row.position||'Ushbu'} yozuvni o‘chirishni tasdiqlaysizmi?`))return;state.rows=state.rows.filter((item)=>item.id!==rowId);writeStorage(workspaceKey(ROWS_KEY),state.rows);renderRows();setMessage('Yozuv ushbu Workspace lokal jurnalidan o‘chirildi.','warn')}
+  function saveConfig(){const config={sheet:$('faultsSheet').value.trim()||'НОСОЗЛИКЛАР',syncSeconds:Number($('faultsSyncSeconds').value)||30};writeStorage(workspaceKey(CONFIG_KEY),config);if(parent&&parent!==window)parent.postMessage({type:'SAVE_MODULE_SETTINGS',settings:{faults_sheet_name:config.sheet,faults_sync_seconds:config.syncSeconds}},'*');renderRows();setReady(`${state.workspaceName} · ${new Date().toLocaleString('uz-UZ')}`);setMessage('Ushbu Workspace frontend sozlamalari saqlandi. Backend ulanishi keyingi bosqichda qo‘shiladi.','ok')}
+  function sync(){state.rows=readStorage(workspaceKey(ROWS_KEY),[]);setReady(`${state.workspaceName} · lokal sync · ${new Date().toLocaleString('uz-UZ')}`);renderRows();setMessage('Ushbu Workspace lokal jurnal ma’lumotlari yangilandi.','ok')}
+  function clearMemory(){if(!confirm('Faqat tanlangan Workspace NOSOZLIKLAR JURNALI lokal yozuvlari o‘chiriladi. Davom etasizmi?'))return;state.rows=[];localStorage.removeItem(workspaceKey(ROWS_KEY));renderRows();setMessage('Tanlangan Workspace lokal jurnal xotirasi tozalandi.','warn')}
+
+  $('faultsSaveConfig').addEventListener('click',saveConfig);$('faultsClearMemory').addEventListener('click',clearMemory);$('faultsSync').addEventListener('click',sync);$('faultsAdd').addEventListener('click',()=>openModal());
+  $('faultsBack').addEventListener('click',()=>parent.postMessage({type:'SEG_CLOSE_MODULE'},'*'));$('faultsSearch').addEventListener('input',renderRows);$('faultsStatusFilter').addEventListener('change',renderRows);
+  $('faultsForm').addEventListener('submit',saveForm);$('faultsModalClose').addEventListener('click',closeModal);$('faultsCancel').addEventListener('click',closeModal);
+  $('faultsModal').addEventListener('click',(event)=>{if(event.target===$('faultsModal'))closeModal()});document.addEventListener('keydown',(event)=>{if(event.key==='Escape'&&$('faultsModal').classList.contains('show'))closeModal()});
+  $('faultsRows').addEventListener('click',(event)=>{const edit=event.target.closest('[data-edit]');const del=event.target.closest('[data-delete]');if(edit)openModal(state.rows.find((row)=>row.id===edit.dataset.edit));if(del)removeRow(del.dataset.delete)});
+  window.addEventListener('message',(event)=>{if(event.data?.type==='SEG_KIP_WORKSPACE_CHANGE')loadWorkspace(event.data.workspace,event.data.workspaceId)});
+  function boot(){loadWorkspace(null,selectedWorkspaceId());if(parent&&parent!==window)parent.postMessage({type:'REQUEST_WORKSPACE_INFO'},'*')}
+  window.FaultsJournalWorkspace={state,loadWorkspace,workspaceKey};
+  window.addEventListener('DOMContentLoaded',boot,{once:true});
+})();
+</script>
+</body>
+</html>

@@ -574,7 +574,7 @@ window.addEventListener('seg-kip:workspace-change', (e) => {
   }
   
   const genericPage = document.getElementById('genericModulePage');
-  if (genericPage?.classList.contains('active')) {
+  if (genericPage?.classList.contains('active') && !['journal','acts','faults','to','replacement'].includes(activeModuleName)) {
     const frame = document.getElementById('genericModuleFrame');
     if (frame && frame.src) {
       const currentSrc = frame.src;
@@ -584,7 +584,7 @@ window.addEventListener('seg-kip:workspace-change', (e) => {
   }
 
   const ulchovPage = document.getElementById('ulchovIntegratedPage');
-  if (ulchovPage?.classList.contains('active')) {
+  if (ulchovPage?.classList.contains('active') && activeModuleName !== 'ulchov') {
     const frame = document.getElementById('claUlchovFrame');
     if (frame && frame.src) {
       const currentSrc = frame.src;

@@ -77,7 +77,20 @@ export class AppsScriptPersonalDriveProvider {
       const text = await response.text();
       let data = {};
       try { data = text ? JSON.parse(text) : {}; } catch (_) {
-        throw providerError('Apps Script JSON javob qaytarmadi.', 'DRIVE_APPS_SCRIPT_INVALID_RESPONSE', 502);
+        if (response.status === 404) {
+          throw providerError(
+            'Apps Script /exec deployment topilmadi yoki faol emas.',
+            'DRIVE_APPS_SCRIPT_DEPLOYMENT_NOT_FOUND',
+            404,
+            { recommendedFix: 'Apps Script’da Deploy → Manage deployments orqali Web app deployment’ni qayta yarating va yangi /exec URL’ni saqlang.' },
+          );
+        }
+        throw providerError(
+          'Apps Script JSON javob qaytarmadi.',
+          'DRIVE_APPS_SCRIPT_INVALID_RESPONSE',
+          502,
+          { responseStatus: response.status, responseContentType: response.headers?.get?.('content-type') || '' },
+        );
       }
       if (!response.ok || data.ok === false) {
         throw providerError(

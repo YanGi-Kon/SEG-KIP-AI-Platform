@@ -15,22 +15,30 @@
     "UMUMIY BO'LIM":'Умумий маълумотлар фақат ўз ASOSIY VAROQидан олинади.'
   };
   const state={credential:null,credentialName:'',instruments:[],loaded:false,loadedSheet:'',activeMenu:'ПАСПОРТ МАНОМЕТР'};
+  let activeWorkspaceId='';
+  let workspaceLoadVersion=0;
   const $=id=>document.getElementById(id);
   const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  function parentStorage(name,key){try{return parent?.[name]?.getItem(key)||'';}catch(_){return'';}}
+  function workspaceId(){return localStorage.getItem('seg_kip_selected_workspace_id')||parentStorage('localStorage','seg_kip_selected_workspace_id');}
   function readMenus(){try{const rows=JSON.parse(localStorage.getItem(KEYS.menus)||'[]');return Array.isArray(rows)?rows.filter(x=>x&&String(x.menuName||x.name||'').trim()&&String(x.sheetName||x.sheet||'').trim()).map(x=>({menuName:String(x.menuName||x.name).trim(),sheetName:String(x.sheetName||x.sheet).trim()})):[]}catch(_){return[]}}
   function sheetFor(menuName){const rows=readMenus();const exact=rows.find(x=>x.menuName===menuName);return exact?.sheetName||rows[0]?.sheetName||localStorage.getItem(KEYS.legacySheet)||''}
   const settings=()=>({sheetName:sheetFor(state.activeMenu),menuItems:readMenus(),confirmed:localStorage.getItem(KEYS.confirmed)==='true'});
   const hasSettings=()=>{const s=settings();return Boolean(s.confirmed&&s.sheetName)};
-  async function post(path,body){
-    let pget=(s,k)=>{try{return parent?.[s]?.getItem(k)||'';}catch(_){return'';}};
-    const wid=localStorage.getItem('seg_kip_selected_workspace_id')||pget('localStorage','seg_kip_selected_workspace_id');
-    const tok=sessionStorage.getItem('seg_kip_workspace_access_token')||pget('sessionStorage','seg_kip_workspace_access_token');
+  async function post(path,body,expectedWorkspaceId=workspaceId()){
+    const wid=expectedWorkspaceId||workspaceId();
+    const tok=sessionStorage.getItem('seg_kip_workspace_access_token')||parentStorage('sessionStorage','seg_kip_workspace_access_token');
     const headers={'Content-Type':'application/json'};
     if(wid) headers['x-workspace-id']=wid;
     if(tok) headers['Authorization']='Bearer '+tok;
     const r=await fetch(path,{method:'POST',headers,body:JSON.stringify(body)});
     const d=await r.json().catch(()=>({}));
     if(!r.ok||d.error||d.ok===false)throw new Error(d.error||`HTTP ${r.status}`);
+    if(expectedWorkspaceId&&expectedWorkspaceId!==workspaceId()){
+      const error=new Error('Eskirgan Workspace javobi bekor qilindi.');
+      error.code='STALE_WORKSPACE_RESPONSE';
+      throw error;
+    }
     return d;
   }
   function setStatus(text,tone='info'){let b=$('ulchovSheetStatus');if(!b){b=document.createElement('div');b.id='ulchovSheetStatus';document.querySelector('.header')?.insertAdjacentElement('afterend',b)}b.className=`ulchov-sheet-status ${tone}`;b.textContent=text}
@@ -92,12 +100,46 @@
   function renderSummary(data){const r=$('summary-row');if(!r)return;const c={};data.forEach(x=>{c[x.brand]=(c[x.brand]||0)+1});r.innerHTML=Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([b,n])=>`<div class="summary-chip"><div class="chip-dot" style="background:${color(b)}"></div><span>${esc(b)}</span><span class="num" style="color:${color(b)}">${n}</span></div>`).join('')}
   function renderCards(data){setPageTitle();const g=$('cards-grid');if($('total-count'))$('total-count').textContent=data.length;if(!g)return;if(!data.length)return clearCards('Ҳеч нарса топилмади. Қидирув шартларини ўзгартиринг.');g.innerHTML=data.map(x=>{const c=color(x.brand),wc=String(x.work||'').toLowerCase().includes('то-2')||String(x.work||'').toLowerCase().includes('to-2')?'work-to2':'work-akt',u=`https://drive.google.com/drive/search?q=${encodeURIComponent(x.serial||x.name||'')}`;return `<div class="instrument-card" style="--card-color:${c}"><div class="card-top"><div><div class="pos-label">ПОЗИЦИЯ</div><div class="pos-badge">${esc(x.pos||'—')}</div></div><div style="text-align:center"><div style="font-size:32px">${esc(devIcon(x.name))}</div></div><div style="text-align:right"><div class="card-brand"><div class="brand-badge" style="background:${c}">${esc(x.brand||'Бошқа')}</div></div><div style="font-size:18px;margin-top:4px">${esc(brandIcon(x.brand))}</div></div></div><div class="card-body"><div class="card-name">${esc(x.name||'Асбоб')}</div><div class="serial-row"><div class="serial-label">ЗАВОД РАҚАМИ</div><div class="serial-val">${esc(x.serial||'—')}</div></div><div class="card-info"><div class="info-item"><div class="info-label">Ўлчов диап.</div><div class="info-value">${esc(x.range||'—')}</div></div><div class="info-item"><div class="info-label">Хизмат тури</div><div class="info-value">${esc(x.work||'—')}</div></div></div><div><span class="location-tag">📍 ${esc(x.location||'—')}</span><span class="work-tag ${wc}">${esc(x.work||'—')}</span></div><div style="height:10px"></div><a href="${u}" target="_blank" rel="noopener" class="pdf-btn">📄 Паспортни кўриш</a></div></div>`}).join('')}
   function filterCards(){const q=($('search-input')?.value||'').toLowerCase(),b=$('filter-brand')?.value||'',l=$('filter-location')?.value||'';const data=state.instruments.filter(x=>{const h=`${x.pos} ${x.name} ${x.brand} ${x.serial} ${x.range} ${x.location} ${x.work}`.toLowerCase();return(!q||h.includes(q))&&(!b||x.brand===b)&&(!l||x.location===l)});renderSummary(data);renderCards(data)}
-  async function loadSheet(openAfter=false){const s=settings();if(!hasSettings()){clearCards('Созламалар киритилмаган.');setStatus('Google Sheets созламалари киритилмаган.','warn');if (window.ulchovIsAdmin !== false) { openSettings(); } return false}try{setStatus(`${state.activeMenu}: ASOSIY VAROQ маълумотлари юкланмоқда...`,'warn');const d=await post('/api/ulchov/instruments',s);state.instruments=d.instruments||[];state.loaded=true;state.loadedSheet=s.sheetName;updateFilters(state.instruments);renderSummary(state.instruments);renderCards(state.instruments);setStatus(`${state.activeMenu}: ${state.instruments.length} та маълумот юкланди. ASOSIY VAROQ: ${d.sheetName}`,'ok');if(openAfter)showConfiguredPage();return true}catch(e){state.instruments=[];state.loaded=false;state.loadedSheet='';clearCards(e.message);setStatus(e.message,'bad');return false}}
+  async function loadSheet(openAfter=false,expectedWorkspaceId=workspaceId()){
+    const s=settings();
+    if(!hasSettings()){
+      clearCards('Созламалар киритилмаган.');
+      setStatus('Google Sheets созламалари киритилмаган.','warn');
+      if(window.ulchovIsAdmin!==false)openSettings();
+      return false;
+    }
+    try{
+      setStatus(`${state.activeMenu}: ASOSIY VAROQ маълумотлари юкланмоқда...`,'warn');
+      const d=await post('/api/ulchov/instruments',s,expectedWorkspaceId);
+      if(expectedWorkspaceId&&expectedWorkspaceId!==workspaceId())return false;
+      state.instruments=d.instruments||[];
+      state.loaded=true;
+      state.loadedSheet=s.sheetName;
+      updateFilters(state.instruments);
+      renderSummary(state.instruments);
+      renderCards(state.instruments);
+      setStatus(`${state.activeMenu}: ${state.instruments.length} та маълумот юкланди. ASOSIY VAROQ: ${d.sheetName}`,'ok');
+      if(openAfter)showConfiguredPage();
+      return true;
+    }catch(e){
+      if(e.code==='STALE_WORKSPACE_RESPONSE')return false;
+      state.instruments=[];
+      state.loaded=false;
+      state.loadedSheet='';
+      clearCards(e.message);
+      setStatus(e.message,'bad');
+      return false;
+    }
+  }
   function showConfiguredPage(){if(typeof window.goPage==='function')window.goPage('pasport');setPageTitle();renderSummary(state.instruments);renderCards(state.instruments)}
   async function openConfiguredMenu(menuName){state.activeMenu=menuName;state.loaded=false;const wanted=sheetFor(menuName);if(!wanted){setStatus(`${menuName} учун ASOSIY VAROQ киритилмаган.`,'bad');if (window.ulchovIsAdmin !== false) { openSettings(); } return}if(!hasSettings()){clearCards('Созламалар киритилмаган.');setStatus(`${menuName} учун аввал Google Sheets созламаларини киритинг.`,'warn');if (window.ulchovIsAdmin !== false) { openSettings(); } return}const ok=await loadSheet(false);if(ok)showConfiguredPage()}
   function patchCards(){const grid=document.querySelector('#page-submenu .submenu-grid');if(!grid||grid.dataset.ulchovPatched==='true')return;Array.from(grid.children).forEach(ch=>ch.remove());MENU_ORDER.forEach(name=>{const b=document.createElement('button');b.type='button';b.className='sub-card ulchov-nav-card';b.innerHTML=`<div class="sub-icon">${ICONS[name]}</div><h3>${esc(name)}</h3><p>${esc(DESCS[name])}</p>`;b.onclick=()=>openConfiguredMenu(name);grid.appendChild(b)});grid.dataset.ulchovPatched='true'}
   function fixText(){[document.querySelector('.stats-bar'),document.querySelector('#page-main'),document.querySelector('#page-pasport')].filter(Boolean).forEach(root=>{const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode()))n.nodeValue=n.nodeValue.replace(/аслоб/g,'асбоб').replace(/Аслоб/g,'Асбоб')})}
-  async function handleWorkspace(ws, isAdmin) {
+  async function handleWorkspace(ws, isAdmin, nextWorkspaceId='') {
+    const nextId=String(nextWorkspaceId||ws?.id||workspaceId()||'').trim();
+    if(nextId)localStorage.setItem('seg_kip_selected_workspace_id',nextId);
+    activeWorkspaceId=nextId;
+    const loadVersion=++workspaceLoadVersion;
     window.ulchovIsAdmin = isAdmin;
     const btn = $('ulchovOpenSettingsBtn');
     // Only hide the button if we are SURE the user is NOT admin.
@@ -116,6 +158,15 @@
       localStorage.removeItem(KEYS.menus);
       localStorage.removeItem(KEYS.confirmed);
     }
+
+    state.instruments=[];
+    state.loaded=false;
+    state.loadedSheet='';
+    const workspaceMenus=readMenus();
+    if(workspaceMenus.length&&!workspaceMenus.some(item=>item.menuName===state.activeMenu)){
+      state.activeMenu=workspaceMenus[0].menuName;
+    }
+    clearCards('Yangi Workspace ma’lumotlari yuklanmoqda...');
     
     if (!hasSettings()) {
       if (isAdmin) {
@@ -125,13 +176,15 @@
         setStatus('Google Sheets созламалари киритилмаган. Администраторга мурожаат қилинг.', 'warn');
       }
     } else {
-      setStatus('Google Sheets уланди.', 'ok');
+      setStatus('Yangi Workspace ma’lumotlari yuklanmoqda...', 'warn');
+      await loadSheet(false,nextId);
+      if(loadVersion!==workspaceLoadVersion||nextId!==activeWorkspaceId)return;
     }
   }
 
   window.addEventListener('message', async (e) => {
     if (e.data && e.data.type === 'SEG_KIP_WORKSPACE_CHANGE') {
-      await handleWorkspace(e.data.workspace, e.data.isAdmin);
+      await handleWorkspace(e.data.workspace, e.data.isAdmin, e.data.workspaceId);
     }
   });
 

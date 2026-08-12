@@ -190,9 +190,6 @@
               <label class="workspace-label">Time zone
                 <input class="workspace-input" id="workspaceTimeZoneInput" value="${DEFAULT_TIME_ZONE}" required>
               </label>
-              <label class="workspace-label wide">Drive folder URL yoki ID, keyingi bosqichlar uchun ixtiyoriy
-                <input class="workspace-input" id="workspaceDriveFolderInput" placeholder="https://drive.google.com/drive/folders/...">
-              </label>
               <label class="workspace-label wide" style="margin-top: 12px;">Service Account JSON (individual)
                 <input type="file" id="workspaceServiceAccountInput" accept=".json" class="workspace-input">
                 <div id="workspaceServiceAccountStatus" style="font-size: 13px; margin-top: 4px; color: #555;"></div>
@@ -447,7 +444,6 @@
       '#workspaceSheetUrlInput',
       '#workspaceMainSheetInput',
       '#workspaceTimeZoneInput',
-      '#workspaceDriveFolderInput',
       '#workspaceServiceAccountInput',
     ].forEach((selector) => {
       const input = qs(selector);
@@ -616,7 +612,6 @@
     if (qs('#workspaceNameInput')) qs('#workspaceNameInput').value = workspace?.name || '';
     if (qs('#workspaceSheetUrlInput')) qs('#workspaceSheetUrlInput').value = workspace?.spreadsheetUrl || '';
     if (qs('#workspaceTimeZoneInput')) qs('#workspaceTimeZoneInput').value = workspace?.timeZone || DEFAULT_TIME_ZONE;
-    qs('#workspaceDriveFolderInput') && (qs('#workspaceDriveFolderInput').value = workspace?.driveFolderId || '');
     const saInput = qs('#workspaceServiceAccountInput');
     const saStatus = qs('#workspaceServiceAccountStatus');
     if (saInput) saInput.value = '';
@@ -691,8 +686,6 @@
       timeZone: String(qs('#workspaceTimeZoneInput')?.value || '').trim() || DEFAULT_TIME_ZONE,
       ...extra,
     };
-    const driveFolderValue = qs('#workspaceDriveFolderInput')?.value.trim();
-    if (driveFolderValue) body.driveFolderUrl = driveFolderValue;
     return body;
   }
 
