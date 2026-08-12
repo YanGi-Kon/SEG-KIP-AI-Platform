@@ -23,8 +23,13 @@ export const backupState = {
 
 export async function sendTelegramMessage(message) {
   if (!bot) {
-    console.warn('[Telegram] Bot not initialized, skipping message:', message);
-    return false;
+    const token = getConfig().telegram.botToken;
+    if (token) {
+      bot = new TelegramBot(token, { polling: false });
+    } else {
+      console.warn('[Telegram] Bot token missing, skipping message:', message);
+      return false;
+    }
   }
   try {
     const chatId = getConfig().telegram.backupChatId;
@@ -138,31 +143,47 @@ async function performDatabaseBackup() {
   backupState.db.message = 'Started DB backup...';
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `db_backup_${timestamp}.sql`;
+  const filename = `db_backup_${timestamp}.json`;
   const filepath = path.join(BACKUP_DIR, filename);
 
   try {
-    const dbUrl = getConfig().database.url;
-    if (!dbUrl) throw new Error('DATABASE_URL is not configured.');
+    // Instead of using pg_dump (which fails due to Neon's Postgres 18 version),
+    // we use pure Node.js to export all tables as JSON.
+    const tablesResult = await query(`
+      SELECT tablename
+      FROM pg_tables
+      WHERE schemaname = 'public'
+      ORDER BY tablename
+    `);
 
-    // pg_dump often fails with channel_binding=require on Neon/older clients
-    let dumpUrl = dbUrl.replace(/[\?&]channel_binding=require/g, '');
+    const tables = tablesResult.rows.map(r => r.tablename);
+    const backupData = {
+      createdAt: new Date().toISOString(),
+      database: 'neondb',
+      tables: {},
+      meta: { totalTables: tables.length, exportedBy: 'telegram-bot' },
+    };
 
-    // Neon requires SNI or explicit endpoint ID parameter for older libpq versions
-    const neonMatch = dumpUrl.match(/@(ep-[a-zA-Z0-9\-]+)(?:-pooler)?\./);
-    if (neonMatch) {
-      const endpointId = neonMatch[1];
-      dumpUrl += dumpUrl.includes('?') ? `&options=endpoint%3D${endpointId}` : `?options=endpoint%3D${endpointId}`;
+    for (const table of tables) {
+      try {
+        const result = await query(`SELECT * FROM "${table}"`);
+        backupData.tables[table] = {
+          rowCount: result.rowCount,
+          columns: result.fields.map(f => f.name),
+          rows: result.rows,
+        };
+      } catch (err) {
+        backupData.tables[table] = { error: err.message };
+      }
     }
 
-    // Execute pg_dump
-    // Notice: pg_dump must be installed on the system where Node is running
-    await execAsync(`pg_dump "${dumpUrl}" > "${filepath}"`);
-    console.log(`[BackupWorker] DB dumped to ${filepath}`);
+    // Write to file
+    fs.writeFileSync(filepath, JSON.stringify(backupData, null, 2));
+    console.log(`[BackupWorker] DB exported to JSON at ${filepath}`);
 
     // Send to Telegram
     await bot.sendDocument(getConfig().telegram.backupChatId, filepath, {
-      caption: `🗄 Database Backup: ${filename}\n🕒 Время: ${getTashkentTime()}`,
+      caption: `🗄 Database Backup (JSON): ${filename}\n🕒 Время: ${getTashkentTime()}`,
     });
     console.log(`[BackupWorker] DB backup sent to Telegram.`);
     backupState.db.lastRun = new Date().toISOString();
