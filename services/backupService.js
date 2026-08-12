@@ -128,9 +128,12 @@ async function performDatabaseBackup() {
     const dbUrl = getConfig().database.url;
     if (!dbUrl) throw new Error('DATABASE_URL is not configured.');
 
+    // pg_dump often fails with channel_binding=require on Neon/older clients
+    const dumpUrl = dbUrl.replace(/[\?&]channel_binding=require/g, '');
+
     // Execute pg_dump
     // Notice: pg_dump must be installed on the system where Node is running
-    await execAsync(`pg_dump "${dbUrl}" > "${filepath}"`);
+    await execAsync(`pg_dump "${dumpUrl}" > "${filepath}"`);
     console.log(`[BackupWorker] DB dumped to ${filepath}`);
 
     // Send to Telegram
