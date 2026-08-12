@@ -59,7 +59,7 @@
         <div class="act-section">5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</div><textarea id="actionText" placeholder="Қўлда тўлдирилади"></textarea>
         <div class="act-section">Хулоса:</div><textarea id="conclusion" placeholder="Қўлда тўлдирилади"></textarea>
       </div>
-      <div class="tabs" style="justify-content:flex-end"><button id="saveActBtn" class="btn green" onclick="ActsUI.saveAct()" disabled>Сақлаш</button><button class="btn orange" onclick="ActsUI.setStatus('Қоралама браузерда сақланди.', 'sync')">Қоралама сақлаш</button></div>
+      <div class="tabs" style="justify-content:flex-end"><button id="saveActBtn" class="btn green workspace-operator-only" onclick="ActsUI.saveAct()" disabled>Сақлаш</button><button class="btn orange workspace-operator-only" onclick="ActsUI.setStatus('Қоралама браузерда сақланди.', 'sync')">Қоралама сақлаш</button></div>
     </div>
 
     <div id="reports" class="view">
@@ -91,7 +91,7 @@
           <input id="finalDocumentsFolderInput" placeholder="https://drive.google.com/drive/folders/... yoki folder ID" data-i18n-placeholder="https://drive.google.com/drive/folders/... yoki folder ID">
         </label>
         <div class="final-documents-actions">
-          <button id="saveFinalDocumentsFolderBtn" class="btn primary" type="button" data-i18n="Saqlash">Saqlash</button>
+          <button id="saveFinalDocumentsFolderBtn" class="btn primary workspace-admin-only" type="button" data-i18n="Saqlash">Saqlash</button>
           <button id="testFinalDocumentsFolderBtn" class="btn ghost" type="button" data-i18n="Tekshirish">Tekshirish</button>
           <button id="openFinalDocumentsFolderBtn" class="btn ghost" type="button" disabled data-i18n="Drive">Drive</button>
         </div>
@@ -102,7 +102,7 @@
     </section>
   </div>
 </div>
-<div id="signersModal" class="modal"><div class="modalbox wide"><div class="modal-head"><div><h2>ИМЗО ЧЕКУВЧИЛАР</h2><p class="note">Лавозим, F.I.O, PNG имзо ва Gmail Google Sheets/Drive да доимий сақланади.</p></div><button class="btn ghost" onclick="ActsUI.closeSigners()">✕</button></div><div class="modal-note note">PNG: максимум 2 MB. Drive папкаси оммавий қилинмайди. Email тасдиқлаш сервердаги Railway Variables орқали ишлайди.</div><div class="signer-toolbar"><button class="btn green" onclick="ActsUI.addSignerRow()">＋ Қўшиш</button><button class="btn primary" onclick="ActsUI.loadSigners()">↻ Янгилаш</button></div><div class="tablewrap" style="max-height:58vh"><table class="signer-table"><thead><tr><th>Lavozimi</th><th>F.I.O</th><th>Imzo (.png)</th><th>Gmail</th><th>Амал</th></tr></thead><tbody id="signersRows"><tr><td colspan="5">Маълумот юкланмоқда...</td></tr></tbody></table></div><div id="signersMsg" class="msg">Тайёр.</div></div></div>
+<div id="signersModal" class="modal"><div class="modalbox wide"><div class="modal-head"><div><h2>ИМЗО ЧЕКУВЧИЛАР</h2><p class="note">Лавозим, F.I.O, PNG имзо ва Gmail Google Sheets/Drive да доимий сақланади.</p></div><button class="btn ghost" onclick="ActsUI.closeSigners()">✕</button></div><div class="modal-note note">PNG: максимум 2 MB. Drive папкаси оммавий қилинмайди. Email тасдиқлаш сервердаги Railway Variables орқали ишлайди.</div><div class="signer-toolbar"><button class="btn green workspace-operator-only" onclick="ActsUI.addSignerRow()">＋ Қўшиш</button><button class="btn primary" onclick="ActsUI.loadSigners()">↻ Янгилаш</button></div><div class="tablewrap" style="max-height:58vh"><table class="signer-table"><thead><tr><th>Lavozimi</th><th>F.I.O</th><th>Imzo (.png)</th><th>Gmail</th><th>Амал</th></tr></thead><tbody id="signersRows"><tr><td colspan="5">Маълумот юкланмоқда...</td></tr></tbody></table></div><div id="signersMsg" class="msg">Тайёр.</div></div></div>
 
 <script src="../js/workspace-api-client.js"></script>
 <script src="../js/acts.js"></script>

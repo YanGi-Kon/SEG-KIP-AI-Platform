@@ -41,6 +41,12 @@ export function getAppConfig(env = process.env) {
     legacyConfigEnabled: parseBoolean(env.LEGACY_CONFIG_ENABLED, true),
     authRequired: parseBoolean(env.AUTH_REQUIRED, false),
     outboxWorkerEnabled: parseBoolean(env.OUTBOX_WORKER_ENABLED, false),
+    backupWorkerEnabled: parseBoolean(env.BACKUP_WORKER_ENABLED, false),
+  });
+
+  const telegram = Object.freeze({
+    botToken: String(env.TELEGRAM_BOT_TOKEN || '').trim(),
+    backupChatId: String(env.TELEGRAM_BACKUP_CHAT_ID || '').trim(),
   });
 
   const databaseUrl = String(env.DATABASE_URL || '').trim();
@@ -81,6 +87,7 @@ export function getAppConfig(env = process.env) {
       legacySpreadsheetUrl: String(env.GOOGLE_SPREADSHEET_URL || env.GOOGLE_SHEETS_ID || '').trim(),
       legacySignatureFolderId: String(env.SIGNATURE_DRIVE_FOLDER_ID || '').trim(),
     }),
+    telegram,
   };
 
   if (features.workspaceModeEnabled && !config.google.serviceAccountJson && !config.google.serviceAccountBase64) {
@@ -118,6 +125,10 @@ export function redactConfig(config) {
       serviceAccountConfigured: Boolean(config.google.serviceAccountJson || config.google.serviceAccountBase64),
       legacySpreadsheetConfigured: Boolean(config.google.legacySpreadsheetUrl),
       legacySignatureFolderConfigured: Boolean(config.google.legacySignatureFolderId),
+    },
+    telegram: {
+      botTokenConfigured: Boolean(config.telegram.botToken),
+      backupChatIdConfigured: Boolean(config.telegram.backupChatId),
     },
   };
 }

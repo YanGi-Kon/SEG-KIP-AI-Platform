@@ -3,10 +3,7 @@ import { canManageRole } from './permissions.js';
 export const WORKSPACE_MEMBER_ROLES = Object.freeze([
   'owner',
   'administrator',
-  'workspace_manager',
-  'department_manager',
   'operator',
-  'engineer',
   'viewer',
 ]);
 

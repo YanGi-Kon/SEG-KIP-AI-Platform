@@ -158,10 +158,10 @@
     </div>
   </div>
 
-  <!-- Database Backup (admin only) -->
-  <div class="settings-card admin-only" id="backupCard">
+  <!-- Database Backup (super_admin only) -->
+  <div class="settings-card super-admin-only" id="backupCard">
     <h2>🗄️ <span data-i18n="Резервная копия БД">Резервная копия БД</span></h2>
-    <p data-i18n="Экспорт всех данных базы данных в JSON-файл. Только для администраторов.">Экспорт всех данных базы данных в JSON-файл. Только для администраторов.</p>
+    <p data-i18n="Экспорт всех данных базы данных в JSON-файл. Только для главных администраторов.">Экспорт всех данных базы данных в JSON-файл. Только для главных администраторов.</p>
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <button class="btn-backup" id="backupBtn" onclick="downloadBackup()">
         ⬇ <span data-i18n="Скачать резервную копию">Скачать резервную копию</span>
@@ -170,6 +170,40 @@
     </div>
     <div style="margin-top:14px;font-size:12px;color:#475569;line-height:1.6">
       ⚠ <span data-i18n="Файл содержит конфиденциальные данные. Храните его в безопасном месте.">Файл содержит конфиденциальные данные. Храните его в безопасном месте.</span>
+    </div>
+  </div>
+
+  <!-- Telegram Backup (super_admin only) -->
+  <div class="settings-card super-admin-only" id="telegramBackupCard">
+    <h2>🚀 <span data-i18n="Telegram Zaxira (Faqat Bosh Admin)">Telegram Zaxira (Faqat Bosh Admin)</span></h2>
+    <p data-i18n="Ma'lumotlar bazasi va Google jadvallarni Telegram orqali yuklash.">Ma'lumotlar bazasi va Google jadvallarni Telegram orqali yuklash.</p>
+    
+    <div style="margin-top:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;">
+      <div style="font-weight:600; margin-bottom:8px; font-size:14px;">🗄️ Database (Postgres)</div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div id="telegramDbStatusText" style="font-size:13px; color:#475569;">Yuklanmoqda...</div>
+        <button class="btn-backup" onclick="triggerTelegramBackup('db')" style="background:#2563eb;">Test Yuborish</button>
+      </div>
+    </div>
+
+    <div style="margin-top:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;">
+      <div style="font-weight:600; margin-bottom:8px; font-size:14px;">📊 Google Sheets</div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div id="telegramSheetsStatusText" style="font-size:13px; color:#475569;">Yuklanmoqda...</div>
+        <button class="btn-backup" onclick="triggerTelegramBackup('sheets')" style="background:#10b981;">Test Yuborish</button>
+      </div>
+    </div>
+
+    <!-- Backup Schedule -->
+    <div style="margin-top:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;">
+      <div style="font-weight:600; margin-bottom:8px; font-size:14px;">⏱️ <span data-i18n="Таймер бекапов">Таймер бекапов (Vaqtlar)</span></div>
+      <div id="backupScheduleList" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; font-size:14px;">
+        <!-- Filled by JS -->
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="time" id="newBackupTime" style="padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; font-family:inherit;">
+        <button class="btn-backup" onclick="addBackupTime()" style="background:#475569; padding:8px 16px; font-size:13px; color:#fff; border:none;">Qo'shish</button>
+      </div>
     </div>
   </div>
 
@@ -235,6 +269,10 @@ async function loadProfile() {
     if (nameInput) nameInput.value = u.fullName || u.username || '';
   } catch(e) {
     info.textContent = '—';
+  }
+  
+  if (document.body.getAttribute('data-platform-role') === 'super_admin') {
+    fetchTelegramBackupStatus();
   }
 }
 
@@ -332,15 +370,13 @@ function selectWorkspace(id) {
   showToast();
 }
 
-
-
 async function downloadBackup() {
   const btn = document.getElementById('backupBtn');
   const status = document.getElementById('backupStatus');
   btn.disabled = true;
   status.textContent = '⏳ Создание резервной копии...';
   try {
-    const token = parent?.sessionStorage?.getItem('seg_kip_workspace_access_token') || '';
+    const token = getToken();
     const res = await fetch('/api/backup', {
       headers: { Authorization: 'Bearer ' + token },
       credentials: 'include'
@@ -366,6 +402,155 @@ async function downloadBackup() {
     btn.disabled = false;
   }
 }
+
+// --- Telegram Backup Functions ---
+async function fetchTelegramBackupStatus() {
+  const dbEl = document.getElementById('telegramDbStatusText');
+  const sheetsEl = document.getElementById('telegramSheetsStatusText');
+  
+  try {
+    const res = await fetch('/api/backup/telegram/status', {
+      headers: { 'Authorization': 'Bearer ' + getToken() },
+      credentials: 'include'
+    });
+    
+    if (!res.ok) throw new Error('API xatosi');
+    
+    const data = await res.json();
+    
+    const formatStatus = (s) => {
+      if (!s.lastRun) return 'Hech qachon bajarilmagan.';
+      const date = new Date(s.lastRun).toLocaleString('ru-RU');
+      return `Oxirgi: ${date} - <b>${s.status.toUpperCase()}</b><br/><small style="color:#64748b">${s.message}</small>`;
+    };
+    
+    if (dbEl) dbEl.innerHTML = formatStatus(data.db);
+    if (sheetsEl) sheetsEl.innerHTML = formatStatus(data.sheets);
+    
+  } catch(e) {
+    if (dbEl) dbEl.textContent = 'Status olinmadi';
+    if (sheetsEl) sheetsEl.textContent = 'Status olinmadi';
+  }
+}
+
+async function triggerTelegramBackup(type) {
+  try {
+    const res = await fetch('/api/backup/telegram/trigger', {
+      method: 'POST',
+      headers: { 
+        'Authorization': 'Bearer ' + getToken(),
+        'Content-Type': 'application/json' 
+      },
+      credentials: 'include',
+      body: JSON.stringify({ type })
+    });
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Nomaʼlum xato');
+    
+    alert(`Muvaffaqiyatli ishga tushirildi: ${data.message}`);
+    setTimeout(fetchTelegramBackupStatus, 2000);
+  } catch(e) {
+    alert('Xato: ' + e.message);
+  }
+}
+
+// --- Backup Schedule Functions ---
+let backupTimes = [];
+
+async function fetchBackupSchedule() {
+  try {
+    const res = await fetch('/api/backup/schedule', {
+      headers: { 'Authorization': 'Bearer ' + getToken() },
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error('Failed to fetch schedule');
+    const data = await res.json();
+    backupTimes = data.times || [];
+    renderBackupTimes();
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function renderBackupTimes() {
+  const container = document.getElementById('backupScheduleList');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  if (backupTimes.length === 0) {
+    container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Taymer o\'rnatilmagan</span>';
+    return;
+  }
+  
+  backupTimes.sort().forEach((t, index) => {
+    const tag = document.createElement('div');
+    tag.style.cssText = 'background:#e2e8f0; padding:4px 10px; border-radius:12px; display:flex; align-items:center; gap:6px;';
+    tag.innerHTML = `
+      <span style="font-weight:600; color:#334155;">${t}</span>
+      <span style="cursor:pointer; color:#ef4444; font-weight:bold; font-size:16px; line-height:1;" onclick="removeBackupTime(${index})">×</span>
+    `;
+    container.appendChild(tag);
+  });
+}
+
+async function addBackupTime() {
+  const input = document.getElementById('newBackupTime');
+  const time = input.value;
+  if (!time) return alert("Iltimos, vaqtni tanlang!");
+  
+  if (backupTimes.includes(time)) {
+    return alert("Bu vaqt allaqachon qo'shilgan.");
+  }
+  
+  backupTimes.push(time);
+  input.value = '';
+  renderBackupTimes();
+  await saveBackupSchedule();
+}
+
+async function removeBackupTime(index) {
+  backupTimes.splice(index, 1);
+  renderBackupTimes();
+  await saveBackupSchedule();
+}
+
+async function saveBackupSchedule() {
+  try {
+    const res = await fetch('/api/backup/schedule', {
+      method: 'POST',
+      headers: { 
+        'Authorization': 'Bearer ' + getToken(),
+        'Content-Type': 'application/json' 
+      },
+      credentials: 'include',
+      body: JSON.stringify({ times: backupTimes })
+    });
+    
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Saqlashda xatolik');
+    }
+    
+    const toast = document.getElementById('saveToast');
+    const span = toast.querySelector('span');
+    if (span) span.textContent = "Taymer saqlandi!";
+    showToast();
+  } catch(e) {
+    alert('Xato: ' + e.message);
+    await fetchBackupSchedule(); // revert
+  }
+}
+
+// Call on load
+document.addEventListener('DOMContentLoaded', () => {
+  // Existing calls ...
+  setTimeout(() => {
+    if (document.getElementById('telegramBackupCard')?.style.display !== 'none') {
+      fetchBackupSchedule();
+    }
+  }, 500);
+});
 </script>
 </body>
 </html>

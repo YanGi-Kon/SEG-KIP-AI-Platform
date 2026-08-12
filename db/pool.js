@@ -26,6 +26,10 @@ export function getPool() {
     application_name: 'seg-kip-ai-platform',
   });
 
+  pool.on('connect', (client) => {
+    client.query('SET search_path TO public');
+  });
+
   pool.on('error', (error) => {
     console.error('[database] unexpected pool error:', error.message);
   });

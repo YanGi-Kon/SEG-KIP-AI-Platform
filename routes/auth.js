@@ -69,6 +69,7 @@ function responseSession(session) {
 }
 
 function handleError(res, error) {
+  console.error('[Auth Error]', error);
   const knownStatus = Number(error.statusCode);
   const status = Number.isInteger(knownStatus) && knownStatus >= 400 && knownStatus < 600
     ? knownStatus

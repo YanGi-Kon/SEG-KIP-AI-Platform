@@ -20,17 +20,17 @@
     <div class="grid">
       <div><label class="label">Asosiy varoq nomi</label><input id="menuSheet" class="input" value="кудук руйхати"></div>
       <div><label class="label">Auto sync sekund</label><input id="syncSeconds" class="input" type="number" min="10" value="30"></div>
-      <button class="btn primary" onclick="saveAndConnect()">🔐 SAQLASH & ULASH</button>
-      <button class="btn red" onclick="clearMemory()">🧹 XOTIRANI TOZALASH</button>
+      <button class="btn primary workspace-admin-only" onclick="saveAndConnect()">🔐 SAQLASH & ULASH</button>
+      <button class="btn red workspace-admin-only" onclick="clearMemory()">🧹 XOTIRANI TOZALASH</button>
     </div>
-    <div style="margin-top:10px; font-size:12px; color:#555;">Google Sheets ҳаволаси ва Service Account умумий Workspace созламаларидан автоматик олинади.</div>
+    <div style="margin-top:10px; font-size:12px; color:#555;">Google Sheets ҳаволаси va Service Account umumiy Workspace sozlalaridan avtomatik olinadi.</div>
     <div id="message" class="msg">Ma’lumotlar tanlangan Workspace bo‘yicha alohida saqlanadi.</div>
   </div>
 
   <div id="menuView">
     <div class="panel">
       <div class="toolbar">
-        <button class="btn orange" onclick="syncNow()">🔄 LIVE SYNC</button>
+        <button class="btn orange workspace-operator-only" onclick="syncNow()">🔄 LIVE SYNC</button>
         <input id="search" class="input" placeholder="Qidirish: hudud yoki ЖУРНАЛ..." oninput="renderRoutes()">
         <select id="routeSelect" class="select" style="max-width:300px" onchange="selectRoute(this.value)"></select>
       </div>
@@ -42,8 +42,8 @@
     <div class="panel">
       <div class="toolbar">
         <button class="btn" onclick="backToMenu()">← Menyuga qaytish</button>
-        <button class="btn orange" onclick="syncNow()">🔄 LIVE SYNC</button>
-        <button class="btn green" onclick="openEditor('add')">➕ Yangi yozuv</button>
+        <button class="btn orange workspace-operator-only" onclick="syncNow()">🔄 LIVE SYNC</button>
+        <button class="btn green workspace-operator-only" onclick="openEditor('add')">➕ Yangi yozuv</button>
         <input id="journalSearch" class="input" placeholder="Qidirish: nom, poz, zavod raqami, Место установки, skv..." oninput="renderRows()">
       </div>
     </div>
@@ -58,7 +58,7 @@
     <div class="formgrid" id="formFields"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:15px">
       <button class="btn" onclick="closeEditor()">Bekor qilish</button>
-      <button class="btn green" onclick="saveRow()">💾 Saqlash</button>
+      <button class="btn green workspace-operator-only" onclick="saveRow()">💾 Saqlash</button>
     </div>
   </div>
 </div>
@@ -249,7 +249,7 @@ function renderRows(){
   const title = isMasterRoute(route) ? '📘 ОБЩИЙ ЖУРНАЛ / БАЗА' : `${esc(route?.title || currentSheet)} — Журнал`;
   $('journalTitle').innerHTML = `<b>${title}</b><div class="small">Manba: <b>${esc(currentSheet)}</b> · ${data.length} ta yozuv</div>`;
   if(!data.length){ $('tableArea').innerHTML = '<div class="panel empty">0 ta yozuv. Ulanish va varoq sxemasini tekshiring.</div>'; return; }
-  $('tableArea').innerHTML = `<div class="tablewrap"><table><thead><tr>${FIELDS.map(f=>`<th>${esc(f[1])}</th>`).join('')}<th>Amal</th></tr></thead><tbody>${data.map(r=>`<tr>${FIELDS.map(f=>`<td>${esc(r[f[0]])}</td>`).join('')}<td class="actions"><button class="btn orange" onclick='openEditor("edit", ${JSON.stringify(r).replace(/'/g,"&#39;")})'>✏️</button><button class="btn red" onclick="removeRow(${Number(r._rowNumber)})">🗑</button></td></tr>`).join('')}</tbody></table></div>`;
+  $('tableArea').innerHTML = `<div class="tablewrap"><table><thead><tr>${FIELDS.map(f=>`<th>${esc(f[1])}</th>`).join('')}<th>Amal</th></tr></thead><tbody>${data.map(r=>`<tr>${FIELDS.map(f=>`<td>${esc(r[f[0]])}</td>`).join('')}<td class="actions"><button class="btn orange workspace-operator-only" onclick='openEditor("edit", ${JSON.stringify(r).replace(/'/g,"&#39;")})'>✏️</button><button class="btn red workspace-operator-only" onclick="removeRow(${Number(r._rowNumber)})">🗑</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 function renderAll(){ renderViews(); if(state.currentView === 'journal'){ renderRows(); } else { renderRoutes(); } }
 async function openEditor(mode, row=null){

@@ -97,7 +97,7 @@ router.post('/', requireWorkspaceCreator, async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const pRole = String(req.auth.platformRole || '').toLowerCase();
-    const isAdmin = pRole === 'super admin';
+    const isAdmin = pRole === 'super_admin' || pRole === 'super admin';
     
     let rows;
     if (isAdmin) {

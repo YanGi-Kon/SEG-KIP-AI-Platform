@@ -738,6 +738,56 @@ body::after {
   color: white;
 }
 
-body[data-platform-role="user"] .admin-only {
+.admin-only, .super-admin-only {
   display: none !important;
 }
+
+body[data-platform-role="admin"] .settings-card.admin-only,
+body[data-platform-role="super_admin"] .settings-card.admin-only,
+body[data-platform-role="super_admin"] .settings-card.super-admin-only {
+  display: block !important;
+}
+
+body[data-platform-role="admin"] .menu-item.admin-only,
+body[data-platform-role="super_admin"] .menu-item.admin-only,
+body[data-platform-role="super_admin"] .menu-item.super-admin-only {
+  display: flex !important;
+}
+
+/* Workspace Role-Based Access Control (RBAC) rules */
+.workspace-admin-only, .workspace-operator-only {
+  display: none !important;
+}
+
+/* Super Admin overrides all workspace permissions */
+body[data-platform-role="super_admin"] .workspace-admin-only,
+body[data-platform-role="super_admin"] .workspace-operator-only {
+  display: block !important;
+}
+body[data-platform-role="super_admin"] .workspace-admin-only.flex-item,
+body[data-platform-role="super_admin"] .workspace-operator-only.flex-item {
+  display: flex !important;
+}
+
+/* Workspace Administrators (owner or administrator) */
+body[data-workspace-role="owner"] .workspace-admin-only,
+body[data-workspace-role="administrator"] .workspace-admin-only {
+  display: block !important;
+}
+body[data-workspace-role="owner"] .workspace-admin-only.flex-item,
+body[data-workspace-role="administrator"] .workspace-admin-only.flex-item {
+  display: flex !important;
+}
+
+/* Workspace Operators (owner, administrator, or operator) */
+body[data-workspace-role="owner"] .workspace-operator-only,
+body[data-workspace-role="administrator"] .workspace-operator-only,
+body[data-workspace-role="operator"] .workspace-operator-only {
+  display: block !important;
+}
+body[data-workspace-role="owner"] .workspace-operator-only.flex-item,
+body[data-workspace-role="administrator"] .workspace-operator-only.flex-item,
+body[data-workspace-role="operator"] .workspace-operator-only.flex-item {
+  display: flex !important;
+}
+

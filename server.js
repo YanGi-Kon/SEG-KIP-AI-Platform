@@ -25,6 +25,7 @@ import { createKudukRouter, initKudukRealtime } from "./routes/kuduk.js";
 import { isDatabaseConfigured } from "./db/pool.js";
 import { runMigrations } from "./db/migrate.js";
 import { startFinalPdfExportWorker } from "./services/finalPdfExportWorker.js";
+import { initBackupWorker } from "./services/backupService.js";
 
 dotenv.config();
 
@@ -147,9 +148,9 @@ app.use("/api/workbook", workbookRouter);
 app.use("/api/menu", menuRouter);
 app.use("/api/acts", actsRouter);
 app.use("/api/ulchov", ulchovRouter);
-app.use("/api", signaturesRouter);
 app.use("/api/kuduk", createKudukRouter(io));
 app.use("/api/backup", backupRouter);
+app.use("/api", signaturesRouter);
 
 app.use("/api", (_req, res) => {
   res.status(404).json({
@@ -195,6 +196,7 @@ async function startServer() {
   }
 
   startFinalPdfExportWorker();
+  initBackupWorker();
 
   server.listen(PORT, () => {
     const aiReady = Boolean(process.env.OPENAI_API_KEY);

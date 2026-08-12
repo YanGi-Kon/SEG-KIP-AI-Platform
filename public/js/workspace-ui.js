@@ -122,7 +122,7 @@
     const menu = qs('.menu');
     if (!menu || qs('.seg-workspace-menu')) return;
     const item = document.createElement('div');
-    item.className = 'menu-item seg-workspace-menu admin-only';
+    item.className = 'menu-item seg-workspace-menu workspace-admin-only';
     item.setAttribute('role', 'button');
     item.setAttribute('tabindex', '0');
     item.innerHTML = `
@@ -163,7 +163,7 @@
           <div id="workspaceUserBox" class="workspace-user"></div>
 
           <div style="margin: 16px 0;">
-            <button class="workspace-btn primary" id="workspaceNewButton" type="button" style="width: 100%; padding: 12px; font-size: 14px;">➕ Yangi Workspace yaratish</button>
+            <button class="workspace-btn primary super-admin-only" id="workspaceNewButton" type="button" style="width: 100%; padding: 12px; font-size: 14px;">➕ Yangi Workspace yaratish</button>
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -403,20 +403,14 @@
   const MEMBER_ROLE_LABELS = Object.freeze({
     owner: 'Owner',
     administrator: 'Administrator',
-    workspace_manager: 'Menejer (boshliq)',
-    department_manager: 'Rahbariyat / bo‘lim boshlig‘i',
     operator: 'Operator',
-    engineer: 'Muhandis',
     viewer: 'Faqat ko‘rish',
   });
 
   const MEMBER_ROLE_RANK = Object.freeze({
-    owner: 7,
-    administrator: 6,
-    workspace_manager: 5,
-    department_manager: 4,
-    operator: 3,
-    engineer: 2,
+    owner: 4,
+    administrator: 3,
+    operator: 2,
     viewer: 1,
   });
 
@@ -428,7 +422,12 @@
   }
 
   function canReadMembers(workspace = selectedWorkspace()) {
-    return ['owner', 'administrator', 'workspace_manager'].includes(String(workspace?.memberRole || '').toLowerCase());
+    return ['owner', 'administrator'].includes(String(workspace?.memberRole || '').toLowerCase());
+  }
+
+  function canManageMembers(workspace = selectedWorkspace()) {
+    if (!workspace) return false;
+    return ['owner', 'administrator'].includes(String(workspace.memberRole || '').toLowerCase());
   }
 
   function canConfigureWorkspace(workspace = selectedWorkspace()) {
@@ -644,6 +643,12 @@
     const topbarSelect = document.getElementById('topbarWorkspaceSwitcher');
     if (topbarSelect && topbarSelect.value !== state.selectedWorkspaceId) {
       topbarSelect.value = state.selectedWorkspaceId;
+    }
+    
+    if (workspace && workspace.memberRole) {
+      document.body.setAttribute('data-workspace-role', workspace.memberRole);
+    } else {
+      document.body.removeAttribute('data-workspace-role');
     }
     
     // Inject module settings into localStorage for legacy modules (acts, ulchov)

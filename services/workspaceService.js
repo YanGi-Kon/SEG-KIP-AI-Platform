@@ -204,7 +204,7 @@ export async function createWorkspaceMember(actorWorkspace, input = {}) {
   
   const platformRole = String(user.platformRole || '').toLowerCase();
   let mappedRole = 'viewer';
-  if (platformRole === 'super admin') mappedRole = 'administrator';
+  if (platformRole === 'super_admin' || platformRole === 'super admin') mappedRole = 'administrator';
   else if (platformRole === 'кип мастер') mappedRole = 'engineer';
   
   const role = normalizeWorkspaceMemberRole(mappedRole);

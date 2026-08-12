@@ -149,10 +149,8 @@ function setTopbar(title, subtitle) {
 }
 
 function hideAllPages() {
-  const dash = document.getElementById('journalDashboard');
   const ulchov = document.getElementById('ulchovIntegratedPage');
   const generic = document.getElementById('genericModulePage');
-  if (dash) dash.style.display = 'none';
   if (ulchov) ulchov.classList.remove('active');
   if (generic) generic.classList.remove('active');
 }
@@ -162,21 +160,12 @@ function openDashboard() {
 }
 
 function openHomeDashboard() {
-  activeModuleName = 'home';
-  showExcelButton(false);
-  const dash = document.getElementById('journalDashboard');
-  const generic = document.getElementById('genericModulePage');
-  const ulchov = document.getElementById('ulchovIntegratedPage');
-  if (generic) generic.classList.remove('active');
-  if (ulchov) ulchov.classList.remove('active');
-  if (dash) dash.style.display = '';
-  setActiveMenu('ЖУРНАЛ УЧЕТА');
-  setTopbar('SEG KIP AI Platform', 'Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  return openDashboard();
 }
 
 function openUlchovVositalari() {
   activeModuleName = 'ulchov';
+  localStorage.setItem('seg_active_module', activeModuleName);
   showExcelButton(true);
   hideAllPages();
   const page = document.getElementById('ulchovIntegratedPage');
@@ -187,14 +176,17 @@ function openUlchovVositalari() {
 }
 
 function closeUlchovVositalari() {
-  openHomeDashboard();
+  openDashboard();
 }
 
 function openModulePage(moduleName, title) {
   activeModuleName = moduleName || 'journal';
+  localStorage.setItem('seg_active_module', activeModuleName);
   showExcelButton(true);
   const src = MODULES[moduleName];
-  if (!src) return openDashboard();
+  if (!src && moduleName !== 'ulchov') return openDashboard();
+  if (moduleName === 'ulchov') return openUlchovVositalari();
+  
   hideAllPages();
   const page = document.getElementById('genericModulePage');
   const frame = document.getElementById('genericModuleFrame');
@@ -542,6 +534,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const app = document.querySelector('.app');
     if (app) app.classList.add('sidebar-collapsed');
   }
+  
+  // Load the last active module or default to 'journal'
+  const lastModule = localStorage.getItem('seg_active_module') || 'journal';
+  setTimeout(() => {
+    if (typeof openModulePage === 'function') {
+      openModulePage(lastModule);
+    }
+  }, 100);
 });
 
 window.addEventListener('message', (event) => {

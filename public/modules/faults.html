@@ -180,8 +180,8 @@ tbody tr:hover td{background:rgba(34,211,238,.045)}
     <div class="settings-grid">
       <label><span class="field-label">Asosiy varoq nomi</span><input id="faultsSheet" class="control" value="НОСОЗЛИКЛАР" placeholder="НОСОЗЛИКЛАР"></label>
       <label><span class="field-label">Auto sync sekund</span><input id="faultsSyncSeconds" class="control" type="number" min="10" value="30"></label>
-      <button class="btn primary" type="button" id="faultsSaveConfig">🔐 SAQLASH &amp; ULASH</button>
-      <button class="btn red" type="button" id="faultsClearMemory">🧹 XOTIRANI TOZALASH</button>
+      <button class="btn primary workspace-admin-only" type="button" id="faultsSaveConfig">🔐 SAQLASH &amp; ULASH</button>
+      <button class="btn red workspace-admin-only" type="button" id="faultsClearMemory">🧹 XOTIRANI TOZALASH</button>
     </div>
     <div class="settings-note">Google Sheets va backend ulanishi keyingi bosqichda qo‘shiladi. Hozirgi yozuvlar faqat ushbu brauzerda saqlanadi.</div>
     <div id="faultsMessage" class="message">Frontend oynasi ishga tayyor.</div>
@@ -190,8 +190,8 @@ tbody tr:hover td{background:rgba(34,211,238,.045)}
   <section class="panel">
     <div class="toolbar">
       <button class="btn" type="button" id="faultsBack">← Menyuga qaytish</button>
-      <button class="btn orange" type="button" id="faultsSync">🔄 LIVE SYNC</button>
-      <button class="btn green" type="button" id="faultsAdd">➕ Yangi nosozlik</button>
+      <button class="btn orange workspace-operator-only" type="button" id="faultsSync">🔄 LIVE SYNC</button>
+      <button class="btn green workspace-operator-only" type="button" id="faultsAdd">➕ Yangi nosozlik</button>
       <input id="faultsSearch" class="control search" placeholder="Qidirish: pozitsiya, asbob, joy, nosozlik, ijrochi...">
       <select id="faultsStatusFilter" class="control filter" aria-label="Holat bo‘yicha filtr">
         <option value="">Barcha holatlar</option>
@@ -250,7 +250,7 @@ tbody tr:hover td{background:rgba(34,211,238,.045)}
         <label class="form-field"><span class="field-label">Holat</span><select id="faultState" class="control"><option value="open">Ochiq</option><option value="progress">Jarayonda</option><option value="closed">Bartaraf etilgan</option></select></label>
         <label class="form-field"><span class="field-label">Bartaraf etish muddati</span><input id="faultDeadline" class="control" type="date"></label>
       </div>
-      <div class="form-actions"><button class="btn" type="button" id="faultsCancel">Bekor qilish</button><button class="btn green" type="submit">💾 Saqlash</button></div>
+      <div class="form-actions"><button class="btn" type="button" id="faultsCancel">Bekor qilish</button><button class="btn green workspace-operator-only" type="submit">💾 Saqlash</button></div>
     </form>
   </div>
 </div>
@@ -296,7 +296,7 @@ tbody tr:hover td{background:rgba(34,211,238,.045)}
       <td class="nowrap">${esc(row.date||'—')}</td><td>${esc(row.number||index+1)}</td><td>${esc(row.position)}</td><td>${esc(row.device)}</td><td>${esc(row.location)}</td>
       <td class="description-cell">${esc(row.description)}</td><td><span class="badge priority-${esc(row.priority)}">${esc(priorityLabels[row.priority]||row.priority)}</span></td>
       <td>${esc(row.executor||'—')}</td><td><span class="badge status-${esc(row.status)}">${esc(statusLabels[row.status]||row.status)}</span></td><td class="nowrap">${esc(row.deadline||'—')}</td>
-      <td><div class="row-actions"><button class="btn orange icon" type="button" data-edit="${esc(row.id)}" title="Tahrirlash">✏️</button><button class="btn red icon" type="button" data-delete="${esc(row.id)}" title="O‘chirish">🗑</button></div></td>
+      <td><div class="row-actions"><button class="btn orange icon workspace-operator-only" type="button" data-edit="${esc(row.id)}" title="Tahrirlash">✏️</button><button class="btn red icon workspace-operator-only" type="button" data-delete="${esc(row.id)}" title="O‘chirish">🗑</button></div></td>
     </tr>`).join('');
   }
   function migrateLegacyData(workspaceId){
