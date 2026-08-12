@@ -104,7 +104,7 @@ app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: false, limit: "2mb" }));
 
 app.use((req, res, next) => {
-  if (req.path === "/" || req.path.endsWith(".html") || req.path.endsWith(".js")) {
+  if (req.path === "/" || req.path.endsWith(".html") || req.path.endsWith(".js") || req.path.endsWith(".css")) {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.set("Pragma", "no-cache");
     res.set("Expires", "0");

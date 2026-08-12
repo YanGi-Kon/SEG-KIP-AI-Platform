@@ -675,13 +675,40 @@
     const detail = { 
       workspaceId: state.selectedWorkspaceId, 
       workspace: workspace,
-      isAdmin: canConfigureWorkspace(workspace)
+      isAdmin: canConfigureWorkspace(workspace),
+      platformRole: state.user?.platformRole || 'user'
     };
     window.dispatchEvent(new CustomEvent('seg-kip:workspace-change', { detail }));
     document.querySelectorAll('iframe').forEach((frame) => {
       try { frame.contentWindow?.postMessage({ type: 'SEG_KIP_WORKSPACE_CHANGE', ...detail }, '*'); } catch (_) {}
+      syncIframeRoles(frame);
     });
     void loadWorkspaceMembers();
+  }
+
+  function syncIframeRoles(frame) {
+    try {
+      const idoc = frame.contentDocument || frame.contentWindow?.document;
+      if (!idoc || !idoc.body) return;
+      
+      const ws = selectedWorkspace();
+      const platformRole = state.user?.platformRole || 'user';
+      const workspaceRole = ws?.memberRole || '';
+      
+      idoc.body.setAttribute('data-platform-role', platformRole);
+      if (workspaceRole) {
+        idoc.body.setAttribute('data-workspace-role', workspaceRole);
+      } else {
+        idoc.body.removeAttribute('data-workspace-role');
+      }
+
+      if (!idoc.querySelector('link[href*="style.css"]')) {
+        const link = idoc.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = '../css/style.css?v=2';
+        idoc.head.appendChild(link);
+      }
+    } catch (e) {}
   }
 
   function collectWorkspaceInput(extra = {}) {
@@ -738,11 +765,29 @@
       if (!state.workspaces.some((workspace) => workspace.id === state.selectedWorkspaceId)) {
         state.selectedWorkspaceId = state.workspaces[0]?.id || '';
       }
-      if (state.selectedWorkspaceId) localStorage.setItem(SELECTED_WORKSPACE_KEY, state.selectedWorkspaceId);
+      if (state.selectedWorkspaceId) {
+        localStorage.setItem(SELECTED_WORKSPACE_KEY, state.selectedWorkspaceId);
+      }
       renderWorkspaceList();
       setFormWorkspace(selectedWorkspace());
       await loadWorkspaceMembers();
       void loadPlatformUsersDirectory();
+      
+      // Broadcast to iframes in case they loaded before workspaces were fetched
+      const ws = selectedWorkspace();
+      if (ws) {
+        const detail = { 
+          workspaceId: ws.id, 
+          workspace: ws,
+          isAdmin: canConfigureWorkspace(ws),
+          platformRole: state.user?.platformRole || 'user'
+        };
+        document.querySelectorAll('iframe').forEach((frame) => {
+          try { frame.contentWindow?.postMessage({ type: 'SEG_KIP_WORKSPACE_CHANGE', ...detail }, '*'); } catch (_) {}
+          syncIframeRoles(frame);
+        });
+      }
+
       setStatus(state.workspaces.length ? 'Workspace ro‘yxati yuklandi.' : 'Workspace topilmadi. Yangi Workspace yarating.', state.workspaces.length ? 'ok' : 'warn');
     } catch (error) {
       renderUser();
@@ -999,6 +1044,11 @@
     // iframe loaded after workspace was selected — respond with current workspace info
     if (e.data && e.data.type === 'REQUEST_WORKSPACE_INFO') {
       const ws = selectedWorkspace();
+
+      document.querySelectorAll('iframe').forEach(frame => {
+        if (frame.contentWindow === e.source) syncIframeRoles(frame);
+      });
+
       if (ws && e.source) {
         e.source.postMessage({
           type: 'SEG_KIP_WORKSPACE_CHANGE',

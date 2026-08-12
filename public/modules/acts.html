@@ -27,7 +27,7 @@
         <button onclick="ActsUI.openExcel()">4. Excel</button>
         <button onclick="ActsUI.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
         <button id="finalDocumentsFolderSettingsBtn" onclick="ActsUI.openFinalDocumentsFolderSettings()" data-i18n="6. ЯКУНИЙ ҲУЖЖАТЛАР">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
-        <button class="btn ghost" id="actsSettingsBtn" onclick="ActsUI.openSettings()">⚙ Созламалар</button>
+        <button class="btn ghost workspace-admin-only" id="actsSettingsBtn" onclick="ActsUI.openSettings()">⚙ Созламалар</button>
       </div>
     </div>
     <div id="actsStatus" class="status-line">Ҳолат: созламалар текширилмоқда...</div>
@@ -35,7 +35,7 @@
     <div id="analysis" class="view active">
       <div class="analysis-fixed-head">
         <div class="analysis-main-info">
-          <div class="analysis-title-line"><h2>📈 Ойлик анализ</h2><button class="btn primary" onclick="ActsUI.loadAnalysis()">Ойлик анализ қилиш</button></div>
+          <div class="analysis-title-line"><h2>📈 Ойлик анализ</h2><button class="btn primary workspace-operator-only" onclick="ActsUI.loadAnalysis()">Ойлик анализ қилиш</button></div>
           <p class="note analysis-desc">Таҳлил фақат созламаларда танланган <b>ASOSIY VAROQ</b> дан олинади. Жадвалда фақат I устунида ТО-2 ёки АКТ бор қаторлар кўринади.</p>
           <div class="kpi"><div><small>Умумий тўлдирилган қаторлар</small><b id="kpiTotal">0</b></div><div><small>ТО-2 / АКТ топилган</small><b id="kpiPlanned">0</b></div><div><small>Яратилган ҳужжатлар</small><b id="kpiCreated">0</b></div><div><small>Асосий варақ</small><b id="kpiSheet" style="font-size:18px">—</b></div></div>
         </div>
