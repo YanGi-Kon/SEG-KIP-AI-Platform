@@ -214,9 +214,36 @@ async function writeActBlankBlock({ spreadsheetUrl, serviceAccount, act, actNo }
   const { sheets, spreadsheetId, sheetId } = await ensureDisplaySheet({ spreadsheetUrl, serviceAccount });
   const rowStart = await nextDisplayStartRow({ spreadsheetUrl, serviceAccount });
   const rows = buildActBlankRows(act, actNo);
+  const targetEndRow = rowStart + rows.length - 1;
+
+  // Ensure sheet has enough rows for values.update to avoid 'Range exceeds grid limits' error
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const found = (meta.data.sheets || []).find(s => s.properties?.sheetId === sheetId);
+  const rowCount = found?.properties?.gridProperties?.rowCount || 1000;
+  if (rowCount < targetEndRow) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            updateSheetProperties: {
+              properties: {
+                sheetId,
+                gridProperties: {
+                  rowCount: targetEndRow
+                }
+              },
+              fields: 'gridProperties.rowCount'
+            }
+          }
+        ]
+      }
+    });
+  }
+
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${q(DAILY_SHEET_NAME)}!A${rowStart}:${colLetter(BLANK_COLUMNS)}${rowStart + rows.length - 1}`,
+    range: `${q(DAILY_SHEET_NAME)}!A${rowStart}:${colLetter(BLANK_COLUMNS)}${targetEndRow}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: rows }
   });

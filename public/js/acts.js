@@ -177,7 +177,7 @@
     while(previous!==source){
       previous=source;
       source=source
-        .replace(/<(p|div|span|section)([^>]*)>\s*(?:<br\s*\/?>\s*)*<\/\1>/giu,'')
+        .replace(/<(p|div|span|section)(?![^>]*class="[^"]*act-signers)([^>]*)>\s*(?:<br\s*\/?>\s*)*<\/\1>/giu,'')
         .replace(/(<br\s*\/?>\s*){3,}/giu,'<br><br>')
         .replace(/\n{3,}/g,'\n\n');
     }
@@ -186,7 +186,7 @@
 
   function setDonut(pct){ const v=Math.max(0,Math.min(100,Number(pct)||0)); const d=$('completionDonut'); if(d){d.style.setProperty('--p',v); const s=d.querySelector('span'); if(s)s.textContent=`${v}%`;}}
   function updateKpi(data){ $('kpiTotal').textContent=data.totalRows??0; $('kpiPlanned').textContent=data.plannedDocuments??0; $('kpiCreated').textContent=data.createdDocuments??0; $('kpiSheet').textContent=data.sheetName||settings().sheetName||'—'; setDonut(data.completionPercentage||0); }
-  function formatWorkPlace(row){ return `${row.deviceName||''} ${row.typeMark||''}, завод рақами ${row.serialNo||''},\nўлчаш чегараси ${row.measureRange||''},\n${row.place||''}, поз. №${row.positionNo||''}`.replace(/ +,/g,',').trim(); }
+  function formatWorkPlace(row){ return `${row.deviceName||''} ${row.typeMark||''}, завод рақами ${row.serialNo||''}, ўлчаш чегараси ${row.measureRange||''}, ${row.place||''}, поз. №${row.positionNo||''}`.replace(/ +,/g,',').trim(); }
   function today(){ const d=new Date(); return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; }
 
   function parsePdfDate(raw){
@@ -229,7 +229,7 @@
   }
   function signerCell(value,label){ return `<div class="act-signers-cell"><div class="act-signers-value">${esc(value || '')}</div><div class="act-signers-label">${label}</div></div>`; }
   function buildSignerRows(a){
-    return [1,2,3].map((slot)=>`<div class="act-signers-row">${signerCell(a[`person${slot}`],'(Ф.И.Ш.)')}${signerCell(a[`position${slot}`],'(Лавозими)')}${signerCell(a[`department${slot}`],'(цех ва м/р)')}</div>`).join('');
+    return [1,2,3].map((slot)=>`<div class="act-signers-row">${signerCell(a[`person${slot}`],'Ф.И.Ш')}${signerCell(a[`position${slot}`],'лавозим')}${signerCell(a[`department${slot}`],'цех ва и/ж.')}</div>`).join('');
   }
   function sectionHtml(title, value, extra='', valueClass=''){ return `<div class="act-section"><div class="act-section-title">${title}</div><div class="act-section-value ${valueClass}">${esc(value || '').replace(/\n/g,'<br>')}</div>${extra}</div>`; }
   function buildA4ActHtml(a){
