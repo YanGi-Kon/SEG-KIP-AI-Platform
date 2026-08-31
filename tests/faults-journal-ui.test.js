@@ -37,6 +37,9 @@ test('faults frontend links the first column to Acts reports without local journ
   assert.match(scriptMatch[1], /report\?\.actNo/);
   assert.match(scriptMatch[1], /report\?\.date/);
   assert.match(scriptMatch[1], /function toDateInputValue/);
+  assert.match(scriptMatch[1], /function equipmentDisplayValue/);
+  assert.match(scriptMatch[1], /report\?\.a4Json/);
+  assert.match(scriptMatch[1], /parsedPosition=workPlace\.match/);
   assert.match(scriptMatch[1], /act-number-control/);
   assert.match(scriptMatch[1], /linked-control/);
   assert.match(scriptMatch[1], /readonly/);
@@ -88,7 +91,7 @@ test('faults frontend inserts all 22 editable rows when the page loads', () => {
   assert.match(rowsBody.children[0].innerHTML, /textarea/);
 });
 
-test('faults frontend puts the report actNo into the first column and keeps its header', async () => {
+test('faults frontend puts linked Acts report fields into their journal columns', async () => {
   const rowsBody = {
     _innerHTML: '',
     children: [],
@@ -116,7 +119,21 @@ test('faults frontend puts the report actNo into the first column and keeps its 
     document,
     fetch: async (url, options) => {
       requests.push({ url, options });
-      return { ok: true, json: async () => ({ rows: [{ actNo: '444', date: '14.07.2026' }] }) };
+      return {
+        ok: true,
+        json: async () => ({
+          rows: [{
+            actNo: '444',
+            date: '14.07.2026',
+            device: 'Манометр',
+            place: 'Аввал',
+            a4Json: JSON.stringify({
+              workPlace: 'Манометр WIKA, завод рақами 8972C8IIK, ўлчаш чегараси 0-1.6 МПа, Аввал, поз. №33',
+              place: 'Аввал',
+            }),
+          }],
+        }),
+      };
     },
     localStorage: { getItem: () => null },
     sessionStorage: { getItem: () => null },
@@ -140,6 +157,8 @@ test('faults frontend puts the report actNo into the first column and keeps its 
   assert.equal(rowsBody.children.length, 22);
   assert.match(rowsBody.children[0].innerHTML, /value="444" readonly/);
   assert.match(rowsBody.children[0].innerHTML, /type="date" value="2026-07-14" readonly/);
+  assert.match(rowsBody.children[0].innerHTML, /class="cell-control linked-control equipment-display".*rows="3".*readonly.*>Манометр WIKA, Аввал, поз\. №33</);
+  assert.doesNotMatch(rowsBody.children[0].innerHTML, /8972C8IIK|0-1\.6 МПа/);
   assert.doesNotMatch(rowsBody.children[0].innerHTML, />1<\/td>/);
   assert.equal(elements.get('faultsStatus').textContent, 'BOG‘LANGAN');
   assert.equal(elements.get('faultsStatusSub').textContent, '1 ta dalolatnoma raqami yuklandi');
