@@ -127,15 +127,9 @@ test('faults frontend puts linked Acts report fields into their journal columns'
             date: '14.07.2026',
             device: 'Манометр',
             place: 'Аввал',
-            serialNo: '8972C8IIK',
-            measureRange: '0–1.6 МПа',
-            failureText: 'Манометр uzuli yoki ko\'rsatma noto\'g\'ri',
             a4Json: JSON.stringify({
               workPlace: 'Манометр WIKA, завод рақами 8972C8IIK, ўлчаш чегараси 0–1.6 МПа, Аввал, поз. №33',
               place: 'Аввал',
-              serialNo: '8972C8IIK',
-              measureRange: '0–1.6 МПа',
-              failureText: 'Манометр техширура жарасында технік ногра тушмади',
             }),
           }],
         }),
@@ -164,9 +158,7 @@ test('faults frontend puts linked Acts report fields into their journal columns'
   assert.match(rowsBody.children[0].innerHTML, /value="444" readonly/);
   assert.match(rowsBody.children[0].innerHTML, /type="date" value="2026-07-14" readonly/);
   assert.match(rowsBody.children[0].innerHTML, /class="cell-control linked-control equipment-display".*rows="3".*readonly.*>Манометр WIKA, Аввал, поз\. №33</);
-  assert.match(rowsBody.children[0].innerHTML, /class="cell-control linked-control failure-description".*rows="3".*readonly.*>Завод рақами: 8972C8IIK/);
-  assert.match(rowsBody.children[0].innerHTML, /Ўлчаш чегараси: 0–1\.6 МПа/);
-  assert.match(rowsBody.children[0].innerHTML, /Манометр техширура жарасында технік ногра тушмади/);
+  assert.match(rowsBody.children[0].innerHTML, /class="cell-control".*rows="2".*aria-label="1-qator: nosozlik tavsifi"/);
   assert.doesNotMatch(rowsBody.children[0].innerHTML, />1<\/td>/);
   assert.equal(elements.get('faultsStatus').textContent, 'BOG‘LANGAN');
   assert.equal(elements.get('faultsStatusSub').textContent, '1 ta dalolatnoma raqami yuklandi');

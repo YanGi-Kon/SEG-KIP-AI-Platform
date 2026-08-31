@@ -147,7 +147,7 @@ button,input,textarea{font:inherit}
   line-height:1.35;
 }
 textarea.cell-control{height:53px;resize:vertical;overflow:auto}
-textarea.cell-control.equipment-display,textarea.cell-control.failure-description{height:auto;min-height:64px;resize:none;word-wrap:break-word;white-space:pre-wrap}
+textarea.cell-control.equipment-display{height:auto;min-height:64px;resize:none;word-wrap:break-word;white-space:pre-wrap}
 .cell-control::placeholder{color:#63869a;opacity:.75}
 .cell-control:focus{background:rgba(34,211,238,.08);box-shadow:inset 0 0 0 1px var(--line-strong)}
 .cell-control[type="date"]{color-scheme:dark;font-size:11px}
@@ -264,17 +264,6 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     const position=String(act.positionNo||report?.positionNo||parsedPosition).trim();
     return [equipment,place,position?`поз. №${position}`:''].filter(Boolean).join(', ');
   }
-  function failureDescriptionValue(report){
-    const act=reportActData(report);
-    const serialNo=String(act.serialNo||report?.serialNo||'').trim();
-    const measureRange=String(act.measureRange||report?.measureRange||'').trim();
-    const failureText=String(act.failureText||report?.failureText||'').trim();
-    const parts=[];
-    if(serialNo)parts.push(`Завод рақами: ${serialNo}`);
-    if(measureRange)parts.push(`Ўлчаш чегараси: ${measureRange}`);
-    if(failureText)parts.push(failureText);
-    return parts.join('\n');
-  }
   function setIntegrationStatus(title,detail){
     const status=$('faultsStatus');
     const statusSub=$('faultsStatusSub');
@@ -293,12 +282,11 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     const actNo=esc(report?.actNo||'');
     const actDate=esc(toDateInputValue(report?.date));
     const equipment=esc(equipmentDisplayValue(report));
-    const failureDesc=esc(failureDescriptionValue(report));
     return `
       <td><input class="cell-control act-number-control" type="text" value="${actNo}" readonly aria-label="${rowNumber}-qator: AKTLAR JURNALI hisobotidagi dalolatnoma raqami" placeholder="—"></td>
       <td><input class="cell-control linked-control" type="date" value="${actDate}" readonly aria-label="${rowNumber}-qator: AKTLAR JURNALI hisobotidagi Sana maydoni"></td>
       <td><textarea class="cell-control linked-control equipment-display" rows="3" readonly aria-label="${rowNumber}-qator: uskuna nomi, o'rnatilgan joyi va pozitsiya raqami" placeholder="—">${equipment}</textarea></td>
-      <td><textarea class="cell-control linked-control failure-description" rows="3" readonly aria-label="${rowNumber}-qator: zavod raqami, o'lchash chegarasi va nosozlik sababi" placeholder="—">${failureDesc}</textarea></td>
+      <td><textarea class="cell-control" rows="2" aria-label="${rowNumber}-qator: nosozlik tavsifi" placeholder="Nosozlikning qisqacha tavsifi"></textarea></td>
       <td><textarea class="cell-control" rows="2" aria-label="${rowNumber}-qator: ko‘rilgan choralar" placeholder="Ko‘rilgan choralarni yozing"></textarea></td>
       <td><input class="cell-control" type="date" aria-label="${rowNumber}-qator: bartaraf etilgan sana"></td>
       <td><input class="cell-control" type="text" aria-label="${rowNumber}-qator: mas’ul shaxs imzosi" placeholder="F.I.Sh. / imzo"></td>`;
