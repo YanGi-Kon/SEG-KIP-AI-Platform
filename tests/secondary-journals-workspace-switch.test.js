@@ -27,10 +27,12 @@ function elementFactory() {
         value: '',
         textContent: '',
         innerHTML: '',
+        children: [],
         className: '',
         dataset: {},
         style: {},
         addEventListener() {},
+        appendChild(fragment) { if (fragment?.children) this.children.push(...fragment.children); },
         focus() {},
         reset() {},
         closest() { return null; },
@@ -42,13 +44,10 @@ function elementFactory() {
   return { elements, get };
 }
 
-test('Nosozliklar yozuvlari Workspace bo‘yicha ajratilib A → B → A qaytadi', () => {
+test('Nosozliklar reglament frontend jadvali Workspace nomini iframe reloadsiz almashtiradi', () => {
   const html = read('../public/modules/faults.html');
   const source = inlineScript(html);
-  const local = storage([
-    ['seg_kip_faults_frontend_rows_v1:workspace-a', JSON.stringify([{ id: 'a1', position: 'A-101', status: 'open' }])],
-    ['seg_kip_faults_frontend_rows_v1:workspace-b', JSON.stringify([{ id: 'b1', position: 'B-202', status: 'closed' }])],
-  ]);
+  const local = storage();
   const { get } = elementFactory();
   const handlers = {};
   const parent = { localStorage: local.api, postMessage() {} };
@@ -60,7 +59,12 @@ test('Nosozliklar yozuvlari Workspace bo‘yicha ajratilib A → B → A qaytadi
     console,
     confirm: () => true,
     crypto: { randomUUID: () => 'uuid' },
-    document: { getElementById: get, addEventListener() {} },
+    document: {
+      getElementById: get,
+      addEventListener() {},
+      createElement: () => ({ dataset: {}, innerHTML: '' }),
+      createDocumentFragment: () => ({ children: [], appendChild(child) { this.children.push(child); } }),
+    },
     localStorage: local.api,
     parent,
     setTimeout: (fn) => fn(),
@@ -69,14 +73,13 @@ test('Nosozliklar yozuvlari Workspace bo‘yicha ajratilib A → B → A qaytadi
   vm.runInNewContext(source, context);
 
   handlers.message({ data: { type: 'SEG_KIP_WORKSPACE_CHANGE', workspaceId: 'workspace-a', workspace: { id: 'workspace-a', name: 'Sex A', moduleSettings: {} } } });
-  assert.equal(window.FaultsJournalWorkspace.state.rows[0].position, 'A-101');
+  assert.equal(window.FaultsJournalWorkspace.state.workspaceId, 'workspace-a');
+  assert.equal(get('faultsWorkspaceName').textContent, 'Sex A');
   handlers.message({ data: { type: 'SEG_KIP_WORKSPACE_CHANGE', workspaceId: 'workspace-b', workspace: { id: 'workspace-b', name: 'Sex B', moduleSettings: {} } } });
-  assert.equal(window.FaultsJournalWorkspace.state.rows[0].position, 'B-202');
+  assert.equal(window.FaultsJournalWorkspace.state.workspaceId, 'workspace-b');
   assert.equal(get('faultsWorkspaceName').textContent, 'Sex B');
-  handlers.message({ data: { type: 'SEG_KIP_WORKSPACE_CHANGE', workspaceId: 'workspace-a', workspace: { id: 'workspace-a', name: 'Sex A', moduleSettings: {} } } });
-  assert.equal(window.FaultsJournalWorkspace.state.rows[0].position, 'A-101');
-  assert.equal(get('faultsCountText').textContent, '1 ta yozuv');
-  assert.match(source, /SAVE_MODULE_SETTINGS/);
+  assert.doesNotMatch(source, /seg_kip_faults_frontend_rows_v1|SAVE_MODULE_SETTINGS/);
+  assert.match(source, /REQUEST_WORKSPACE_INFO/);
 });
 
 for (const module of [
