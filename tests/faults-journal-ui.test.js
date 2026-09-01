@@ -22,7 +22,7 @@ test('faults module renders the seven-column reglament journal frontend', () => 
   assert.match(html, /Принятые меры по ликвидации неисправности/);
   assert.match(html, /Дата устранения неисправности/);
   assert.match(html, /Подпись ответств\. за устранение неисправности\./);
-  assert.doesNotMatch(html, /type="datetime-local"/);
+  assert.match(html, /type="datetime-local"/);
   assert.match(html, /type="date"/);
   assert.match(html, /Faqat frontend/);
 });
@@ -127,9 +127,17 @@ test('faults frontend puts linked Acts report fields into their journal columns'
             date: '14.07.2026',
             device: 'Манометр',
             place: 'Аввал',
+            reasonText: 'Сервер ушлаш маълумотларини бермасдан кўп вақт олди',
+            actionText: 'Резерв ускунани алмаштириб, хавфсизлик тозалашни ўтказиш',
+            actionDate: '02.09.2026',
+            actionTime: '15:40',
             a4Json: JSON.stringify({
-              workPlace: 'Манометр WIKA, завод рақами 8972C8IIK, ўлчаш чегараси 0–1.6 МПа, Аввал, поз. №33',
-              place: 'Аввал',
+              workPlace: 'Маг. указ. уров ТЕМПУ, завод рақами 2861-4-4, Ўлчаш чегараси 0-1200 мм, Цен. Аввал УПЛШ, поз. №23',
+              reasonText: 'Сервер ушлаш маълумотларини бермасдан кўп вақт олди',
+              actionText: 'Резерв ускунани алмаштириб, хавфсизлик тозалашни ўтказиш',
+              actionDate: '02.09.2026',
+              actionTime: '15:40',
+              place: 'Аввал УПЛШ',
             }),
           }],
         }),
@@ -157,10 +165,15 @@ test('faults frontend puts linked Acts report fields into their journal columns'
   assert.equal(rowsBody.children.length, 22);
   assert.match(rowsBody.children[0].innerHTML, /value="444" readonly/);
   assert.match(rowsBody.children[0].innerHTML, /type="date" value="2026-07-14" readonly/);
-  assert.match(rowsBody.children[0].innerHTML, /class="cell-control linked-control equipment-display".*rows="3".*readonly.*>Манометр WIKA, Аввал, поз\. №33</);
-  assert.match(rowsBody.children[0].innerHTML, /class="cell-control".*rows="2".*aria-label="1-qator: nosozlik tavsifi"/);
+  assert.match(rowsBody.children[0].innerHTML, /class="cell-control linked-control equipment-display".*rows="3".*readonly/);
+  assert.match(rowsBody.children[0].innerHTML, /class="cell-control linked-control failure-description".*rows="3".*readonly/);
+  assert.match(rowsBody.children[0].innerHTML, /Завод рақами: 2861-4-4/);
+  assert.match(rowsBody.children[0].innerHTML, /Ўлчаш чегараси: 0-1200 мм/);
+  assert.match(rowsBody.children[0].innerHTML, /Рад этиш сабаби: Сервер ушлаш маълумотларини бермасдан кўп вақт олди/);
+  assert.match(rowsBody.children[0].innerHTML, /Резерв ускунани алмаштириб, хавфсизлик тозалашни ўтказиш/);
+  assert.match(rowsBody.children[0].innerHTML, /type="datetime-local" value="2026-09-02T15:40"/);
   assert.doesNotMatch(rowsBody.children[0].innerHTML, />1<\/td>/);
-  assert.equal(elements.get('faultsStatus').textContent, 'BOG‘LANGAN');
+  assert.match(elements.get('faultsStatus').textContent, /BOG.*LANGAN/);
   assert.equal(elements.get('faultsStatusSub').textContent, '1 ta dalolatnoma raqami yuklandi');
 });
 

@@ -53,10 +53,10 @@
         <div class="line3"><input id="person2" placeholder="Ф.И.Ш."><input id="position2" placeholder="Лавозими"><input id="department2" placeholder="Цех ва м/р"></div>
         <div class="line3"><input id="person3" placeholder="Ф.И.Ш."><input id="position3" placeholder="Лавозими"><input id="department3" placeholder="Цех ва м/р"></div>
         <div class="act-section">1. Ў.В. Ишлаш жойи:</div><textarea id="workPlace" readonly></textarea>
-        <div class="act-section">2. Рад этиш мазмуни, санаси, вақти:</div><textarea id="failureText" placeholder="Қўлда тўлдирилади"></textarea><div style="margin-top:5px">Сана: <input id="actDate" style="width:160px"></div>
+        <div class="act-section">2. Рад этиш мазмуни, санаси, вақти:</div><textarea id="failureText" placeholder="Қўлда тўлдирилади"></textarea><div style="margin-top:5px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">Сана: <input id="actDate" style="width:160px"> &nbsp; Вақти: <input id="actTime" type="time" style="width:120px"></div>
         <div class="act-section">3. Носозликнинг технологик оқибатлари:</div><textarea id="impactText" placeholder="Қўлда тўлдирилади"></textarea>
         <div class="act-section">4. Рад этиш сабаби:</div><textarea id="reasonText" placeholder="Қўлда тўлдирилади"></textarea>
-        <div class="act-section">5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</div><textarea id="actionText" placeholder="Қўлда тўлдирилади"></textarea>
+        <div class="act-section">5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:</div><textarea id="actionText" placeholder="Қўлда тўлдирилади"></textarea><div style="margin-top:5px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">Сана: <input id="actionDate" style="width:160px"> &nbsp; Вақти: <input id="actionTime" type="time" style="width:120px"></div>
         <div class="act-section">Хулоса:</div><textarea id="conclusion" placeholder="Қўлда тўлдирилади"></textarea>
       </div>
       <div class="tabs" style="justify-content:flex-end"><button id="saveActBtn" class="btn green workspace-operator-only" onclick="ActsUI.saveAct()" disabled>Сақлаш</button><button class="btn orange workspace-operator-only" onclick="ActsUI.setStatus('Қоралама браузерда сақланди.', 'sync')">Қоралама сақлаш</button></div>

@@ -84,6 +84,39 @@
     if(!res.ok) return null;
     return res.json().catch(()=>null);
   }
+  async function workspaceApi(path, options={}, expectedWorkspaceId=workspaceId()){
+    const id = String(expectedWorkspaceId || workspaceId() || '').trim();
+    const token = workspaceToken();
+    if(!id || !token) throw new Error('Workspace token mavjud emas');
+    const headers = new Headers(options.headers || {});
+    headers.set('Authorization', `Bearer ${token}`);
+    const res = await fetch(`/api/workspaces/${encodeURIComponent(id)}${path}`, { ...options, headers, credentials:'include' });
+    if(id !== workspaceId()) throw staleWorkspaceError(id);
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || data.error) throw new Error(data.error || 'Workspace API xatosi');
+    return data;
+  }
+  function normalizeSignerText(value){ return String(value || '').toLowerCase().replace(/\s+/g,' ').trim(); }
+  function isKipMasterSigner(row={}){
+    const text = normalizeSignerText(`${row.position || ''} ${row.fio || ''} ${row.fullName || ''} ${row.email || row.gmail || ''}`);
+    if ((text.includes('кип') && text.includes('мастер')) || (text.includes('kip') && text.includes('master'))) return true;
+    if ((text.includes('кип') && text.includes('инженер')) || (text.includes('kip') && text.includes('engineer'))) return true;
+    return false;
+  }
+  function applyKipMasterSignerFromApprovers(rows=[]){
+    const kipMaster = rows.find(isKipMasterSigner) || rows.find((row)=>{
+      const text = normalizeSignerText(`${row.position || ''} ${row.fio || ''} ${row.fullName || ''}`);
+      return text.includes('кип') || text.includes('kip');
+    });
+    if(!kipMaster) return;
+    const person1 = $('person1');
+    const position1 = $('position1');
+    const department1 = $('department1');
+    if(person1 && !person1.value.trim()) person1.value = kipMaster.fio || kipMaster.fullName || '';
+    if(position1 && !position1.value.trim()) position1.value = kipMaster.position || '';
+    if(department1 && !department1.value.trim()) department1.value = kipMaster.department || '';
+  }
+
   async function loadWorkspaceApproverRegistry(force=false, expectedWorkspaceId=workspaceId()){
     if(!force && Array.isArray(state.workspaceApprovers)) return state.workspaceApprovers;
     const data = await workspaceFetch('/signers?includeInactive=true', expectedWorkspaceId);
@@ -96,6 +129,7 @@
       signatureUrl: clean(row.signatureUrl),
       signatureFileId: clean(row.signatureFileId)
     })).filter((row)=>row.signerId || row.fio || row.gmail);
+    applyKipMasterSignerFromApprovers(state.workspaceApprovers);
     return state.workspaceApprovers;
   }
 
@@ -222,8 +256,8 @@
 
   function resetSaveButton(){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');b.textContent='Сақлаш';}
   function saveButton(mode){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');if(mode==='saving'){b.classList.add('saving');b.textContent='⏳ Сақланмоқда...';b.disabled=true;return;}if(mode==='saved'){b.classList.add('saved');b.textContent='Сақланди ✓';b.disabled=true;return;}resetSaveButton();}
-  function fillDoc(index){const row=state.analysisRows[index];if(!row)return;if(row.isCompleted){viewDoc(ref(row.actNo));return;}state.selected=row;$('workPlace').value=formatWorkPlace(row);$('actDate').value=row.date||today();$('actNo').value='';['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>{if($(id))$(id).value='';});resetSaveButton();showView('create',$('tab-create'));validateDoc();}
-  function collectActBase(){const r=state.selected||{};return{actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value.trim(),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:$('person2').value.trim(),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:$('person3').value.trim(),position3:$('position3').value.trim(),department3:$('department3').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||'',failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),conclusion:$('conclusion').value.trim()};}
+  function fillDoc(index){const row=state.analysisRows[index];if(!row)return;if(row.isCompleted){viewDoc(ref(row.actNo));return;}state.selected=row;$('workPlace').value=formatWorkPlace(row);$('actDate').value=row.date||today();$('actTime').value=row.time||'';$('actionDate').value=row.actionDate||'';$('actionTime').value=row.actionTime||'';$('actNo').value='';$('failureText').value=row.failureText||'';$('impactText').value=row.impactText||'';$('reasonText').value=row.reasonText||'';$('actionText').value=row.actionText||'';$('conclusion').value=row.conclusion||'';resetSaveButton();showView('create',$('tab-create'));validateDoc();}
+  function collectActBase(){const r=state.selected||{};return{actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),time:$('actTime').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value.trim(),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:$('person2').value.trim(),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:$('person3').value.trim(),position3:$('position3').value.trim(),department3:$('department3').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||'',failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),actionDate:$('actionDate').value.trim(),actionTime:$('actionTime').value.trim(),conclusion:$('conclusion').value.trim()};}
   function collectAssignedApproverSlots(base){
     return [1,2,3].map((slot)=>({ slot, fio: clean(base[`person${slot}`]), position: clean(base[`position${slot}`]), department: clean(base[`department${slot}`]) })).filter((row)=>row.fio || row.position || row.department);
   }
@@ -235,10 +269,12 @@
   function buildA4ActHtml(a){
     const dateParts = parsePdfDate(a.date);
     const signerBlock = `<div class="act-signers-title">Биз имзо чекувчилар:</div><div class="act-signers">${buildSignerRows(a)}</div>`;
-    return `<div class="a4-preview"><div class="act-meta"><div class="act-date-head">&quot;<span class="line">${esc(dateParts.day)}</span>&quot; <span class="month">${esc(dateParts.month)}</span> <span class="year">${esc(dateParts.year)}</span> г.</div><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича<br>ТПП «Андижан»</div></div><div class="act-head"><div class="act-title"><span>ДАЛОЛАТНОМА №</span><span class="act-no-line">${esc(a.actNo||'')}</span></div><div class="act-subtitle">Ўлчов воситасининг бузилиши</div></div>${signerBlock}${sectionHtml('1. Ў.В. Ишлаш жойи', a.workPlace)}${sectionHtml('2. Рад этиш мазмуни, санаси, вақти:', a.failureText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(a.date || '')}</span></div>`)}${sectionHtml('3. Носозликнинг технологик оқибатлари:', a.impactText, '', 'tall')}${sectionHtml('4. Рад этиш сабаби:', a.reasonText, '', 'tall')}${sectionHtml('5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:', a.actionText, '', 'xl')}<div class="act-conclusion">${sectionHtml('Хулоса:', a.conclusion, '', 'xl')}</div></div>`;
+    const failureDate = [a.date, a.time].filter(Boolean).join(' ');
+    const actionDate = [a.actionDate, a.actionTime].filter(Boolean).join(' ');
+    return `<div class="a4-preview"><div class="act-meta"><div class="act-date-head">&quot;<span class="line">${esc(dateParts.day)}</span>&quot; <span class="month">${esc(dateParts.month)}</span> <span class="year">${esc(dateParts.year)}</span> г.</div><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича<br>ТПП «Андижан»</div></div><div class="act-head"><div class="act-title"><span>ДАЛОЛАТНОМА №</span><span class="act-no-line">${esc(a.actNo||'')}</span></div><div class="act-subtitle">Ўлчов воситасининг бузилиши</div></div>${signerBlock}${sectionHtml('1. Ў.В. Ишлаш жойи', a.workPlace)}${sectionHtml('2. Рад этиш мазмуни, санаси, вақти:', a.failureText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(failureDate || a.date || '')}</span></div>`)}${sectionHtml('3. Носозликнинг технологик оқибатлари:', a.impactText, '', 'tall')}${sectionHtml('4. Рад этиш сабаби:', a.reasonText, '', 'tall')}${sectionHtml('5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:', a.actionText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(actionDate || a.actionDate || '')}</span></div>`, 'xl')}<div class="act-conclusion">${sectionHtml('Хулоса:', a.conclusion, '', 'xl')}</div></div>`;
   }
   function collectAct(){ const base=collectActBase(); const payload={...base, assignedApprovers: collectAssignedApproverSlots(base)}; return {...payload,a4Html:stripLegacyManualSignatureBlock(buildA4ActHtml(payload)),a4Json:JSON.stringify(payload)}; }
-  function validateDoc(){const a=collectActBase();const required=['date','workPlace','failureText','impactText','reasonText','actionText','conclusion'];const done=required.filter(k=>a[k]).length;const pct=Math.round(done/required.length*100);$('fillBar').style.width=pct+'%';$('fillText').textContent=`Тўлдирилиш: ${pct}%`;const b=$('saveActBtn');if(b&&!state.saving&&!b.classList.contains('saved'))b.disabled=pct<100||!state.selected;return pct>=100;}
+  function validateDoc(){const a=collectActBase();const required=['date','time','workPlace','failureText','impactText','reasonText','actionText','actionDate','actionTime','conclusion'];const done=required.filter(k=>a[k]).length;const pct=Math.round(done/required.length*100);$('fillBar').style.width=pct+'%';$('fillText').textContent=`Тўлдирилиш: ${pct}%`;const b=$('saveActBtn');if(b&&!state.saving&&!b.classList.contains('saved'))b.disabled=pct<100||!state.selected;return pct>=100;}
   function markCompleted(actNo){const key=state.selected?.sourceKey;if(!key)return;state.analysisRows=state.analysisRows.map(r=>r.sourceKey===key?{...r,isCompleted:true,actNo,status:'Хужат якунланди'}:r);renderRows(state.analysisRows);}
   async function saveAct(){
     if(state.saving)return;
@@ -290,13 +326,32 @@
   function closeSigners(){$('signersModal').classList.remove('show');}
   function signerRowHtml(signer, isNew=false){ const id=signer.id||`new_${Date.now()}_${Math.random().toString(16).slice(2)}`; const disabled=isNew?'':'disabled'; const fileInfo=signer.signatureUrl?`<a class="file-link" href="${esc(signer.signatureUrl)}" target="_blank" rel="noopener">Drive imzo</a>`:'PNG tanlanmagan'; return `<tr data-signer-id="${esc(id)}" data-new="${isNew?'1':'0'}" data-signature-url="${esc(signer.signatureUrl||'')}"><td><input data-field="position" value="${esc(signer.position||'')}" ${disabled}></td><td><input data-field="fio" value="${esc(signer.fio||'')}" ${disabled}></td><td><div data-file-info>${fileInfo}</div><input data-field="file" type="file" accept="image/png,.png" ${disabled}></td><td><input data-field="gmail" type="email" value="${esc(signer.gmail||'')}" placeholder="name@gmail.com" ${disabled}></td><td><div class="signer-actions"><button class="btn ghost small workspace-operator-only" title="Tahrirlash" onclick="ActsUI.editSigner('${esc(id)}')">✏️</button><button class="btn green small workspace-operator-only" title="Saqlash" onclick="ActsUI.saveSigner('${esc(id)}')" ${isNew?'':'disabled'}>💾</button><button class="btn red small workspace-operator-only" title="O‘chirish" onclick="ActsUI.deleteSigner('${esc(id)}')">🗑</button></div></td></tr>`; }
   function renderSigners(){const tb=$('signersRows');if(!state.signers.length){tb.innerHTML='<tr><td colspan="5">Имзо чекувчилар йўқ. “Қўшиш” тугмасини босинг.</td></tr>';return;}tb.innerHTML=state.signers.map(s=>signerRowHtml(s,false)).join('');}
-  async function loadSigners(){try{setSignersMsg('Google Sheets дан юкланмоқда...','sync');const data=await apiFetch('/api/signers');state.signers=data.rows||[];renderSigners();setSignersMsg(`${state.signers.length} та имзо чекувчи юкланди.`,'ok');}catch(err){setSignersMsg(err.message,'bad');$('signersRows').innerHTML=`<tr><td colspan="5">${esc(err.message)}</td></tr>`;}}
+  async function loadSigners(){
+    try {
+      setSignersMsg('Workspace imzo chekuvchilari yuklanmoqda...','sync');
+      const data = await workspaceApi('/signers?includeInactive=true');
+      state.signers = Array.isArray(data?.rows) ? data.rows.map((row)=>({
+        id: row.id || '',
+        position: row.position || '',
+        fio: row.fullName || row.fio || '',
+        gmail: row.email || row.gmail || '',
+        signatureUrl: row.signatureUrl || '',
+        signatureFileId: row.signatureFileId || '',
+      })) : [];
+      renderSigners();
+      applyKipMasterSignerFromApprovers(state.signers);
+      setSignersMsg(`${state.signers.length} та имзо чекувчи юкланди.`,'ok');
+    } catch (err) {
+      setSignersMsg(err.message,'bad');
+      $('signersRows').innerHTML=`<tr><td colspan="5">${esc(err.message)}</td></tr>`;
+    }
+  }
   function addSignerRow(){const tb=$('signersRows');if(tb.querySelector('td[colspan]'))tb.innerHTML='';const id=`new_${Date.now()}`;tb.insertAdjacentHTML('beforeend',signerRowHtml({id},true));setSignersMsg('Янги сатр қўшилди. Майдонларни тўлдириб сақланг.','sync');}
   function rowBySignerId(id){return Array.from($('signersRows').querySelectorAll('tr')).find(tr=>tr.dataset.signerId===id);}
   function editSigner(id){const tr=rowBySignerId(id);if(!tr)return;tr.querySelectorAll('input').forEach(i=>i.disabled=false);const save=tr.querySelector('button[title="Saqlash"]');if(save)save.disabled=false;setSignersMsg('Таҳрирлаш режими ёқилди.','sync');}
   async function uploadSignerFile(file){ if(!file)return''; if(file.type!=='image/png'&&!file.name.toLowerCase().endsWith('.png'))throw new Error('Фақат PNG файл қабул қилинади'); if(file.size>2*1024*1024)throw new Error('PNG ҳажми 2 MB дан ошмаслиги керак'); const s=settings();const form=new FormData();form.append('signature',file);form.append('spreadsheetUrl',s.spreadsheetUrl);form.append('serviceAccount',JSON.stringify(s.serviceAccount)); const data=await apiFetch('/api/signature/upload',{method:'POST',body:form}); return data.webViewLink||data.fileId; }
-  async function saveSigner(id){ const tr=rowBySignerId(id);if(!tr)return; const position=tr.querySelector('[data-field="position"]').value.trim();const fio=tr.querySelector('[data-field="fio"]').value.trim();const gmail=tr.querySelector('[data-field="gmail"]').value.trim();const file=tr.querySelector('[data-field="file"]').files[0]; if(!position||!fio||!gmail) return setSignersMsg('Лавозими, F.I.O ва Gmail тўлдирилиши шарт.','bad'); if(!/^[^\s@]+@gmail\.com$/i.test(gmail))return setSignersMsg('Фақат тўғри Gmail манзили қабул қилинади.','bad'); try{setSignersMsg('PNG юкланмоқда ва маълумот сақланмоқда...','sync');let signatureUrl=tr.dataset.signatureUrl||'';if(file)signatureUrl=await uploadSignerFile(file);if(!signatureUrl)throw new Error('PNG имзо танланмаган');const payload={position,fio,gmail,signatureUrl,...settings()};if(tr.dataset.new==='1'){await postJson('/api/signers',payload);}else{await apiFetch(`/api/signers/${encodeURIComponent(id)}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}await loadSigners();setSignersMsg('Имзо чекувчи сақланди.','ok');}catch(err){setSignersMsg(err.message,'bad');} }
-  async function deleteSigner(id){ const tr=rowBySignerId(id);if(!tr)return;if(tr.dataset.new==='1'){tr.remove();return setSignersMsg('Янги сатр бекор қилинди.','sync');}if(!confirm('Ушбу имзо чекувчини ўчиришни тасдиқлайсизми?'))return; try{setSignersMsg('Ўчирилмоқда...','sync');await apiFetch(`/api/signers/${encodeURIComponent(id)}`,{method:'DELETE'});await loadSigners();setSignersMsg('Имзо чекувчи ўчирилди.','ok');}catch(err){setSignersMsg(err.message,'bad');} }
+  async function saveSigner(id){ const tr=rowBySignerId(id);if(!tr)return; const position=tr.querySelector('[data-field="position"]').value.trim();const fio=tr.querySelector('[data-field="fio"]').value.trim();const gmail=tr.querySelector('[data-field="gmail"]').value.trim();const file=tr.querySelector('[data-field="file"]').files[0]; if(!position||!fio||!gmail) return setSignersMsg('Лавозими, F.I.O ва Gmail тўлдирилиши шарт.','bad'); if(!/^[^\s@]+@gmail\.com$/i.test(gmail))return setSignersMsg('Фақат тўғри Gmail манзили қабул қилинади.','bad'); try{setSignersMsg('PNG юкланмоқда ва маълумот сақланмоқда...','sync');let signatureUrl=tr.dataset.signatureUrl||'';if(file)signatureUrl=await uploadSignerFile(file);if(!signatureUrl)throw new Error('PNG имзо танланмаган');const payload={position,fullName:fio,email:gmail,signatureUrl,status:'active'};if(tr.dataset.new==='1'){await workspaceApi('/signers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}else{await workspaceApi(`/signers/${encodeURIComponent(id)}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}await loadWorkspaceApproverRegistry(true);await loadSigners();applyKipMasterSignerFromApprovers(state.workspaceApprovers||state.signers||[]);setSignersMsg('Имзо чекувчи сақланди.','ok');}catch(err){setSignersMsg(err.message,'bad');} }
+  async function deleteSigner(id){ const tr=rowBySignerId(id);if(!tr)return;if(tr.dataset.new==='1'){tr.remove();return setSignersMsg('Янги сатр бекор қилинди.','sync');}if(!confirm('Ушбу имзо чекувчини ўчиришни тасдиқлайсизми?'))return; try{setSignersMsg('Ўчирилмоқда...','sync');await workspaceApi(`/signers/${encodeURIComponent(id)}`,{method:'DELETE'});await loadWorkspaceApproverRegistry(true);await loadSigners();applyKipMasterSignerFromApprovers(state.workspaceApprovers||state.signers||[]);setSignersMsg('Имзо чекувчи ўчирилди.','ok');}catch(err){setSignersMsg(err.message,'bad');} }
 
   function clearLegacyDonutOverrides(){const legacy=document.getElementById('actsDonutPositionOverride');if(legacy)legacy.remove();}
   function bind(){
@@ -304,13 +359,14 @@
     clearLegacyDonutOverrides();
     loadWorkspaceApproverRegistry().then((rows)=>{
       if(!rows?.length) return;
+      applyKipMasterSignerFromApprovers(rows);
       let list = $('actsApproverList');
       if(!list){ list = document.createElement('datalist'); list.id = 'actsApproverList'; document.body.appendChild(list); }
       list.innerHTML = rows.map((row)=>`<option value="${esc(row.fio)}">${esc(row.position || row.gmail || '')}</option>`).join('');
       ['person1','person2','person3'].forEach((id)=>{ const input=$(id); if(input) input.setAttribute('list','actsApproverList'); });
     }).catch(()=>{});
     $('serviceFile')?.addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{const json=JSON.parse(await file.text());if(!json.client_email||!json.private_key||!json.project_id)throw new Error('client_email, private_key ёки project_id топилмади');localStorage.setItem(KEYS.service,JSON.stringify(json));$('serviceFileName').innerHTML=`${esc(file.name)} ✓`;$('settingsMsg').innerHTML='<span class="ok">SERVICE ACCOUNT JSON юкланди.</span>';}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}});
-    ['failureText','impactText','reasonText','actionText','conclusion'].forEach(id=>$(id)?.addEventListener('input',validateDoc));
+    ['failureText','impactText','reasonText','actionText','actDate','actTime','actionDate','actionTime','conclusion'].forEach(id=>$(id)?.addEventListener('input',validateDoc));
     
     if (window.parent && window.parent !== window) {
       setStatus('Иш жойи созланмоқда...', 'sync');
