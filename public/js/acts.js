@@ -3,7 +3,7 @@
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const WORKSPACE_ID_KEY = 'seg_kip_selected_workspace_id';
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
-  const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null };
+  const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null, signatureObjectUrls: [] };
   let activeWorkspaceId = '';
   let workspaceLoadVersion = 0;
   const PDF_MONTHS = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
@@ -103,11 +103,16 @@
     if ((text.includes('кип') && text.includes('инженер')) || (text.includes('kip') && text.includes('engineer'))) return true;
     return false;
   }
-  function applyKipMasterSignerFromApprovers(rows=[]){
-    const kipMaster = rows.find(isKipMasterSigner) || rows.find((row)=>{
+  function activeSignerRows(rows=[]){ return rows.filter((row)=>!row.status || normalizeSignerText(row.status)==='active'); }
+  function findKipMasterSigner(rows=[]){
+    const activeRows = activeSignerRows(rows);
+    return activeRows.find(isKipMasterSigner) || activeRows.find((row)=>{
       const text = normalizeSignerText(`${row.position || ''} ${row.fio || ''} ${row.fullName || ''}`);
       return text.includes('кип') || text.includes('kip');
     });
+  }
+  function applyKipMasterSignerFromApprovers(rows=[]){
+    const kipMaster = findKipMasterSigner(rows);
     if(!kipMaster) return;
     const person1 = $('person1');
     const position1 = $('position1');
@@ -118,17 +123,22 @@
   }
 
   async function loadWorkspaceApproverRegistry(force=false, expectedWorkspaceId=workspaceId()){
-    if(!force && Array.isArray(state.workspaceApprovers)) return state.workspaceApprovers;
+    if(!force && Array.isArray(state.workspaceApprovers) && state.workspaceApprovers.length) return state.workspaceApprovers;
     const data = await workspaceFetch('/signers?includeInactive=true', expectedWorkspaceId);
     const rows = Array.isArray(data?.rows) ? data.rows : [];
-    state.workspaceApprovers = rows.map((row)=>({
-      signerId: clean(row.id),
-      fio: clean(row.fullName || row.fio),
-      position: clean(row.position),
-      gmail: clean(row.email || row.gmail),
-      signatureUrl: clean(row.signatureUrl),
-      signatureFileId: clean(row.signatureFileId)
-    })).filter((row)=>row.signerId || row.fio || row.gmail);
+    state.workspaceApprovers = rows.map((row)=>{
+      const signatureFileId = clean(row.signatureFileId);
+      const internalSignatureId = signatureFileId.match(/^db:([0-9a-f-]{36})$/i)?.[1] || '';
+      return {
+        signerId: clean(row.id),
+        fio: clean(row.fullName || row.fio),
+        position: clean(row.position),
+        gmail: clean(row.email || row.gmail),
+        signatureUrl: internalSignatureId ? `/api/workspaces/${encodeURIComponent(expectedWorkspaceId)}/signers/signature/${encodeURIComponent(internalSignatureId)}` : clean(row.signatureUrl),
+        signatureFileId,
+        status: clean(row.status || 'active').toLowerCase()
+      };
+    }).filter((row)=>row.signerId || row.fio || row.gmail);
     applyKipMasterSignerFromApprovers(state.workspaceApprovers);
     return state.workspaceApprovers;
   }
@@ -162,8 +172,12 @@
 .a4-preview .act-signers{display:grid;gap:14px;margin-bottom:14px}
 .a4-preview .act-signers-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:end}
 .a4-preview .act-signers-cell{text-align:center;min-width:0}
-.a4-preview .act-signers-value{min-height:22px;padding:0 4px 1px;border-bottom:1px solid #111;text-align:center;display:flex;align-items:flex-end;justify-content:center;word-break:break-word}
+.a4-preview .act-signers-value{min-height:22px;padding:0 4px 1px;border-bottom:1px solid #111;text-align:center;display:flex;align-items:flex-end;justify-content:center;word-break:break-word;position:relative}
 .a4-preview .act-signers-label{font-size:12px;line-height:1.15;font-style:italic;margin-top:2px}
+.a4-preview .act-signers-value.has-signature{min-height:62px}
+.a4-preview .act-signer-text{position:relative;z-index:1}
+.a4-preview .act-signature-box{position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);width:140px;height:58px;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;box-sizing:border-box;z-index:2;pointer-events:none}
+.a4-preview .act-signature-box img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom}
 .a4-preview .act-section{margin-top:12px}
 .a4-preview .act-section-title{font-size:16px;font-weight:700;margin-bottom:6px}
 .a4-preview .act-section-value{min-height:20px;padding:0 2px 4px;border-bottom:1px solid #111;white-space:pre-wrap;word-break:break-word}
@@ -257,13 +271,112 @@
   function resetSaveButton(){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');b.textContent='Сақлаш';}
   function saveButton(mode){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');if(mode==='saving'){b.classList.add('saving');b.textContent='⏳ Сақланмоқда...';b.disabled=true;return;}if(mode==='saved'){b.classList.add('saved');b.textContent='Сақланди ✓';b.disabled=true;return;}resetSaveButton();}
   function fillDoc(index){const row=state.analysisRows[index];if(!row)return;if(row.isCompleted){viewDoc(ref(row.actNo));return;}state.selected=row;$('workPlace').value=formatWorkPlace(row);$('actDate').value=row.date||today();$('actTime').value=row.time||'';$('actionDate').value=row.actionDate||'';$('actionTime').value=row.actionTime||'';$('actNo').value='';$('failureText').value=row.failureText||'';$('impactText').value=row.impactText||'';$('reasonText').value=row.reasonText||'';$('actionText').value=row.actionText||'';$('conclusion').value=row.conclusion||'';resetSaveButton();showView('create',$('tab-create'));validateDoc();}
-  function collectActBase(){const r=state.selected||{};return{actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),time:$('actTime').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value.trim(),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:$('person2').value.trim(),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:$('person3').value.trim(),position3:$('position3').value.trim(),department3:$('department3').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||'',failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),actionDate:$('actionDate').value.trim(),actionTime:$('actionTime').value.trim(),conclusion:$('conclusion').value.trim()};}
-  function collectAssignedApproverSlots(base){
-    return [1,2,3].map((slot)=>({ slot, fio: clean(base[`person${slot}`]), position: clean(base[`position${slot}`]), department: clean(base[`department${slot}`]) })).filter((row)=>row.fio || row.position || row.department);
+  function findSignerForPerson(personName){
+    const name = normalizeSignerText(personName);
+    if(!name) return null;
+    const rows = activeSignerRows(Array.isArray(state.workspaceApprovers) ? state.workspaceApprovers : []);
+    const direct = rows.find((row)=>normalizeSignerText(row.fio || row.fullName) === name);
+    if(direct) return direct;
+    return rows.find((row)=>{
+      const rowName = normalizeSignerText(row.fio || row.fullName);
+      return rowName.length >= 4 && (rowName.includes(name) || name.includes(rowName));
+    }) || null;
   }
-  function signerCell(value,label){ return `<div class="act-signers-cell"><div class="act-signers-value">${esc(value || '')}</div><div class="act-signers-label">${label}</div></div>`; }
+  function findSignatureForPerson(personName){
+    return clean(findSignerForPerson(personName)?.signatureUrl);
+  }
+  function safeSignatureUrl(value){
+    const url = clean(value);
+    if(/^blob:/i.test(url) || /^data:image\/png(?:;base64)?,/i.test(url) || /^https?:\/\//i.test(url) || /^\/api\/workspaces\//i.test(url)) return url;
+    return '';
+  }
+  function signerSignatureHtml(value){
+    const url = safeSignatureUrl(value);
+    return url ? `<span class="act-signature-box"><img src="${esc(url)}" alt="Имзо" /></span>` : '';
+  }
+  function revokeSignatureObjectUrls(){
+    const urls = Array.isArray(state.signatureObjectUrls) ? state.signatureObjectUrls.splice(0) : [];
+    urls.forEach((url)=>{ try { URL.revokeObjectURL(url); } catch(_) {} });
+  }
+  async function trimSignaturePngWhitespace(blob){
+    if(typeof createImageBitmap!=='function' || typeof OffscreenCanvas!=='function') return blob;
+    let bitmap=null;
+    try{
+      bitmap=await createImageBitmap(blob);
+      if(!bitmap.width || !bitmap.height || bitmap.width>4096 || bitmap.height>4096) return blob;
+      const sourceCanvas=new OffscreenCanvas(bitmap.width,bitmap.height);
+      const sourceContext=sourceCanvas.getContext('2d',{willReadFrequently:true});
+      if(!sourceContext) return blob;
+      sourceContext.drawImage(bitmap,0,0);
+      const pixels=sourceContext.getImageData(0,0,bitmap.width,bitmap.height).data;
+      let minX=bitmap.width,minY=bitmap.height,maxX=-1,maxY=-1;
+      for(let y=0;y<bitmap.height;y+=1){
+        for(let x=0;x<bitmap.width;x+=1){
+          const index=(y*bitmap.width+x)*4;
+          const alpha=pixels[index+3];
+          const nearWhite=pixels[index]>248&&pixels[index+1]>248&&pixels[index+2]>248;
+          if(alpha<=8||nearWhite) continue;
+          if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;
+        }
+      }
+      if(maxX<minX||maxY<minY) return blob;
+      const padding=2;
+      minX=Math.max(0,minX-padding);minY=Math.max(0,minY-padding);
+      maxX=Math.min(bitmap.width-1,maxX+padding);maxY=Math.min(bitmap.height-1,maxY+padding);
+      const width=maxX-minX+1,height=maxY-minY+1;
+      if(width===bitmap.width&&height===bitmap.height) return blob;
+      const outputCanvas=new OffscreenCanvas(width,height);
+      const outputContext=outputCanvas.getContext('2d');
+      if(!outputContext) return blob;
+      outputContext.drawImage(bitmap,minX,minY,width,height,0,0,width,height);
+      return await outputCanvas.convertToBlob({type:'image/png'});
+    }catch(_){return blob;}
+    finally{try{bitmap?.close();}catch(_){}}
+  }
+  async function loadSignatureDisplayUrl(value, expectedWorkspaceId=workspaceId()){
+    const url = safeSignatureUrl(value);
+    if(!url || !/^\/api\/workspaces\//i.test(url)) return url;
+    const token = workspaceToken();
+    if(!token) return '';
+    const response = await fetch(url, { headers:{ Authorization:`Bearer ${token}` }, credentials:'include' });
+    if(expectedWorkspaceId && expectedWorkspaceId !== workspaceId()) throw staleWorkspaceError(expectedWorkspaceId);
+    if(!response.ok) return '';
+    const blob = await response.blob();
+    if(blob.type && !blob.type.toLowerCase().startsWith('image/')) return '';
+    const displayBlob = await trimSignaturePngWhitespace(blob);
+    const objectUrl = URL.createObjectURL(displayBlob);
+    state.signatureObjectUrls.push(objectUrl);
+    return objectUrl;
+  }
+  async function hydrateActSignatureUrls(source, expectedWorkspaceId=workspaceId()){
+    const act = { ...(source || {}) };
+    const kipMaster = findKipMasterSigner(Array.isArray(state.workspaceApprovers) ? state.workspaceApprovers : []);
+    if(kipMaster && !clean(act.person1)){
+      act.person1 = clean(kipMaster.fio || kipMaster.fullName);
+      act.position1 = clean(act.position1 || kipMaster.position);
+      act.department1 = clean(act.department1 || kipMaster.department);
+    }
+    await Promise.all([1,2,3].map(async (slot)=>{
+      const currentSignerUrl = findSignatureForPerson(act[`person${slot}`]);
+      const sourceUrl = currentSignerUrl || clean(act[`signatureUrl${slot}`]);
+      try { act[`signatureUrl${slot}`] = await loadSignatureDisplayUrl(sourceUrl, expectedWorkspaceId); }
+      catch(error){ if(error.code==='STALE_WORKSPACE_RESPONSE') throw error; act[`signatureUrl${slot}`] = ''; }
+    }));
+    return act;
+  }
+  function collectActBase(){const r=state.selected||{};const base={actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),time:$('actTime').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value.trim(),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:$('person2').value.trim(),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:$('person3').value.trim(),position3:$('position3').value.trim(),department3:$('department3').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||'',failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),actionDate:$('actionDate').value.trim(),actionTime:$('actionTime').value.trim(),conclusion:$('conclusion').value.trim()};
+    return Object.assign(base, {
+      signatureUrl1: clean(base.person1 ? findSignatureForPerson(base.person1) : ''),
+      signatureUrl2: clean(base.person2 ? findSignatureForPerson(base.person2) : ''),
+      signatureUrl3: clean(base.person3 ? findSignatureForPerson(base.person3) : ''),
+    });
+  }
+  function collectAssignedApproverSlots(base){
+    return [1,2,3].map((slot)=>({ slot, fio: clean(base[`person${slot}`]), position: clean(base[`position${slot}`]), department: clean(base[`department${slot}`]), signatureUrl: clean(base[`signatureUrl${slot}`]) })).filter((row)=>row.fio || row.position || row.department || row.signatureUrl);
+  }
+  function signerCell(value,label,signatureUrl=''){const signature=signerSignatureHtml(signatureUrl);return `<div class="act-signers-cell"><div class="act-signers-value${signature?' has-signature':''}"><span class="act-signer-text">${esc(value || '')}</span>${signature}</div><div class="act-signers-label">${label}</div></div>`;}
   function buildSignerRows(a){
-    return [1,2,3].map((slot)=>`<div class="act-signers-row">${signerCell(a[`person${slot}`],'Ф.И.Ш')}${signerCell(a[`position${slot}`],'лавозим')}${signerCell(a[`department${slot}`],'цех ва и/ж.')}</div>`).join('');
+    return [1,2,3].map((slot)=>`<div class="act-signers-row">${signerCell(a[`person${slot}`],'Ф.И.Ш')}${signerCell(a[`position${slot}`],'лавозим')}${signerCell(a[`department${slot}`],'цех ва и/ж.',a[`signatureUrl${slot}`])}</div>`).join('');
   }
   function sectionHtml(title, value, extra='', valueClass=''){ return `<div class="act-section"><div class="act-section-title">${title}</div><div class="act-section-value ${valueClass}">${esc(value || '').replace(/\n/g,'<br>')}</div>${extra}</div>`; }
   function buildA4ActHtml(a){
@@ -317,9 +430,10 @@
   }
 
   async function findReport(actNo){const no=unref(actNo);if(!state.dailyRows.length)await loadReports();return state.dailyRows.find(r=>String(r.actNo||'')===no);}
-  function ensureA4Modal(){let modal=$('actsA4Modal');if(modal)return modal;modal=document.createElement('div');modal.id='actsA4Modal';modal.className='acts-a4-modal';modal.innerHTML='<div class="acts-a4-wrap"><div class="acts-a4-toolbar"><button onclick="window.print()">PDF / Print</button><button onclick="document.getElementById(\'actsA4Modal\').classList.remove(\'show\')">Yopish</button></div><div id="actsA4Content"></div></div>';document.body.appendChild(modal);return modal;}
-  function reportToAct(report){return {actNo:report.actNo,date:report.date,workPlace:report.workPlace,failureText:report.failureText,impactText:report.impactText,reasonText:report.reasonText,actionText:report.actionText,conclusion:report.conclusion,person1:report.person1||'',position1:report.position1||'',department1:report.department1||'',person2:report.person2||'',position2:report.position2||'',department2:report.department2||'',person3:report.person3||'',position3:report.position3||'',department3:report.department3||''};}
-  async function viewDoc(actNo){const report=await findReport(actNo);if(!report){alert('Ҳужжат топилмади. Excel очилади.');openExcel();return;}let act=null;try{act=JSON.parse(report.a4Json||'null');}catch(_){}const html=stripLegacyManualSignatureBlock(buildA4ActHtml(act||reportToAct(report)));ensureA4Modal();$('actsA4Content').innerHTML=html;$('actsA4Modal').classList.add('show');}
+  function ensureA4Modal(){let modal=$('actsA4Modal');if(modal)return modal;modal=document.createElement('div');modal.id='actsA4Modal';modal.className='acts-a4-modal';modal.innerHTML='<div class="acts-a4-wrap"><div class="acts-a4-toolbar"><button onclick="window.print()">PDF / Print</button><button onclick="ActsUI.closeA4Modal()">Yopish</button></div><div id="actsA4Content"></div></div>';document.body.appendChild(modal);return modal;}
+  function closeA4Modal(){$('actsA4Modal')?.classList.remove('show');revokeSignatureObjectUrls();}
+  function reportToAct(report){const base={actNo:report.actNo,date:report.date,workPlace:report.workPlace,failureText:report.failureText,impactText:report.impactText,reasonText:report.reasonText,actionText:report.actionText,conclusion:report.conclusion,person1:report.person1||'',position1:report.position1||'',department1:report.department1||'',person2:report.person2||'',position2:report.position2||'',department2:report.department2||'',person3:report.person3||'',position3:report.position3||'',department3:report.department3||''};return Object.assign(base,{signatureUrl1:clean(report.signatureUrl1||findSignatureForPerson(base.person1)||''),signatureUrl2:clean(report.signatureUrl2||findSignatureForPerson(base.person2)||''),signatureUrl3:clean(report.signatureUrl3||findSignatureForPerson(base.person3)||'')});}
+  async function viewDoc(actNo){const report=await findReport(actNo);if(!report){alert('Ҳужжат топилмади. Excel очилади.');openExcel();return;}const expectedWorkspaceId=workspaceId();await loadWorkspaceApproverRegistry().catch(() => []);let act=null;try{act=JSON.parse(report.a4Json||'null');}catch(_){}revokeSignatureObjectUrls();const printableAct=await hydrateActSignatureUrls(act||reportToAct(report),expectedWorkspaceId);const html=stripLegacyManualSignatureBlock(buildA4ActHtml(printableAct));ensureA4Modal();$('actsA4Content').innerHTML=html;$('actsA4Modal').classList.add('show');}
   async function sendDoc(actNo){ const no=unref(actNo); if(!confirm(`${no} ҳужжатини тайинланган тасдиқловчиларга Gmail орқали юборишни тасдиқлайсизми?`))return; try{setStatus(`${no} тасдиқловчиларга юборилмоқда...`,'sync');const result=await postJson('/api/document/send',{...settings(),actNo:no,sentBy:'KIP Administrator'});const sent=(result.results||[]).filter(x=>x.status==='sent').length;const failed=(result.results||[]).filter(x=>x.status==='email-failed').length;setStatus(`${no}: ${sent} та Gmail юборилди${failed?`, ${failed} та хатолик`:''}. Ҳолат: ${result.status}` ,failed?'sync':'ok');await loadReports();}catch(err){setStatus(err.message,'bad');} }
 
   function openSigners(){ if(!hasSettings()){openSettings();setStatus('Аввал Google Sheets созламаларини киритинг.','bad');return;} $('signersModal').classList.add('show'); loadSigners(); }
@@ -378,6 +492,7 @@
   }
 
   function clearWorkspaceState(){
+    revokeSignatureObjectUrls();
     state.analysisRows = [];
     state.dailyRows = [];
     state.signers = [];
@@ -439,6 +554,6 @@
     }
   });
 
-  window.ActsUI={state,showView,showReport,openSettings,closeSettings,saveSettings,loadAnalysis,loadReports,handleWorkspace,fillDoc,saveAct,openExcel,setStatus,viewDoc,sendDoc,openSigners,closeSigners,loadSigners,addSignerRow,editSigner,saveSigner,deleteSigner};
+  window.ActsUI={state,showView,showReport,openSettings,closeSettings,saveSettings,loadAnalysis,loadReports,handleWorkspace,fillDoc,saveAct,openExcel,setStatus,viewDoc,closeA4Modal,sendDoc,openSigners,closeSigners,loadSigners,addSignerRow,editSigner,saveSigner,deleteSigner};
   document.addEventListener('DOMContentLoaded',bind);
 })();

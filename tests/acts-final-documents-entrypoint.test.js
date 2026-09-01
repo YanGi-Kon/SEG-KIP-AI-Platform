@@ -25,7 +25,7 @@ test('acts journal exposes the sixth final documents button and modal', () => {
 
 test('final documents dependencies load in a functional order', () => {
   const apiClient = actsHtml.indexOf('<script src="../js/workspace-api-client.js"></script>');
-  const acts = actsHtml.indexOf('<script src="../js/acts.js"></script>');
+  const acts = actsHtml.indexOf('<script src="../js/acts.js');
   const finalDocuments = actsHtml.indexOf('<script src="../js/acts-final-documents-folder.js"></script>');
   const personalDrive = actsHtml.indexOf('<script src="../js/acts-personal-drive-settings.js"></script>');
 

@@ -38,6 +38,10 @@ test('faults frontend links the first column to Acts reports without local journ
   assert.match(scriptMatch[1], /report\?\.date/);
   assert.match(scriptMatch[1], /function toDateInputValue/);
   assert.match(scriptMatch[1], /function equipmentDisplayValue/);
+  assert.match(scriptMatch[1], /function loadResponsibleSigner/);
+  assert.match(scriptMatch[1], /\/signers\?includeInactive=true/);
+  assert.match(scriptMatch[1], /function responsibleSignatureMarkup/);
+  assert.match(scriptMatch[1], /trimSignaturePngWhitespace/);
   assert.match(scriptMatch[1], /report\?\.a4Json/);
   assert.match(scriptMatch[1], /parsedPosition=workPlace\.match/);
   assert.match(scriptMatch[1], /act-number-control/);
@@ -106,7 +110,7 @@ test('faults frontend puts linked Acts report fields into their journal columns'
     ['faultsWorkspaceName', { textContent: '' }],
   ]);
   const handlers = {};
-  const parent = { localStorage: { getItem: () => null }, sessionStorage: { getItem: () => null }, postMessage() {} };
+  const parent = { localStorage: { getItem: () => null }, sessionStorage: { getItem: (key) => key === 'seg_kip_workspace_access_token' ? 'workspace-token' : null }, postMessage() {} };
   const window = { parent, addEventListener(type, handler) { handlers[type] = handler; } };
   const document = {
     getElementById: (id) => elements.get(id) || null,
@@ -119,6 +123,21 @@ test('faults frontend puts linked Acts report fields into their journal columns'
     document,
     fetch: async (url, options) => {
       requests.push({ url, options });
+      if(url.endsWith('/signers?includeInactive=true')){
+        return {
+          ok:true,
+          json:async()=>({rows:[{
+            id:'signer-1',
+            fullName:'Ali Valiyev',
+            position:'КИП Мастер',
+            status:'active',
+            signatureFileId:'db:11111111-1111-4111-8111-111111111111',
+          }]})
+        };
+      }
+      if(url.endsWith('/signers/signature/11111111-1111-4111-8111-111111111111')){
+        return {ok:true,blob:async()=>new Blob(['png'],{type:'image/png'})};
+      }
       return {
         ok: true,
         json: async () => ({
@@ -144,7 +163,9 @@ test('faults frontend puts linked Acts report fields into their journal columns'
       };
     },
     localStorage: { getItem: () => null },
-    sessionStorage: { getItem: () => null },
+    sessionStorage: { getItem: (key) => key === 'seg_kip_workspace_access_token' ? 'workspace-token' : null },
+    Blob,
+    URL:{createObjectURL:()=> 'blob:faults-kip-master-signature',revokeObjectURL(){}},
     parent,
     window,
   });
@@ -158,10 +179,14 @@ test('faults frontend puts linked Acts report fields into their journal columns'
   });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(requests.length, 1);
-  assert.equal(requests[0].url, '/api/acts/reports/daily');
-  assert.equal(requests[0].options.headers['x-workspace-id'], 'workspace-a');
-  assert.deepEqual(JSON.parse(requests[0].options.body), { sheetName: 'ASOSIY' });
+  assert.equal(requests.length, 3);
+  const reportRequest=requests.find(({url})=>url==='/api/acts/reports/daily');
+  const signerRequest=requests.find(({url})=>url.endsWith('/signers?includeInactive=true'));
+  const signatureRequest=requests.find(({url})=>url.endsWith('/signers/signature/11111111-1111-4111-8111-111111111111'));
+  assert.equal(reportRequest.options.headers['x-workspace-id'], 'workspace-a');
+  assert.deepEqual(JSON.parse(reportRequest.options.body), { sheetName: 'ASOSIY' });
+  assert.equal(signerRequest.options.headers.Authorization,'Bearer workspace-token');
+  assert.equal(signatureRequest.options.headers.Authorization,'Bearer workspace-token');
   assert.equal(rowsBody.children.length, 22);
   assert.match(rowsBody.children[0].innerHTML, /value="444" readonly/);
   assert.match(rowsBody.children[0].innerHTML, /type="date" value="2026-07-14" readonly/);
@@ -172,6 +197,8 @@ test('faults frontend puts linked Acts report fields into their journal columns'
   assert.match(rowsBody.children[0].innerHTML, /Рад этиш сабаби: Сервер ушлаш маълумотларини бермасдан кўп вақт олди/);
   assert.match(rowsBody.children[0].innerHTML, /Резерв ускунани алмаштириб, хавфсизлик тозалашни ўтказиш/);
   assert.match(rowsBody.children[0].innerHTML, /type="datetime-local" value="2026-09-02T15:40"/);
+  assert.match(rowsBody.children[0].innerHTML, /src="blob:faults-kip-master-signature"/);
+  assert.match(rowsBody.children[0].innerHTML, /alt="Ali Valiyev imzosi"/);
   assert.doesNotMatch(rowsBody.children[0].innerHTML, />1<\/td>/);
   assert.match(elements.get('faultsStatus').textContent, /BOG.*LANGAN/);
   assert.equal(elements.get('faultsStatusSub').textContent, '1 ta dalolatnoma raqami yuklandi');

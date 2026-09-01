@@ -1,8 +1,8 @@
 // SEG KIP modular frontend controller
 const MODULES = {
   journal: 'modules/kuduk-journal.html',
-  acts: 'modules/acts.html',
-  faults: 'modules/faults.html',
+  acts: 'modules/acts.html?v=20260901-kip-signature-natural-3',
+  faults: 'modules/faults.html?v=20260901-responsible-signature-1',
   to: 'modules/to.html',
   replacement: 'modules/replacement.html',
   openai: 'modules/openai.html',

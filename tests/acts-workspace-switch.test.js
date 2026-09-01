@@ -15,6 +15,120 @@ test('Aktlar arxivi Workspace almashtirilganda saqlashsiz yangilanadi', () => {
   assert.match(app, /\['journal','acts','faults','to','replacement'\]\.includes\(activeModuleName\)/);
 });
 
+test('A4 hujjatdagi imzo PNG doimiy o‘lchamda ko‘rinishi kerak', () => {
+  const source = fs.readFileSync(new URL('../public/js/acts.js', import.meta.url), 'utf8');
+
+  assert.match(source, /signatureUrl1|signatureUrl2|signatureUrl3/);
+  assert.match(source, /object-fit:\s*contain/);
+  assert.match(source, /object-position:\s*center bottom/);
+  assert.match(source, /trimSignaturePngWhitespace\(blob\)/);
+  assert.match(source, /<img src="\$\{esc\(url\)\}" alt="Имзо"/);
+  assert.match(source, /signerCell\(a\[`department\$\{slot\}`\],'цех ва и\/ж\.',a\[`signatureUrl\$\{slot\}`\]\)/);
+});
+
+test('viewDoc registry va himoyalangan PNG yuklangandan keyin A4 ni ko‘rsatishi kerak', async () => {
+  const source = fs.readFileSync(new URL('../public/js/acts.js', import.meta.url), 'utf8');
+  const requests = [];
+  const elements = new Map();
+  const makeStorage = (entries = []) => {
+    const values = new Map(entries);
+    return {
+      getItem: (key) => values.get(key) || '',
+      setItem: (key, value) => values.set(key, String(value)),
+      removeItem: (key) => values.delete(key),
+    };
+  };
+  const localStorage = makeStorage([
+    ['seg_kip_selected_workspace_id', 'workspace-test'],
+    ['acts_sheet_name', 'ASOSIY VAROQ'],
+  ]);
+  const sessionStorage = makeStorage([['seg_kip_workspace_access_token', 'workspace-token']]);
+  const element = (id) => {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        id,
+        value: '',
+        innerHTML: '',
+        textContent: '',
+        disabled: false,
+        style: { setProperty() {} },
+        classList: { add() {}, remove() {}, contains() { return false; } },
+        querySelector() { return null; },
+      });
+    }
+    return elements.get(id);
+  };
+  const parent = { localStorage, sessionStorage, postMessage() {} };
+  const signatureId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    console,
+    Headers,
+    TextEncoder,
+    Blob,
+    btoa,
+    document: {
+      readyState: 'loading',
+      addEventListener() {},
+      getElementById: element,
+      createElement: () => element(`created-${elements.size}`),
+      body: { appendChild(node) { if (node.id) elements.set(node.id, node); } },
+      querySelectorAll() { return []; },
+    },
+    fetch: async (url, options = {}) => {
+      const authorization = options.headers instanceof Headers
+        ? options.headers.get('Authorization')
+        : options.headers?.Authorization || '';
+      requests.push({ url, authorization });
+      if (url.endsWith('/signers?includeInactive=true')) {
+        return {
+          ok: true,
+          json: async () => ({ rows: [{
+            id: 'signer-1',
+            fullName: 'Ali Valiyev',
+            position: 'КИП Мастер',
+            status: 'active',
+            signatureFileId: `db:${signatureId}`,
+            signatureUrl: 'https://drive.google.com/file/d/not-an-image/view',
+          }] }),
+        };
+      }
+      if (url.endsWith(`/signers/signature/${signatureId}`)) {
+        return { ok: true, blob: async () => new Blob(['png'], { type: 'image/png' }) };
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    },
+    localStorage,
+    parent,
+    sessionStorage,
+    setTimeout,
+    URL: {
+      createObjectURL: () => 'blob:kip-master-signature',
+      revokeObjectURL() {},
+    },
+    window: { addEventListener() {}, parent },
+  };
+  vm.runInNewContext(source, context);
+  context.window.ActsUI.state.dailyRows = [{
+    actNo: '444',
+    a4Json: JSON.stringify({
+      actNo: '444',
+      person1: 'Ali Valiyev',
+      position1: 'КИП Мастер',
+      department1: 'Цех №1',
+    }),
+  }];
+
+  await context.window.ActsUI.viewDoc('444');
+
+  assert.equal(requests.length, 2);
+  assert.ok(requests.every(({ authorization }) => authorization === 'Bearer workspace-token'));
+  assert.match(requests[1].url, new RegExp(`/signers/signature/${signatureId}$`));
+  const a4Html = element('actsA4Content').innerHTML;
+  assert.match(a4Html, /src="blob:kip-master-signature"/);
+  assert.match(a4Html, /act-signers-label">цех ва и\/ж\./);
+  assert.ok(a4Html.indexOf('КИП Мастер') < a4Html.indexOf('blob:kip-master-signature'));
+});
+
 test('tez A → B almashishda faqat oxirgi Workspace aktlari va arxivi qoladi', async () => {
   const source = fs.readFileSync(new URL('../public/js/acts.js', import.meta.url), 'utf8');
   const handlers = {};
