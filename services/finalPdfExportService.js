@@ -62,7 +62,7 @@ function buildPdfFileName(actNo) {
 
 function wrapHtmlForPdf(html, actNo) {
   const body = clean(html) || `<div style="padding:24px;font-family:Arial,sans-serif"><h1>${safeFilePart(actNo, 'ACT')}</h1></div>`;
-  return `<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>${safeFilePart(actNo, 'ACT')}</title><style>body{margin:0;padding:0;background:#ffffff;color:#111827;font-family:Arial,sans-serif}.pdf-wrap{padding:18px}.paper{background:#ffffff}.a4-preview{max-width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:18mm;box-sizing:border-box;font-family:"Times New Roman",serif}img{max-width:100%;height:auto;display:inline-block}</style></head><body><div class="pdf-wrap">${body}</div></body></html>`;
+  return `<!doctype html><html lang="uz"><head><meta charset="utf-8"><title>${safeFilePart(actNo, 'ACT')}</title><style>body{margin:0;padding:0;background:#ffffff;color:#111827;font-family:Arial,sans-serif}.pdf-wrap{padding:18px}.paper{background:#ffffff}.a4-preview{max-width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:18mm;box-sizing:border-box;font-family:"Times New Roman",serif}.act-signers-value{position:relative}.act-signers-value.has-signature{min-height:62px}.act-signature-box{position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);width:140px;height:58px;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;box-sizing:border-box}.act-signature-box img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom}img{max-width:100%;height:auto;display:inline-block}</style></head><body><div class="pdf-wrap">${body}</div></body></html>`;
 }
 
 function makeConfig(spreadsheetUrl, serviceAccount) {

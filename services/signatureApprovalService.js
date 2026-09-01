@@ -50,6 +50,10 @@ function clean(value) {
   return String(value ?? '').trim();
 }
 
+function normalizeText(value) {
+  return clean(value).toLowerCase().replace(/\s+/g, ' ');
+}
+
 function safeJsonParse(value, fallback = null) {
   try {
     return JSON.parse(value);
@@ -525,6 +529,149 @@ function stripLegacyManualSignatureBlock(html) {
   return source;
 }
 
+function assignedSignerSlots(metadata = {}) {
+  const direct = Array.isArray(metadata.assignedApprovers) ? metadata.assignedApprovers : [];
+  if (direct.length) {
+    return direct.map((row, index) => ({
+      slot: Number(row?.slot) || index + 1,
+      signerId: clean(row?.signerId),
+      fio: clean(row?.fio || row?.fullName),
+      position: clean(row?.position),
+      gmail: clean(row?.gmail || row?.email),
+      signatureFileId: clean(row?.signatureFileId),
+    }));
+  }
+  return [1, 2, 3].map((slot) => ({
+    slot,
+    signerId: '',
+    fio: clean(metadata[`person${slot}`]),
+    position: clean(metadata[`position${slot}`]),
+    gmail: '',
+    signatureFileId: clean(metadata[`signatureFileId${slot}`]),
+  }));
+}
+
+function approvalSlot(approval, metadata = {}) {
+  const explicit = Number(approval?.slot);
+  if (explicit >= 1 && explicit <= 3) return explicit;
+  const assignments = assignedSignerSlots(metadata);
+  const signerId = clean(approval?.signerId);
+  const gmail = normalizeText(approval?.gmail || approval?.email);
+  const fio = normalizeText(approval?.fio || approval?.fullName);
+  const match = assignments.find((row) => signerId && clean(row.signerId) === signerId)
+    || assignments.find((row) => gmail && normalizeText(row.gmail) === gmail)
+    || assignments.find((row) => fio && normalizeText(row.fio) === fio);
+  return Number(match?.slot) || 0;
+}
+
+function approvalStatus(total, approved) {
+  if (total > 0 && approved === total) return 'Тасдиқланди';
+  if (approved > 0) return 'Қисман тасдиқланди';
+  return 'Кутилмоқда';
+}
+
+export function summarizeRequiredApprovals(approvals = [], metadata = {}) {
+  const hasExplicitAssignments = Array.isArray(metadata?.assignedApprovers) && metadata.assignedApprovers.length > 0;
+  if (!hasExplicitAssignments) {
+    const approved = approvals.filter((row) => clean(row?.status) === 'Тасдиқланди').length;
+    return { approvals: [...approvals], total: approvals.length, approved, status: approvalStatus(approvals.length, approved) };
+  }
+
+  const requiredAssignments = assignedSignerSlots(metadata)
+    .filter((assignment) => Number(assignment.slot) === 2 || Number(assignment.slot) === 3);
+  const requiredApprovals = requiredAssignments
+    .map((assignment) => approvals.find((approval) => approvalSlot(approval, metadata) === Number(assignment.slot)) || null)
+    .filter(Boolean);
+  const approved = requiredApprovals.filter((row) => clean(row?.status) === 'Тасдиқланди').length;
+  return {
+    approvals: requiredApprovals,
+    total: requiredAssignments.length,
+    approved,
+    status: approvalStatus(requiredAssignments.length, approved),
+  };
+}
+
+export function selectAssignedSignersForApproval(signers = [], assignments = []) {
+  if (!Array.isArray(assignments) || !assignments.length) return [...signers];
+  const used = new Set();
+  return assignments.map((assignment) => {
+    const signerId = clean(assignment?.signerId);
+    const gmail = normalizeText(assignment?.gmail || assignment?.email);
+    const fio = normalizeText(assignment?.fio || assignment?.fullName);
+    const signer = signers.find((row) => signerId && clean(row?.id) === signerId)
+      || signers.find((row) => gmail && normalizeText(row?.gmail || row?.email) === gmail)
+      || signers.find((row) => fio && normalizeText(row?.fio || row?.fullName) === fio)
+      || null;
+    if (!signer) return null;
+    const key = clean(signer.id) || normalizeText(signer.gmail || signer.email);
+    if (!key || used.has(key)) return null;
+    used.add(key);
+    return { ...signer, slot: Number(assignment?.slot) || 0 };
+  }).filter(Boolean);
+}
+
+export function buildApprovalSlotMetadata(approvals = [], metadata = {}) {
+  return approvals.map((approval) => ({
+    signerId: clean(approval.signerId),
+    slot: approvalSlot(approval, metadata),
+    position: clean(approval.position),
+    fio: clean(approval.fio),
+    gmail: clean(approval.gmail),
+    status: clean(approval.status),
+    approvedAt: clean(approval.approvedAt),
+  }));
+}
+
+function isKipMasterAssignment(assignment = {}) {
+  const text = normalizeText(`${assignment.position || ''} ${assignment.fio || ''}`);
+  return (text.includes('кип') && (text.includes('мастер') || text.includes('инженер')))
+    || (text.includes('kip') && (text.includes('master') || text.includes('engineer')));
+}
+
+export function ensureSignatureSlotMarkers(html) {
+  let source = clean(html);
+  let slot = 0;
+  const signatureCell = /<div class="act-signers-cell"(?:\s+data-signature-slot="\d+")?><div class="act-signers-value([^"]*)">([\s\S]*?)<\/div><div class="act-signers-label">цех ва и\/ж\.<\/div><\/div>/giu;
+  source = source.replace(signatureCell, (full, classSuffix, content) => {
+    slot += 1;
+    if (slot > 3 || /SEG_SIGNATURE_SLOT_\d+_START/.test(full)) return full;
+    const signerText = clean(content.replace(/<span class="act-signature-box"[^>]*>[\s\S]*?<\/span>/giu, ''));
+    const nextClass = clean(classSuffix).split(/\s+/).filter((name) => name && name !== 'has-signature').join(' ');
+    return `<div class="act-signers-cell" data-signature-slot="${slot}"><div class="act-signers-value${nextClass ? ` ${nextClass}` : ''}">${signerText}<!--SEG_SIGNATURE_SLOT_${slot}_START--><!--SEG_SIGNATURE_SLOT_${slot}_END--></div><div class="act-signers-label">цех ва и/ж.</div></div>`;
+  });
+  return source;
+}
+
+export function injectApprovalSignaturesIntoSlots(html, approvals = [], metadata = {}, baseUrl = '', signatureUrlForFile = null) {
+  let source = clean(html);
+  const assignments = assignedSignerSlots(metadata);
+  let markerCount = 0;
+  const makeUrl = typeof signatureUrlForFile === 'function'
+    ? signatureUrlForFile
+    : (fileId) => `${clean(baseUrl).replace(/\/$/, '')}/api/signature/render/${createSignatureImageToken(fileId)}`;
+
+  for (let slot = 1; slot <= 3; slot += 1) {
+    const marker = new RegExp(`(<!--SEG_SIGNATURE_SLOT_${slot}_START-->)[\\s\\S]*?(<!--SEG_SIGNATURE_SLOT_${slot}_END-->)`, 'g');
+    if (!marker.test(source)) continue;
+    marker.lastIndex = 0;
+    markerCount += 1;
+    const assignment = assignments.find((row) => Number(row.slot) === slot) || {};
+    const approval = approvals.find((row) => approvalSlot(row, metadata) === slot) || null;
+    const approved = clean(approval?.status) === 'Тасдиқланди';
+    const visible = (slot === 1 && isKipMasterAssignment(assignment)) || ((slot === 2 || slot === 3) && approved);
+    const rawFileId = clean(approval?.signatureFileId || assignment.signatureFileId);
+    const fileId = extractSignatureFileId(rawFileId) || rawFileId;
+    const image = visible && fileId
+      ? `<span class="act-signature-box" data-approved-signature-slot="${slot}"><img src="${escapeHtml(makeUrl(fileId))}" alt="Имзо"></span>`
+      : '';
+    source = source.replace(marker, `$1${image}$2`);
+    const valueClass = new RegExp(`(<div class="act-signers-cell" data-signature-slot="${slot}"><div class="act-signers-value)(?: has-signature)?(")`, 'g');
+    source = source.replace(valueClass, visible && fileId ? '$1 has-signature$2' : '$1$2');
+  }
+
+  return { html: source, markerCount };
+}
+
 function injectSignerSection(html, section) {
   let source = stripLegacyManualSignatureBlock(html) || '<div class="a4-preview"><p>Ҳужжат маълумоти мавжуд эмас.</p></div>';
   source = source.replace(/<!--SEG_APPROVALS_START-->[\s\S]*?<!--SEG_APPROVALS_END-->/g, '');
@@ -533,12 +680,15 @@ function injectSignerSection(html, section) {
 }
 
 async function updateDocumentState(config, document, approvals, baseUrl) {
-  const total = approvals.length;
-  const approved = approvals.filter((a) => a.status === 'Тасдиқланди').length;
-  const status = total > 0 && approved === total ? 'Тасдиқланди' : approved > 0 ? 'Қисман тасдиқланди' : 'Кутилмоқда';
-  const updatedHtml = injectSignerSection(document.a4Html, signerSectionHtml(approvals, baseUrl));
   const json = safeJsonParse(document.a4Json, {}) || {};
-  json.approvals = approvals.map((a) => ({ signerId: a.signerId, position: a.position, fio: a.fio, gmail: a.gmail, status: a.status, approvedAt: a.approvedAt || '' }));
+  const required = summarizeRequiredApprovals(approvals, json);
+  const { total, approved, status } = required;
+  const preparedHtml = ensureSignatureSlotMarkers(document.a4Html);
+  const slotted = injectApprovalSignaturesIntoSlots(preparedHtml, approvals, json, baseUrl);
+  const updatedHtml = slotted.markerCount
+    ? slotted.html.replace(/<!--SEG_APPROVALS_START-->[\s\S]*?<!--SEG_APPROVALS_END-->/g, '')
+    : injectSignerSection(document.a4Html, signerSectionHtml(approvals, baseUrl));
+  json.approvals = buildApprovalSlotMetadata(approvals, json);
   const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
   const sheets = await getSheetsClient(config.serviceAccount);
   await sheets.spreadsheets.values.batchUpdate({
@@ -552,9 +702,9 @@ async function updateDocumentState(config, document, approvals, baseUrl) {
     },
   });
   if (document.rowStart) {
-    const signerNames = approvals.map((a) => a.fio).join(', ');
-    const gmails = approvals.map((a) => a.gmail).join(', ');
-    const links = approvals.map((a) => a.approvalLink).join('\n');
+    const signerNames = required.approvals.map((a) => a.fio).join(', ');
+    const gmails = required.approvals.map((a) => a.gmail).join(', ');
+    const links = required.approvals.map((a) => a.approvalLink).join('\n');
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${q(DAILY_SHEET)}!K${document.rowStart}:O${document.rowStart + 1}`,
@@ -570,12 +720,20 @@ async function updateDocumentState(config, document, approvals, baseUrl) {
   return { status, updatedHtml, approved, total };
 }
 
+export async function refreshDocumentApprovalState(configInput, actNo, baseUrl) {
+  const config = resolveGoogleConfig(configInput);
+  const document = await getRegistryDocument(config, clean(actNo));
+  const approvals = await listApprovals(config, clean(actNo));
+  return updateDocumentState(config, document, approvals, clean(baseUrl));
+}
+
 export async function sendDocumentForApproval(configInput, input, req) {
   const config = resolveGoogleConfig(configInput, { requireServer: true });
   const actNo = clean(input.actNo);
   if (!actNo) throw new Error('Акт рақами киритилмаган');
   const document = await getRegistryDocument(config, actNo);
-  const signers = await listSigners(config);
+  const registeredSigners = await listSigners(config);
+  const signers = selectAssignedSignersForApproval(registeredSigners, input.assignedApprovers);
   if (!signers.length) throw new Error('ИМЗО_ЧЕКУВЧИЛАР варағида имзоловчилар йўқ');
   const baseUrl = baseUrlFromRequest(req);
   const { transporter, from } = transportConfig();

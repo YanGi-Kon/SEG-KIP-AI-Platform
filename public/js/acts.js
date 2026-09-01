@@ -285,6 +285,30 @@
   function findSignatureForPerson(personName){
     return clean(findSignerForPerson(personName)?.signatureUrl);
   }
+  function isApprovedStatus(value){
+    const status=normalizeSignerText(value);
+    return status==='тасдиқланди'||status==='approved';
+  }
+  function approvalForSignerSlot(act,slot,signer=null){
+    const approvals=Array.isArray(act?.approvals)?act.approvals:[];
+    const assigned=Array.isArray(act?.assignedApprovers)
+      ?act.assignedApprovers.find((row,index)=>(Number(row?.slot)||index+1)===slot)
+      :null;
+    const signerId=clean(signer?.signerId||assigned?.signerId);
+    const gmail=normalizeSignerText(signer?.gmail||assigned?.gmail||assigned?.email);
+    const fio=normalizeSignerText(signer?.fio||signer?.fullName||assigned?.fio||assigned?.fullName||act?.[`person${slot}`]);
+    return approvals.find((approval)=>Number(approval?.slot)===slot)
+      ||approvals.find((approval)=>signerId&&clean(approval?.signerId)===signerId)
+      ||approvals.find((approval)=>gmail&&normalizeSignerText(approval?.gmail||approval?.email)===gmail)
+      ||approvals.find((approval)=>fio&&normalizeSignerText(approval?.fio||approval?.fullName)===fio)
+      ||null;
+  }
+  function canRenderSignerSlotSignature(act,slot,signer=null){
+    const kipMasterSlot=slot===1&&isKipMasterSigner(signer||{fio:act?.person1,position:act?.position1});
+    if(kipMasterSlot)return true;
+    if(slot!==2&&slot!==3)return false;
+    return isApprovedStatus(approvalForSignerSlot(act,slot,signer)?.status);
+  }
   function safeSignatureUrl(value){
     const url = clean(value);
     if(/^blob:/i.test(url) || /^data:image\/png(?:;base64)?,/i.test(url) || /^https?:\/\//i.test(url) || /^\/api\/workspaces\//i.test(url)) return url;
@@ -357,26 +381,29 @@
       act.department1 = clean(act.department1 || kipMaster.department);
     }
     await Promise.all([1,2,3].map(async (slot)=>{
-      const currentSignerUrl = findSignatureForPerson(act[`person${slot}`]);
-      const sourceUrl = currentSignerUrl || clean(act[`signatureUrl${slot}`]);
+      const signer=findSignerForPerson(act[`person${slot}`]);
+      const allowed=canRenderSignerSlotSignature(act,slot,signer);
+      const currentSignerUrl=allowed?clean(signer?.signatureUrl):'';
+      const sourceUrl=allowed?(currentSignerUrl||clean(act[`signatureUrl${slot}`])):'';
       try { act[`signatureUrl${slot}`] = await loadSignatureDisplayUrl(sourceUrl, expectedWorkspaceId); }
       catch(error){ if(error.code==='STALE_WORKSPACE_RESPONSE') throw error; act[`signatureUrl${slot}`] = ''; }
     }));
     return act;
   }
   function collectActBase(){const r=state.selected||{};const base={actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),time:$('actTime').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value.trim(),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:$('person2').value.trim(),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:$('person3').value.trim(),position3:$('position3').value.trim(),department3:$('department3').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||'',failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),actionDate:$('actionDate').value.trim(),actionTime:$('actionTime').value.trim(),conclusion:$('conclusion').value.trim()};
+    const firstSigner=findSignerForPerson(base.person1);
     return Object.assign(base, {
-      signatureUrl1: clean(base.person1 ? findSignatureForPerson(base.person1) : ''),
-      signatureUrl2: clean(base.person2 ? findSignatureForPerson(base.person2) : ''),
-      signatureUrl3: clean(base.person3 ? findSignatureForPerson(base.person3) : ''),
+      signatureUrl1: clean(firstSigner&&isKipMasterSigner(firstSigner)?firstSigner.signatureUrl:''),
+      signatureUrl2: '',
+      signatureUrl3: '',
     });
   }
   function collectAssignedApproverSlots(base){
-    return [1,2,3].map((slot)=>({ slot, fio: clean(base[`person${slot}`]), position: clean(base[`position${slot}`]), department: clean(base[`department${slot}`]), signatureUrl: clean(base[`signatureUrl${slot}`]) })).filter((row)=>row.fio || row.position || row.department || row.signatureUrl);
+    return [1,2,3].map((slot)=>{const signer=findSignerForPerson(base[`person${slot}`]);return{slot,signerId:clean(signer?.signerId),fio:clean(base[`person${slot}`]),position:clean(base[`position${slot}`]||signer?.position),gmail:clean(signer?.gmail),department:clean(base[`department${slot}`]),signatureFileId:clean(signer?.signatureFileId)};}).filter((row)=>row.signerId||row.fio||row.position||row.department||row.gmail);
   }
-  function signerCell(value,label,signatureUrl=''){const signature=signerSignatureHtml(signatureUrl);return `<div class="act-signers-cell"><div class="act-signers-value${signature?' has-signature':''}"><span class="act-signer-text">${esc(value || '')}</span>${signature}</div><div class="act-signers-label">${label}</div></div>`;}
+  function signerCell(value,label,signatureUrl='',signatureSlot=0){const signature=signerSignatureHtml(signatureUrl);const slotContent=signatureSlot?`<!--SEG_SIGNATURE_SLOT_${signatureSlot}_START-->${signature}<!--SEG_SIGNATURE_SLOT_${signatureSlot}_END-->`:signature;return `<div class="act-signers-cell"${signatureSlot?` data-signature-slot="${signatureSlot}"`:''}><div class="act-signers-value${signature?' has-signature':''}"><span class="act-signer-text">${esc(value || '')}</span>${slotContent}</div><div class="act-signers-label">${label}</div></div>`;}
   function buildSignerRows(a){
-    return [1,2,3].map((slot)=>`<div class="act-signers-row">${signerCell(a[`person${slot}`],'Ф.И.Ш')}${signerCell(a[`position${slot}`],'лавозим')}${signerCell(a[`department${slot}`],'цех ва и/ж.',a[`signatureUrl${slot}`])}</div>`).join('');
+    return [1,2,3].map((slot)=>`<div class="act-signers-row" data-signer-slot="${slot}">${signerCell(a[`person${slot}`],'Ф.И.Ш')}${signerCell(a[`position${slot}`],'лавозим')}${signerCell(a[`department${slot}`],'цех ва и/ж.',a[`signatureUrl${slot}`],slot)}</div>`).join('');
   }
   function sectionHtml(title, value, extra='', valueClass=''){ return `<div class="act-section"><div class="act-section-title">${title}</div><div class="act-section-value ${valueClass}">${esc(value || '').replace(/\n/g,'<br>')}</div>${extra}</div>`; }
   function buildA4ActHtml(a){

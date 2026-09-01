@@ -73,7 +73,10 @@ function approvalPreviewStyles() {
 .a4-preview .act-signers{display:grid;gap:14px;margin-bottom:14px}
 .a4-preview .act-signers-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:end}
 .a4-preview .act-signers-cell{text-align:center;min-width:0}
-.a4-preview .act-signers-value{min-height:22px;padding:0 4px 1px;border-bottom:1px solid #111;text-align:center;display:flex;align-items:flex-end;justify-content:center;word-break:break-word;color:transparent;text-shadow:none}
+.a4-preview .act-signers-value{min-height:22px;padding:0 4px 1px;border-bottom:1px solid #111;text-align:center;display:flex;align-items:flex-end;justify-content:center;word-break:break-word;color:transparent;text-shadow:none;position:relative}
+.a4-preview .act-signers-value.has-signature{min-height:62px}
+.a4-preview .act-signature-box{position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);width:140px;height:58px;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;box-sizing:border-box;pointer-events:none}
+.a4-preview .act-signature-box img{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom}
 .a4-preview .act-signers-label{font-size:12px;line-height:1.15;font-style:italic;margin-top:2px}
 .a4-preview .act-section{margin-top:12px}
 .a4-preview .act-section-title{font-size:16px;font-weight:700;margin-bottom:6px}

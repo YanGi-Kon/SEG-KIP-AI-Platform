@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { ensureSheet, extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
 import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
-import { sendDocumentForApproval } from './signatureApprovalService.js';
+import { refreshDocumentApprovalState, sendDocumentForApproval } from './signatureApprovalService.js';
 import { verifySafeEmailTransport } from './emailDiagnosticsService.js';
 import { getHttpEmailSummary, hasHttpEmailProvider, sendHttpEmail } from './httpEmailService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
@@ -11,7 +11,6 @@ import { testWorkspaceFinalDocumentsFolder } from './workspaceDriveFolderService
 const SIGNERS_SHEET = 'ИМЗО_ЧЕКУВЧИЛАР';
 const APPROVALS_SHEET = 'ҲУЖЖАТ_ТАСДИҚЛАШ';
 const REGISTRY_SHEET = 'АКТЛАР_РЕЕСТР';
-const DAILY_SHEET = 'АКТЛАР_КУНЛИК';
 const SIGNER_HEADERS = ['ID', 'Lavozimi', 'FIO', 'ImzoPNG', 'Gmail', 'CreatedAt'];
 const APPROVAL_HEADERS = ['ID', 'ActNo', 'SignerID', 'Lavozimi', 'FIO', 'Gmail', 'Status', 'ApprovalLink', 'TokenHash', 'CreatedAt', 'OpenedAt', 'ApprovedAt', 'IP', 'UserAgent', 'SignatureFileId'];
 
@@ -21,6 +20,16 @@ function clean(value) {
 
 function normalizeText(value) {
   return clean(value).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function isAutomaticKipMasterSigner(signer = {}) {
+  const text = normalizeText(`${signer.position || ''} ${signer.fullName || signer.fio || ''}`);
+  return (text.includes('кип') && (text.includes('мастер') || text.includes('инженер')))
+    || (text.includes('kip') && (text.includes('master') || text.includes('engineer')));
+}
+
+export function selectEmailApprovalTargets(signers = []) {
+  return signers.filter((signer) => !(Number(signer?.slot) === 1 && isAutomaticKipMasterSigner(signer)));
 }
 
 function q(name) {
@@ -269,23 +278,6 @@ async function writeApproval(config, input) {
   return { id: row[0], status: row[6] };
 }
 
-async function updateWaitingState(document, signers, links, status = 'Кутилмоқда') {
-  await document.sheets.spreadsheets.values.update({
-    spreadsheetId: document.spreadsheetId,
-    range: `${q(REGISTRY_SHEET)}!E${document.rowNumber}`,
-    valueInputOption: 'RAW',
-    requestBody: { values: [[status]] },
-  });
-  if (document.rowStart) {
-    await document.sheets.spreadsheets.values.update({
-      spreadsheetId: document.spreadsheetId,
-      range: `${q(DAILY_SHEET)}!K${document.rowStart}:O${document.rowStart + 1}`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [['Status', 'Imzolovchi', 'Gmail', 'ApprovalLink', 'CreatedDate'], [status, signers.map((s) => s.fullName || s.fio || '').join(', '), signers.map((s) => s.email || s.gmail || '').join(', '), links.join('\n'), nowIso()]] },
-    }).catch(() => {});
-  }
-}
-
 function readDocumentMetadata(document) {
   const meta = safeJsonParse(document?.a4Json, {});
   return meta && typeof meta === 'object' ? meta : {};
@@ -301,6 +293,7 @@ function assignmentSlotsFromMetadata(meta = {}) {
       position: clean(row?.position),
       gmail: clean(row?.gmail || row?.email),
       department: clean(row?.department),
+      signatureFileId: clean(row?.signatureFileId),
     })).filter((row) => row.signerId || row.fio || row.position || row.gmail);
   }
   return [1, 2, 3].map((slot) => ({
@@ -310,6 +303,7 @@ function assignmentSlotsFromMetadata(meta = {}) {
     position: clean(meta[`position${slot}`]),
     gmail: '',
     department: clean(meta[`department${slot}`]),
+    signatureFileId: clean(meta[`signatureFileId${slot}`]),
   })).filter((row) => row.fio || row.position || row.department);
 }
 
@@ -363,6 +357,7 @@ async function persistResolvedAssignedApprovers(document, meta, signers) {
       position: clean(signer.position),
       gmail: clean(signer.email),
       department: clean(meta[`department${signer.slot}`]),
+      signatureFileId: clean(signer.signatureFileId) || clean(signer.signatureUrl),
     })),
   };
   const nextJson = JSON.stringify(nextMeta);
@@ -385,17 +380,20 @@ async function resolveWorkspaceDocumentTargets(workspace, actNo, synced) {
     throw new Error('Hujjatga approver biriktirilmagan');
   }
   await persistResolvedAssignedApprovers(document, metadata, resolved.signers);
-  return { document, metadata, targetSigners: resolved.signers };
+  const targetSigners = selectEmailApprovalTargets(resolved.signers);
+  if (!targetSigners.length) {
+    throw new Error('2- ва 3-қатор учун email орқали тасдиқловчи имзоловчилар бириктирилмаган');
+  }
+  return { document, metadata, assignedSigners: resolved.signers, targetSigners };
 }
 
 async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resolvedTargets) {
   const { config } = synced;
-  const { document, targetSigners } = resolvedTargets;
+  const { targetSigners } = resolvedTargets;
   const provider = getHttpEmailSummary();
   const actNo = clean(input.actNo);
   const existingApprovals = await readApprovalRows(config, actNo);
   const baseUrl = baseUrlFromRequest(req);
-  const links = [];
   const results = [];
 
   for (const signer of targetSigners) {
@@ -432,7 +430,6 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resol
       approverName: signer.fullName,
       link,
     });
-    links.push(link);
     const approval = await writeApproval(config, {
       id: approvalId,
       actNo,
@@ -467,7 +464,7 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resol
   const failed = results.filter((item) => item.status === 'email-failed').length;
   const approved = results.filter((item) => item.status === 'already-approved').length;
   const status = total > 0 && approved === total && failed === 0 && sent === 0 ? 'Тасдиқланди' : (sent > 0 || approved > 0 ? 'Кутилмоқда' : 'Email xatosi');
-  await updateWaitingState(document, targetSigners, links, status);
+  await refreshDocumentApprovalState(config, actNo, baseUrl);
   return { actNo, status, sent, failed, approved, total, results, provider: provider.provider, fromMode: provider.fromMode, warning: provider.warning || '', recommendedFix: provider.recommendedFix || '', workspaceId: workspace.id, workspaceName: workspace.name, signersSource: 'assigned_workspace_signers', signersSynced: synced.signersCount, targetedApprovers: total };
 }
 
