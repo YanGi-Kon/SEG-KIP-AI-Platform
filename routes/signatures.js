@@ -28,7 +28,22 @@ function workspaceGuards(permission) {
   return (req, res, next) => requireAccessToken(req, res, () => authorizeWorkspace(req, res, next));
 }
 
-router.use(workspaceGuards('workspace:read'));
+export function isPublicSignatureRequest(method, path) {
+  const normalizedMethod = String(method || '').toUpperCase();
+  const normalizedPath = String(path || '').split('?')[0];
+
+  if (normalizedMethod === 'POST' && normalizedPath === '/auth/login') return true;
+  if (normalizedMethod === 'POST' && normalizedPath === '/document/approve') return true;
+  if (normalizedMethod === 'GET' && /^\/document\/approve\/[^/]+$/.test(normalizedPath)) return true;
+  if (normalizedMethod === 'GET' && /^\/signature\/render\/[^/]+$/.test(normalizedPath)) return true;
+  return false;
+}
+
+const requireWorkspaceRead = workspaceGuards('workspace:read');
+router.use((req, res, next) => {
+  if (isPublicSignatureRequest(req.method, req.path)) return next();
+  return requireWorkspaceRead(req, res, next);
+});
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024, files: 1 },
