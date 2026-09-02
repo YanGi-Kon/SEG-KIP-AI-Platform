@@ -18,6 +18,7 @@ import {
 } from '../services/signatureApprovalService.js';
 import { enqueueFinalPdfExport } from '../repositories/outboxRepository.js';
 import { isDatabaseConfigured } from '../db/pool.js';
+import { processNextFinalPdfExport } from '../services/finalPdfExportWorker.js';
 import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
 import { requireAccessToken } from '../middleware/auth.js';
 
@@ -234,10 +235,13 @@ router.post('/document/approve', async (req, res) => {
             updatedHtml: result.updatedHtml || '',
             workspaceId: approvalContext.workspaceId,
           });
+          const processed = await processNextFinalPdfExport(`approval-${process.pid}`);
           finalPdfExport = {
-            status: job.status === 'completed' ? 'EXPORTED' : 'PENDING',
+            status: processed?.status === 'completed' || job.status === 'completed' ? 'EXPORTED' : 'PENDING',
             jobId: job.id,
             idempotencyKey: job.idempotencyKey,
+            error: processed?.status === 'failed_permanent' ? processed.lastError : undefined,
+            errorCode: processed?.status === 'failed_permanent' ? processed.lastErrorCode : undefined,
           };
         } catch (queueError) {
           finalPdfExport = {
