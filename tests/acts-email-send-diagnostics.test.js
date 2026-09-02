@@ -20,5 +20,5 @@ test('top-level SMTP failure renders cause, response code and recommended fix', 
 });
 
 test('document-send frontend cache version is bumped', () => {
-  assert.match(loader, /acts-workspace-documents\.js\?v=stage8f/);
+  assert.match(loader, /acts-workspace-documents\.js\?v=stage8g/);
 });

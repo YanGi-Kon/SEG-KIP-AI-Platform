@@ -101,6 +101,13 @@ function approvalPreviewStyles() {
 .a4-preview .act-date-inline{display:flex;justify-content:flex-end;align-items:flex-end;gap:10px;font-weight:700;margin-top:4px;font-size:13px}
 .a4-preview .act-date-inline .line{display:inline-flex;align-items:flex-end;justify-content:center;min-width:132px;border-bottom:1px solid #111;text-align:center;padding:0 4px 1px;font-weight:400}
 .a4-preview .act-conclusion{margin-top:12px}
+.a4-preview .act-final-signatures{margin-top:18px;break-inside:avoid;page-break-inside:avoid}
+.a4-preview .act-final-signatures-title{font-size:16px;font-weight:700;margin-bottom:8px}
+.a4-preview .act-final-signatures-grid{display:grid;gap:12px}
+.a4-preview .act-final-signature-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:end}
+.a4-preview .act-final-signature-cell{text-align:center;min-width:0}
+.a4-preview .act-final-signature-value{position:relative;min-height:58px;padding:0 4px 2px;border-bottom:1px solid #111;display:flex;align-items:flex-end;justify-content:center;box-sizing:border-box;word-break:break-word}
+.a4-preview .act-final-signature-label{font-size:12px;line-height:1.15;margin-top:2px}
 .a4-preview img{max-width:100%;height:auto}
 @media (max-width: 980px){.a4-preview{padding:12mm 12mm 14mm;font-size:14px}.a4-preview .act-meta{gap:10px;margin-bottom:6mm}.a4-preview .act-date-head{padding-top:18mm}.a4-preview .act-title{font-size:18px}.a4-preview .act-subtitle{font-size:15px}}
 @media (max-width: 760px){.a4-preview .act-meta{display:block}.a4-preview .act-date-head{padding-top:0;margin-bottom:10px}.a4-preview .act-signers-row{grid-template-columns:1fr}.a4-preview .act-date-inline{justify-content:flex-start;flex-wrap:wrap}.a4-preview .act-date-inline .line{min-width:0;width:100%}}

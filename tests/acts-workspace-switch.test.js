@@ -235,7 +235,8 @@ test('2–3-slot imzolari email tasdiq holatiga qarab yuklanadi', async () => {
   assert.ok(imageRequests.every(({ url }) => !url.endsWith(ids.pending)));
   assert.ok(requests.every(({ authorization }) => authorization === 'Bearer workspace-token'));
   const a4Html = element('actsA4Content').innerHTML;
-  assert.equal((a4Html.match(/<img src="blob:approved-signature-/g) || []).length, 2);
+  // Each loaded signature is reused in the upper signer block and the final signature block.
+  assert.equal((a4Html.match(/<img src="blob:approved-signature-/g) || []).length, 4);
   assert.match(a4Html, /SEG_SIGNATURE_SLOT_3_START--><!--SEG_SIGNATURE_SLOT_3_END/);
 });
 

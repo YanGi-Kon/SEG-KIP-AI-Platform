@@ -3,7 +3,7 @@
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const WORKSPACE_ID_KEY = 'seg_kip_selected_workspace_id';
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
-  const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null, signatureObjectUrls: [] };
+  const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null, signatureObjectUrls: [], draftSignatureUrls: {} };
   let activeWorkspaceId = '';
   let workspaceLoadVersion = 0;
   const PDF_MONTHS = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
@@ -186,6 +186,13 @@
 .a4-preview .act-date-inline{display:flex;justify-content:flex-end;align-items:flex-end;gap:10px;font-size:13px;font-weight:700;margin-top:4px}
 .a4-preview .act-date-inline .line{display:inline-flex;align-items:flex-end;justify-content:center;min-width:132px;padding:0 4px 1px;border-bottom:1px solid #111;font-weight:400}
 .a4-preview .act-conclusion{margin-top:12px}
+.a4-preview .act-final-signatures{margin-top:18px;break-inside:avoid;page-break-inside:avoid}
+.a4-preview .act-final-signatures-title{font-size:16px;font-weight:700;margin-bottom:8px}
+.a4-preview .act-final-signatures-grid{display:grid;gap:12px}
+.a4-preview .act-final-signature-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:end}
+.a4-preview .act-final-signature-cell{text-align:center;min-width:0}
+.a4-preview .act-final-signature-value{position:relative;min-height:58px;padding:0 4px 2px;border-bottom:1px solid #111;display:flex;align-items:flex-end;justify-content:center;box-sizing:border-box;word-break:break-word}
+.a4-preview .act-final-signature-label{font-size:12px;line-height:1.15;margin-top:2px}
 .a4-preview img{max-width:100%;height:auto}
 @media (max-width:980px){
   .a4-preview{padding:12mm 12mm 14mm;font-size:14px}
@@ -212,6 +219,12 @@
   function stripLegacyManualSignatureBlock(html){
     let source = String(html || '').trim();
     if(!source) return source;
+    const protectedBlocks=[];
+    source=source.replace(/<!--SEG_FINAL_SIGNATURES_START-->[\s\S]*?<!--SEG_FINAL_SIGNATURES_END-->/g,(block)=>{
+      const token=`<!--SEG_PROTECTED_FINAL_SIGNATURES_${protectedBlocks.length}-->`;
+      protectedBlocks.push(block);
+      return token;
+    });
     const patterns = [
       /<p[^>]*>\s*<b>\s*Имзолар:\s*<\/b>\s*<\/p>/giu,
       /<div[^>]*class="[^"]*signs[^"]*"[^>]*>[\s\S]*?<\/div>\s*<div[^>]*class="[^"]*signs[^"]*"[^>]*>[\s\S]*?<\/div>/giu,
@@ -229,6 +242,7 @@
         .replace(/(<br\s*\/?>\s*){3,}/giu,'<br><br>')
         .replace(/\n{3,}/g,'\n\n');
     }
+    protectedBlocks.forEach((block,index)=>{source=source.replace(`<!--SEG_PROTECTED_FINAL_SIGNATURES_${index}-->`,block);});
     return source;
   }
 
@@ -270,7 +284,7 @@
 
   function resetSaveButton(){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');b.textContent='Сақлаш';}
   function saveButton(mode){const b=$('saveActBtn');if(!b)return;b.classList.remove('saving','saved');if(mode==='saving'){b.classList.add('saving');b.textContent='⏳ Сақланмоқда...';b.disabled=true;return;}if(mode==='saved'){b.classList.add('saved');b.textContent='Сақланди ✓';b.disabled=true;return;}resetSaveButton();}
-  function fillDoc(index){const row=state.analysisRows[index];if(!row)return;if(row.isCompleted){viewDoc(ref(row.actNo));return;}state.selected=row;$('workPlace').value=formatWorkPlace(row);$('actDate').value=row.date||today();$('actTime').value=row.time||'';$('actionDate').value=row.actionDate||'';$('actionTime').value=row.actionTime||'';$('actNo').value='';$('failureText').value=row.failureText||'';$('impactText').value=row.impactText||'';$('reasonText').value=row.reasonText||'';$('actionText').value=row.actionText||'';$('conclusion').value=row.conclusion||'';resetSaveButton();showView('create',$('tab-create'));validateDoc();}
+  async function fillDoc(index){const row=state.analysisRows[index];if(!row)return;if(row.isCompleted){viewDoc(ref(row.actNo));return;}state.selected=row;$('workPlace').value=formatWorkPlace(row);$('actDate').value=row.date||today();$('actTime').value=row.time||'';$('actionDate').value=row.actionDate||'';$('actionTime').value=row.actionTime||'';$('actNo').value='';$('failureText').value=row.failureText||'';$('impactText').value=row.impactText||'';$('reasonText').value=row.reasonText||'';$('actionText').value=row.actionText||'';$('conclusion').value=row.conclusion||'';resetSaveButton();showView('create',$('tab-create'));validateDoc();renderDraftFinalSignatures();await loadWorkspaceApproverRegistry().catch(()=>[]);await refreshDraftSignatureImages();}
   function findSignerForPerson(personName){
     const name = normalizeSignerText(personName);
     if(!name) return null;
@@ -405,13 +419,19 @@
   function buildSignerRows(a){
     return [1,2,3].map((slot)=>`<div class="act-signers-row" data-signer-slot="${slot}">${signerCell(a[`person${slot}`],'Ф.И.Ш')}${signerCell(a[`position${slot}`],'лавозим')}${signerCell(a[`department${slot}`],'цех ва и/ж.',a[`signatureUrl${slot}`],slot)}</div>`).join('');
   }
+  function finalSignatureCell(value,label,signatureUrl='',signatureSlot=0){const signature=signerSignatureHtml(signatureUrl);const slotContent=signatureSlot?`<!--SEG_SIGNATURE_SLOT_${signatureSlot}_START-->${signature}<!--SEG_SIGNATURE_SLOT_${signatureSlot}_END-->`:signature;return `<div class="act-final-signature-cell"><div class="act-final-signature-value"><span class="act-signer-text">${esc(value || '')}</span>${slotContent}</div><div class="act-final-signature-label">${label}</div></div>`;}
+  function buildFinalSignatureRows(a){return [1,2,3].map((slot)=>`<div class="act-final-signature-row" data-final-signer-slot="${slot}">${finalSignatureCell(a[`position${slot}`],'Лавозими')}${finalSignatureCell('', 'Имзо',a[`signatureUrl${slot}`],slot)}${finalSignatureCell(a[`person${slot}`],'Ф.И.Ш.')}</div>`).join('');}
+  function buildFinalSignatures(a){return `<!--SEG_FINAL_SIGNATURES_START--><div class="act-final-signatures"><div class="act-final-signatures-title">Имзолар:</div><div class="act-final-signatures-grid">${buildFinalSignatureRows(a)}</div></div><!--SEG_FINAL_SIGNATURES_END-->`;}
+  function draftSignatureCell(value,label,signatureUrl=''){return `<div class="draft-final-signature-cell"><div class="draft-final-signature-value"><span>${esc(value||'')}</span>${signerSignatureHtml(signatureUrl)}</div><div class="draft-final-signature-label">${label}</div></div>`;}
+  function renderDraftFinalSignatures(){const host=$('draftFinalSignatures');if(!host)return;const a=collectActBase();host.innerHTML=`<div class="draft-final-signatures"><div class="draft-final-signatures-title">Имзолар:</div>${[1,2,3].map((slot)=>`<div class="draft-final-signature-row">${draftSignatureCell(a[`position${slot}`],'Лавозими')}${draftSignatureCell('','Имзо',state.draftSignatureUrls[slot]||'')}${draftSignatureCell(a[`person${slot}`],'Ф.И.Ш.')}</div>`).join('')}</div>`;}
+  async function refreshDraftSignatureImages(){const expectedWorkspaceId=workspaceId();const hydrated=await hydrateActSignatureUrls(collectActBase(),expectedWorkspaceId);state.draftSignatureUrls={1:hydrated.signatureUrl1||'',2:hydrated.signatureUrl2||'',3:hydrated.signatureUrl3||''};renderDraftFinalSignatures();}
   function sectionHtml(title, value, extra='', valueClass=''){ return `<div class="act-section"><div class="act-section-title">${title}</div><div class="act-section-value ${valueClass}">${esc(value || '').replace(/\n/g,'<br>')}</div>${extra}</div>`; }
   function buildA4ActHtml(a){
     const dateParts = parsePdfDate(a.date);
     const signerBlock = `<div class="act-signers-title">Биз имзо чекувчилар:</div><div class="act-signers">${buildSignerRows(a)}</div>`;
     const failureDate = [a.date, a.time].filter(Boolean).join(' ');
     const actionDate = [a.actionDate, a.actionTime].filter(Boolean).join(' ');
-    return `<div class="a4-preview"><div class="act-meta"><div class="act-date-head">&quot;<span class="line">${esc(dateParts.day)}</span>&quot; <span class="month">${esc(dateParts.month)}</span> <span class="year">${esc(dateParts.year)}</span> г.</div><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича<br>ТПП «Андижан»</div></div><div class="act-head"><div class="act-title"><span>ДАЛОЛАТНОМА №</span><span class="act-no-line">${esc(a.actNo||'')}</span></div><div class="act-subtitle">Ўлчов воситасининг бузилиши</div></div>${signerBlock}${sectionHtml('1. Ў.В. Ишлаш жойи', a.workPlace)}${sectionHtml('2. Рад этиш мазмуни, санаси, вақти:', a.failureText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(failureDate || a.date || '')}</span></div>`)}${sectionHtml('3. Носозликнинг технологик оқибатлари:', a.impactText, '', 'tall')}${sectionHtml('4. Рад этиш сабаби:', a.reasonText, '', 'tall')}${sectionHtml('5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:', a.actionText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(actionDate || a.actionDate || '')}</span></div>`, 'xl')}<div class="act-conclusion">${sectionHtml('Хулоса:', a.conclusion, '', 'xl')}</div></div>`;
+    return `<div class="a4-preview"><div class="act-meta"><div class="act-date-head">&quot;<span class="line">${esc(dateParts.day)}</span>&quot; <span class="month">${esc(dateParts.month)}</span> <span class="year">${esc(dateParts.year)}</span> г.</div><div class="right">Низомга илова №4<br>“SANEG” МЧЖ К/К объектларида<br>назорат ўлчов воситалари ва автоматлаштириш тизимларига<br>техник хизмат кўрсатиш бўйича<br>ТПП «Андижан»</div></div><div class="act-head"><div class="act-title"><span>ДАЛОЛАТНОМА №</span><span class="act-no-line">${esc(a.actNo||'')}</span></div><div class="act-subtitle">Ўлчов воситасининг бузилиши</div></div>${signerBlock}${sectionHtml('1. Ў.В. Ишлаш жойи', a.workPlace)}${sectionHtml('2. Рад этиш мазмуни, санаси, вақти:', a.failureText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(failureDate || a.date || '')}</span></div>`)}${sectionHtml('3. Носозликнинг технологик оқибатлари:', a.impactText, '', 'tall')}${sectionHtml('4. Рад этиш сабаби:', a.reasonText, '', 'tall')}${sectionHtml('5. Носозликни бартараф этиш бўйича оператив ҳаракатлар ва бартараф этиш вақти:', a.actionText, `<div class="act-date-inline"><span>Сана:</span><span class="line">${esc(actionDate || a.actionDate || '')}</span></div>`, 'xl')}<div class="act-conclusion">${sectionHtml('Хулоса:', a.conclusion, '', 'xl')}</div>${buildFinalSignatures(a)}</div>`;
   }
   function collectAct(){ const base=collectActBase(); const payload={...base, assignedApprovers: collectAssignedApproverSlots(base)}; return {...payload,a4Html:stripLegacyManualSignatureBlock(buildA4ActHtml(payload)),a4Json:JSON.stringify(payload)}; }
   function validateDoc(){const a=collectActBase();const required=['date','time','workPlace','failureText','impactText','reasonText','actionText','actionDate','actionTime','conclusion'];const done=required.filter(k=>a[k]).length;const pct=Math.round(done/required.length*100);$('fillBar').style.width=pct+'%';$('fillText').textContent=`Тўлдирилиш: ${pct}%`;const b=$('saveActBtn');if(b&&!state.saving&&!b.classList.contains('saved'))b.disabled=pct<100||!state.selected;return pct>=100;}
@@ -508,6 +528,7 @@
     }).catch(()=>{});
     $('serviceFile')?.addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{const json=JSON.parse(await file.text());if(!json.client_email||!json.private_key||!json.project_id)throw new Error('client_email, private_key ёки project_id топилмади');localStorage.setItem(KEYS.service,JSON.stringify(json));$('serviceFileName').innerHTML=`${esc(file.name)} ✓`;$('settingsMsg').innerHTML='<span class="ok">SERVICE ACCOUNT JSON юкланди.</span>';}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}});
     ['failureText','impactText','reasonText','actionText','actDate','actTime','actionDate','actionTime','conclusion'].forEach(id=>$(id)?.addEventListener('input',validateDoc));
+    ['person1','position1','person2','position2','person3','position3'].forEach(id=>$(id)?.addEventListener('input',renderDraftFinalSignatures));
     
     if (window.parent && window.parent !== window) {
       setStatus('Иш жойи созланмоқда...', 'sync');

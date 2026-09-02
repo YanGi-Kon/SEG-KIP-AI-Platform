@@ -436,7 +436,15 @@ function transportConfig() {
   const port = Number(process.env.SMTP_PORT || 465);
   if (!user || !pass) throw new Error('SMTP_USER ва SMTP_PASS (ёки GMAIL_USER/GMAIL_APP_PASSWORD) киритилиши шарт');
   return {
-    transporter: nodemailer.createTransport({ host, port, secure: String(process.env.SMTP_SECURE ?? (port === 465)) !== 'false', auth: { user, pass } }),
+    transporter: nodemailer.createTransport({
+      host,
+      port,
+      secure: String(process.env.SMTP_SECURE ?? (port === 465)) !== 'false',
+      auth: { user, pass },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
+    }),
     from: clean(process.env.SMTP_FROM) || user,
   };
 }
@@ -506,6 +514,13 @@ function stripLegacyManualSignatureBlock(html) {
   let source = clean(html);
   if (!source) return source;
 
+  const protectedBlocks = [];
+  source = source.replace(/<!--SEG_FINAL_SIGNATURES_START-->[\s\S]*?<!--SEG_FINAL_SIGNATURES_END-->/g, (block) => {
+    const token = `<!--SEG_PROTECTED_FINAL_SIGNATURES_${protectedBlocks.length}-->`;
+    protectedBlocks.push(block);
+    return token;
+  });
+
   const patterns = [
     /<[^>]+>\s*Имзолар:\s*<\/[^>]+>/giu,
     /<[^>]+>\s*_{5,}\s*<\/[^>]+>/gu,
@@ -525,6 +540,10 @@ function stripLegacyManualSignatureBlock(html) {
       .replace(/(<br\s*\/?>\s*){3,}/giu, '<br><br>')
       .replace(/\n{3,}/g, '\n\n');
   }
+
+  protectedBlocks.forEach((block, index) => {
+    source = source.replace(`<!--SEG_PROTECTED_FINAL_SIGNATURES_${index}-->`, block);
+  });
 
   return source;
 }

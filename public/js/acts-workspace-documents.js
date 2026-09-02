@@ -1,7 +1,8 @@
 // SEG KIP ACTS workspace document-send bridge.
 (function(){
   const AK='seg_kip_workspace_access_token', WK='seg_kip_selected_workspace_id';
-  const SEND_TIMEOUT_MS=35000;
+  // Drive validation, Sheets sync and multiple approval emails run in one request.
+  const SEND_TIMEOUT_MS=120000;
   const pget=(s,k)=>{try{return parent?.[s]?.getItem(k)||'';}catch{return'';}};
   const wid=()=>localStorage.getItem(WK)||pget('localStorage',WK)||'';
   const tok=()=>sessionStorage.getItem(AK)||pget('sessionStorage',AK)||'';
