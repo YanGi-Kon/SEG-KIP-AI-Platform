@@ -36,6 +36,15 @@
   function workspaceId(){ return localStorage.getItem(WORKSPACE_ID_KEY) || pget('localStorage', WORKSPACE_ID_KEY) || ''; }
   function workspaceToken(){ return sessionStorage.getItem(WORKSPACE_TOKEN_KEY) || pget('sessionStorage', WORKSPACE_TOKEN_KEY) || ''; }
 
+  async function refreshWorkspaceSession(){
+    const res = await fetch('/api/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include'});
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || !data.accessToken) throw new Error(data.error || 'Workspace sessiyasi yangilanmadi');
+    sessionStorage.setItem(WORKSPACE_TOKEN_KEY,data.accessToken);
+    try { parent.sessionStorage.setItem(WORKSPACE_TOKEN_KEY,data.accessToken); } catch(_) {}
+    return data.accessToken;
+  }
+
   async function loginAdmin(){
     const password = window.prompt('Administrator parolini kiriting:');
     if(password === null) throw new Error('Administrator autentifikatsiyasi bekor qilindi');
@@ -63,6 +72,11 @@
     const res = await fetch(url,{...options,headers});
     const data = await res.json().catch(()=>({}));
     if(wid && wid !== workspaceId()) throw staleWorkspaceError(wid);
+    if(res.status===401 && retry && data.code!=='ADMIN_AUTH_REQUIRED'){
+      await refreshWorkspaceSession();
+      if(wid && wid !== workspaceId()) throw staleWorkspaceError(wid);
+      return apiFetch(url,options,false,wid);
+    }
     if(res.status===401 && data.code==='ADMIN_AUTH_REQUIRED' && retry){
       await loginAdmin();
       if(wid && wid !== workspaceId()) throw staleWorkspaceError(wid);
