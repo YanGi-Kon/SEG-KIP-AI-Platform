@@ -101,3 +101,16 @@ test('eski A4 HTML ham uchinchi ustundagi uch imzo slotiga avtomatik migratsiya 
   assert.match(result.html, /data-approved-signature-slot="2"/);
   assert.doesNotMatch(result.html, /data-approved-signature-slot="3"/);
 });
+
+test('final signatures mavjud bo‘lsa eski yuqori imzolar olib tashlanadi', () => {
+  const upper = `${slotCell(1)}${slotCell(2)}${slotCell(3)}`;
+  const lower = `${slotCell(1)}${slotCell(2)}${slotCell(3)}`;
+  const source = `<div class="a4-preview">${upper}<!--SEG_FINAL_SIGNATURES_START-->${lower}<!--SEG_FINAL_SIGNATURES_END--></div>`;
+  const result = injectApprovalSignaturesIntoSlots(source, approvals, metadata, '', (fileId) => `/signature/${encodeURIComponent(fileId)}`);
+  const firstImage = result.html.indexOf('data-approved-signature-slot="1"');
+  const finalStart = result.html.indexOf('<!--SEG_FINAL_SIGNATURES_START-->');
+
+  assert.ok(firstImage > finalStart);
+  assert.equal((result.html.match(/data-approved-signature-slot="1"/g) || []).length, 1);
+  assert.equal((result.html.match(/data-approved-signature-slot="2"/g) || []).length, 1);
+});

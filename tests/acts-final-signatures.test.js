@@ -21,8 +21,14 @@ test('final signature block preserves all three signed image slots', () => {
   assert.match(source, /page-break-inside:avoid/);
 });
 
+test('upper signer information block has no electronic signature slots', () => {
+  const buildRows = source.match(/function buildSignerRows\(a\)\{[\s\S]*?\n  \}/)?.[0] || '';
+  assert.doesNotMatch(buildRows, /signatureUrl/);
+  assert.doesNotMatch(buildRows, /SEG_SIGNATURE_SLOT/);
+});
+
 test('Acts module cache version exposes the final signatures build', () => {
-  assert.match(moduleHtml, /acts\.js\?v=20260902-final-signatures-1/);
+  assert.match(moduleHtml, /acts\.js\?v=20260902-final-signatures-2/);
 });
 
 test('document editor shows the same three-row signatures preview below conclusion', () => {

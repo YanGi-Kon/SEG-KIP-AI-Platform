@@ -649,6 +649,7 @@ function isKipMasterAssignment(assignment = {}) {
 
 export function ensureSignatureSlotMarkers(html) {
   let source = clean(html);
+  if (source.includes('<!--SEG_FINAL_SIGNATURES_START-->')) return source;
   let slot = 0;
   const signatureCell = /<div class="act-signers-cell"(?:\s+data-signature-slot="\d+")?><div class="act-signers-value([^"]*)">([\s\S]*?)<\/div><div class="act-signers-label">цех ва и\/ж\.<\/div><\/div>/giu;
   source = source.replace(signatureCell, (full, classSuffix, content) => {
@@ -663,6 +664,17 @@ export function ensureSignatureSlotMarkers(html) {
 
 export function injectApprovalSignaturesIntoSlots(html, approvals = [], metadata = {}, baseUrl = '', signatureUrlForFile = null) {
   let source = clean(html);
+  const finalStart = source.indexOf('<!--SEG_FINAL_SIGNATURES_START-->');
+  const finalEndMarker = '<!--SEG_FINAL_SIGNATURES_END-->';
+  const finalEnd = source.indexOf(finalEndMarker);
+  if (finalStart >= 0 && finalEnd > finalStart) {
+    const stripUpperSignatures = (part) => part
+      .replace(/<!--SEG_SIGNATURE_SLOT_\d+_START-->[\s\S]*?<!--SEG_SIGNATURE_SLOT_\d+_END-->/g, '')
+      .replace(/<span class="act-signature-box"[^>]*>[\s\S]*?<\/span>/giu, '')
+      .replace(/(<div class="act-signers-value) has-signature("[^>]*>)/g, '$1$2');
+    const endOffset = finalEnd + finalEndMarker.length;
+    source = `${stripUpperSignatures(source.slice(0, finalStart))}${source.slice(finalStart, endOffset)}${stripUpperSignatures(source.slice(endOffset))}`;
+  }
   const assignments = assignedSignerSlots(metadata);
   let markerCount = 0;
   const makeUrl = typeof signatureUrlForFile === 'function'

@@ -23,7 +23,7 @@ test('A4 hujjatdagi imzo PNG doimiy o‘lchamda ko‘rinishi kerak', () => {
   assert.match(source, /object-position:\s*center bottom/);
   assert.match(source, /trimSignaturePngWhitespace\(blob\)/);
   assert.match(source, /<img src="\$\{esc\(url\)\}" alt="Имзо"/);
-  assert.match(source, /signerCell\(a\[`department\$\{slot\}`\],'цех ва и\/ж\.',a\[`signatureUrl\$\{slot\}`\],slot\)/);
+  assert.match(source, /finalSignatureCell\('', 'Имзо',a\[`signatureUrl\$\{slot\}`\],slot\)/);
   assert.match(source, /SEG_SIGNATURE_SLOT_\$\{signatureSlot\}_START/);
   assert.match(source, /canRenderSignerSlotSignature\(act,slot,signer\)/);
 });
@@ -236,7 +236,7 @@ test('2–3-slot imzolari email tasdiq holatiga qarab yuklanadi', async () => {
   assert.ok(requests.every(({ authorization }) => authorization === 'Bearer workspace-token'));
   const a4Html = element('actsA4Content').innerHTML;
   // Each loaded signature is reused in the upper signer block and the final signature block.
-  assert.equal((a4Html.match(/<img src="blob:approved-signature-/g) || []).length, 4);
+  assert.equal((a4Html.match(/<img src="blob:approved-signature-/g) || []).length, 2);
   assert.match(a4Html, /SEG_SIGNATURE_SLOT_3_START--><!--SEG_SIGNATURE_SLOT_3_END/);
 });
 
