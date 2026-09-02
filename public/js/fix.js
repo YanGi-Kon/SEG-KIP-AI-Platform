@@ -159,7 +159,7 @@ function isSanegLoginActive(){
       const src = String(frame.getAttribute('src') || frame.contentWindow?.location?.pathname || '');
       if (!doc || !src.includes('acts')) return;
       appendScript(doc, 'segActsWorkspaceSignersScript', '/js/acts-workspace-signers.js?v=stage7e');
-      appendScript(doc, 'segActsWorkspaceDocumentsScript', '/js/acts-workspace-documents.js?v=stage8e');
+      appendScript(doc, 'segActsWorkspaceDocumentsScript', '/js/acts-workspace-documents.js?v=stage8f');
     } catch (_) {}
   }
   function bind(){

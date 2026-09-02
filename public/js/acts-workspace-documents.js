@@ -21,7 +21,7 @@
       const r=await fetch(path,{...opt,headers:h,credentials:'include',signal:controller.signal});
       const d=await read(r);
       if(r.status===401&&retry){await refresh();return api(path,opt,false)}
-      if(!r.ok||d.error)throw new Error(d.error||('HTTP '+r.status));
+      if(!r.ok||d.error){const error=new Error(d.error||('HTTP '+r.status));error.data=d;error.code=d.code||'';error.status=r.status;throw error}
       return d;
     }catch(e){
       if(e?.name==='AbortError')throw new Error('Email yuborish juda uzoq davom etdi. Email yuborish sozlamalarini tekshiring.');
@@ -45,7 +45,7 @@
     const map={
       EMAIL_INVALID_RECIPIENT:'Gmail manzil noto‘g‘ri yoki to‘liq emas.',
       EMAIL_DOMAIN_NOT_VERIFIED:'Email domen tasdiqlanmagan.',
-      EMAIL_AUTH_FAILED:'Resend API key noto‘g‘ri yoki bekor qilingan.',
+      EMAIL_AUTH_FAILED:'Email login yoki yuborish kaliti provider tomonidan rad etildi.',
       EMAIL_RATE_LIMITED:'Email provider vaqtincha rate-limitga tushdi.',
       EMAIL_SEND_TIMEOUT:'Email provider javob bermadi.',
       EMAIL_HTTP_FAILED:'Email provider xatosi.'
@@ -64,13 +64,15 @@
   function showEmailDiagnostics(result){
     clearEmailDiagnostics();
     const failed=(result?.results||[]).filter(x=>x.status==='email-failed');
-    if(!failed.length)return;
-    const first=failed[0];
+    const first=failed[0]||(result?.error?result:null);
+    if(!first)return;
     const box=document.createElement('div');
     box.id='actsEmailDiagnostics';
     box.className='email-diagnostic-card error';
-    const rows=failed.slice(0,4).map(item=>'<div class="email-diagnostic-row"><b>Imzolovchi:</b> '+esc(item.signer||'-')+'</div><div class="email-diagnostic-row"><b>Gmail:</b> '+esc(item.gmail||'-')+'</div><div class="email-diagnostic-row"><b>Sabab:</b> '+esc(emailCodeMessage(item,result))+'</div>').join('');
-    box.innerHTML='<div class="email-diagnostic-title">Email yuborilmadi</div><div class="email-diagnostic-row"><b>Hujjat:</b> '+esc(result.actNo||'-')+'</div><div class="email-diagnostic-row"><b>Provider:</b> '+esc(result.provider||'resend')+' · '+esc(result.fromMode||'')+'</div>'+rows+'<div class="email-diagnostic-fix"><b>Yechim:</b> '+esc(recommendedFix(result,first))+'</div>';
+    const rows=failed.length
+      ?failed.slice(0,4).map(item=>'<div class="email-diagnostic-row"><b>Imzolovchi:</b> '+esc(item.signer||'-')+'</div><div class="email-diagnostic-row"><b>Gmail:</b> '+esc(item.gmail||'-')+'</div><div class="email-diagnostic-row"><b>Sabab:</b> '+esc(emailCodeMessage(item,result))+'</div>').join('')
+      :'<div class="email-diagnostic-row"><b>Sabab:</b> '+esc(emailCodeMessage(first,result))+'</div><div class="email-diagnostic-row"><b>Xato kodi:</b> '+esc(first.code||'-')+(first.responseCode?' · '+esc(first.responseCode):'')+'</div>';
+    box.innerHTML='<div class="email-diagnostic-title">Email yuborilmadi</div><div class="email-diagnostic-row"><b>Hujjat:</b> '+esc(result.actNo||'-')+'</div><div class="email-diagnostic-row"><b>Provider:</b> '+esc(result.provider||'SMTP / Email provider')+(result.fromMode?' · '+esc(result.fromMode):'')+'</div>'+rows+'<div class="email-diagnostic-fix"><b>Yechim:</b> '+esc(recommendedFix(result,first))+'</div>';
     const host=document.getElementById('reports');
     if(!host)return;
     const anchor=host.querySelector('.subtabs')||host.querySelector('.tablewrap')||host.firstChild;
@@ -121,7 +123,11 @@
       setStatus(no+': '+sent+' ta Gmail yuborildi'+(failed?', '+failed+' ta xatolik':'')+synced+'. Ҳолат: '+(result.status||'Кутилмоқда'),failed?'sync':'ok');
       await window.ActsUI?.loadReports?.();
       setTimeout(decorateReportStatuses,80);
-    }catch(e){setStatus(e.message,'bad')}
+    }catch(e){
+      const detail=e?.data&&typeof e.data==='object'?{...e.data,actNo:no}:null;
+      if(detail&&String(detail.code||'').startsWith('EMAIL_')){window.__lastActsEmailResult=detail;showEmailDiagnostics(detail)}
+      setStatus(e.message,'bad');
+    }
   }
   function cellText(row,index){return String(row?.children?.[index]?.innerText||'').trim()}
   function exportReportsExcel(){

@@ -69,11 +69,11 @@ function responseSession(session) {
 }
 
 function handleError(res, error) {
-  console.error('[Auth Error]', error);
   const knownStatus = Number(error.statusCode);
   const status = Number.isInteger(knownStatus) && knownStatus >= 400 && knownStatus < 600
     ? knownStatus
     : 500;
+  if (status >= 500) console.error('[Auth Error]', error);
   const message = status >= 500 ? 'Authentication service error' : error.message;
   res.status(status).json({
     error: message,
@@ -106,6 +106,13 @@ router.post('/login', async (req, res) => {
 router.post('/refresh', async (req, res) => {
   try {
     const refreshToken = parseCookies(req)[REFRESH_COOKIE] || req.body?.refreshToken;
+    if (!refreshToken) {
+      clearRefreshCookie(req, res);
+      return res.status(401).json({
+        error: 'Refresh token is required',
+        code: 'REFRESH_TOKEN_REQUIRED',
+      });
+    }
     const session = await rotateUserSession(refreshToken, requestContext(req));
     setRefreshCookie(req, res, session);
     res.json(responseSession(session));
