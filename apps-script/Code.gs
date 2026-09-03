@@ -90,49 +90,37 @@ function ensureSubfolder_(payload) {
   return { ok: true, folderId: created.getId(), folderName: created.getName(), created: true };
 }
 
-function renderAndUploadPdf_(payload) {
-  var root = folder_(payload.rootFolderId);
+function uploadPdfBase64_(payload) {
   var target = folder_(payload.targetFolderId);
-  var html = String(payload.html || '');
   var name = clean_(payload.name) || 'Tasdiqlangan.pdf';
-  if (!html) throw new Error('DRIVE_PDF_HTML_REQUIRED');
-  var tempId = '';
+  var mimeType = clean_(payload.mimeType);
+  var encoded = clean_(payload.pdfBase64);
+  if (mimeType && mimeType !== 'application/pdf') throw new Error('DRIVE_PDF_MIME_TYPE_INVALID');
+  if (!encoded) throw new Error('DRIVE_PDF_BASE64_REQUIRED');
+
+  var bytes;
   try {
-    var htmlBlob = Utilities.newBlob(html, 'text/html', 'SEG-KIP-temp.html');
-    var metadata = {
-      name: 'TMP_SEG_KIP_' + Date.now(),
-      mimeType: 'application/vnd.google-apps.document',
-      parents: [root.getId()]
-    };
-    var temp = Drive.Files.create(metadata, htmlBlob, { supportsAllDrives: true });
-    tempId = clean_(temp.id);
-    if (!tempId) throw new Error('DRIVE_TEMP_DOCUMENT_FAILED');
-    var pdfBlob = null;
-    var conversionError = null;
-    for (var attempt = 0; attempt < 4; attempt += 1) {
-      try {
-        if (attempt > 0) Utilities.sleep(500 * attempt);
-        pdfBlob = DriveApp.getFileById(tempId).getAs(MimeType.PDF).setName(name);
-        if (pdfBlob && pdfBlob.getBytes().length > 0) break;
-      } catch (error) {
-        conversionError = error;
-      }
-    }
-    if (!pdfBlob || !pdfBlob.getBytes().length) {
-      throw new Error('DRIVE_PDF_CONVERSION_FAILED' + (conversionError ? ': ' + conversionError.message : ''));
-    }
-    var pdf = target.createFile(pdfBlob);
-    if (!clean_(pdf.getId())) throw new Error('DRIVE_PDF_UPLOAD_FAILED');
-    return {
-      ok: true,
-      fileId: pdf.getId(),
-      url: 'https://drive.google.com/file/d/' + pdf.getId() + '/view'
-    };
-  } finally {
-    if (tempId) {
-      try { DriveApp.getFileById(tempId).setTrashed(true); } catch (ignored) {}
-    }
+    bytes = Utilities.base64Decode(encoded);
+  } catch (error) {
+    throw new Error('DRIVE_PDF_BASE64_INVALID');
   }
+  if (!bytes || !bytes.length) throw new Error('DRIVE_PDF_BYTES_EMPTY');
+  if (bytes.length < 5 || bytes[0] !== 37 || bytes[1] !== 80 || bytes[2] !== 68 || bytes[3] !== 70 || bytes[4] !== 45) {
+    throw new Error('DRIVE_PDF_SIGNATURE_INVALID');
+  }
+
+  var blob = Utilities.newBlob(bytes, 'application/pdf', name);
+  var file = target.createFile(blob);
+  var fileId = clean_(file.getId());
+  if (!fileId) throw new Error('DRIVE_PDF_UPLOAD_FAILED');
+  return {
+    ok: true,
+    fileId: fileId,
+    url: 'https://drive.google.com/file/d/' + fileId + '/view',
+    size: bytes.length,
+    parentFolderId: target.getId(),
+    createdAt: new Date().toISOString()
+  };
 }
 
 function doPost(e) {
@@ -142,7 +130,7 @@ function doPost(e) {
     var action = clean_(body.action);
     if (action === 'validate_folder') return response_(validateFolder_(body.payload || {}));
     if (action === 'ensure_subfolder') return response_(ensureSubfolder_(body.payload || {}));
-    if (action === 'render_and_upload_pdf') return response_(renderAndUploadPdf_(body.payload || {}));
+    if (action === 'upload_pdf_base64') return response_(uploadPdfBase64_(body.payload || {}));
     return fail_('Noma’lum amal.', 'DRIVE_APPS_SCRIPT_ACTION_INVALID', 400);
   } catch (error) {
     var code = clean_(error && error.message) || 'DRIVE_APPS_SCRIPT_FAILED';

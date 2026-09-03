@@ -131,22 +131,37 @@ export class AppsScriptPersonalDriveProvider {
     };
   }
 
-  async renderAndUploadPdf({ rootFolderId, targetFolderId, name, html }) {
-    const result = await this.request('render_and_upload_pdf', {
-      rootFolderId: clean(rootFolderId),
+  async uploadPdf(targetFolderId, name, value) {
+    const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value || '');
+    if (!buffer.length) {
+      throw providerError('PDF buffer bo\u2018sh.', 'DRIVE_PDF_BYTES_EMPTY', 400);
+    }
+    if (!buffer.subarray(0, 5).equals(Buffer.from('%PDF-', 'ascii'))) {
+      throw providerError('Yuklanayotgan fayl haqiqiy PDF emas.', 'DRIVE_PDF_SIGNATURE_INVALID', 400);
+    }
+    const result = await this.request('upload_pdf_base64', {
       targetFolderId: clean(targetFolderId),
       name: clean(name),
-      html: String(html || ''),
+      mimeType: 'application/pdf',
+      pdfBase64: buffer.toString('base64'),
     });
     const fileId = clean(result.fileId);
-    if (!fileId) {
+    const size = Number(result.size || 0);
+    const parentFolderId = clean(result.parentFolderId) || clean(targetFolderId);
+    if (!fileId || !size || parentFolderId !== clean(targetFolderId)) {
       throw providerError(
-        'Apps Script PDF yaratdi, lekin Drive file ID qaytarmadi.',
+        'Apps Script PDF yukladi, lekin tasdiqlangan fileId, size yoki parent papkani qaytarmadi.',
         'DRIVE_UPLOAD_RESULT_INVALID',
         502,
       );
     }
-    return { fileId, url: clean(result.url) };
+    return {
+      fileId,
+      url: clean(result.url),
+      size,
+      createdAt: clean(result.createdAt),
+      parentFolderId,
+    };
   }
 }
 

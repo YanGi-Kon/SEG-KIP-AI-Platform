@@ -873,15 +873,15 @@ export async function approveDocument(token, csrfToken, req) {
   return { approval, ...state };
 }
 
-export async function streamSignatureImage(token, res) {
+export async function loadSignatureImage(token) {
   const { fileId } = verifySignatureImageToken(token);
   if (/^db:[0-9a-f-]{36}$/i.test(fileId)) {
     const image = await getWorkspaceSignatureImageById(fileId.slice(3));
     if (!image) throw new Error('Имзо расми топилмади');
-    res.setHeader('Content-Type', image.mimeType || 'image/png');
-    res.setHeader('Cache-Control', 'private, max-age=3600');
-    res.end(Buffer.from(image.imageBase64, 'base64'));
-    return;
+    return {
+      buffer: Buffer.from(image.imageBase64, 'base64'),
+      mimeType: image.mimeType || 'image/png',
+    };
   }
   const config = resolveGoogleConfig({}, { requireServer: true });
   const auth = driveAuth(config.serviceAccount);
@@ -889,10 +889,18 @@ export async function streamSignatureImage(token, res) {
   const drive = google.drive({ version: 'v3', auth });
   const meta = await drive.files.get({ fileId, fields: 'mimeType,name,size', supportsAllDrives: true });
   if (meta.data.mimeType !== 'image/png') throw new Error('Имзо файли PNG эмас');
-  const response = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'stream' });
-  res.setHeader('Content-Type', 'image/png');
+  const response = await drive.files.get(
+    { fileId, alt: 'media', supportsAllDrives: true },
+    { responseType: 'arraybuffer' },
+  );
+  return { buffer: Buffer.from(response.data || ''), mimeType: 'image/png' };
+}
+
+export async function streamSignatureImage(token, res) {
+  const image = await loadSignatureImage(token);
+  res.setHeader('Content-Type', image.mimeType || 'image/png');
   res.setHeader('Cache-Control', 'private, max-age=3600');
-  response.data.pipe(res);
+  res.end(image.buffer);
 }
 
 export async function appendAudit(configInput, input) {

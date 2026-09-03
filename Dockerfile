@@ -1,7 +1,7 @@
 FROM node:20-bookworm
 
 # Install PostgreSQL 16 client for pg_dump (Neon uses Postgres 16)
-RUN apt-get update && apt-get install -y wget gnupg2 lsb-release && \
+RUN apt-get update && apt-get install -y wget gnupg2 lsb-release chromium fonts-liberation fonts-dejavu-core && \
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
     echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list && \
     apt-get update && apt-get install -y postgresql-client-16 && \
@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y wget gnupg2 lsb-release && \
 
 # Set working directory
 WORKDIR /app
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Copy package files
 COPY package*.json ./

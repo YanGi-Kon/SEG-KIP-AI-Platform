@@ -31,6 +31,17 @@ function makeError(message, code = 'WORKSPACE_DRIVE_FOLDER_ERROR', statusCode = 
 
 export function classifyWorkspaceDriveError(error) {
   const explicitCode = clean(error?.code);
+  if (/^FINAL_PDF_/.test(explicitCode)) {
+    return {
+      code: explicitCode,
+      message: clean(error?.message) || 'Final PDF yaratilmadi.',
+      statusCode: Number(error?.statusCode) || 500,
+      rawReason: '',
+      recommendedFix: explicitCode === 'FINAL_PDF_CHROMIUM_NOT_FOUND'
+        ? 'Railway image ichida Chromium o\u2018rnatilganini va PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium ekanini tekshiring.'
+        : '',
+    };
+  }
   if (/^(WORKSPACE_SECRET_|WORKSPACE_ENCRYPTION_KEY_)/.test(explicitCode)) {
     const needsReconfiguration = explicitCode === 'WORKSPACE_SECRET_DECRYPT_FAILED'
       || explicitCode === 'WORKSPACE_SECRET_INVALID';

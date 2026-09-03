@@ -24,12 +24,12 @@ test('request signature matches a standard SHA-256 HMAC', () => {
 
 test('request signature uses UTF-8 for Cyrillic PDF content', () => {
   const envelope = {
-    action: 'render_and_upload_pdf',
+    action: 'upload_pdf_base64',
     payload: {
-      rootFolderId: 'root-1',
       targetFolderId: 'target-1',
       name: 'АКТ_2026_0019 - Tasdiqlangan.pdf',
-      html: '<h1>Ўзбекча тест — Жалолов Р</h1>',
+      mimeType: 'application/pdf',
+      pdfBase64: Buffer.from('%PDF-test', 'ascii').toString('base64'),
     },
     timestamp: 1785684540000,
     nonce: 'unicode-test-1',
@@ -160,7 +160,49 @@ test('Apps Script PDF response must contain a real Drive file ID', async () => {
     }),
   });
   await assert.rejects(
-    provider.renderAndUploadPdf({ rootFolderId: 'root', targetFolderId: 'target', name: 'a.pdf', html: '<p>A</p>' }),
+    provider.uploadPdf('target', 'a.pdf', Buffer.from('%PDF-test', 'ascii')),
     (error) => error.code === 'DRIVE_UPLOAD_RESULT_INVALID',
   );
+});
+
+test('Personal Drive provider sends PDF bytes as authenticated Base64', async () => {
+  let request = null;
+  const pdf = Buffer.from('%PDF-ready-pdf-bytes', 'ascii');
+  const provider = new AppsScriptPersonalDriveProvider({
+    url: 'https://script.google.com/macros/s/deployment/exec',
+    secret: 'secret',
+    fetchImpl: async (url, options) => {
+      request = JSON.parse(options.body);
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({
+          ok: true,
+          fileId: 'drive-file-1',
+          url: 'https://drive.google.com/file/d/drive-file-1/view',
+          size: pdf.length,
+          parentFolderId: 'documents-folder-1',
+          createdAt: '2026-09-03T12:00:00.000Z',
+        }),
+      };
+    },
+  });
+
+  const uploaded = await provider.uploadPdf('documents-folder-1', 'AKT-1 - Tasdiqlangan.pdf', pdf);
+  assert.equal(request.action, 'upload_pdf_base64');
+  assert.equal(request.payload.mimeType, 'application/pdf');
+  assert.equal(Buffer.from(request.payload.pdfBase64, 'base64').toString('ascii'), pdf.toString('ascii'));
+  assert.equal(uploaded.fileId, 'drive-file-1');
+  assert.equal(uploaded.size, pdf.length);
+  assert.equal(uploaded.parentFolderId, 'documents-folder-1');
+});
+
+test('Personal Drive provider rejects empty or non-PDF bytes before upload', async () => {
+  const provider = new AppsScriptPersonalDriveProvider({
+    url: 'https://example.test/exec',
+    secret: 'secret',
+    fetchImpl: async () => { throw new Error('fetch must not be called'); },
+  });
+  await assert.rejects(provider.uploadPdf('folder', 'empty.pdf', Buffer.alloc(0)), { code: 'DRIVE_PDF_BYTES_EMPTY' });
+  await assert.rejects(provider.uploadPdf('folder', 'fake.pdf', Buffer.from('not-pdf')), { code: 'DRIVE_PDF_SIGNATURE_INVALID' });
 });

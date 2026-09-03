@@ -158,41 +158,29 @@ export class SharedDriveServiceAccountProvider {
     return { folderId: clean(created.data?.id), folderName: clean(created.data?.name) || name, created: true };
   }
 
-  async uploadHtmlAsTemporaryDocument(parentFolderId, name, html) {
-    const created = await this.drive.files.create({
-      requestBody: {
-        name,
-        mimeType: 'application/vnd.google-apps.document',
-        parents: [parentFolderId],
-      },
-      media: { mimeType: 'text/html', body: Readable.from(Buffer.from(html, 'utf8')) },
-      fields: 'id',
-      supportsAllDrives: true,
-    });
-    const fileId = clean(created.data?.id);
-    if (!fileId) throw providerError('Vaqtinchalik Google Docs fayli yaratilmadi.', 'DRIVE_TEMP_DOCUMENT_FAILED');
-    return fileId;
-  }
-
-  async exportDocumentToPdf(fileId) {
-    const response = await this.drive.files.export(
-      { fileId, mimeType: 'application/pdf' },
-      { responseType: 'arraybuffer' },
-    );
-    return Buffer.from(response.data || '');
-  }
-
-  async uploadPdf(parentFolderId, name, buffer) {
+  async uploadPdf(parentFolderId, name, value) {
+    const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value || '');
+    if (!buffer.length) throw providerError('PDF buffer bo\u2018sh.', 'DRIVE_PDF_BYTES_EMPTY');
+    if (!buffer.subarray(0, 5).equals(Buffer.from('%PDF-', 'ascii'))) {
+      throw providerError('Yuklanayotgan fayl haqiqiy PDF emas.', 'DRIVE_PDF_SIGNATURE_INVALID');
+    }
     const created = await this.drive.files.create({
       requestBody: { name, mimeType: 'application/pdf', parents: [parentFolderId] },
       media: { mimeType: 'application/pdf', body: Readable.from(buffer) },
-      fields: 'id,name,webViewLink,driveId,parents',
+      fields: 'id,name,size,createdTime,webViewLink,driveId,parents',
       supportsAllDrives: true,
     });
     const fileId = clean(created.data?.id);
+    const returnedParentId = clean(created.data?.parents?.[0]) || clean(parentFolderId);
+    if (!fileId || returnedParentId !== clean(parentFolderId)) {
+      throw providerError('Drive upload natijasi yaroqsiz.', 'DRIVE_UPLOAD_RESULT_INVALID', 502);
+    }
     return {
       fileId,
       url: clean(created.data?.webViewLink) || (fileId ? `https://drive.google.com/file/d/${fileId}/view` : ''),
+      size: Number(created.data?.size || buffer.length),
+      createdAt: clean(created.data?.createdTime),
+      parentFolderId: returnedParentId,
     };
   }
 
