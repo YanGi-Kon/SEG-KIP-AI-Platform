@@ -1,0 +1,5 @@
+[phases.setup]
+nixPkgs = ["...", "chromium", "nss", "freetype", "harfbuzz", "ttf-liberation"]
+
+[variables]
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
