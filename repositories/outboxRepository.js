@@ -61,6 +61,23 @@ export async function claimNextFinalPdfExport(workerId) {
   return mapJob(result.rows[0]);
 }
 
+export async function claimFinalPdfExportById(jobId, workerId) {
+  const result = await query(
+    `UPDATE outbox_jobs
+     SET status = 'processing',
+         attempts = attempts + 1,
+         locked_at = NOW(),
+         locked_by = $2
+     WHERE id = $1
+       AND job_type = 'final_pdf_export'
+       AND status IN ('pending', 'failed_retryable')
+       AND next_attempt_at <= NOW()
+     RETURNING *`,
+    [jobId, workerId],
+  );
+  return mapJob(result.rows[0]);
+}
+
 export async function completeFinalPdfExport(jobId, resultPayload) {
   const result = await query(
     `UPDATE outbox_jobs

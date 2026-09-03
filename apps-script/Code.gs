@@ -107,8 +107,22 @@ function renderAndUploadPdf_(payload) {
     var temp = Drive.Files.create(metadata, htmlBlob, { supportsAllDrives: true });
     tempId = clean_(temp.id);
     if (!tempId) throw new Error('DRIVE_TEMP_DOCUMENT_FAILED');
-    var pdfBlob = DriveApp.getFileById(tempId).getAs(MimeType.PDF).setName(name);
+    var pdfBlob = null;
+    var conversionError = null;
+    for (var attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        if (attempt > 0) Utilities.sleep(500 * attempt);
+        pdfBlob = DriveApp.getFileById(tempId).getAs(MimeType.PDF).setName(name);
+        if (pdfBlob && pdfBlob.getBytes().length > 0) break;
+      } catch (error) {
+        conversionError = error;
+      }
+    }
+    if (!pdfBlob || !pdfBlob.getBytes().length) {
+      throw new Error('DRIVE_PDF_CONVERSION_FAILED' + (conversionError ? ': ' + conversionError.message : ''));
+    }
     var pdf = target.createFile(pdfBlob);
+    if (!clean_(pdf.getId())) throw new Error('DRIVE_PDF_UPLOAD_FAILED');
     return {
       ok: true,
       fileId: pdf.getId(),

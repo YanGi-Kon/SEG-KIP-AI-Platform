@@ -148,3 +148,19 @@ test('HTML 404 from an expired Apps Script deployment is actionable and permanen
     return true;
   });
 });
+
+test('Apps Script PDF response must contain a real Drive file ID', async () => {
+  const provider = new AppsScriptPersonalDriveProvider({
+    url: 'https://script.google.com/macros/s/deployment/exec',
+    secret: 'secret',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ ok: true, url: '' }),
+    }),
+  });
+  await assert.rejects(
+    provider.renderAndUploadPdf({ rootFolderId: 'root', targetFolderId: 'target', name: 'a.pdf', html: '<p>A</p>' }),
+    (error) => error.code === 'DRIVE_UPLOAD_RESULT_INVALID',
+  );
+});

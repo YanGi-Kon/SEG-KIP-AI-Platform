@@ -138,7 +138,15 @@ export class AppsScriptPersonalDriveProvider {
       name: clean(name),
       html: String(html || ''),
     });
-    return { fileId: clean(result.fileId), url: clean(result.url) };
+    const fileId = clean(result.fileId);
+    if (!fileId) {
+      throw providerError(
+        'Apps Script PDF yaratdi, lekin Drive file ID qaytarmadi.',
+        'DRIVE_UPLOAD_RESULT_INVALID',
+        502,
+      );
+    }
+    return { fileId, url: clean(result.url) };
   }
 }
 

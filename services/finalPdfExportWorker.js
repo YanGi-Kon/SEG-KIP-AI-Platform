@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { isDatabaseConfigured } from '../db/pool.js';
 import {
+  claimFinalPdfExportById,
   claimNextFinalPdfExport,
   completeFinalPdfExport,
   failFinalPdfExport,
@@ -34,8 +35,7 @@ export function isRetryableFinalPdfError(error) {
   return !PERMANENT_ERRORS.has(String(error?.code || ''));
 }
 
-export async function processNextFinalPdfExport(workerId = `final-pdf-${crypto.randomUUID()}`) {
-  const job = await claimNextFinalPdfExport(workerId);
+async function processClaimedFinalPdfExport(job) {
   if (!job) return null;
   try {
     const result = await finalizeApprovedActExport(job.payload);
@@ -48,6 +48,14 @@ export async function processNextFinalPdfExport(workerId = `final-pdf-${crypto.r
   } catch (error) {
     return failFinalPdfExport(job, error, { retryable: isRetryableFinalPdfError(error) });
   }
+}
+
+export async function processNextFinalPdfExport(workerId = `final-pdf-${crypto.randomUUID()}`) {
+  return processClaimedFinalPdfExport(await claimNextFinalPdfExport(workerId));
+}
+
+export async function processFinalPdfExportById(jobId, workerId = `final-pdf-${crypto.randomUUID()}`) {
+  return processClaimedFinalPdfExport(await claimFinalPdfExportById(jobId, workerId));
 }
 
 export function startFinalPdfExportWorker() {
