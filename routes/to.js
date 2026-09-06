@@ -226,6 +226,33 @@ export function parseToSheetRows(rows = []) {
   };
 }
 
+// TO JURNALI ko'rinishi o'zining rasmiy 8 ustunli strukturasini saqlaydi.
+// АКТ ТО manbasidagi Poz., kol-vo va Texnik holat alohida target ustuniga ega emas,
+// shuning uchun ularni boshqa ustunlarga qo'shib yubormaymiz. Ular sourceMeta ichida saqlanadi.
+export function buildToJournalView(parsed = {}) {
+  const sections = (parsed.sections || []).map((section) => ({
+    name: section.name,
+    items: (section.items || []).map((item) => ({
+      sourceRowNumber: item.sourceRowNumber,
+      no: item.no,
+      equipmentName: item.equipmentName,
+      serialNo: item.serialNo,
+      workType: item.workType,
+      note: item.note,
+      sourceMeta: {
+        positionNo: item.positionNo,
+        quantity: item.quantity,
+        technicalState: item.technicalState,
+      },
+    })),
+  }));
+
+  return {
+    ...parsed,
+    sections,
+  };
+}
+
 router.post('/settings/test', async (req, res) => {
   try {
     const config = resolveConfig(req);
@@ -256,12 +283,13 @@ router.post('/source', async (req, res) => {
     const sheetName = resolveExistingSheetName(sheets, config.sheetName);
     const rows = await readSheetRows({ ...config, sheetName, range: 'A:H' });
     const parsed = parseToSheetRows(rows);
+    const view = buildToJournalView(parsed);
 
     res.json({
       ok: true,
       sheetName,
       rowsRead: rows.length,
-      ...parsed,
+      ...view,
     });
   } catch (error) {
     res.status(400).json({
