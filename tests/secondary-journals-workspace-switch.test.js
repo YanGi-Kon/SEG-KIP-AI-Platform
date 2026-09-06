@@ -94,7 +94,12 @@ for (const module of [
     const parent = { localStorage: local.api, postMessage() {} };
     const window = { parent, addEventListener(type, handler) { handlers[type] = handler; } };
     vm.runInNewContext(source, {
-      document: { readyState: 'loading', getElementById: get, addEventListener() {} },
+      document: {
+        readyState: 'loading',
+        getElementById: get,
+        addEventListener() {},
+        querySelector() { return null; },
+      },
       localStorage: local.api,
       parent,
       window,
