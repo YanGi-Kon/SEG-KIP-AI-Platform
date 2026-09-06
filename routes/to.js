@@ -38,8 +38,6 @@ function parseServerServiceAccount() {
 
 function requestedSheetTitle(req) {
   const input = req.body || req.query || {};
-  // Sheet nomini ataylab trim qilmaymiz: Google Sheets varoq nomida
-  // oxirgi bo'sh joy ham haqiqiy nomning bir qismi bo'lishi mumkin (masalan "АКТ ТО ").
   return String(input.sheetName ?? input.mainSheetName ?? '');
 }
 
@@ -80,7 +78,6 @@ function resolveExistingSheetName(sheets, requested) {
   const wanted = raw.trim();
   if (!wanted) return '';
 
-  // Foydalanuvchi oxirgi bo'sh joyni ko'rmay/yozmay qolsa ham, yagona mos varoqni topamiz.
   const normalizedMatches = sheets.filter((name) => String(name).trim() === wanted);
   if (normalizedMatches.length === 1) return normalizedMatches[0];
   if (normalizedMatches.length > 1) {
@@ -226,31 +223,8 @@ export function parseToSheetRows(rows = []) {
   };
 }
 
-// TO JURNALI ko'rinishi o'zining rasmiy 8 ustunli strukturasini saqlaydi.
-// АКТ ТО manbasidagi Poz., kol-vo va Texnik holat alohida target ustuniga ega emas,
-// shuning uchun ularni boshqa ustunlarga qo'shib yubormaymiz. Ular sourceMeta ichida saqlanadi.
 export function buildToJournalView(parsed = {}) {
-  const sections = (parsed.sections || []).map((section) => ({
-    name: section.name,
-    items: (section.items || []).map((item) => ({
-      sourceRowNumber: item.sourceRowNumber,
-      no: item.no,
-      equipmentName: item.equipmentName,
-      serialNo: item.serialNo,
-      workType: item.workType,
-      note: item.note,
-      sourceMeta: {
-        positionNo: item.positionNo,
-        quantity: item.quantity,
-        technicalState: item.technicalState,
-      },
-    })),
-  }));
-
-  return {
-    ...parsed,
-    sections,
-  };
+  return parsed;
 }
 
 router.post('/settings/test', async (req, res) => {
@@ -283,13 +257,12 @@ router.post('/source', async (req, res) => {
     const sheetName = resolveExistingSheetName(sheets, config.sheetName);
     const rows = await readSheetRows({ ...config, sheetName, range: 'A:H' });
     const parsed = parseToSheetRows(rows);
-    const view = buildToJournalView(parsed);
 
     res.json({
       ok: true,
       sheetName,
       rowsRead: rows.length,
-      ...view,
+      ...buildToJournalView(parsed),
     });
   } catch (error) {
     res.status(400).json({
