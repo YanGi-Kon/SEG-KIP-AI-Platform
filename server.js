@@ -37,7 +37,7 @@ function disableKudukBackgroundWorkerTimer() {
 
   const guardedSetInterval = (handler, timeout, ...args) => {
     const handlerSource = typeof handler === "function" ? Function.prototype.toString.call(handler) : String(handler || "");
-    if (handlerSource.includes('\"background-worker\"') || handlerSource.includes("'background-worker'")) {
+    if (handlerSource.includes('"background-worker"') || handlerSource.includes("'background-worker'")) {
       console.log("[KUDUK] Background-worker o‘chirildi. Sync faqat server start/config yoki manual sync orqali bajariladi.");
       return null;
     }
