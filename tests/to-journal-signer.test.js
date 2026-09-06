@@ -4,10 +4,11 @@ import fs from 'node:fs';
 
 const html = fs.readFileSync(new URL('../public/modules/to.html', import.meta.url), 'utf8');
 
-test('TO JURNALI Мастер КИПиА imzolovchisini workspace signerlaridan avtomatik oladi', () => {
+test('TO JURNALI Мастер КИПиА imzolovchisini faqat pastki imzo blokiga avtomatik oladi', () => {
   assert.match(html, /id="toKipMasterName"/);
   assert.match(html, /id="toKipMasterSignature"/);
-  assert.match(html, /id="toKipMasterPreambleName"/);
+  assert.doesNotMatch(html, /id="toKipMasterPreambleName"/);
+  assert.match(html, /представители участок КИПиА Фазилов И\. Б\.<br>/);
   assert.match(html, /\/api\/workspaces\/\$\{encodeURIComponent\(expectedWsId\)\}\/signers\?includeInactive=true/);
   assert.match(html, /isKipMasterSigner/);
   assert.match(html, /signatureFileId\.match\(\/\^db:/);
