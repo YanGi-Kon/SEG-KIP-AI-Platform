@@ -15,6 +15,7 @@ import baseRouter from "./routes/base.js";
 import workbookRouter from "./routes/workbook.js";
 import menuRouter from "./routes/menu.js";
 import actsRouter from "./routes/acts.js";
+import toRouter from "./routes/to.js";
 import ulchovRouter from "./routes/ulchov.js";
 import signaturesRouter from "./routes/signatures.js";
 import authRouter from "./routes/auth.js";
@@ -36,7 +37,7 @@ function disableKudukBackgroundWorkerTimer() {
 
   const guardedSetInterval = (handler, timeout, ...args) => {
     const handlerSource = typeof handler === "function" ? Function.prototype.toString.call(handler) : String(handler || "");
-    if (handlerSource.includes('"background-worker"') || handlerSource.includes("'background-worker'")) {
+    if (handlerSource.includes('\"background-worker\"') || handlerSource.includes("'background-worker'")) {
       console.log("[KUDUK] Background-worker o‘chirildi. Sync faqat server start/config yoki manual sync orqali bajariladi.");
       return null;
     }
@@ -148,6 +149,7 @@ app.use("/api/base", baseRouter);
 app.use("/api/workbook", workbookRouter);
 app.use("/api/menu", menuRouter);
 app.use("/api/acts", actsRouter);
+app.use("/api/to", toRouter);
 app.use("/api/ulchov", ulchovRouter);
 app.use("/api/kuduk", createKudukRouter(io));
 app.use("/api/backup", backupRouter);
