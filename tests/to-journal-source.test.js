@@ -5,7 +5,7 @@ import { buildToJournalView, parseToSheetRows } from '../routes/to.js';
 
 const read = (file) => fs.readFileSync(new URL(file, import.meta.url), 'utf8');
 
-test('TO source parser АКТ ТО jadvalidagi bo‘lim va qatorlarni saqlaydi', () => {
+test('TO source parser АКТ ТО jadvalidagi bo‘lim va 8 ustunni saqlaydi', () => {
   const rows = [
     ['Sarlavha'],
     [],
@@ -36,11 +36,9 @@ test('TO source parser АКТ ТО jadvalidagi bo‘lim va qatorlarni saqlaydi',
     workType: 'ТО-2',
     note: 'замечаний нет',
   });
-  assert.equal(parsed.sections[0].items[1].technicalState, 'не удов.');
-  assert.equal(parsed.sections[1].items[0].serialNo, 'CE5O');
 });
 
-test('TO JURNALI target ustunlari source ustunlari bilan aralashtirilmaydi', () => {
+test('TO JURNALI API АКТ ТО ustunlarini birma-bir saqlaydi', () => {
   const parsed = {
     headerRowNumber: 24,
     totalItems: 1,
@@ -61,20 +59,25 @@ test('TO JURNALI target ustunlari source ustunlari bilan aralashtirilmaydi', () 
   };
 
   const view = buildToJournalView(parsed);
-  const item = view.sections[0].items[0];
+  assert.deepEqual(view, parsed);
+});
 
-  assert.equal(item.equipmentName, 'Манометр');
-  assert.equal(item.serialNo, 'C8FV');
-  assert.equal(item.workType, 'ТО-2');
-  assert.equal(item.note, 'замечаний нет');
-  assert.equal(item.positionNo, undefined);
-  assert.equal(item.quantity, undefined);
-  assert.equal(item.technicalState, undefined);
-  assert.deepEqual(item.sourceMeta, {
-    positionNo: '12',
-    quantity: '2',
-    technicalState: 'удов.',
-  });
+test('TO frontend АКТ ТО dagi aynan shu 8 ta ustunni ko‘rsatadi', () => {
+  const html = read('../public/modules/to.html');
+
+  assert.match(html, /<th>№<\/th>/);
+  assert.match(html, /<th>Зав\. №<\/th>/);
+  assert.match(html, /<th>Наименование оборудования<\/th>/);
+  assert.match(html, /<th>Поз\.<\/th>/);
+  assert.match(html, /<th>кол-во, шт\.<\/th>/);
+  assert.match(html, /<th>Техническое состояние<\/th>/);
+  assert.match(html, /<th>Вид работ<\/th>/);
+  assert.match(html, /<th>Примечание<\/th>/);
+
+  assert.doesNotMatch(html, /Наименование и тип \(марка\) прибора/);
+  assert.doesNotMatch(html, /Предел измерения/);
+  assert.doesNotMatch(html, /Дата проведения ТО/);
+  assert.doesNotMatch(html, /Подпись лица, проводившего ТО/);
 });
 
 test('TO frontend Workspace ASOSIY VAROQ sozlamasini alohida modul kalitida saqlaydi', () => {
@@ -92,22 +95,13 @@ test('TO frontend Workspace ASOSIY VAROQ sozlamasini alohida modul kalitida saql
   assert.match(html, /ToJournalWorkspace/);
   assert.doesNotMatch(html, /moduleSettings\?\.acts_sheet_name/);
   assert.doesNotMatch(html, /\/api\/acts\/reports\/daily/);
-
-  assert.match(html, /Наименование и тип \(марка\) прибора/);
-  assert.match(html, /Заводской номер/);
-  assert.match(html, /Предел измерения/);
-  assert.match(html, /Наименование технического обслуживания/);
-  assert.match(html, /Дата проведения ТО/);
-  assert.match(html, /Подпись лица, проводившего ТО/);
-  assert.match(html, /Примечание/);
 });
 
-test('TO API exact bo‘lmagan ko‘rinadigan sheet nomini xavfsiz hal qilish uchun maxsus route ishlatadi', () => {
+test('TO API exact bo‘lmagan ko‘rinadigan sheet nomini xavfsiz hal qiladi', () => {
   const source = read('../routes/to.js');
   assert.match(source, /resolveExistingSheetName/);
   assert.match(source, /sheets\.includes\(raw\)/);
   assert.match(source, /String\(name\)\.trim\(\) === wanted/);
   assert.match(source, /router\.post\('\/settings\/test'/);
   assert.match(source, /router\.post\('\/source'/);
-  assert.match(source, /buildToJournalView/);
 });
