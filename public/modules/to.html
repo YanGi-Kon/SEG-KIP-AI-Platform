@@ -6,145 +6,38 @@
 <title>ТО ЖУРНАЛ</title>
 <link rel="stylesheet" href="../css/style.css">
 <style>
-/* ── Word hujjat ko'rinishi uchun maxsus stillar ── */
-:root {
-  --cyan: #22d3ee;
-  --panel: rgba(3,17,31,.88);
-  --line: rgba(34,211,238,.30);
-  --ink: #eaf8ff;
-  --muted: #a9c8d8;
-}
-body { 
-  background: #061427; 
-  color: var(--ink); 
-  font-family: 'Times New Roman', Times, serif; /* Rasmiy hujjat formati uchun */
-  margin: 0; 
-  padding: 20px; 
-}
-.top-bar { 
-  display: flex; 
-  justify-content: space-between; 
-  margin-bottom: 20px; 
-  max-width: 1400px; 
-  margin: 0 auto 20px auto; 
-  font-family: Arial, sans-serif;
-}
-.btn { 
-  background: #40506a; 
-  color: #fff; 
-  border: 1px solid rgba(148,163,184,.22); 
-  padding: 8px 15px; 
-  border-radius: 8px; 
-  cursor: pointer; 
-  font-size: 14px;
-}
-.btn:hover { background: #506482; }
-
-/* ── Hujjat asosi ── */
-.document-container {
-  background: #fdfdfd; /* Oq qog'oz effekti */
-  color: #000; /* Qora matn */
-  border-radius: 4px;
-  padding: 40px 60px;
-  max-width: 1400px;
-  margin: 0 auto;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-/* ── Sarlavha ── */
-.header-text { 
-  text-align: right; 
-  font-size: 15px; 
-  margin-bottom: 30px; 
-}
-.title-text { 
-  text-align: center; 
-  font-size: 18px; 
-  font-weight: bold; 
-  margin: 30px 0; 
-}
-.preamble { 
-  font-size: 16px; 
-  margin-bottom: 20px; 
-  text-align: justify;
-}
-.signature-list { 
-  margin: 10px 0 20px 0; 
-  padding-left: 0;
-}
-
-/* ── Jadval ── */
-.journal-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 30px;
-  font-size: 14px;
-}
-.journal-table th, .journal-table td {
-  border: 1px solid #000;
-  padding: 6px;
-  text-align: center;
-  vertical-align: middle;
-}
-.journal-table th {
-  font-weight: bold;
-  background-color: #f0f0f0;
-}
-.journal-table .group-header {
-  text-align: left;
-  font-weight: bold;
-  background-color: #e8e8e8;
-  padding-left: 10px;
-}
-.journal-table input, .journal-table textarea {
-  width: 100%;
-  background: transparent;
-  border: none;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  resize: vertical;
-  outline: none;
-  text-align: center;
-}
-.journal-table textarea { text-align: left; }
-.journal-table input:focus, .journal-table textarea:focus {
-  background: rgba(34,211,238,0.1);
-}
-
-/* ── Xulosa va imzolar ── */
-.conclusion { 
-  margin: 20px 0 30px 0; 
-  font-size: 16px; 
-  font-weight: bold; 
-}
-.signers-block {
-  display: grid;
-  gap: 20px;
-  font-size: 16px;
-}
-.signer-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-.signer-role { width: 45%; }
-.signer-name { width: 25%; text-align: left; }
-.signer-sign { width: 25%; border-bottom: 1px solid #000; text-align: center; padding-bottom: 2px; }
-
+:root{--cyan:#22d3ee;--panel:rgba(3,17,31,.92);--line:rgba(34,211,238,.30);--ink:#eaf8ff;--muted:#a9c8d8;--green:#22c55e;--red:#ef4444;--orange:#f59e0b}
+*{box-sizing:border-box}
+body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,serif;margin:0;padding:20px}
+.top-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;max-width:1400px;margin:0 auto 16px;font-family:Arial,sans-serif;flex-wrap:wrap}
+.top-actions,.workspace-source{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{background:#40506a;color:#fff;border:1px solid rgba(148,163,184,.22);padding:8px 15px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700}
+.btn:hover{background:#506482}.btn.primary{background:linear-gradient(135deg,#0891b2,#22d3ee);color:#04202a;border:0}.btn:disabled{opacity:.5;cursor:not-allowed}
+.workspace-pill,.source-pill{font-family:Arial,sans-serif;border:1px solid var(--line);background:rgba(2,13,25,.72);border-radius:999px;padding:8px 12px;font-size:12px;color:#dff8ff}
+.source-pill{border-radius:9px;color:var(--muted)}
+.document-container{background:#fdfdfd;color:#000;border-radius:4px;padding:40px 60px;max-width:1400px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:16px;line-height:1.5}
+.header-text{text-align:right;font-size:15px;margin-bottom:30px}.title-text{text-align:center;font-size:18px;font-weight:bold;margin:30px 0}.preamble{font-size:16px;margin-bottom:20px;text-align:justify}.signature-list{margin:10px 0 20px;padding-left:0}
+.journal-table{width:100%;border-collapse:collapse;margin-bottom:30px;font-size:14px}.journal-table th,.journal-table td{border:1px solid #000;padding:6px;text-align:center;vertical-align:middle}.journal-table th{font-weight:bold;background:#f0f0f0}.journal-table .group-header{text-align:left;font-weight:bold;background:#e8e8e8;padding-left:10px}.journal-table input,.journal-table textarea{width:100%;background:transparent;border:none;color:inherit;font-family:inherit;font-size:inherit;resize:vertical;outline:none;text-align:center}.journal-table textarea{text-align:left}.journal-table input:focus,.journal-table textarea:focus{background:rgba(34,211,238,.1)}
+.conclusion{margin:20px 0 30px;font-size:16px;font-weight:bold}.signers-block{display:grid;gap:20px;font-size:16px}.signer-row{display:flex;justify-content:space-between;align-items:flex-end}.signer-role{width:45%}.signer-name{width:25%;text-align:left}.signer-sign{width:25%;border-bottom:1px solid #000;text-align:center;padding-bottom:2px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.76);display:none;align-items:center;justify-content:center;padding:18px;z-index:100;font-family:Arial,sans-serif}.modal.show{display:flex}.modalbox{width:min(650px,100%);max-height:92vh;overflow:auto;background:#071427;border:1px solid var(--line);border-radius:18px;padding:20px;color:#eaf7ff;box-shadow:0 24px 80px rgba(0,0,0,.45)}.modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.modal-head h2{margin:0;font-size:20px}.field{margin-top:16px}.field label{display:block;color:#cdeeff;font-size:13px;font-weight:900;margin-bottom:7px}.field input{width:100%;background:#061120;border:1px solid rgba(255,255,255,.16);border-radius:12px;color:#fff;padding:12px;font-size:14px}.note{color:var(--muted);font-size:12px;line-height:1.4}.msg{margin-top:12px;padding:10px;border-radius:12px;border:1px dashed rgba(255,255,255,.18);min-height:38px;color:#dbeafe}.ok{color:#86efac}.bad{color:#fca5a5}.sync{color:#fde68a}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+@media(max-width:760px){body{padding:10px}.document-container{padding:24px 18px;overflow:auto}.signer-row{gap:8px}.workspace-source{width:100%}.source-pill{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 </style>
 <script src="../js/i18n.js"></script>
 </head>
 <body>
 
 <div class="top-bar">
-  <button class="btn" onclick="parent.postMessage({type:'SEG_CLOSE_MODULE'}, '*')">← Menyuga qaytish</button>
+  <div class="top-actions">
+    <button class="btn" onclick="parent.postMessage({type:'SEG_CLOSE_MODULE'}, '*')">← Menyuga qaytish</button>
+    <button id="toSettingsBtn" class="btn primary workspace-admin-only" type="button" onclick="ToJournalWorkspace.openSettings()">⚙ Созламалар</button>
+  </div>
+  <div class="workspace-source">
+    <span class="workspace-pill">Workspace: <b id="toWorkspaceName">—</b></span>
+    <span id="toSourceStatus" class="source-pill">ASOSIY VAROQ: sozlanmagan</span>
+  </div>
 </div>
 
 <div class="document-container">
-  
   <div class="header-text">
     Приложение № 2 к Регламенту проведения технического обслуживания<br>
     контрольно-измерительных приборов, средств и систем автоматизации<br>
@@ -172,371 +65,158 @@ body {
 
   <table class="journal-table">
     <colgroup>
-      <col style="width: 5%">
-      <col style="width: 25%">
-      <col style="width: 12%">
-      <col style="width: 12%">
-      <col style="width: 20%">
-      <col style="width: 8%">
-      <col style="width: 10%">
-      <col style="width: 8%">
+      <col style="width:5%"><col style="width:25%"><col style="width:12%"><col style="width:12%"><col style="width:20%"><col style="width:8%"><col style="width:10%"><col style="width:8%">
     </colgroup>
-    <thead>
-      <tr>
-        <th>№ п/п</th>
-        <th>Наименование и тип (марка) прибора</th>
-        <th>Заводской номер</th>
-        <th>Предел измерения</th>
-        <th>Наименование технического обслуживания</th>
-        <th>Дата проведения ТО</th>
-        <th>Подпись лица, проводившего ТО</th>
-        <th>Примечание</th>
-      </tr>
-    </thead>
-    <tbody id="tableBody">
-      <!-- Qatorlar JS orqali chiziladi -->
-    </tbody>
+    <thead><tr>
+      <th>№ п/п</th><th>Наименование и тип (марка) прибора</th><th>Заводской номер</th><th>Предел измерения</th><th>Наименование технического обслуживания</th><th>Дата проведения ТО</th><th>Подпись лица, проводившего ТО</th><th>Примечание</th>
+    </tr></thead>
+    <tbody id="tableBody"></tbody>
   </table>
 
-  <div class="conclusion">
-    Заключение: оборудование исправно и пригодно к эксплуатации
-  </div>
+  <div class="conclusion">Заключение: оборудование исправно и пригодно к эксплуатации</div>
 
   <div class="signers-block">
-    <div class="signer-row">
-      <div class="signer-role">Ответственный от ОАиМ; Начальник отдела</div>
-      <div class="signer-name">Ходжаев С. Х.</div>
-      <div class="signer-sign">(Подпись)</div>
+    <div class="signer-row"><div class="signer-role">Ответственный от ОАиМ; Начальник отдела</div><div class="signer-name">Ходжаев С. Х.</div><div class="signer-sign">(Подпись)</div></div>
+    <div class="signer-row"><div class="signer-role">Ответственный от участок КИПиА; Начальник КИПиА</div><div class="signer-name">Куйликов Р. А.</div><div class="signer-sign">(Подпись)</div></div>
+    <div class="signer-row"><div class="signer-role">Ответственный за выполнение работ; Мастер КИПиА</div><div class="signer-name">Фазилов И. Б.</div><div class="signer-sign">(Подпись)</div></div>
+    <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1</div><div class="signer-name">Хошимов Б.</div><div class="signer-sign">(Подпись)</div></div>
+    <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1</div><div class="signer-name">Мазординов Э.</div><div class="signer-sign">(Подпись)</div></div>
+    <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1</div><div class="signer-name">Бакиров У.</div><div class="signer-sign">(Подпись)</div></div>
+    <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1</div><div class="signer-name">Щоимкулов Ш.</div><div class="signer-sign">(Подпись)</div></div>
+  </div>
+</div>
+
+<div id="toSettingsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="toSettingsTitle">
+  <div class="modalbox">
+    <div class="modal-head">
+      <h2 id="toSettingsTitle">Google Sheets ulanish sozlamalari</h2>
+      <button class="btn" type="button" onclick="ToJournalWorkspace.closeSettings()">✕</button>
     </div>
-    <div class="signer-row">
-      <div class="signer-role">Ответственный от участок КИПиА; Начальник КИПиА</div>
-      <div class="signer-name">Куйликов Р. А.</div>
-      <div class="signer-sign">(Подпись)</div>
+    <p class="note">Google Sheets havolasi va Service Account faol Workspace sozlamalaridan olinadi. Bu oynada TO JURNALI uchun faqat ma'lumot manbasi bo'lgan varoq tanlanadi.</p>
+    <div class="field">
+      <label for="toSheetName">ASOSIY VAROQ</label>
+      <input id="toSheetName" list="toSheetNames" autocomplete="off" placeholder="Masalan: АКТ ТО ">
+      <datalist id="toSheetNames"></datalist>
     </div>
-    <div class="signer-row">
-      <div class="signer-role">Ответственный за выполнение работ; Мастер КИПиА</div>
-      <div class="signer-name">Фазилов И. Б.</div>
-      <div class="signer-sign">(Подпись)</div>
-    </div>
-    <div class="signer-row">
-      <div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1</div>
-      <div class="signer-name">Хошимов Б.</div>
-      <div class="signer-sign">(Подпись)</div>
-    </div>
-    <div class="signer-row">
-      <div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1</div>
-      <div class="signer-name">Мазординов Э.</div>
-      <div class="signer-sign">(Подпись)</div>
-    </div>
-    <div class="signer-row">
-      <div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1</div>
-      <div class="signer-name">Бакиров У.</div>
-      <div class="signer-sign">(Подпись)</div>
-    </div>
-    <div class="signer-row">
-      <div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1</div>
-      <div class="signer-name">Щоимкулов Ш.</div>
-      <div class="signer-sign">(Подпись)</div>
+    <p class="note">Varaq nomi Workspace'ga saqlanadi. Masalan, Google Sheets'dagi <b>АКТ ТО </b> varog'ini tanlasangiz, TO JURNALI shu varoqni manba sifatida o'qiydi.</p>
+    <div id="toSettingsMsg" class="msg">Sozlamalar kiritilmagan.</div>
+    <div class="modal-actions">
+      <button id="toSettingsSaveBtn" class="btn primary" type="button" onclick="ToJournalWorkspace.saveSettings()">Saqlash va kirish</button>
+      <button class="btn" type="button" onclick="ToJournalWorkspace.closeSettings()">Yopish</button>
     </div>
   </div>
-
 </div>
 
 <script>
-  const WORKSPACE_ID_KEY = 'seg_kip_selected_workspace_id';
-  const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
-  const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
+(() => {
+  const WORKSPACE_ID_KEY='seg_kip_selected_workspace_id';
+  const WORKSPACE_TOKEN_KEY='seg_kip_workspace_access_token';
+  const ADMIN_TOKEN_KEY='seg_kip_admin_jwt';
+  const MODULE_SHEET_KEY='to_sheet_name';
 
-  const state = {
-    workspaceId: '',
-    workspace: null,
-    reports: [],
-    kipMasterSigner: null,
-    signatureObjectUrls: [],
-    requestVersion: 0
-  };
+  const state={workspaceId:'',workspace:null,workspaceName:'',isAdmin:false,sheetName:'',sections:[],totalItems:0,kipMasterSigner:null,signatureObjectUrls:[],requestVersion:0};
 
-  const WORD_GROUPS = [
-    { name: 'ЦДНГ №1 — Скважина ГП-0,63 №1',          startNo: 1,   rows: 5  },
-    { name: 'ЦДНГ №1 — Скважина ГП-0,63 №2',          startNo: 6,   rows: 4  },
-    { name: 'ЦДНГ №1 — Скважина ГП-0,63 №3',          startNo: 10,  rows: 13 },
-    { name: 'Насосная станция (НСОС)',                  startNo: 23,  rows: 11 },
-    { name: 'Цех №1 — Аппаратура',                     startNo: 34,  rows: 7  },
-    { name: 'Шкаф управления',                         startNo: 41,  rows: 1  },
-    { name: 'ГЗУ №1 — 1-секция',                       startNo: 42,  rows: 19 },
-    { name: 'ГЗУ №1 — 3-секция (скв. 57-...)',         startNo: 61,  rows: 31 },
-    { name: 'ГЗУ №1 — 3-цех (скв. 66-...)',            startNo: 92,  rows: 4  },
-    { name: 'ГЗУ №1 — 4-цех',                          startNo: 96,  rows: 30 },
-    { name: 'ГЗУ №1 — 4-секция (скв. 124-...)',        startNo: 126, rows: 8  },
-    { name: 'ГЗУ №1 — 5-секция (скв. 145-...)',        startNo: 134, rows: 9  },
-    { name: 'ГЗУ №1 — 5-секция (скв. 200-...)',        startNo: 143, rows: 11 },
-    { name: 'ГЗУ №1 — 5-секция (скв. 206-...)',        startNo: 154, rows: 22 },
-    { name: 'ГЗУ №1 — 5-секция (скв. 157-...)',        startNo: 176, rows: 6  },
-    { name: 'ГЗУ №1 — 2-секция (скв. 44-...)',         startNo: 182, rows: 35 },
-    { name: 'Резерв / Жами',                            startNo: 217, rows: 25 },
-    { name: 'Резерв',                                   startNo: 242, rows: 16 },
-    { name: 'Итого',                                    startNo: 258, rows: 1  }
+  const FALLBACK_GROUPS=[
+    {name:'ЦДНГ №1 — Скважина ГП-0,63 №1',rows:5},{name:'ЦДНГ №1 — Скважина ГП-0,63 №2',rows:4},{name:'ЦДНГ №1 — Скважина ГП-0,63 №3',rows:13},{name:'Насосная станция (НСОС)',rows:11},{name:'Цех №1 — Аппаратура',rows:7},{name:'Шкаф управления',rows:1},{name:'ГЗУ №1 — 1-секция',rows:19},{name:'ГЗУ №1 — 3-секция (скв. 57-...)',rows:31},{name:'ГЗУ №1 — 3-цех (скв. 66-...)',rows:4},{name:'ГЗУ №1 — 4-цех',rows:30},{name:'ГЗУ №1 — 4-секция (скв. 124-...)',rows:8},{name:'ГЗУ №1 — 5-секция (скв. 145-...)',rows:9},{name:'ГЗУ №1 — 5-секция (скв. 200-...)',rows:11},{name:'ГЗУ №1 — 5-секция (скв. 206-...)',rows:22},{name:'ГЗУ №1 — 5-секция (скв. 157-...)',rows:6},{name:'ГЗУ №1 — 2-секция (скв. 44-...)',rows:35},{name:'Резерв / Жами',rows:25},{name:'Резерв',rows:16},{name:'Итого',rows:1}
   ];
 
-  function parentStorage(store, key) {
-    try { return parent?.[store]?.getItem(key) || ''; } catch (_) { return ''; }
-  }
-  function selectedWorkspaceId() {
-    return localStorage.getItem(WORKSPACE_ID_KEY) || parentStorage('localStorage', WORKSPACE_ID_KEY) || '';
-  }
-  function sessionValue(key) {
-    try { return sessionStorage.getItem(key) || parentStorage('sessionStorage', key) || ''; }
-    catch (_) { return parentStorage('sessionStorage', key); }
-  }
-  function esc(v) {
-    return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-  function normalizeText(v) { return String(v || '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  const $=id=>document.getElementById(id);
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const clean=v=>String(v??'').trim();
+  const normalizeText=v=>String(v||'').toLowerCase().replace(/\s+/g,' ').trim();
+  function parentStorage(store,key){try{return parent?.[store]?.getItem(key)||''}catch(_){return''}}
+  function selectedWorkspaceId(){return localStorage.getItem(WORKSPACE_ID_KEY)||parentStorage('localStorage',WORKSPACE_ID_KEY)||''}
+  function sessionValue(key){try{return sessionStorage.getItem(key)||parentStorage('sessionStorage',key)||''}catch(_){return parentStorage('sessionStorage',key)}}
+  function token(){return sessionValue(WORKSPACE_TOKEN_KEY)||sessionValue(ADMIN_TOKEN_KEY)}
+  function setSourceStatus(text,kind=''){const el=$('toSourceStatus');if(!el)return;el.textContent=text;el.style.color=kind==='bad'?'#fca5a5':kind==='ok'?'#86efac':'#a9c8d8'}
+  function setSettingsMsg(text,kind=''){const el=$('toSettingsMsg');if(!el)return;el.innerHTML=`<span class="${kind}">${esc(text)}</span>`}
 
-  function isKipMasterSigner(row = {}) {
-    const text = normalizeText(`${row.position || ''} ${row.fullName || row.fio || ''}`);
-    return (text.includes('кип') && (text.includes('мастер') || text.includes('инженер'))) ||
-           (text.includes('kip') && (text.includes('master') || text.includes('engineer')));
-  }
-
-  function safeSignatureUrl(v) {
-    const url = String(v || '').trim();
-    return /^blob:/i.test(url) || /^data:image\/png/i.test(url) || /^https?:\/\//i.test(url) || /^\/api\/workspaces\//i.test(url) ? url : '';
+  async function apiJson(path,body={},expectedWsId=state.workspaceId){
+    const headers={'Content-Type':'application/json'};
+    if(expectedWsId)headers['x-workspace-id']=expectedWsId;
+    const auth=token();if(auth)headers.Authorization=`Bearer ${auth}`;
+    const res=await fetch(path,{method:'POST',headers,credentials:'include',body:JSON.stringify(body)});
+    const data=await res.json().catch(()=>({}));
+    if(expectedWsId&&expectedWsId!==state.workspaceId){const err=new Error('Workspace almashtirildi');err.code='STALE_WORKSPACE_RESPONSE';throw err}
+    if(!res.ok||data.error){const err=new Error(data.error||'API xatosi');err.code=data.code||'API_ERROR';err.data=data;throw err}
+    return data;
   }
 
-  async function trimPngWhitespace(blob) {
-    if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas !== 'function') return blob;
-    let bitmap = null;
-    try {
-      bitmap = await createImageBitmap(blob);
-      if (!bitmap.width || !bitmap.height || bitmap.width > 4096 || bitmap.height > 4096) return blob;
-      const src = new OffscreenCanvas(bitmap.width, bitmap.height);
-      const ctx = src.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return blob;
-      ctx.drawImage(bitmap, 0, 0);
-      const px = ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
-      let x0 = bitmap.width, y0 = bitmap.height, x1 = -1, y1 = -1;
-      for (let y = 0; y < bitmap.height; y++) {
-        for (let x = 0; x < bitmap.width; x++) {
-          const i = (y * bitmap.width + x) * 4;
-          if (px[i+3] <= 8 || (px[i] > 248 && px[i+1] > 248 && px[i+2] > 248)) continue;
-          if (x < x0) x0 = x; if (x > x1) x1 = x;
-          if (y < y0) y0 = y; if (y > y1) y1 = y;
-        }
-      }
-      if (x1 < x0 || y1 < y0) return blob;
-      const p = 2;
-      x0 = Math.max(0, x0 - p); y0 = Math.max(0, y0 - p);
-      x1 = Math.min(bitmap.width - 1, x1 + p); y1 = Math.min(bitmap.height - 1, y1 + p);
-      const w = x1 - x0 + 1, h = y1 - y0 + 1;
-      if (w === bitmap.width && h === bitmap.height) return blob;
-      const out = new OffscreenCanvas(w, h);
-      const outCtx = out.getContext('2d');
-      if (!outCtx) return blob;
-      outCtx.drawImage(bitmap, x0, y0, w, h, 0, 0, w, h);
-      return await out.convertToBlob({ type: 'image/png' });
-    } catch (_) { return blob; }
-    finally { try { bitmap?.close(); } catch (_) {} }
+  function isKipMasterSigner(row={}){const text=normalizeText(`${row.position||''} ${row.fullName||row.fio||''}`);return(text.includes('кип')&&(text.includes('мастер')||text.includes('инженер')))||(text.includes('kip')&&(text.includes('master')||text.includes('engineer')))}
+  function safeSignatureUrl(v){const url=String(v||'').trim();return/^blob:/i.test(url)||/^data:image\/png/i.test(url)||/^https?:\/\//i.test(url)||/^\/api\/workspaces\//i.test(url)?url:''}
+  async function trimPngWhitespace(blob){
+    if(typeof createImageBitmap!=='function'||typeof OffscreenCanvas!=='function')return blob;let bitmap=null;
+    try{bitmap=await createImageBitmap(blob);if(!bitmap.width||!bitmap.height||bitmap.width>4096||bitmap.height>4096)return blob;const src=new OffscreenCanvas(bitmap.width,bitmap.height);const ctx=src.getContext('2d',{willReadFrequently:true});if(!ctx)return blob;ctx.drawImage(bitmap,0,0);const px=ctx.getImageData(0,0,bitmap.width,bitmap.height).data;let x0=bitmap.width,y0=bitmap.height,x1=-1,y1=-1;for(let y=0;y<bitmap.height;y++){for(let x=0;x<bitmap.width;x++){const i=(y*bitmap.width+x)*4;if(px[i+3]<=8||(px[i]>248&&px[i+1]>248&&px[i+2]>248))continue;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}if(x1<x0||y1<y0)return blob;const p=2;x0=Math.max(0,x0-p);y0=Math.max(0,y0-p);x1=Math.min(bitmap.width-1,x1+p);y1=Math.min(bitmap.height-1,y1+p);const w=x1-x0+1,h=y1-y0+1;if(w===bitmap.width&&h===bitmap.height)return blob;const out=new OffscreenCanvas(w,h);const outCtx=out.getContext('2d');if(!outCtx)return blob;outCtx.drawImage(bitmap,x0,y0,w,h,0,0,w,h);return await out.convertToBlob({type:'image/png'})}catch(_){return blob}finally{try{bitmap?.close()}catch(_){}}
+  }
+  async function loadSignatureDisplayUrl(url,expectedWsId){const safe=safeSignatureUrl(url);if(!safe||!/^\/api\/workspaces\//i.test(safe))return safe;const auth=token();if(!auth)return'';const res=await fetch(safe,{headers:{Authorization:`Bearer ${auth}`},credentials:'include'});if(expectedWsId!==state.workspaceId||!res.ok)return'';const blob=await res.blob();if(blob.type&&!blob.type.toLowerCase().startsWith('image/'))return'';const trimmed=await trimPngWhitespace(blob);const objUrl=URL.createObjectURL(trimmed);state.signatureObjectUrls.push(objUrl);return objUrl}
+  async function loadKipMasterSigner(expectedWsId,reqVer){const auth=token();if(!expectedWsId||!auth)return null;try{const res=await fetch(`/api/workspaces/${encodeURIComponent(expectedWsId)}/signers?includeInactive=true`,{headers:{Authorization:`Bearer ${auth}`},credentials:'include'});if(reqVer!==state.requestVersion||expectedWsId!==state.workspaceId)return null;const data=await res.json().catch(()=>({}));if(!res.ok||data.error)return null;const rows=Array.isArray(data.rows)?data.rows:[];const active=rows.filter(r=>!r.status||normalizeText(r.status)==='active');const signer=active.find(isKipMasterSigner)||active.find(r=>normalizeText(`${r.position||''} ${r.fullName||r.fio||''}`).includes('кип'))||null;if(!signer)return null;const fileId=String(signer.signatureFileId||'').trim();const internalId=fileId.match(/^db:([0-9a-f-]{36})$/i)?.[1]||'';const srcUrl=internalId?`/api/workspaces/${encodeURIComponent(expectedWsId)}/signers/signature/${encodeURIComponent(internalId)}`:String(signer.signatureUrl||'').trim();const signatureUrl=await loadSignatureDisplayUrl(srcUrl,expectedWsId);if(reqVer!==state.requestVersion||expectedWsId!==state.workspaceId)return null;return{fio:String(signer.fullName||signer.fio||'').trim(),position:String(signer.position||'').trim(),signatureUrl}}catch(_){return null}}
+
+  function noteText(item={}){const parts=[];if(clean(item.quantity))parts.push(`Кол-во: ${clean(item.quantity)}`);if(clean(item.technicalState))parts.push(`Состояние: ${clean(item.technicalState)}`);if(clean(item.note))parts.push(clean(item.note));return parts.join(' · ')}
+  function equipmentText(item={}){const base=clean(item.equipmentName);const pos=clean(item.positionNo);return pos?[base,`Поз. ${pos}`].filter(Boolean).join(' / '):base}
+  function signerImage(hasData){return hasData&&state.kipMasterSigner?.signatureUrl?`<img src="${esc(state.kipMasterSigner.signatureUrl)}" alt="Imzo" style="height:30px;max-width:100%;object-fit:contain">`:''}
+
+  function renderSourceSections(sections=[]){
+    const tbody=$('tableBody');if(!tbody)return;let html='';
+    sections.forEach(section=>{html+=`<tr><td colspan="8" class="group-header">${esc(section.name||'ASOSIY')}</td></tr>`;(section.items||[]).forEach((item,index)=>{const no=clean(item.no)||String(index+1);html+=`<tr data-source-row="${esc(item.sourceRowNumber||'')}"><td>${esc(no)}</td><td><textarea rows="1">${esc(equipmentText(item))}</textarea></td><td><input type="text" value="${esc(item.serialNo||'')}"></td><td><input type="text" value=""></td><td><textarea rows="1">${esc(item.workType||'')}</textarea></td><td><input type="text" value=""></td><td style="padding:2px">${signerImage(true)}</td><td><textarea rows="1">${esc(noteText(item))}</textarea></td></tr>`})});
+    tbody.innerHTML=html||'<tr><td colspan="8">Tanlangan varoqda TO jurnal ma\'lumotlari topilmadi.</td></tr>';updateSignersDisplay();
   }
 
-  async function loadSignatureDisplayUrl(url, expectedWsId) {
-    const safe = safeSignatureUrl(url);
-    if (!safe || !/^\/api\/workspaces\//i.test(safe)) return safe;
-    const token = sessionValue(WORKSPACE_TOKEN_KEY) || sessionValue(ADMIN_TOKEN_KEY);
-    if (!token) return '';
-    const res = await fetch(safe, { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' });
-    if (expectedWsId !== state.workspaceId) return '';
-    if (!res.ok) return '';
-    const blob = await res.blob();
-    if (blob.type && !blob.type.toLowerCase().startsWith('image/')) return '';
-    const trimmed = await trimPngWhitespace(blob);
-    const objUrl = URL.createObjectURL(trimmed);
-    state.signatureObjectUrls.push(objUrl);
-    return objUrl;
+  function renderFallback(){
+    const tbody=$('tableBody');if(!tbody)return;let no=1,html='';FALLBACK_GROUPS.forEach(group=>{html+=`<tr><td colspan="8" class="group-header">${esc(group.name)}</td></tr>`;for(let i=0;i<group.rows;i++,no++){html+=`<tr><td>${no}</td><td><textarea rows="1"></textarea></td><td><input type="text"></td><td><input type="text"></td><td><textarea rows="1"></textarea></td><td><input type="text"></td><td></td><td><input type="text"></td></tr>`}});tbody.innerHTML=html;updateSignersDisplay();
   }
 
-  async function loadKipMasterSigner(expectedWsId, reqVer) {
-    const token = sessionValue(WORKSPACE_TOKEN_KEY) || sessionValue(ADMIN_TOKEN_KEY);
-    if (!expectedWsId || !token) return null;
-    try {
-      const res = await fetch(
-        `/api/workspaces/${encodeURIComponent(expectedWsId)}/signers?includeInactive=true`,
-        { headers: { Authorization: `Bearer ${token}` }, credentials: 'include' }
-      );
-      if (reqVer !== state.requestVersion || expectedWsId !== state.workspaceId) return null;
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.error) return null;
-      const rows = Array.isArray(data.rows) ? data.rows : [];
-      const active = rows.filter((r) => !r.status || normalizeText(r.status) === 'active');
-      const signer = active.find(isKipMasterSigner)
-        || active.find((r) => normalizeText(`${r.position||''} ${r.fullName||r.fio||''}`).includes('кип'))
-        || null;
-      if (!signer) return null;
-      const fileId = String(signer.signatureFileId || '').trim();
-      const internalId = fileId.match(/^db:([0-9a-f-]{36})$/i)?.[1] || '';
-      const srcUrl = internalId
-        ? `/api/workspaces/${encodeURIComponent(expectedWsId)}/signers/signature/${encodeURIComponent(internalId)}`
-        : String(signer.signatureUrl || '').trim();
-      const signatureUrl = await loadSignatureDisplayUrl(srcUrl, expectedWsId);
-      if (reqVer !== state.requestVersion || expectedWsId !== state.workspaceId) return null;
-      return {
-        fio: String(signer.fullName || signer.fio || '').trim(),
-        position: String(signer.position || '').trim(),
-        signatureUrl,
-      };
-    } catch (_) { return null; }
+  function updateSignersDisplay(){const block=document.querySelector('.signers-block');if(!block)return;block.querySelectorAll('.signer-row').forEach(row=>{const name=row.querySelector('.signer-name');const sign=row.querySelector('.signer-sign');if(!name||!sign)return;sign.innerHTML='(Подпись)';sign.style.paddingBottom='2px';if(state.kipMasterSigner?.signatureUrl&&(name.textContent.includes('Куйликов')||name.textContent.includes('Фазилов'))){sign.innerHTML=`<img src="${esc(state.kipMasterSigner.signatureUrl)}" alt="Imzo" style="height:40px;display:block;margin:0 auto -5px">`;sign.style.paddingBottom='0'}})}
+
+  function revokeSignatures(){state.signatureObjectUrls.splice(0).forEach(url=>{try{URL.revokeObjectURL(url)}catch(_){}});state.kipMasterSigner=null}
+
+  async function loadData(expectedWsId=state.workspaceId){
+    const reqVer=++state.requestVersion;revokeSignatures();
+    if(!expectedWsId||!state.sheetName){state.sections=[];state.totalItems=0;renderFallback();setSourceStatus(state.sheetName?`ASOSIY VAROQ: ${state.sheetName}`:'ASOSIY VAROQ: sozlanmagan');return}
+    setSourceStatus(`ASOSIY VAROQ yuklanmoqda: ${state.sheetName}`);
+    try{
+      const signerPromise=loadKipMasterSigner(expectedWsId,reqVer);
+      const data=await apiJson('/api/to/source',{sheetName:state.sheetName},expectedWsId);
+      if(reqVer!==state.requestVersion||expectedWsId!==state.workspaceId)return;
+      state.sheetName=String(data.sheetName??state.sheetName);state.sections=Array.isArray(data.sections)?data.sections:[];state.totalItems=Number(data.totalItems)||0;state.kipMasterSigner=await signerPromise;
+      if(reqVer!==state.requestVersion||expectedWsId!==state.workspaceId)return;
+      renderSourceSections(state.sections);setSourceStatus(`ASOSIY VAROQ: ${state.sheetName} · ${state.totalItems} qator`,'ok');
+    }catch(error){if(error.code==='STALE_WORKSPACE_RESPONSE')return;state.sections=[];state.totalItems=0;renderFallback();setSourceStatus(`Manba xatosi: ${error.message}`,'bad')}
   }
 
-  function actJson(report) {
-    try { return JSON.parse(String(report?.a4Json || '')) || {}; } catch (_) { return {}; }
+  function loadWorkspace(workspace=null,nextId='',isAdmin=false){
+    const id=String(nextId||workspace?.id||selectedWorkspaceId()||'').trim();if(id!==state.workspaceId)revokeSignatures();if(id)localStorage.setItem(WORKSPACE_ID_KEY,id);state.workspaceId=id;state.workspace=workspace||null;state.workspaceName=String(workspace?.name||'').trim();state.isAdmin=Boolean(isAdmin);state.sheetName=String(workspace?.moduleSettings?.[MODULE_SHEET_KEY]??'');const name=$('toWorkspaceName');if(name)name.textContent=state.workspaceName||'—';setSourceStatus(state.sheetName?`ASOSIY VAROQ: ${state.sheetName}`:'ASOSIY VAROQ: sozlanmagan');
   }
 
-  function toDateInputValue(v) {
-    const raw = String(v || '').trim();
-    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-    const local = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
-    if (!local) return '';
-    return `${local[3]}-${local[2].padStart(2,'0')}-${local[1].padStart(2,'0')}`;
+  function fillSheetOptions(sheets=[]){const list=$('toSheetNames');if(!list)return;list.innerHTML=[...new Set(sheets.map(v=>String(v)))].map(name=>`<option value="${esc(name)}"></option>`).join('')}
+
+  async function openSettings(){
+    const modal=$('toSettingsModal');if(!modal)return;const input=$('toSheetName');if(input)input.value=state.sheetName||'';modal.classList.add('show');setSettingsMsg('Workspace Google Sheets varoqlari tekshirilmoqda...','sync');
+    if(!state.workspaceId){setSettingsMsg('Workspace tanlanmagan.','bad');return}
+    try{const data=await apiJson('/api/to/settings/test',{sheetName:state.sheetName||''},state.workspaceId);fillSheetOptions(data.sheets||[]);setSettingsMsg(data.sheets?.length?`${data.sheets.length} ta varoq topildi. ASOSIY VAROQni tanlang.`:'Google Sheets varoqlari topilmadi.',data.sheets?.length?'ok':'bad')}catch(error){setSettingsMsg(error.message,'bad')}
+  }
+  function closeSettings(){$('toSettingsModal')?.classList.remove('show')}
+
+  function waitModuleSettingsSaved(timeoutMs=4000){return new Promise(resolve=>{let done=false;const finish=payload=>{if(done)return;done=true;window.removeEventListener('message',onMessage);clearTimeout(timer);resolve(payload||{})};const onMessage=event=>{if(event.data?.type==='MODULE_SETTINGS_SAVED')finish(event.data)};window.addEventListener('message',onMessage);const timer=setTimeout(()=>finish({timeout:true}),timeoutMs)})}
+
+  async function saveSettings(){
+    const input=$('toSheetName');const raw=String(input?.value??'');if(!raw.trim()){setSettingsMsg('ASOSIY VAROQ kiritilishi shart.','bad');return}if(!state.workspaceId){setSettingsMsg('Workspace tanlanmagan.','bad');return}
+    const saveBtn=$('toSettingsSaveBtn');if(saveBtn)saveBtn.disabled=true;setSettingsMsg('Ulanish tekshirilmoqda...','sync');
+    try{
+      const tested=await apiJson('/api/to/settings/test',{sheetName:raw},state.workspaceId);const exactName=String(tested.sheetName??raw);if(!exactName.trim())throw new Error('ASOSIY VAROQ topilmadi');
+      setSettingsMsg('Workspace ga saqlanmoqda...','sync');
+      if(parent&&parent!==window){const pending=waitModuleSettingsSaved();parent.postMessage({type:'SAVE_MODULE_SETTINGS',settings:{[MODULE_SHEET_KEY]:exactName}},'*');const result=await pending;if(result.error)throw new Error(result.error)}
+      state.sheetName=exactName;if(state.workspace){state.workspace.moduleSettings={...(state.workspace.moduleSettings||{}),[MODULE_SHEET_KEY]:exactName}}if(input)input.value=exactName;setSettingsMsg(`Saqlandi: ${exactName}`,'ok');await loadData(state.workspaceId);setTimeout(closeSettings,550);
+    }catch(error){setSettingsMsg(error.message,'bad')}finally{if(saveBtn)saveBtn.disabled=false}
   }
 
-  function renderTable(groupsData = []) {
-    const tbody = document.getElementById('tableBody');
-    let html = '';
-
-    WORD_GROUPS.forEach(group => {
-      html += `<tr><td colspan="8" class="group-header">${group.name}</td></tr>`;
-      
-      const gData = groupsData.find(g => g.name === group.name) || { items: [] };
-      
-      for (let i = 0; i < group.rows; i++) {
-        let no = group.startNo + i;
-        let report = gData.items[i] || null;
-        let act = actJson(report);
-        
-        let v2 = esc([act.deviceName || report?.device || '', act.brand || report?.brand || ''].filter(Boolean).join(' / '));
-        let v3 = esc(act.serialNo || report?.serialNo || '');
-        let v4 = esc(act.measureRange || act.range || report?.range || '');
-        let v5 = esc(act.workType || act.toType || report?.workType || 'ТО-1');
-        let v6 = esc(toDateInputValue(act.actionDate || act.date || report?.date || ''));
-        
-        let signImg = '';
-        if (report && state.kipMasterSigner && state.kipMasterSigner.signatureUrl) {
-          signImg = `<img src="${esc(state.kipMasterSigner.signatureUrl)}" alt="Imzo" style="height:30px; object-fit:contain;">`;
-        }
-
-        html += `
-          <tr>
-            <td>${no}</td>
-            <td><textarea rows="1">${v2}</textarea></td>
-            <td><input type="text" value="${v3}"></td>
-            <td><input type="text" value="${v4}"></td>
-            <td><textarea rows="1">${v5}</textarea></td>
-            <td><input type="text" value="${v6}"></td>
-            <td style="padding: 2px;">${signImg}</td>
-            <td><input type="text"></td>
-          </tr>
-        `;
-      }
-    });
-
-    tbody.innerHTML = html;
-    updateSignersDisplay();
-  }
-
-  function updateSignersDisplay() {
-    const signersBlock = document.querySelector('.signers-block');
-    if (!signersBlock) return;
-    
-    // Inject signature to the signer rows dynamically based on existing HTML
-    const rows = signersBlock.querySelectorAll('.signer-row');
-    rows.forEach(row => {
-      const nameDiv = row.querySelector('.signer-name');
-      const signDiv = row.querySelector('.signer-sign');
-      if (nameDiv && signDiv && state.kipMasterSigner && state.kipMasterSigner.signatureUrl) {
-        if (nameDiv.textContent.includes('Куйликов') || nameDiv.textContent.includes('Фазилов')) {
-          signDiv.innerHTML = `<img src="${esc(state.kipMasterSigner.signatureUrl)}" alt="Imzo" style="height:40px; display:block; margin:0 auto; margin-bottom:-5px;">`;
-          signDiv.style.paddingBottom = '0';
-        }
-      }
-    });
-  }
-
-  async function loadData(expectedWsId = state.workspaceId, workspace = state.workspace) {
-    const reqVer = ++state.requestVersion;
-    const sheetName = String(workspace?.moduleSettings?.acts_sheet_name || workspace?.mainSheetName || '').trim();
-
-    state.signatureObjectUrls.splice(0).forEach((url) => { try { URL.revokeObjectURL(url); } catch (_) {} });
-    state.kipMasterSigner = null;
-
-    if (!expectedWsId || !sheetName) {
-      state.reports = [];
-      renderTable([]);
-      return;
-    }
-
-    try {
-      const signerPromise = loadKipMasterSigner(expectedWsId, reqVer);
-      const headers = { 'Content-Type': 'application/json', 'x-workspace-id': expectedWsId };
-      const token = sessionValue(WORKSPACE_TOKEN_KEY) || sessionValue(ADMIN_TOKEN_KEY);
-      if (token) headers.Authorization = `Bearer ${token}`;
-
-      const res = await fetch('/api/acts/reports/daily', {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({ sheetName }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (reqVer !== state.requestVersion || expectedWsId !== state.workspaceId) return;
-      if (!res.ok || data.error) throw new Error(data.error || 'Xato');
-
-      state.kipMasterSigner = await signerPromise;
-      if (reqVer !== state.requestVersion || expectedWsId !== state.workspaceId) return;
-
-      state.reports = Array.isArray(data.rows) ? data.rows : [];
-      
-      const map = new Map();
-      state.reports.forEach((r) => {
-        const act = actJson(r);
-        const key = String(act.objectName || r.sourceSheet || r.place || 'Скважина №1').trim();
-        if (!map.has(key)) map.set(key, []);
-        map.get(key).push(r);
-      });
-      const groupsData = [...map.entries()].map(([name, items]) => ({ name, items }));
-
-      renderTable(groupsData);
-    } catch (err) {
-      if (reqVer !== state.requestVersion || expectedWsId !== state.workspaceId) return;
-      state.reports = [];
-      renderTable([]);
-    }
-  }
-
-  function loadWorkspace(workspace = null, nextId = '') {
-    const id = String(nextId || workspace?.id || selectedWorkspaceId() || '').trim();
-    if (id !== state.workspaceId) {
-      state.signatureObjectUrls.splice(0).forEach((url) => { try { URL.revokeObjectURL(url); } catch (_) {} });
-      state.kipMasterSigner = null;
-    }
-    if (id) localStorage.setItem(WORKSPACE_ID_KEY, id);
-    state.workspaceId = id;
-    state.workspace = workspace || null;
-  }
-
-  window.addEventListener('message', (ev) => {
-    if (ev.data?.type === 'SEG_KIP_WORKSPACE_CHANGE') {
-      loadWorkspace(ev.data.workspace, ev.data.workspaceId);
-      void loadData(state.workspaceId, state.workspace);
-    }
+  window.addEventListener('message',event=>{
+    if(event.data?.type==='SEG_KIP_WORKSPACE_CHANGE'){loadWorkspace(event.data.workspace,event.data.workspaceId,event.data.isAdmin);void loadData(state.workspaceId)}
   });
 
-  document.addEventListener('DOMContentLoaded', () => {
-    renderTable([]);
-    loadWorkspace(null, selectedWorkspaceId());
-    if (parent && parent !== window) parent.postMessage({ type: 'REQUEST_WORKSPACE_INFO' }, '*');
-  });
+  document.addEventListener('DOMContentLoaded',()=>{renderFallback();loadWorkspace(null,selectedWorkspaceId(),false);if(parent&&parent!==window)parent.postMessage({type:'REQUEST_WORKSPACE_INFO'},'*')});
+
+  window.ToJournalWorkspace={state,openSettings,closeSettings,saveSettings,reload:()=>loadData(state.workspaceId),loadWorkspace};
+})();
 </script>
 </body>
 </html>
