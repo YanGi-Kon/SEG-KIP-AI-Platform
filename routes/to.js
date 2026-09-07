@@ -2,6 +2,21 @@ import express from 'express';
 import { listSheets, readSheetRows, validateServiceAccount } from '../services/googleSheetsService.js';
 import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
 import { requireAccessToken } from '../middleware/auth.js';
+import { updateToPeriodSheetState } from '../repositories/toPeriodRepository.js';
+import {
+  applyToPeriodSheetParsed,
+  createToPeriodFromParsed,
+  deriveToDocumentDate,
+  getToPeriod,
+  listToPeriodSummaries,
+  normalizeToPeriod,
+  patchToPeriodItem,
+} from '../services/toPeriodService.js';
+import {
+  ensureToPeriodSheet,
+  readToPeriodSheetRows,
+  syncToPeriodSheet,
+} from '../services/toPeriodSheetsService.js';
 
 const router = express.Router();
 
@@ -11,6 +26,7 @@ function workspaceGuards(permission) {
 }
 
 router.use(workspaceGuards('workspace:read'));
+const requireToWrite = requireWorkspaceRequestPermission('documents:create');
 
 function clean(value) {
   return String(value ?? '').trim();
@@ -38,7 +54,12 @@ function parseServerServiceAccount() {
 
 function requestedSheetTitle(req) {
   const input = req.body || req.query || {};
-  return String(input.sheetName ?? input.mainSheetName ?? '');
+  return String(
+    input.sheetName
+    ?? input.mainSheetName
+    ?? req.workspace?.moduleSettings?.to_sheet_name
+    ?? '',
+  );
 }
 
 function resolveConfig(req, { requireSheet = false } = {}) {
@@ -227,6 +248,27 @@ export function buildToJournalView(parsed = {}) {
   return parsed;
 }
 
+function apiError(res, error, fallbackCode = 'TO_REQUEST_FAILED') {
+  const knownStatus = Number(error?.statusCode);
+  const status = knownStatus || (String(error?.code || '').startsWith('TO_') ? 400 : 500);
+  return res.status(status).json({
+    ok: false,
+    error: error?.message || 'TO request failed',
+    code: error?.code || fallbackCode,
+    sheets: error?.sheets || [],
+    matches: error?.matches || [],
+  });
+}
+
+async function setPeriodSyncError(workspaceId, periodId, error) {
+  try {
+    await updateToPeriodSheetState(workspaceId, periodId, {
+      syncStatus: 'error',
+      syncError: error?.message || 'Google Sheets sync xatosi',
+    });
+  } catch (_) {}
+}
+
 router.post('/settings/test', async (req, res) => {
   try {
     const config = resolveConfig(req);
@@ -272,6 +314,240 @@ router.post('/source', async (req, res) => {
       sheets: error.sheets || [],
       matches: error.matches || [],
     });
+  }
+});
+
+router.get('/periods', async (req, res) => {
+  try {
+    const periods = await listToPeriodSummaries(req.workspace.id, req.query.year ?? null);
+    res.json({ ok: true, periods });
+  } catch (error) {
+    apiError(res, error, 'TO_PERIOD_LIST_FAILED');
+  }
+});
+
+router.get('/periods/:year/:month', async (req, res) => {
+  try {
+    const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month);
+    if (!bundle) {
+      return res.status(404).json({
+        ok: false,
+        error: 'TO davri topilmadi',
+        code: 'TO_PERIOD_NOT_FOUND',
+      });
+    }
+    return res.json({ ok: true, ...bundle });
+  } catch (error) {
+    return apiError(res, error, 'TO_PERIOD_READ_FAILED');
+  }
+});
+
+router.post('/periods', requireToWrite, async (req, res) => {
+  try {
+    const { year, month } = normalizeToPeriod(req.body?.year, req.body?.month);
+    const existing = await getToPeriod(req.workspace.id, year, month);
+    const config = resolveConfig(req, { requireSheet: !existing });
+
+    let result;
+    if (existing) {
+      result = { created: false, period: existing.period, items: existing.items };
+    } else {
+      const sheets = await listSheets(config);
+      const sourceSheetName = resolveExistingSheetName(sheets, config.sheetName);
+      const rows = await readSheetRows({ ...config, sheetName: sourceSheetName, range: 'A:H' });
+      const parsed = parseToSheetRows(rows);
+      const documentDate = deriveToDocumentDate(rows, year, month, req.body?.documentDate || '');
+
+      result = await createToPeriodFromParsed({
+        workspaceId: req.workspace.id,
+        year,
+        month,
+        documentDate,
+        sourceSheetName,
+        conclusion: req.body?.conclusion,
+        parsed,
+        createdBy: req.auth?.userId || null,
+      });
+    }
+
+    let sheet = null;
+    let warning = '';
+    try {
+      const ensured = await ensureToPeriodSheet({
+        spreadsheetUrl: config.spreadsheetUrl,
+        serviceAccount: config.serviceAccount,
+        sourceSheetName: result.period.sourceSheetName,
+        year: result.period.year,
+        month: result.period.month,
+        documentDate: String(result.period.documentDate),
+        sourceRows: result.items.map((item) => item.sourceRowNumber),
+      });
+
+      if (!ensured.created && !result.period.monthlySheetName && result.period.status === 'draft') {
+        const existingRows = await readToPeriodSheetRows({
+          spreadsheetUrl: config.spreadsheetUrl,
+          serviceAccount: config.serviceAccount,
+          sheetName: ensured.sheetName,
+        });
+        const parsedExisting = parseToSheetRows(existingRows);
+        await applyToPeriodSheetParsed(
+          req.workspace.id,
+          result.period.year,
+          result.period.month,
+          parsedExisting,
+        );
+      } else {
+        await syncToPeriodSheet({
+          spreadsheetUrl: config.spreadsheetUrl,
+          serviceAccount: config.serviceAccount,
+          sheetName: ensured.sheetName,
+          items: result.items,
+        });
+      }
+
+      await updateToPeriodSheetState(req.workspace.id, result.period.id, {
+        monthlySheetName: ensured.sheetName,
+        syncStatus: 'synced',
+        syncError: '',
+        touchSyncTime: true,
+      });
+      sheet = ensured;
+    } catch (sheetError) {
+      warning = sheetError.message || 'Google Sheets sync xatosi';
+      await setPeriodSyncError(req.workspace.id, result.period.id, sheetError);
+    }
+
+    const bundle = await getToPeriod(req.workspace.id, year, month);
+    return res.status(result.created ? 201 : 200).json({
+      ok: true,
+      created: result.created,
+      ...bundle,
+      sheet,
+      warning,
+    });
+  } catch (error) {
+    return apiError(res, error, 'TO_PERIOD_CREATE_FAILED');
+  }
+});
+
+router.patch('/periods/:year/:month/items/:itemId', requireToWrite, async (req, res) => {
+  try {
+    const result = await patchToPeriodItem(
+      req.workspace.id,
+      req.params.year,
+      req.params.month,
+      req.params.itemId,
+      req.body || {},
+    );
+
+    let warning = '';
+    if (result.period.monthlySheetName && req.body?.syncSheet !== false) {
+      try {
+        const config = resolveConfig(req);
+        await syncToPeriodSheet({
+          spreadsheetUrl: config.spreadsheetUrl,
+          serviceAccount: config.serviceAccount,
+          sheetName: result.period.monthlySheetName,
+          items: [result.item],
+        });
+        await updateToPeriodSheetState(req.workspace.id, result.period.id, {
+          syncStatus: 'synced',
+          syncError: '',
+          touchSyncTime: true,
+        });
+      } catch (sheetError) {
+        warning = sheetError.message || 'Google Sheets sync xatosi';
+        await setPeriodSyncError(req.workspace.id, result.period.id, sheetError);
+      }
+    }
+
+    return res.json({ ok: true, item: result.item, warning });
+  } catch (error) {
+    return apiError(res, error, 'TO_PERIOD_ITEM_UPDATE_FAILED');
+  }
+});
+
+router.post('/periods/:year/:month/sync-to-sheet', requireToWrite, async (req, res) => {
+  try {
+    const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month);
+    if (!bundle) {
+      return res.status(404).json({ ok: false, error: 'TO davri topilmadi', code: 'TO_PERIOD_NOT_FOUND' });
+    }
+    const config = resolveConfig(req);
+    let sheetName = bundle.period.monthlySheetName;
+    let ensured = null;
+
+    if (!sheetName) {
+      ensured = await ensureToPeriodSheet({
+        spreadsheetUrl: config.spreadsheetUrl,
+        serviceAccount: config.serviceAccount,
+        sourceSheetName: bundle.period.sourceSheetName,
+        year: bundle.period.year,
+        month: bundle.period.month,
+        documentDate: String(bundle.period.documentDate),
+        sourceRows: bundle.items.map((item) => item.sourceRowNumber),
+      });
+      sheetName = ensured.sheetName;
+    }
+
+    const sync = await syncToPeriodSheet({
+      spreadsheetUrl: config.spreadsheetUrl,
+      serviceAccount: config.serviceAccount,
+      sheetName,
+      items: bundle.items,
+    });
+    await updateToPeriodSheetState(req.workspace.id, bundle.period.id, {
+      monthlySheetName: sheetName,
+      syncStatus: 'synced',
+      syncError: '',
+      touchSyncTime: true,
+    });
+
+    return res.json({ ok: true, sheetName, ensured, sync });
+  } catch (error) {
+    const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month).catch(() => null);
+    if (bundle?.period?.id) await setPeriodSyncError(req.workspace.id, bundle.period.id, error);
+    return apiError(res, error, 'TO_PERIOD_SYNC_TO_SHEET_FAILED');
+  }
+});
+
+router.post('/periods/:year/:month/sync-from-sheet', requireToWrite, async (req, res) => {
+  try {
+    const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month);
+    if (!bundle) {
+      return res.status(404).json({ ok: false, error: 'TO davri topilmadi', code: 'TO_PERIOD_NOT_FOUND' });
+    }
+    if (!bundle.period.monthlySheetName) {
+      const error = new Error('TO oylik Google Sheets varog‘i hali yaratilmagan');
+      error.code = 'TO_PERIOD_SHEET_NOT_CREATED';
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const config = resolveConfig(req);
+    const rows = await readToPeriodSheetRows({
+      spreadsheetUrl: config.spreadsheetUrl,
+      serviceAccount: config.serviceAccount,
+      sheetName: bundle.period.monthlySheetName,
+    });
+    const parsed = parseToSheetRows(rows);
+    const applied = await applyToPeriodSheetParsed(
+      req.workspace.id,
+      bundle.period.year,
+      bundle.period.month,
+      parsed,
+    );
+    await updateToPeriodSheetState(req.workspace.id, bundle.period.id, {
+      syncStatus: 'synced',
+      syncError: '',
+      touchSyncTime: true,
+    });
+    const refreshed = await getToPeriod(req.workspace.id, bundle.period.year, bundle.period.month);
+    return res.json({ ok: true, updated: applied.updated, ...refreshed });
+  } catch (error) {
+    const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month).catch(() => null);
+    if (bundle?.period?.id) await setPeriodSyncError(req.workspace.id, bundle.period.id, error);
+    return apiError(res, error, 'TO_PERIOD_SYNC_FROM_SHEET_FAILED');
   }
 });
 
