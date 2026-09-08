@@ -61,6 +61,7 @@ const publicDir = join(__dirname, "public");
 const publicAssetsDir = join(publicDir, "assets");
 const indexHtmlPath = join(publicDir, "index.html");
 const toHtmlPath = join(publicDir, "modules", "to.html");
+const faviconPath = join(publicAssetsDir, "images", "saneg-favicon.png");
 
 const staticNoCacheOptions = {
   etag: false,
@@ -115,17 +116,26 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get("/favicon.ico", (_req, res) => {
+  res.set("Cache-Control", "public, max-age=86400");
+  res.sendFile(faviconPath);
+});
+
 app.get("/", (_req, res, next) => {
   try {
     const html = readFileSync(indexHtmlPath, "utf8");
+    const faviconLink = '<link id="sanegFavicon" rel="icon" type="image/png" sizes="128x128" href="/assets/images/saneg-favicon.png?v=saneg1">';
     const settingsScript = '<script id="segSettingsPersistenceScript" src="/js/settings-persistence.js?v=settings2" defer></script>';
     const loginGateScript = '<script id="sanegLoginGateRootScript" src="/js/saneg-login-gate.js?v=root1d" defer></script>';
     const htmlWithAuthBoot = html.includes("sanegAuthBootScript")
       ? html
       : html.replace("</head>", `${authBootGuard}\n</head>`);
-    const htmlWithSettings = htmlWithAuthBoot.includes("segSettingsPersistenceScript")
+    const htmlWithFavicon = htmlWithAuthBoot.includes("sanegFavicon")
       ? htmlWithAuthBoot
-      : htmlWithAuthBoot.replace("</body>", `${settingsScript}\n</body>`);
+      : htmlWithAuthBoot.replace("</head>", `${faviconLink}\n</head>`);
+    const htmlWithSettings = htmlWithFavicon.includes("segSettingsPersistenceScript")
+      ? htmlWithFavicon
+      : htmlWithFavicon.replace("</body>", `${settingsScript}\n</body>`);
     const safeHtml = htmlWithSettings.includes("sanegLoginGateRootScript")
       ? htmlWithSettings
       : htmlWithSettings.replace("</body>", `${loginGateScript}\n</body>`);
