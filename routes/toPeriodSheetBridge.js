@@ -128,17 +128,18 @@ router.post('/select', async (req, res) => {
     const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
     const sheets = await getSheetsClient(serviceAccount);
 
+    // IMPORTANT: yilni RAW rejimida yozamiz. Aks holda Google Sheets "2026" ni
+    // raqamga aylantiradi, holbuki База!L ustunida yil matn sifatida saqlangan.
+    // FILTER formulalaridagi tenglik taqqoslashda bu tip farqi natijani bo‘sh qoldirardi.
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${quoteSheetName(sheetName)}!B7:C7`,
-      valueInputOption: 'USER_ENTERED',
+      valueInputOption: 'RAW',
       requestBody: {
         values: [[monthName, String(year)]],
       },
     });
 
-    // B7/C7 o‘zgargach Sheets formulalari shu davrga qayta hisoblanadi.
-    // Yangilangan A:H ni shu so‘rovning o‘zida qayta o‘qib, frontendga beramiz.
     const rows = await readSheetRows({
       spreadsheetUrl,
       serviceAccount,
