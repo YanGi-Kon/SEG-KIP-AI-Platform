@@ -26,7 +26,7 @@
     try {
       return sessionStorage.getItem(key) || parentStorage('sessionStorage', key) || '';
     } catch (_) {
-      return parentStorage('sessionStorage', key);
+      return parentStorage('sessionStorage', key) || '';
     }
   }
 
@@ -150,6 +150,9 @@
   }
 
   function init() {
+    // Davr oy/yil tanlanganda avtomatik ochiladi, shuning uchun alohida "Открыть" tugmasi kerak emas.
+    $('toOpenPeriodBtn')?.remove();
+
     $('toPeriodMonth')?.addEventListener('change', scheduleSync);
     $('toPeriodYear')?.addEventListener('change', scheduleSync);
 
