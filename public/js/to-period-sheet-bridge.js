@@ -149,9 +149,19 @@
     window.setTimeout(() => void syncSelectedPeriod(), 0);
   }
 
+  function loadSignersPanel() {
+    if (document.getElementById('toSignersPanelScript')) return;
+    const script = document.createElement('script');
+    script.id = 'toSignersPanelScript';
+    script.src = '/js/to-signers-panel.js?v=to-signers1';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   function init() {
     // Davr oy/yil tanlanganda avtomatik ochiladi, shuning uchun alohida "Открыть" tugmasi kerak emas.
     $('toOpenPeriodBtn')?.remove();
+    loadSignersPanel();
 
     $('toPeriodMonth')?.addEventListener('change', scheduleSync);
     $('toPeriodYear')?.addEventListener('change', scheduleSync);
