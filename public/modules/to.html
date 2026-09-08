@@ -7,7 +7,24 @@
 <link rel="stylesheet" href="../css/style.css">
 <style>
 :root{--cyan:#22d3ee;--line:rgba(34,211,238,.30);--ink:#eaf8ff;--muted:#a9c8d8}
-*{box-sizing:border-box}body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,serif;margin:0;padding:20px}.top-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;max-width:1400px;margin:0 auto 16px;font-family:Arial,sans-serif;flex-wrap:wrap}.top-actions,.workspace-source{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.btn{background:#40506a;color:#fff;border:1px solid rgba(148,163,184,.22);padding:8px 15px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700}.btn:hover{background:#506482}.btn.primary{background:linear-gradient(135deg,#0891b2,#22d3ee);color:#04202a;border:0}.btn:disabled{opacity:.5;cursor:not-allowed}.workspace-pill,.source-pill{font-family:Arial,sans-serif;border:1px solid var(--line);background:rgba(2,13,25,.72);border-radius:999px;padding:8px 12px;font-size:12px;color:#dff8ff}.source-pill{border-radius:9px;color:var(--muted)}.document-container{background:#fdfdfd;color:#000;border-radius:4px;padding:40px 60px;max-width:1400px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:16px;line-height:1.5}.header-text{text-align:right;font-size:15px;margin-bottom:30px}.title-text{text-align:center;font-size:18px;font-weight:bold;margin:30px 0}.preamble{font-size:16px;margin-bottom:20px;text-align:justify}.signature-list{margin:10px 0 20px;padding-left:0}.journal-table{width:100%;border-collapse:collapse;margin-bottom:30px;font-size:14px;table-layout:fixed}.journal-table th,.journal-table td{border:1px solid #000;padding:6px;text-align:center;vertical-align:middle;word-break:break-word}.journal-table th{font-weight:bold;background:#f0f0f0}.journal-table .group-header{text-align:left;font-weight:bold;background:#e8e8e8;padding-left:10px}.journal-table input,.journal-table textarea{width:100%;background:transparent;border:none;color:inherit;font-family:inherit;font-size:inherit;resize:vertical;outline:none;text-align:center}.journal-table textarea{text-align:center}.journal-table input:focus,.journal-table textarea:focus{background:rgba(34,211,238,.1)}.conclusion{margin:20px 0 30px;font-size:16px;font-weight:bold}.signers-block{display:grid;gap:20px;font-size:16px}.signer-row{display:flex;justify-content:space-between;align-items:flex-end}.signer-role{width:45%}.signer-name{width:25%;text-align:left}.signer-sign{width:25%;border-bottom:1px solid #000;text-align:center;padding-bottom:2px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.76);display:none;align-items:center;justify-content:center;padding:18px;z-index:100;font-family:Arial,sans-serif}.modal.show{display:flex}.modalbox{width:min(650px,100%);max-height:92vh;overflow:auto;background:#071427;border:1px solid var(--line);border-radius:18px;padding:20px;color:#eaf7ff;box-shadow:0 24px 80px rgba(0,0,0,.45)}.modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.modal-head h2{margin:0;font-size:20px}.field{margin-top:16px}.field label{display:block;color:#cdeeff;font-size:13px;font-weight:900;margin-bottom:7px}.field input{width:100%;background:#061120;border:1px solid rgba(255,255,255,.16);border-radius:12px;color:#fff;padding:12px;font-size:14px}.note{color:var(--muted);font-size:12px;line-height:1.4}.msg{margin-top:12px;padding:10px;border-radius:12px;border:1px dashed rgba(255,255,255,.18);min-height:38px;color:#dbeafe}.ok{color:#86efac}.bad{color:#fca5a5}.sync{color:#fde68a}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}@media(max-width:760px){body{padding:10px}.document-container{padding:24px 18px;overflow:auto}.workspace-source{width:100%}.source-pill{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+*{box-sizing:border-box}
+body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,serif;margin:0;padding:20px}
+.top-bar,.period-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;max-width:1400px;margin:0 auto 16px;font-family:Arial,sans-serif;flex-wrap:wrap}
+.top-actions,.workspace-source,.period-controls,.period-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{background:#40506a;color:#fff;border:1px solid rgba(148,163,184,.22);padding:8px 15px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700}
+.btn:hover{background:#506482}.btn.primary{background:linear-gradient(135deg,#0891b2,#22d3ee);color:#04202a;border:0}.btn:disabled{opacity:.5;cursor:not-allowed}
+.workspace-pill,.source-pill,.period-pill{font-family:Arial,sans-serif;border:1px solid var(--line);background:rgba(2,13,25,.72);border-radius:999px;padding:8px 12px;font-size:12px;color:#dff8ff}
+.source-pill{border-radius:9px;color:var(--muted)}
+.period-bar{background:rgba(2,13,25,.55);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.period-select{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px;font:700 13px Arial,sans-serif}
+.period-status.ok{color:#86efac}.period-status.bad{color:#fca5a5}.period-status.sync{color:#fde68a}
+.document-container{background:#fdfdfd;color:#000;border-radius:4px;padding:40px 60px;max-width:1400px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.5);font-size:16px;line-height:1.5}
+.header-text{text-align:right;font-size:15px;margin-bottom:30px}.title-text{text-align:center;font-size:18px;font-weight:bold;margin:30px 0}.preamble{font-size:16px;margin-bottom:20px;text-align:justify}.signature-list{margin:10px 0 20px;padding-left:0}
+.journal-table{width:100%;border-collapse:collapse;margin-bottom:30px;font-size:14px;table-layout:fixed}.journal-table th,.journal-table td{border:1px solid #000;padding:6px;text-align:center;vertical-align:middle;word-break:break-word}.journal-table th{font-weight:bold;background:#f0f0f0}.journal-table .group-header{text-align:left;font-weight:bold;background:#e8e8e8;padding-left:10px}
+.journal-table input,.journal-table textarea{width:100%;background:transparent;border:none;color:inherit;font-family:inherit;font-size:inherit;resize:vertical;outline:none;text-align:center}.journal-table textarea{text-align:center}.journal-table input:focus,.journal-table textarea:focus{background:rgba(34,211,238,.1)}.journal-table [readonly]{opacity:.82;cursor:default}
+.conclusion{margin:20px 0 30px;font-size:16px;font-weight:bold}.signers-block{display:grid;gap:20px;font-size:16px}.signer-row{display:flex;justify-content:space-between;align-items:flex-end;min-height:34px}.signer-role{width:45%}.signer-name{width:25%;text-align:left}.signer-sign{width:25%;border-bottom:1px solid #000;text-align:center;padding-bottom:2px;min-height:30px;display:flex;align-items:flex-end;justify-content:center}.signer-sign img{display:block;max-width:150px;max-height:52px;object-fit:contain}.signer-auto-badge{font-family:Arial,sans-serif;font-size:9px;color:#64748b;margin-left:6px;white-space:nowrap}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.76);display:none;align-items:center;justify-content:center;padding:18px;z-index:100;font-family:Arial,sans-serif}.modal.show{display:flex}.modalbox{width:min(650px,100%);max-height:92vh;overflow:auto;background:#071427;border:1px solid var(--line);border-radius:18px;padding:20px;color:#eaf7ff;box-shadow:0 24px 80px rgba(0,0,0,.45)}.modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.modal-head h2{margin:0;font-size:20px}.field{margin-top:16px}.field label{display:block;color:#cdeeff;font-size:13px;font-weight:900;margin-bottom:7px}.field input{width:100%;background:#061120;border:1px solid rgba(255,255,255,.16);border-radius:12px;color:#fff;padding:12px;font-size:14px}.note{color:var(--muted);font-size:12px;line-height:1.4}.msg{margin-top:12px;padding:10px;border-radius:12px;border:1px dashed rgba(255,255,255,.18);min-height:38px;color:#dbeafe}.ok{color:#86efac}.bad{color:#fca5a5}.sync{color:#fde68a}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+@media(max-width:760px){body{padding:10px}.document-container{padding:24px 18px;overflow:auto}.workspace-source,.period-controls,.period-meta{width:100%}.source-pill{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.period-select{flex:1}}
 </style>
 <script src="../js/i18n.js"></script>
 </head>
@@ -22,8 +39,25 @@
     <span id="toSourceStatus" class="source-pill">ASOSIY VAROQ: sozlanmagan</span>
   </div>
 </div>
+
+<div class="period-bar" aria-label="TO oylik davr boshqaruvi">
+  <div class="period-controls">
+    <button id="toPrevPeriodBtn" class="btn" type="button" title="Предыдущий месяц">←</button>
+    <select id="toPeriodMonth" class="period-select" aria-label="Oy"></select>
+    <select id="toPeriodYear" class="period-select" aria-label="Yil"></select>
+    <button id="toOpenPeriodBtn" class="btn" type="button">Открыть</button>
+    <button id="toCreatePeriodBtn" class="btn primary" type="button">＋ Создать период</button>
+    <button id="toNextPeriodBtn" class="btn" type="button" title="Следующий месяц">→</button>
+  </div>
+  <div class="period-meta">
+    <span id="toPeriodStatus" class="period-pill period-status">Июнь 2026 · источник</span>
+    <button id="toSyncFromSheetBtn" class="btn" type="button" disabled>↓ Из Sheets</button>
+    <button id="toSyncToSheetBtn" class="btn" type="button" disabled>↑ В Sheets</button>
+  </div>
+</div>
+
 <div class="document-container">
-  <div class="header-text">Приложение № 2 к Регламенту проведения технического обслуживания<br>контрольно-измерительных приборов, средств и систем автоматизации<br>на объектах СП ООО «SANEG»<br>«25» Июнь 2026г. ТПП «Андижан»</div>
+  <div class="header-text">Приложение № 2 к Регламенту проведения технического обслуживания<br>контрольно-измерительных приборов, средств и систем автоматизации<br>на объектах СП ООО «SANEG»<br><span id="toDocumentDateText">«25» Июнь 2026г.</span> ТПП «Андижан»</div>
   <div class="title-text">АКТ<br>проведения работ по ТО-1<br>приборов и средств автоматизации ТПП «Андижан» ЦДНГ №1</div>
   <div class="preamble">Мы, нижеподписавшиеся:<br><div class="signature-list">представители ОАиМ ТПП «Андижан» Ходжаев С. Х.<br>представители участок КИПиА Куйликов Р. А.<br>представители участок КИПиА Фазилов И. Б.<br>представители ЦДНГ №1 Хошимов Б., Мазординов Э.<br>представители ППН №1 Бакиров У., Щоимкулов Ш.</div>составили настоящий акт о том, что согласно ежегодному графику проведения технического обслуживания СИ, КИПиА и в соответствии с Регламентом по проведению технического обслуживания контрольно-измерительных приборов, средств и систем автоматизации на объектах СП ООО «SANEG», выполнены следующие виды работ:</div>
   <table class="journal-table">
@@ -31,48 +65,545 @@
     <thead><tr><th>№</th><th>Зав. №</th><th>Наименование оборудования</th><th>Поз.</th><th>кол-во, шт.</th><th>Техническое состояние</th><th>Вид работ</th><th>Примечание</th></tr></thead>
     <tbody id="tableBody"></tbody>
   </table>
-  <div class="conclusion">Заключение: оборудование исправно и пригодно к эксплуатации</div>
+  <div id="toConclusion" class="conclusion">Заключение: оборудование исправно и пригодно к эксплуатации</div>
   <div class="signers-block">
     <div class="signer-row"><div class="signer-role">Ответственный от ОАиМ; Начальник отдела</div><div class="signer-name">Ходжаев С. Х.</div><div class="signer-sign">(Подпись)</div></div>
     <div class="signer-row"><div class="signer-role">Ответственный от участок КИПиА; Начальник КИПиА</div><div class="signer-name">Куйликов Р. А.</div><div class="signer-sign">(Подпись)</div></div>
-    <div class="signer-row"><div class="signer-role">Ответственный за выполнение работ; Мастер КИПиА</div><div class="signer-name">Фазилов И. Б.</div><div class="signer-sign">(Подпись)</div></div>
+    <div id="toKipMasterSignerRow" class="signer-row"><div class="signer-role">Ответственный за выполнение работ; Мастер КИПиА<span id="toKipMasterAutoBadge" class="signer-auto-badge"></span></div><div id="toKipMasterName" class="signer-name">Фазилов И. Б.</div><div id="toKipMasterSignature" class="signer-sign">(Подпись)</div></div>
     <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1</div><div class="signer-name">Хошимов Б.</div><div class="signer-sign">(Подпись)</div></div>
     <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1</div><div class="signer-name">Мазординов Э.</div><div class="signer-sign">(Подпись)</div></div>
     <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1</div><div class="signer-name">Бакиров У.</div><div class="signer-sign">(Подпись)</div></div>
     <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1</div><div class="signer-name">Щоимкулов Ш.</div><div class="signer-sign">(Подпись)</div></div>
   </div>
 </div>
+
 <div id="toSettingsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="toSettingsTitle"><div class="modalbox"><div class="modal-head"><h2 id="toSettingsTitle">Google Sheets ulanish sozlamalari</h2><button class="btn" type="button" onclick="ToJournalWorkspace.closeSettings()">✕</button></div><p class="note">Google Sheets havolasi va Service Account faol Workspace sozlamalaridan olinadi. Bu oynada TO JURNALI uchun faqat ma'lumot manbasi bo'lgan varoq tanlanadi.</p><div class="field"><label for="toSheetName">ASOSIY VAROQ</label><input id="toSheetName" list="toSheetNames" autocomplete="off" placeholder="Masalan: АКТ ТО "><datalist id="toSheetNames"></datalist></div><div id="toSettingsMsg" class="msg">Sozlamalar kiritilmagan.</div><div class="modal-actions"><button id="toSettingsSaveBtn" class="btn primary" type="button" onclick="ToJournalWorkspace.saveSettings()">Saqlash va kirish</button><button class="btn" type="button" onclick="ToJournalWorkspace.closeSettings()">Yopish</button></div></div></div>
+
 <script>
 (() => {
   const WORKSPACE_ID_KEY='seg_kip_selected_workspace_id';
   const WORKSPACE_TOKEN_KEY='seg_kip_workspace_access_token';
   const ADMIN_TOKEN_KEY='seg_kip_admin_jwt';
   const MODULE_SHEET_KEY='to_sheet_name';
-  const state={workspaceId:'',workspace:null,workspaceName:'',isAdmin:false,sheetName:'',sections:[],totalItems:0,requestVersion:0};
+  const DEFAULT_KIP_MASTER='Фазилов И. Б.';
+  const DEFAULT_PERIOD_YEAR=2026;
+  const DEFAULT_PERIOD_MONTH=6;
+  const MONTH_NAMES=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const state={
+    workspaceId:'',workspace:null,workspaceName:'',isAdmin:false,sheetName:'',
+    sections:[],totalItems:0,requestVersion:0,signerRequestVersion:0,
+    kipMasterSigner:null,signatureObjectUrl:'',
+    periodYear:DEFAULT_PERIOD_YEAR,periodMonth:DEFAULT_PERIOD_MONTH,
+    period:null,periodItems:[],periods:[],periodRequestVersion:0,periodBusy:false
+  };
+
   const $=id=>document.getElementById(id);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const clean=v=>String(v??'').trim();
+
   function parentStorage(store,key){try{return parent?.[store]?.getItem(key)||''}catch(_){return''}}
   function selectedWorkspaceId(){return localStorage.getItem(WORKSPACE_ID_KEY)||parentStorage('localStorage',WORKSPACE_ID_KEY)||''}
   function sessionValue(key){try{return sessionStorage.getItem(key)||parentStorage('sessionStorage',key)||''}catch(_){return parentStorage('sessionStorage',key)}}
   function token(){return sessionValue(WORKSPACE_TOKEN_KEY)||sessionValue(ADMIN_TOKEN_KEY)}
-  function setSourceStatus(text,kind=''){const el=$('toSourceStatus');if(!el)return;el.textContent=text;el.style.color=kind==='bad'?'#fca5a5':kind==='ok'?'#86efac':'#a9c8d8'}
-  function setSettingsMsg(text,kind=''){const el=$('toSettingsMsg');if(!el)return;el.innerHTML=`<span class="${kind}">${esc(text)}</span>`}
-  async function apiJson(path,body={},expectedWsId=state.workspaceId){const headers={'Content-Type':'application/json'};if(expectedWsId)headers['x-workspace-id']=expectedWsId;const auth=token();if(auth)headers.Authorization=`Bearer ${auth}`;const res=await fetch(path,{method:'POST',headers,credentials:'include',body:JSON.stringify(body)});const data=await res.json().catch(()=>({}));if(expectedWsId&&expectedWsId!==state.workspaceId){const err=new Error('Workspace almashtirildi');err.code='STALE_WORKSPACE_RESPONSE';throw err}if(!res.ok||data.error){const err=new Error(data.error||'API xatosi');err.code=data.code||'API_ERROR';throw err}return data}
-  function renderFallback(){const tbody=$('tableBody');if(tbody)tbody.innerHTML='<tr><td colspan="8">ASOSIY VAROQ tanlang.</td></tr>'}
-  function cell(value,tag='input'){const v=esc(value||'');return tag==='textarea'?`<textarea rows="1">${v}</textarea>`:`<input type="text" value="${v}">`}
-  function renderSourceSections(sections=[]){const tbody=$('tableBody');if(!tbody)return;let html='';sections.forEach(section=>{html+=`<tr><td colspan="8" class="group-header">${esc(section.name||'ASOSIY')}</td></tr>`;(section.items||[]).forEach(item=>{html+=`<tr data-source-row="${esc(item.sourceRowNumber||'')}"><td>${cell(item.no)}</td><td>${cell(item.serialNo)}</td><td>${cell(item.equipmentName,'textarea')}</td><td>${cell(item.positionNo)}</td><td>${cell(item.quantity)}</td><td>${cell(item.technicalState,'textarea')}</td><td>${cell(item.workType)}</td><td>${cell(item.note,'textarea')}</td></tr>`})});tbody.innerHTML=html||'<tr><td colspan="8">Tanlangan varoqda ma\'lumot topilmadi.</td></tr>'}
-  async function loadData(expectedWsId=state.workspaceId){const reqVer=++state.requestVersion;if(!expectedWsId||!state.sheetName){state.sections=[];state.totalItems=0;renderFallback();setSourceStatus(state.sheetName?`ASOSIY VAROQ: ${state.sheetName}`:'ASOSIY VAROQ: sozlanmagan');return}setSourceStatus(`ASOSIY VAROQ yuklanmoqda: ${state.sheetName}`);try{const data=await apiJson('/api/to/source',{sheetName:state.sheetName},expectedWsId);if(reqVer!==state.requestVersion||expectedWsId!==state.workspaceId)return;state.sheetName=String(data.sheetName??state.sheetName);state.sections=Array.isArray(data.sections)?data.sections:[];state.totalItems=Number(data.totalItems)||0;renderSourceSections(state.sections);setSourceStatus(`ASOSIY VAROQ: ${state.sheetName} · ${state.totalItems} qator`,'ok')}catch(error){if(error.code==='STALE_WORKSPACE_RESPONSE')return;state.sections=[];state.totalItems=0;renderFallback();setSourceStatus(`Manba xatosi: ${error.message}`,'bad')}}
-  function loadWorkspace(workspace=null,nextId='',isAdmin=false){const id=String(nextId||workspace?.id||selectedWorkspaceId()||'').trim();if(id)localStorage.setItem(WORKSPACE_ID_KEY,id);state.workspaceId=id;state.workspace=workspace||null;state.workspaceName=String(workspace?.name||'').trim();state.isAdmin=Boolean(isAdmin);state.sheetName=String(workspace?.moduleSettings?.[MODULE_SHEET_KEY]??'');const name=$('toWorkspaceName');if(name)name.textContent=state.workspaceName||'—';setSourceStatus(state.sheetName?`ASOSIY VAROQ: ${state.sheetName}`:'ASOSIY VAROQ: sozlanmagan')}
-  function fillSheetOptions(sheets=[]){const list=$('toSheetNames');if(!list)return;list.innerHTML=[...new Set(sheets.map(v=>String(v)))].map(name=>`<option value="${esc(name)}"></option>`).join('')}
-  async function openSettings(){const modal=$('toSettingsModal');if(!modal)return;const input=$('toSheetName');if(input)input.value=state.sheetName||'';modal.classList.add('show');setSettingsMsg('Workspace Google Sheets varoqlari tekshirilmoqda...','sync');if(!state.workspaceId){setSettingsMsg('Workspace tanlanmagan.','bad');return}try{const data=await apiJson('/api/to/settings/test',{sheetName:state.sheetName||''},state.workspaceId);fillSheetOptions(data.sheets||[]);setSettingsMsg(data.sheets?.length?`${data.sheets.length} ta varoq topildi. ASOSIY VAROQni tanlang.`:'Google Sheets varoqlari topilmadi.',data.sheets?.length?'ok':'bad')}catch(error){setSettingsMsg(error.message,'bad')}}
+
+  function setSourceStatus(text,kind=''){
+    const el=$('toSourceStatus'); if(!el)return;
+    el.textContent=text;
+    el.style.color=kind==='bad'?'#fca5a5':kind==='ok'?'#86efac':'#a9c8d8';
+  }
+  function setSettingsMsg(text,kind=''){
+    const el=$('toSettingsMsg'); if(!el)return;
+    el.innerHTML=`<span class="${kind}">${esc(text)}</span>`;
+  }
+  function setPeriodStatus(text,kind=''){
+    const el=$('toPeriodStatus'); if(!el)return;
+    el.textContent=text;
+    el.className=`period-pill period-status${kind?` ${kind}`:''}`;
+  }
+
+  async function apiRequest(path,{method='GET',body,expectedWsId=state.workspaceId}={}){
+    const headers={};
+    if(body!==undefined)headers['Content-Type']='application/json';
+    if(expectedWsId)headers['x-workspace-id']=expectedWsId;
+    const auth=token(); if(auth)headers.Authorization=`Bearer ${auth}`;
+    const res=await fetch(path,{
+      method,headers,credentials:'include',
+      ...(body!==undefined?{body:JSON.stringify(body)}:{})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(expectedWsId&&expectedWsId!==state.workspaceId){
+      const err=new Error('Workspace almashtirildi'); err.code='STALE_WORKSPACE_RESPONSE'; throw err;
+    }
+    if(!res.ok||data.error){
+      const err=new Error(data.error||'API xatosi');
+      err.code=data.code||'API_ERROR'; err.status=res.status; err.data=data; throw err;
+    }
+    return data;
+  }
+  const apiJson=(path,body={},expectedWsId=state.workspaceId)=>apiRequest(path,{method:'POST',body,expectedWsId});
+
+  function renderFallback(message='ASOSIY VAROQ tanlang.'){
+    const tbody=$('tableBody');
+    if(tbody)tbody.innerHTML=`<tr><td colspan="8">${esc(message)}</td></tr>`;
+  }
+
+  function cell(value,tag='input',attrs=''){
+    const v=esc(value||'');
+    return tag==='textarea'
+      ?`<textarea rows="1" ${attrs}>${v}</textarea>`
+      :`<input type="text" value="${v}" ${attrs}>`;
+  }
+
+  function renderSourceSections(sections=[]){
+    const tbody=$('tableBody'); if(!tbody)return;
+    let html='';
+    sections.forEach(section=>{
+      html+=`<tr><td colspan="8" class="group-header">${esc(section.name||'ASOSIY')}</td></tr>`;
+      (section.items||[]).forEach(item=>{
+        html+=`<tr data-source-row="${esc(item.sourceRowNumber||'')}">
+          <td>${cell(item.no)}</td>
+          <td>${cell(item.serialNo)}</td>
+          <td>${cell(item.equipmentName,'textarea')}</td>
+          <td>${cell(item.positionNo)}</td>
+          <td>${cell(item.quantity)}</td>
+          <td>${cell(item.technicalState,'textarea')}</td>
+          <td>${cell(item.workType)}</td>
+          <td>${cell(item.note,'textarea')}</td>
+        </tr>`;
+      });
+    });
+    tbody.innerHTML=html||'<tr><td colspan="8">Tanlangan varoqda ma\'lumot topilmadi.</td></tr>';
+  }
+
+  function renderPeriodItems(items=[]){
+    const tbody=$('tableBody'); if(!tbody)return;
+    let html='',lastSection=null;
+    for(const item of items){
+      const section=clean(item.sectionName)||'ASOSIY';
+      if(section!==lastSection){
+        html+=`<tr><td colspan="8" class="group-header">${esc(section)}</td></tr>`;
+        lastSection=section;
+      }
+      const id=esc(item.id||'');
+      html+=`<tr data-period-item-id="${id}" data-source-row="${esc(item.sourceRowNumber||'')}">
+        <td>${cell(item.no,'input','readonly')}</td>
+        <td>${cell(item.serialNo,'input','readonly')}</td>
+        <td>${cell(item.equipmentName,'textarea','readonly')}</td>
+        <td>${cell(item.positionNo,'input','readonly')}</td>
+        <td>${cell(item.quantity,'input','readonly')}</td>
+        <td>${cell(item.technicalState,'textarea','data-period-field="technicalState"')}</td>
+        <td>${cell(item.workType,'input','data-period-field="workType"')}</td>
+        <td>${cell(item.note,'textarea','data-period-field="note"')}</td>
+      </tr>`;
+    }
+    tbody.innerHTML=html||'<tr><td colspan="8">Bu davrda ma\'lumot topilmadi.</td></tr>';
+  }
+
+  async function loadData(expectedWsId=state.workspaceId){
+    const reqVer=++state.requestVersion;
+    if(!expectedWsId||!state.sheetName){
+      state.sections=[]; state.totalItems=0;
+      renderFallback();
+      setSourceStatus(state.sheetName?`ASOSIY VAROQ: ${state.sheetName}`:'ASOSIY VAROQ: sozlanmagan');
+      return;
+    }
+    setSourceStatus(`ASOSIY VAROQ yuklanmoqda: ${state.sheetName}`);
+    try{
+      const data=await apiJson('/api/to/source',{sheetName:state.sheetName},expectedWsId);
+      if(reqVer!==state.requestVersion||expectedWsId!==state.workspaceId)return;
+      state.sheetName=String(data.sheetName??state.sheetName);
+      state.sections=Array.isArray(data.sections)?data.sections:[];
+      state.totalItems=Number(data.totalItems)||0;
+      if(!state.period)renderSourceSections(state.sections);
+      setSourceStatus(`ASOSIY VAROQ: ${state.sheetName} · ${state.totalItems} qator`,'ok');
+    }catch(error){
+      if(error.code==='STALE_WORKSPACE_RESPONSE')return;
+      state.sections=[]; state.totalItems=0;
+      if(!state.period)renderFallback();
+      setSourceStatus(`Manba xatosi: ${error.message}`,'bad');
+    }
+  }
+
+  function monthLabel(month=state.periodMonth){return MONTH_NAMES[Math.max(1,Math.min(12,Number(month)||1))-1]}
+  function selectedPeriodLabel(){return `${monthLabel()} ${state.periodYear}`}
+  function formatDocumentDate(raw,year=state.periodYear,month=state.periodMonth){
+    const match=String(raw||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const y=match?Number(match[1]):Number(year);
+    const m=match?Number(match[2]):Number(month);
+    const d=match?Number(match[3]):25;
+    return `«${String(d).padStart(2,'0')}» ${monthLabel(m)} ${y}г.`;
+  }
+  function previewSelectedPeriodDate(){
+    const el=$('toDocumentDateText'); if(el)el.textContent=formatDocumentDate('',state.periodYear,state.periodMonth);
+  }
+
+  function populatePeriodSelectors(){
+    const month=$('toPeriodMonth'),year=$('toPeriodYear');
+    if(month){
+      month.innerHTML=MONTH_NAMES.map((name,index)=>`<option value="${index+1}">${name}</option>`).join('');
+      month.value=String(state.periodMonth);
+    }
+    if(year){
+      const now=new Date().getFullYear();
+      const start=Math.min(DEFAULT_PERIOD_YEAR,now)-3;
+      const end=Math.max(DEFAULT_PERIOD_YEAR,now)+5;
+      year.innerHTML=Array.from({length:end-start+1},(_,i)=>start+i).map(y=>`<option value="${y}">${y}</option>`).join('');
+      year.value=String(state.periodYear);
+    }
+    previewSelectedPeriodDate();
+  }
+
+  function readPeriodSelectors(){
+    const year=Number($('toPeriodYear')?.value||state.periodYear);
+    const month=Number($('toPeriodMonth')?.value||state.periodMonth);
+    if(Number.isInteger(year))state.periodYear=year;
+    if(Number.isInteger(month)&&month>=1&&month<=12)state.periodMonth=month;
+    previewSelectedPeriodDate();
+  }
+
+  function updatePeriodButtons(){
+    const hasPeriod=Boolean(state.period);
+    const busy=Boolean(state.periodBusy);
+    const create=$('toCreatePeriodBtn'),open=$('toOpenPeriodBtn'),from=$('toSyncFromSheetBtn'),to=$('toSyncToSheetBtn');
+    if(create){
+      create.disabled=busy||hasPeriod||!state.workspaceId;
+      create.textContent=hasPeriod?'✓ Период создан':'＋ Создать период';
+    }
+    if(open)open.disabled=busy||!state.workspaceId;
+    if(from)from.disabled=busy||!hasPeriod||!state.period?.monthlySheetName;
+    if(to)to.disabled=busy||!hasPeriod;
+  }
+
+  function renderPeriodBundle(bundle){
+    state.period=bundle?.period||null;
+    state.periodItems=Array.isArray(bundle?.items)?bundle.items:[];
+    if(!state.period){
+      updatePeriodButtons();
+      return;
+    }
+    state.periodYear=Number(state.period.year)||state.periodYear;
+    state.periodMonth=Number(state.period.month)||state.periodMonth;
+    if($('toPeriodYear'))$('toPeriodYear').value=String(state.periodYear);
+    if($('toPeriodMonth'))$('toPeriodMonth').value=String(state.periodMonth);
+    const date=$('toDocumentDateText'); if(date)date.textContent=formatDocumentDate(state.period.documentDate,state.periodYear,state.periodMonth);
+    const conclusion=$('toConclusion'); if(conclusion)conclusion.textContent=state.period.conclusion||'Заключение: оборудование исправно и пригодно к эксплуатации';
+    renderPeriodItems(state.periodItems);
+    const sheet=clean(state.period.monthlySheetName);
+    const sync=clean(state.period.syncStatus)||'pending';
+    const syncText=sync==='synced'?'синхронизировано':sync==='error'?'ошибка синхронизации':'ожидает синхронизации';
+    const kind=sync==='synced'?'ok':sync==='error'?'bad':'sync';
+    setPeriodStatus(`${selectedPeriodLabel()} · ${state.period.status||'draft'}${sheet?` · ${sheet}`:''} · ${syncText}`,kind);
+    updatePeriodButtons();
+  }
+
+  function resetPeriodView({keepPreview=true}={}){
+    state.period=null; state.periodItems=[];
+    if(keepPreview)previewSelectedPeriodDate();
+    const conclusion=$('toConclusion'); if(conclusion)conclusion.textContent='Заключение: оборудование исправно и пригодно к эксплуатации';
+    updatePeriodButtons();
+  }
+
+  async function loadPeriodIndex(expectedWsId=state.workspaceId){
+    if(!expectedWsId)return [];
+    try{
+      const data=await apiRequest('/api/to/periods',{expectedWsId});
+      state.periods=Array.isArray(data.periods)?data.periods:[];
+      return state.periods;
+    }catch(error){
+      if(error.code==='STALE_WORKSPACE_RESPONSE')return [];
+      state.periods=[];
+      if(/to_periods|relation .* does not exist|does not exist/i.test(error.message||'')){
+        setPeriodStatus(`${selectedPeriodLabel()} · oylik DB hali o‘rnatilmagan`,'sync');
+      }else{
+        setPeriodStatus(`${selectedPeriodLabel()} · ${error.message}`,'bad');
+      }
+      return [];
+    }
+  }
+
+  async function openSelectedPeriod({fallbackToSource=true}={}){
+    readPeriodSelectors();
+    const expectedWsId=state.workspaceId;
+    const reqVer=++state.periodRequestVersion;
+    if(!expectedWsId)return;
+    state.periodBusy=true; updatePeriodButtons();
+    setPeriodStatus(`${selectedPeriodLabel()} · yuklanmoqda...`,'sync');
+    try{
+      const data=await apiRequest(`/api/to/periods/${state.periodYear}/${state.periodMonth}`,{expectedWsId});
+      if(reqVer!==state.periodRequestVersion||expectedWsId!==state.workspaceId)return;
+      renderPeriodBundle(data);
+    }catch(error){
+      if(error.code==='STALE_WORKSPACE_RESPONSE')return;
+      resetPeriodView();
+      if(error.code==='TO_PERIOD_NOT_FOUND'||error.status===404){
+        setPeriodStatus(`${selectedPeriodLabel()} · davr yaratilmagan`,'sync');
+        if(fallbackToSource){
+          if(state.sections.length)renderSourceSections(state.sections);
+          else await loadData(expectedWsId);
+        }
+      }else if(/to_periods|relation .* does not exist|does not exist/i.test(error.message||'')){
+        setPeriodStatus(`${selectedPeriodLabel()} · oylik DB hali o‘rnatilmagan`,'sync');
+        if(fallbackToSource){
+          if(state.sections.length)renderSourceSections(state.sections);
+          else await loadData(expectedWsId);
+        }
+      }else{
+        setPeriodStatus(`${selectedPeriodLabel()} · ${error.message}`,'bad');
+      }
+    }finally{
+      if(reqVer===state.periodRequestVersion){state.periodBusy=false;updatePeriodButtons()}
+    }
+  }
+
+  async function createSelectedPeriod(){
+    readPeriodSelectors();
+    if(!state.workspaceId)return;
+    if(!state.sheetName){
+      setPeriodStatus(`${selectedPeriodLabel()} · avval ASOSIY VAROQni sozlang`,'bad');
+      return;
+    }
+    state.periodBusy=true;updatePeriodButtons();
+    setPeriodStatus(`${selectedPeriodLabel()} · yaratilmoqda...`,'sync');
+    try{
+      const data=await apiRequest('/api/to/periods',{
+        method:'POST',
+        body:{year:state.periodYear,month:state.periodMonth,sheetName:state.sheetName},
+        expectedWsId:state.workspaceId
+      });
+      renderPeriodBundle(data);
+      if(data.warning)setPeriodStatus(`${selectedPeriodLabel()} · yaratildi · Sheets: ${data.warning}`,'sync');
+      else setPeriodStatus(`${selectedPeriodLabel()} · yaratildi${data.period?.monthlySheetName?` · ${data.period.monthlySheetName}`:''}`,'ok');
+      await loadPeriodIndex(state.workspaceId);
+    }catch(error){
+      if(/to_periods|relation .* does not exist|does not exist/i.test(error.message||'')){
+        setPeriodStatus(`${selectedPeriodLabel()} · 031_to_periods.sql hali o‘rnatilmagan`,'bad');
+      }else{
+        setPeriodStatus(`${selectedPeriodLabel()} · ${error.message}`,'bad');
+      }
+    }finally{
+      state.periodBusy=false;updatePeriodButtons();
+    }
+  }
+
+  async function navigatePeriod(delta){
+    readPeriodSelectors();
+    let index=state.periodYear*12+(state.periodMonth-1)+Number(delta||0);
+    state.periodYear=Math.floor(index/12);
+    state.periodMonth=(index%12+12)%12+1;
+    if($('toPeriodYear')&&!Array.from($('toPeriodYear').options).some(o=>Number(o.value)===state.periodYear)){
+      const option=document.createElement('option'); option.value=String(state.periodYear); option.textContent=String(state.periodYear); $('toPeriodYear').appendChild(option);
+    }
+    if($('toPeriodYear'))$('toPeriodYear').value=String(state.periodYear);
+    if($('toPeriodMonth'))$('toPeriodMonth').value=String(state.periodMonth);
+    await openSelectedPeriod();
+  }
+
+  async function syncPeriod(direction){
+    if(!state.period||!state.workspaceId)return;
+    state.periodBusy=true;updatePeriodButtons();
+    setPeriodStatus(`${selectedPeriodLabel()} · Sheets sinxronlanmoqda...`,'sync');
+    const action=direction==='from'?'sync-from-sheet':'sync-to-sheet';
+    try{
+      await apiRequest(`/api/to/periods/${state.periodYear}/${state.periodMonth}/${action}`,{
+        method:'POST',body:{},expectedWsId:state.workspaceId
+      });
+      await openSelectedPeriod({fallbackToSource:false});
+    }catch(error){
+      setPeriodStatus(`${selectedPeriodLabel()} · ${error.message}`,'bad');
+    }finally{
+      state.periodBusy=false;updatePeriodButtons();
+    }
+  }
+
+  async function savePeriodItemField(target){
+    if(!state.period||state.period.status!=='draft')return;
+    const field=target?.dataset?.periodField;
+    const row=target?.closest?.('[data-period-item-id]');
+    const itemId=clean(row?.dataset?.periodItemId);
+    if(!field||!itemId)return;
+    const body={[field]:target.value};
+    try{
+      const data=await apiRequest(`/api/to/periods/${state.periodYear}/${state.periodMonth}/items/${encodeURIComponent(itemId)}`,{
+        method:'PATCH',body,expectedWsId:state.workspaceId
+      });
+      const idx=state.periodItems.findIndex(item=>item.id===itemId);
+      if(idx>=0&&data.item)state.periodItems[idx]={...state.periodItems[idx],...data.item};
+      if(data.warning)setPeriodStatus(`${selectedPeriodLabel()} · saqlandi, Sheets: ${data.warning}`,'sync');
+      else setPeriodStatus(`${selectedPeriodLabel()} · saqlandi`,'ok');
+    }catch(error){
+      setPeriodStatus(`${selectedPeriodLabel()} · saqlash xatosi: ${error.message}`,'bad');
+    }
+  }
+
+  function normalizeSignerText(value){return String(value||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9]+/giu,' ').trim()}
+  function isKipMasterSigner(row={}){
+    const text=normalizeSignerText(`${row.position||''} ${row.fullName||row.fio||''}`);
+    return (text.includes('кип')&&text.includes('мастер'))||(text.includes('kip')&&text.includes('master'));
+  }
+  function clearSignatureObjectUrl(){if(state.signatureObjectUrl){try{URL.revokeObjectURL(state.signatureObjectUrl)}catch(_){}state.signatureObjectUrl=''}}
+  function resetKipMaster(){
+    clearSignatureObjectUrl(); state.kipMasterSigner=null;
+    const name=$('toKipMasterName'),sign=$('toKipMasterSignature'),badge=$('toKipMasterAutoBadge');
+    if(name)name.textContent=DEFAULT_KIP_MASTER;
+    if(sign)sign.textContent='(Подпись)';
+    if(badge)badge.textContent='';
+  }
+  async function signatureDisplayUrl(signer,expectedWsId,requestVersion){
+    const signatureFileId=clean(signer?.signatureFileId);
+    const internalId=signatureFileId.match(/^db:([0-9a-f-]{36})$/i)?.[1]||'';
+    const sourceUrl=internalId?`/api/workspaces/${encodeURIComponent(expectedWsId)}/signers/signature/${encodeURIComponent(internalId)}`:clean(signer?.signatureUrl);
+    if(!sourceUrl)return'';
+    if(!/^\/api\/workspaces\//i.test(sourceUrl))return /^(?:https?:\/\/|data:image\/png)/i.test(sourceUrl)?sourceUrl:'';
+    const auth=token(); if(!auth)return'';
+    const response=await fetch(sourceUrl,{headers:{Authorization:`Bearer ${auth}`},credentials:'include'});
+    if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId||!response.ok)return'';
+    const blob=await response.blob();
+    if(blob.type&&!blob.type.toLowerCase().startsWith('image/'))return'';
+    clearSignatureObjectUrl(); state.signatureObjectUrl=URL.createObjectURL(blob); return state.signatureObjectUrl;
+  }
+  function renderKipMaster(signer,signatureUrl=''){
+    const fio=clean(signer?.fullName||signer?.fio)||DEFAULT_KIP_MASTER;
+    state.kipMasterSigner=signer||null;
+    const name=$('toKipMasterName'),sign=$('toKipMasterSignature'),badge=$('toKipMasterAutoBadge');
+    if(name)name.textContent=fio;
+    if(sign)sign.innerHTML=signatureUrl?`<img src="${esc(signatureUrl)}" alt="${esc(fio)} imzosi" title="${esc(fio)}">`:'(Подпись)';
+    if(badge)badge.textContent=signer?'· avtomatik':'';
+  }
+  async function loadKipMasterSigner(expectedWsId=state.workspaceId){
+    const requestVersion=++state.signerRequestVersion; resetKipMaster();
+    const auth=token(); if(!expectedWsId||!auth)return null;
+    try{
+      const response=await fetch(`/api/workspaces/${encodeURIComponent(expectedWsId)}/signers?includeInactive=true`,{headers:{Authorization:`Bearer ${auth}`},credentials:'include'});
+      if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return null;
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data.error)return null;
+      const rows=Array.isArray(data.rows)?data.rows:[];
+      const active=rows.filter(row=>!row.status||normalizeSignerText(row.status)==='active');
+      const signer=active.find(isKipMasterSigner)||null; if(!signer)return null;
+      const signatureUrl=await signatureDisplayUrl(signer,expectedWsId,requestVersion);
+      if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return null;
+      renderKipMaster(signer,signatureUrl); return signer;
+    }catch(_){return null}
+  }
+
+  function loadWorkspace(workspace=null,nextId='',isAdmin=false){
+    const id=String(nextId||workspace?.id||selectedWorkspaceId()||'').trim();
+    if(id)localStorage.setItem(WORKSPACE_ID_KEY,id);
+    if(id!==state.workspaceId){
+      state.signerRequestVersion+=1;
+      state.periodRequestVersion+=1;
+      resetKipMaster(); resetPeriodView();
+    }
+    state.workspaceId=id; state.workspace=workspace||null;
+    state.workspaceName=String(workspace?.name||'').trim();
+    state.isAdmin=Boolean(isAdmin);
+    state.sheetName=String(workspace?.moduleSettings?.[MODULE_SHEET_KEY]??'');
+    const name=$('toWorkspaceName'); if(name)name.textContent=state.workspaceName||'—';
+    setSourceStatus(state.sheetName?`ASOSIY VAROQ: ${state.sheetName}`:'ASOSIY VAROQ: sozlanmagan');
+    updatePeriodButtons();
+  }
+
+  function fillSheetOptions(sheets=[]){
+    const list=$('toSheetNames'); if(!list)return;
+    list.innerHTML=[...new Set(sheets.map(v=>String(v)))].map(name=>`<option value="${esc(name)}"></option>`).join('');
+  }
+  async function openSettings(){
+    const modal=$('toSettingsModal'); if(!modal)return;
+    const input=$('toSheetName'); if(input)input.value=state.sheetName||'';
+    modal.classList.add('show'); setSettingsMsg('Workspace Google Sheets varoqlari tekshirilmoqda...','sync');
+    if(!state.workspaceId){setSettingsMsg('Workspace tanlanmagan.','bad');return}
+    try{
+      const data=await apiJson('/api/to/settings/test',{sheetName:state.sheetName||''},state.workspaceId);
+      fillSheetOptions(data.sheets||[]);
+      setSettingsMsg(data.sheets?.length?`${data.sheets.length} ta varoq topildi. ASOSIY VAROQni tanlang.`:'Google Sheets varoqlari topilmadi.',data.sheets?.length?'ok':'bad');
+    }catch(error){setSettingsMsg(error.message,'bad')}
+  }
   function closeSettings(){$('toSettingsModal')?.classList.remove('show')}
-  function waitModuleSettingsSaved(timeoutMs=4000){return new Promise(resolve=>{let done=false;const finish=payload=>{if(done)return;done=true;window.removeEventListener('message',onMessage);clearTimeout(timer);resolve(payload||{})};const onMessage=event=>{if(event.data?.type==='MODULE_SETTINGS_SAVED')finish(event.data)};window.addEventListener('message',onMessage);const timer=setTimeout(()=>finish({timeout:true}),timeoutMs)})}
-  async function saveSettings(){const input=$('toSheetName');const raw=String(input?.value??'');if(!raw.trim()){setSettingsMsg('ASOSIY VAROQ kiritilishi shart.','bad');return}if(!state.workspaceId){setSettingsMsg('Workspace tanlanmagan.','bad');return}const saveBtn=$('toSettingsSaveBtn');if(saveBtn)saveBtn.disabled=true;setSettingsMsg('Ulanish tekshirilmoqda...','sync');try{const tested=await apiJson('/api/to/settings/test',{sheetName:raw},state.workspaceId);const exactName=String(tested.sheetName??raw);if(!exactName.trim())throw new Error('ASOSIY VAROQ topilmadi');if(parent&&parent!==window){const pending=waitModuleSettingsSaved();parent.postMessage({type:'SAVE_MODULE_SETTINGS',settings:{[MODULE_SHEET_KEY]:exactName}},'*');const result=await pending;if(result.error)throw new Error(result.error)}state.sheetName=exactName;if(state.workspace)state.workspace.moduleSettings={...(state.workspace.moduleSettings||{}),[MODULE_SHEET_KEY]:exactName};if(input)input.value=exactName;setSettingsMsg(`Saqlandi: ${exactName}`,'ok');await loadData(state.workspaceId);setTimeout(closeSettings,550)}catch(error){setSettingsMsg(error.message,'bad')}finally{if(saveBtn)saveBtn.disabled=false}}
-  window.addEventListener('message',event=>{if(event.data?.type==='SEG_KIP_WORKSPACE_CHANGE'){loadWorkspace(event.data.workspace,event.data.workspaceId,event.data.isAdmin);void loadData(state.workspaceId)}});
-  document.addEventListener('DOMContentLoaded',()=>{renderFallback();loadWorkspace(null,selectedWorkspaceId(),false);if(parent&&parent!==window)parent.postMessage({type:'REQUEST_WORKSPACE_INFO'},'*')});
-  window.ToJournalWorkspace={state,openSettings,closeSettings,saveSettings,reload:()=>loadData(state.workspaceId),loadWorkspace};
+  function waitModuleSettingsSaved(timeoutMs=4000){
+    return new Promise(resolve=>{
+      let done=false;
+      const finish=payload=>{if(done)return;done=true;window.removeEventListener('message',onMessage);clearTimeout(timer);resolve(payload||{})};
+      const onMessage=event=>{if(event.data?.type==='MODULE_SETTINGS_SAVED')finish(event.data)};
+      window.addEventListener('message',onMessage);
+      const timer=setTimeout(()=>finish({timeout:true}),timeoutMs);
+    });
+  }
+  async function saveSettings(){
+    const input=$('toSheetName'); const raw=String(input?.value??'');
+    if(!raw.trim()){setSettingsMsg('ASOSIY VAROQ kiritilishi shart.','bad');return}
+    if(!state.workspaceId){setSettingsMsg('Workspace tanlanmagan.','bad');return}
+    const saveBtn=$('toSettingsSaveBtn'); if(saveBtn)saveBtn.disabled=true;
+    setSettingsMsg('Ulanish tekshirilmoqda...','sync');
+    try{
+      const tested=await apiJson('/api/to/settings/test',{sheetName:raw},state.workspaceId);
+      const exactName=String(tested.sheetName??raw);
+      if(!exactName.trim())throw new Error('ASOSIY VAROQ topilmadi');
+      if(parent&&parent!==window){
+        const pending=waitModuleSettingsSaved();
+        parent.postMessage({type:'SAVE_MODULE_SETTINGS',settings:{[MODULE_SHEET_KEY]:exactName}},'*');
+        const result=await pending; if(result.error)throw new Error(result.error);
+      }
+      state.sheetName=exactName;
+      if(state.workspace)state.workspace.moduleSettings={...(state.workspace.moduleSettings||{}),[MODULE_SHEET_KEY]:exactName};
+      if(input)input.value=exactName;
+      setSettingsMsg(`Saqlandi: ${exactName}`,'ok');
+      await loadData(state.workspaceId);
+      setTimeout(closeSettings,550);
+    }catch(error){setSettingsMsg(error.message,'bad')}
+    finally{if(saveBtn)saveBtn.disabled=false}
+  }
+
+  function wirePeriodUi(){
+    $('toPeriodMonth')?.addEventListener('change',()=>{readPeriodSelectors();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync')});
+    $('toPeriodYear')?.addEventListener('change',()=>{readPeriodSelectors();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync')});
+    $('toOpenPeriodBtn')?.addEventListener('click',()=>void openSelectedPeriod());
+    $('toCreatePeriodBtn')?.addEventListener('click',()=>void createSelectedPeriod());
+    $('toPrevPeriodBtn')?.addEventListener('click',()=>void navigatePeriod(-1));
+    $('toNextPeriodBtn')?.addEventListener('click',()=>void navigatePeriod(1));
+    $('toSyncFromSheetBtn')?.addEventListener('click',()=>void syncPeriod('from'));
+    $('toSyncToSheetBtn')?.addEventListener('click',()=>void syncPeriod('to'));
+    $('tableBody')?.addEventListener('change',event=>{
+      const target=event.target;
+      if(target instanceof HTMLElement&&target.dataset.periodField)void savePeriodItemField(target);
+    });
+  }
+
+  window.addEventListener('message',event=>{
+    if(event.data?.type==='SEG_KIP_WORKSPACE_CHANGE'){
+      loadWorkspace(event.data.workspace,event.data.workspaceId,event.data.isAdmin);
+      void loadData(state.workspaceId);
+      void loadKipMasterSigner(state.workspaceId);
+      void loadPeriodIndex(state.workspaceId).then(periods=>{
+        const latest=periods[0];
+        if(latest){
+          state.periodYear=Number(latest.year)||state.periodYear;
+          state.periodMonth=Number(latest.month)||state.periodMonth;
+          if($('toPeriodYear'))$('toPeriodYear').value=String(state.periodYear);
+          if($('toPeriodMonth'))$('toPeriodMonth').value=String(state.periodMonth);
+          void openSelectedPeriod();
+        }else{
+          resetPeriodView();
+          setPeriodStatus(`${selectedPeriodLabel()} · davr yaratilmagan`,'sync');
+        }
+      });
+    }
+  });
+
+  window.addEventListener('beforeunload',clearSignatureObjectUrl);
+  document.addEventListener('DOMContentLoaded',()=>{
+    renderFallback();
+    populatePeriodSelectors();
+    wirePeriodUi();
+    loadWorkspace(null,selectedWorkspaceId(),false);
+    void loadKipMasterSigner(state.workspaceId);
+    if(parent&&parent!==window)parent.postMessage({type:'REQUEST_WORKSPACE_INFO'},'*');
+  });
+
+  window.ToJournalWorkspace={
+    state,openSettings,closeSettings,saveSettings,
+    reload:()=>Promise.all([loadData(state.workspaceId),loadKipMasterSigner(state.workspaceId),openSelectedPeriod()]),
+    loadWorkspace,loadKipMasterSigner,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod
+  };
 })();
 </script>
 </body>
