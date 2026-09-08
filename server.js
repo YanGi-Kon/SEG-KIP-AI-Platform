@@ -1,1 +1,1 @@
-PLACEHOLDER
+import PLACEHOLDER from 'x';
