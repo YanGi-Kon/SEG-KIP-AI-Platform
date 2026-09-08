@@ -5,8 +5,9 @@
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const API_ROOT = '/api/to-period-bridge';
+  const SEND_TIMEOUT_MS = 120000;
   const MONTHS = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-  const state = { periods: [], selected: null, report: null, busy: false };
+  const state = { periods: [], selected: null, report: null, busy: false, lastSendResult: null };
 
   const $ = (id) => document.getElementById(id);
   const clean = (value) => String(value ?? '').trim();
@@ -61,14 +62,39 @@
     if (auth) headers.set('Authorization', `Bearer ${auth}`);
     headers.set('x-workspace-id', wsId);
     if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-    const response = await fetch(`${API_ROOT}${path}`, { ...options, headers, credentials: 'include' });
-    const data = await response.json().catch(() => ({}));
-    if (response.status === 401 && retry) {
-      await refreshSession();
-      return api(path, options, false);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${API_ROOT}${path}`, {
+        ...options,
+        headers,
+        credentials: 'include',
+        signal: controller.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401 && retry) {
+        await refreshSession();
+        return api(path, options, false);
+      }
+      if (!response.ok || data.error) {
+        throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { data, status: response.status });
+      }
+      return data;
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw Object.assign(new Error('Email yuborish juda uzoq davom etdi. Email provider yoki SMTP ulanishini tekshiring.'), {
+          data: {
+            code: 'EMAIL_SEND_TIMEOUT',
+            recommendedFix: '3. AKTLAR JURNALI ishlatadigan Gmail/SMTP yoki HTTP email provider sozlamasini tekshiring.',
+          },
+          status: 408,
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
     }
-    if (!response.ok || data.error) throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { data, status: response.status });
-    return data;
   }
 
   function injectStyle() {
@@ -93,6 +119,7 @@
       .to-reports-approval-list{display:grid;gap:6px;margin:10px 0}.to-reports-approval-row{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:12px;font-size:12px;padding:8px 10px;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:rgba(255,255,255,.035)}
       .to-reports-approval-row b{color:#a5f3fc}.to-reports-approval-status{text-align:right}.to-reports-approval-status.approved{color:#86efac}.to-reports-approval-status.pending{color:#fde68a}
       .to-reports-sendbar{display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}.to-reports-sendmsg{margin-right:auto;font-size:12px;color:#cdeeff}.to-reports-sendmsg.ok{color:#86efac}.to-reports-sendmsg.bad{color:#fca5a5}.to-reports-sendmsg.sync{color:#fde68a}
+      .to-reports-diagnostic{display:none;margin:12px 0 0;padding:12px 14px;border-radius:12px;border:1px solid rgba(239,68,68,.38);background:rgba(127,29,29,.18);color:#fecaca;font-size:12px;line-height:1.5}.to-reports-diagnostic.show{display:block}.to-reports-diagnostic-title{font-weight:900;color:#fff;margin-bottom:6px}.to-reports-diagnostic-fix{margin-top:8px;padding:9px;border-radius:9px;background:rgba(15,23,42,.58);color:#fde68a}.to-reports-diagnostic-provider{color:#a5f3fc}
       @media(max-width:900px){.to-reports-content{grid-template-columns:1fr}.to-reports-folders{max-height:220px;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.to-reports-shell{height:96vh}.to-reports-preview{padding:10px}}
     `;
     document.head.appendChild(style);
@@ -144,6 +171,50 @@
     el.textContent = text;
   }
 
+  function emailCodeMessage(data = {}) {
+    const code = clean(data.code);
+    const map = {
+      EMAIL_CONFIG_MISSING: 'Gmail/SMTP yuborish sozlamasi topilmadi.',
+      EMAIL_HTTP_NOT_CONFIGURED: 'HTTP email provider sozlanmagan.',
+      EMAIL_AUTH_FAILED: 'Email login yoki yuborish kaliti provider tomonidan rad etildi.',
+      EMAIL_CONNECTION_FAILED: 'Email serverga ulanishda xatolik.',
+      EMAIL_SEND_TIMEOUT: 'Email provider yoki SMTP server javob bermadi.',
+      EMAIL_SEND_FAILED: 'Email yuborishda xatolik.',
+      EMAIL_INVALID_RECIPIENT: 'Imzolovchi email manzili noto‘g‘ri yoki to‘liq emas.',
+      EMAIL_DOMAIN_NOT_VERIFIED: 'Email domen tasdiqlanmagan.',
+      EMAIL_PROVIDER_RECIPIENT_NOT_ALLOWED: 'Email provider bu qabul qiluvchiga yuborishga ruxsat bermadi.',
+      EMAIL_RATE_LIMITED: 'Email provider vaqtincha rate-limitga tushdi.',
+    };
+    return map[code] || clean(data.error) || 'Email yuborilmadi.';
+  }
+
+  function diagnosticFix(data = {}) {
+    if (clean(data.recommendedFix)) return clean(data.recommendedFix);
+    const code = clean(data.code);
+    if (code === 'EMAIL_AUTH_FAILED') return '3. AKTLAR JURNALI ishlatadigan Gmail App Password / SMTP credentiallarini tekshiring.';
+    if (code === 'EMAIL_CONFIG_MISSING' || code === 'EMAIL_HTTP_NOT_CONFIGURED') return 'AKTLAR JURNALI uchun ishlayotgan GMAIL_USER/GMAIL_APP_PASSWORD yoki SMTP_USER/SMTP_PASS sozlamasi TO moduliga ham server environment orqali mavjud bo‘lishi kerak.';
+    if (code === 'EMAIL_INVALID_RECIPIENT') return '4. Imzo chekuvchilar menyusida Gmail manzilini tekshiring.';
+    return 'Email provider yoki Gmail/SMTP sozlamasini tekshiring.';
+  }
+
+  function showSendDiagnostic(data = null) {
+    const host = $('toReportsSendDiagnostic');
+    if (!host) return;
+    if (!data) {
+      host.className = 'to-reports-diagnostic';
+      host.innerHTML = '';
+      return;
+    }
+    const failures = Array.isArray(data.results) ? data.results.filter((row) => row.status === 'email-failed') : [];
+    const first = failures[0] || data;
+    const provider = clean(data.deliveryMode || data.provider || first.provider || '');
+    const rows = failures.length
+      ? failures.slice(0, 4).map((row) => `<div><b>${esc(row.signer || row.fio || 'Imzolovchi')}:</b> ${esc(row.email || row.gmail || '—')} · ${esc(emailCodeMessage(row))}</div>`).join('')
+      : `<div>${esc(emailCodeMessage(first))}</div>`;
+    host.className = 'to-reports-diagnostic show';
+    host.innerHTML = `<div class="to-reports-diagnostic-title">Email yuborilmadi</div>${provider ? `<div class="to-reports-diagnostic-provider">Provider: ${esc(provider)}</div>` : ''}${rows}<div class="to-reports-diagnostic-fix"><b>Yechim:</b> ${esc(diagnosticFix(first.recommendedFix ? first : { ...first, recommendedFix: data.recommendedFix }))}</div>`;
+  }
+
   function folderLabel(period) {
     return `${MONTHS[Number(period.month)] || period.month} ${period.year}`;
   }
@@ -164,7 +235,6 @@
     host.innerHTML = [...grouped.entries()].sort((a, b) => b[0] - a[0]).map(([year, periods]) => `
       <div class="to-reports-year">${year}</div>
       ${periods.sort((a, b) => Number(b.month) - Number(a.month)).map((period) => {
-        const key = `${period.year}-${period.month}`;
         const active = state.selected && Number(state.selected.year) === Number(period.year) && Number(state.selected.month) === Number(period.month);
         return `<button class="to-reports-folder${active ? ' active' : ''}" type="button" data-report-year="${esc(period.year)}" data-report-month="${esc(period.month)}"><span class="to-reports-folder-icon">📁</span><span><span class="to-reports-folder-name">${esc(folderLabel(period))}</span><span class="to-reports-folder-meta">${esc(period.monthlySheetName || period.sourceSheetName || 'TO hujjati')}</span></span><span class="to-reports-folder-state">${esc(period.status || 'draft')}</span></button>`;
       }).join('')}
@@ -193,8 +263,9 @@
       document.head.appendChild(css);
     }
     css.textContent = report.a4Css || '';
-    host.innerHTML = `<div class="to-reports-a4-host">${report.a4Html || ''}</div><div class="to-reports-bottom"><div style="font-weight:900">${esc(report.label || '')} · imzolash holati</div>${approvalRowsHtml(report.approvals || [])}<div class="to-reports-sendbar"><div id="toReportsSendMsg" class="to-reports-sendmsg">Tayyor A4 hujjat imzolovchilarga individual havola bilan yuboriladi.</div><button id="toReportsSendBtn" class="btn primary" type="button">Хужатни юбориш</button></div></div>`;
+    host.innerHTML = `<div class="to-reports-a4-host">${report.a4Html || ''}</div><div class="to-reports-bottom"><div style="font-weight:900">${esc(report.label || '')} · imzolash holati</div>${approvalRowsHtml(report.approvals || [])}<div id="toReportsSendDiagnostic" class="to-reports-diagnostic"></div><div class="to-reports-sendbar"><div id="toReportsSendMsg" class="to-reports-sendmsg">Tayyor A4 hujjat imzolovchilarga individual havola bilan yuboriladi.</div><button id="toReportsSendBtn" class="btn primary" type="button">Хужатни юбориш</button></div></div>`;
     $('toReportsSendBtn')?.addEventListener('click', () => void sendCurrent());
+    if (state.lastSendResult) showSendDiagnostic(state.lastSendResult);
   }
 
   async function loadFolders() {
@@ -209,6 +280,7 @@
         if (!exists) {
           state.selected = null;
           state.report = null;
+          state.lastSendResult = null;
           $('toReportsPreview').innerHTML = '<div class="to-reports-empty">Kerakli oy papkasini tanlang.</div>';
         }
       }
@@ -221,6 +293,7 @@
 
   async function openFolder(year, month) {
     state.selected = { year, month };
+    state.lastSendResult = null;
     renderFolders();
     $('toReportsPreview').innerHTML = '<div class="to-reports-empty">A4 hujjat yuklanmoqda...</div>';
     try {
@@ -239,19 +312,31 @@
     const label = state.report?.label || `${selected.year}-${selected.month}`;
     if (!window.confirm(`${label} TO hujjatini Workspace imzo chekuvchilariga yuborishni tasdiqlaysizmi?`)) return;
     state.busy = true;
+    state.lastSendResult = null;
     const button = $('toReportsSendBtn');
     if (button) button.disabled = true;
+    showSendDiagnostic(null);
     setSendMessage('Hujjat imzolovchilarga yuborilmoqda...', 'sync');
     try {
       const result = await api(`/reports/${selected.year}/${selected.month}/send`, { method: 'POST', body: '{}' });
       const failed = Number(result.failed || 0);
-      setSendMessage(`${result.sent || 0} ta yuborildi${result.approved ? ` · ${result.approved} ta avval tasdiqlangan` : ''}${failed ? ` · ${failed} ta xatolik` : ''}.`, failed ? 'sync' : 'ok');
+      const provider = clean(result.deliveryMode || result.provider);
+      if (failed > 0) state.lastSendResult = result;
+      const providerText = provider ? ` · ${provider.toUpperCase()}` : '';
+      const summary = `${result.sent || 0} ta yuborildi${result.approved ? ` · ${result.approved} ta avval tasdiqlangan` : ''}${failed ? ` · ${failed} ta xatolik` : ''}${providerText}.`;
+      setSendMessage(summary, failed ? 'sync' : 'ok');
       const refreshed = await api(`/reports/${selected.year}/${selected.month}`);
       state.report = refreshed;
       renderReport();
-      setSendMessage(`${result.sent || 0} ta yuborildi${result.approved ? ` · ${result.approved} ta avval tasdiqlangan` : ''}${failed ? ` · ${failed} ta xatolik` : ''}.`, failed ? 'sync' : 'ok');
+      setSendMessage(summary, failed ? 'sync' : 'ok');
+      if (failed > 0) showSendDiagnostic(result);
     } catch (error) {
+      const detail = error?.data && typeof error.data === 'object'
+        ? { ...error.data, error: error.message }
+        : { code: 'EMAIL_SEND_FAILED', error: error.message };
+      state.lastSendResult = detail;
       setSendMessage(error.message, 'bad');
+      showSendDiagnostic(detail);
     } finally {
       state.busy = false;
       const nextButton = $('toReportsSendBtn');
@@ -279,6 +364,7 @@
       state.periods = [];
       state.selected = null;
       state.report = null;
+      state.lastSendResult = null;
       if ($('toReportsModal')?.classList.contains('show')) void loadFolders();
     }
   });
@@ -286,5 +372,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 
-  window.ToJournalReports = { open, close, loadFolders, openFolder, sendCurrent, state };
+  window.ToJournalReports = { open, close, loadFolders, openFolder, sendCurrent, showSendDiagnostic, state };
 })();
