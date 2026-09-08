@@ -158,10 +158,20 @@
     document.head.appendChild(script);
   }
 
+  function loadReportsPanel() {
+    if (document.getElementById('toReportsPanelScript')) return;
+    const script = document.createElement('script');
+    script.id = 'toReportsPanelScript';
+    script.src = '/js/to-reports-panel.js?v=to-reports1';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   function init() {
     // Davr oy/yil tanlanganda avtomatik ochiladi, shuning uchun alohida "Открыть" tugmasi kerak emas.
     $('toOpenPeriodBtn')?.remove();
     loadSignersPanel();
+    loadReportsPanel();
 
     $('toPeriodMonth')?.addEventListener('change', scheduleSync);
     $('toPeriodYear')?.addEventListener('change', scheduleSync);
