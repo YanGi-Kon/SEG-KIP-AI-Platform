@@ -6,6 +6,7 @@ on:
       - main
       - dev_ab
       - feature/multi-workspace-architecture
+      - chatgpt-dev
   pull_request:
     branches:
       - main
