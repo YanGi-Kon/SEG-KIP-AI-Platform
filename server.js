@@ -38,7 +38,7 @@ function disableKudukBackgroundWorkerTimer() {
 
   const guardedSetInterval = (handler, timeout, ...args) => {
     const handlerSource = typeof handler === "function" ? Function.prototype.toString.call(handler) : String(handler || "");
-    if (handlerSource.includes('"background-worker"') || handlerSource.includes("'background-worker'")) {
+    if (handlerSource.includes('\"background-worker\"') || handlerSource.includes("'background-worker'")) {
       console.log("[KUDUK] Background-worker o‘chirildi. Sync faqat server start/config yoki manual sync orqali bajariladi.");
       return null;
     }
@@ -61,7 +61,7 @@ const publicDir = join(__dirname, "public");
 const publicAssetsDir = join(publicDir, "assets");
 const indexHtmlPath = join(publicDir, "index.html");
 const toHtmlPath = join(publicDir, "modules", "to.html");
-const faviconPath = join(publicAssetsDir, "images", "saneg-favicon.png");
+const faviconSvgPath = join(publicAssetsDir, "images", "saneg-favicon.svg");
 
 const staticNoCacheOptions = {
   etag: false,
@@ -108,7 +108,7 @@ app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: false, limit: "2mb" }));
 
 app.use((req, res, next) => {
-  if (req.path === "/" || req.path.endsWith(".html") || req.path.endsWith(".js") || req.path.endsWith(".css")) {
+  if (req.path === "/" || req.path.endsWith(".html") || req.path.endsWith(".js") || req.path.endsWith(".css") || req.path.includes("favicon")) {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.set("Pragma", "no-cache");
     res.set("Expires", "0");
@@ -117,14 +117,17 @@ app.use((req, res, next) => {
 });
 
 app.get("/favicon.ico", (_req, res) => {
-  res.set("Cache-Control", "public, max-age=86400");
-  res.sendFile(faviconPath);
+  res.type("image/svg+xml");
+  res.sendFile(faviconSvgPath);
 });
 
 app.get("/", (_req, res, next) => {
   try {
     const html = readFileSync(indexHtmlPath, "utf8");
-    const faviconLink = '<link id="sanegFavicon" rel="icon" type="image/png" sizes="128x128" href="/assets/images/saneg-favicon.png?v=saneg1">';
+    const faviconLinks = [
+      '<link id="sanegFavicon" rel="icon" type="image/svg+xml" href="/assets/images/saneg-favicon.svg?v=saneg2">',
+      '<link rel="shortcut icon" href="/favicon.ico?v=saneg2">',
+    ].join("\n");
     const settingsScript = '<script id="segSettingsPersistenceScript" src="/js/settings-persistence.js?v=settings2" defer></script>';
     const loginGateScript = '<script id="sanegLoginGateRootScript" src="/js/saneg-login-gate.js?v=root1d" defer></script>';
     const htmlWithAuthBoot = html.includes("sanegAuthBootScript")
@@ -132,7 +135,7 @@ app.get("/", (_req, res, next) => {
       : html.replace("</head>", `${authBootGuard}\n</head>`);
     const htmlWithFavicon = htmlWithAuthBoot.includes("sanegFavicon")
       ? htmlWithAuthBoot
-      : htmlWithAuthBoot.replace("</head>", `${faviconLink}\n</head>`);
+      : htmlWithAuthBoot.replace("</head>", `${faviconLinks}\n</head>`);
     const htmlWithSettings = htmlWithFavicon.includes("segSettingsPersistenceScript")
       ? htmlWithFavicon
       : htmlWithFavicon.replace("</body>", `${settingsScript}\n</body>`);
