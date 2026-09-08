@@ -9,6 +9,13 @@ import {
 import { requireAccessToken } from '../middleware/auth.js';
 import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
 import { parseToSheetRows } from './to.js';
+import {
+  approveToPeriod,
+  getToPeriodReport,
+  listToReportFolders,
+  openToPeriodApproval,
+} from '../services/toPeriodApprovalService.js';
+import { sendToPeriodForApprovalWithFallback } from '../services/toPeriodEmailDeliveryService.js';
 
 const router = express.Router();
 
@@ -107,10 +114,24 @@ function quoteSheetName(sheetName) {
   return `'${String(sheetName).replace(/'/g, "''")}'`;
 }
 
-router.use(requireAccessToken);
-router.use(requireWorkspaceRequestPermission('documents:create'));
+function isPublicApprovalRequest(req) {
+  const method = String(req.method || '').toUpperCase();
+  const path = String(req.path || '').split('?')[0];
+  if (method === 'GET' && /^\/approve\/[^/]+$/.test(path)) return true;
+  if (method === 'POST' && path === '/approve') return true;
+  return false;
+}
 
-router.post('/select', async (req, res) => {
+const requireWorkspaceRead = requireWorkspaceRequestPermission('workspace:read');
+const requireToCreate = requireWorkspaceRequestPermission('documents:create');
+const requireToSend = requireWorkspaceRequestPermission('documents:send');
+
+router.use((req, res, next) => {
+  if (isPublicApprovalRequest(req)) return next();
+  return requireAccessToken(req, res, () => requireWorkspaceRead(req, res, next));
+});
+
+router.post('/select', requireToCreate, async (req, res) => {
   try {
     const { year, month, monthName } = normalizePeriod(req.body?.year, req.body?.month);
     const workspace = req.workspace || {};
@@ -166,6 +187,73 @@ router.post('/select', async (req, res) => {
       ok: false,
       error: error?.message || 'TO davrini Google Sheets’da tanlash xatosi',
       code: error?.code || 'TO_SHEET_PERIOD_SELECT_FAILED',
+    });
+  }
+});
+
+router.get('/reports', async (req, res) => {
+  try {
+    const periods = await listToReportFolders(req.workspace.id);
+    return res.json({ ok: true, periods });
+  } catch (error) {
+    return res.status(Number(error?.statusCode) || 400).json({
+      ok: false,
+      error: error?.message || 'TO hisobot papkalarini yuklash xatosi',
+      code: error?.code || 'TO_REPORT_LIST_FAILED',
+    });
+  }
+});
+
+router.get('/reports/:year/:month', async (req, res) => {
+  try {
+    const { year, month } = normalizePeriod(req.params.year, req.params.month);
+    const report = await getToPeriodReport(req.workspace, year, month);
+    return res.json({ ok: true, ...report });
+  } catch (error) {
+    return res.status(Number(error?.statusCode) || 400).json({
+      ok: false,
+      error: error?.message || 'TO hisobotini yuklash xatosi',
+      code: error?.code || 'TO_REPORT_READ_FAILED',
+    });
+  }
+});
+
+router.post('/reports/:year/:month/send', requireToSend, async (req, res) => {
+  try {
+    const { year, month } = normalizePeriod(req.params.year, req.params.month);
+    const result = await sendToPeriodForApprovalWithFallback(req.workspace, year, month, req);
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(Number(error?.statusCode) || 400).json({
+      ok: false,
+      error: error?.message || 'TO hujjatini imzolovchilarga yuborish xatosi',
+      code: error?.code || 'TO_REPORT_SEND_FAILED',
+      recommendedFix: error?.recommendedFix || '',
+    });
+  }
+});
+
+router.get('/approve/:token', async (req, res) => {
+  try {
+    const result = await openToPeriodApproval(req.params.token, req);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(result.html);
+  } catch (error) {
+    const safeMessage = String(error?.message || 'Havola yaroqsiz').replace(/[&<>]/g, '');
+    return res.status(403).send(`<!doctype html><meta charset="utf-8"><title>TO tasdiqlash xatosi</title><body style="font-family:Arial;padding:40px"><h2>Havola yaroqsiz</h2><p>${safeMessage}</p></body>`);
+  }
+});
+
+router.post('/approve', async (req, res) => {
+  try {
+    const result = await approveToPeriod(req.body?.token, req);
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(400).json({
+      ok: false,
+      error: error?.message || 'TO hujjatini tasdiqlash xatosi',
+      code: error?.code || 'TO_APPROVAL_FAILED',
     });
   }
 });
