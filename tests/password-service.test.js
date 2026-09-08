@@ -6,12 +6,11 @@ import {
   verifyPassword,
 } from '../services/passwordService.js';
 
-test('password policy requires length and character classes', () => {
-  assert.throws(() => validatePasswordStrength('short'), /12-200/);
-  assert.throws(() => validatePasswordStrength('alllowercase12345'), /uppercase/);
-  assert.throws(() => validatePasswordStrength('ALLUPPERCASE12345'), /lowercase/);
-  assert.throws(() => validatePasswordStrength('NoNumbersInThisPassword'), /numeric/);
-  assert.equal(validatePasswordStrength('StrongPassword123'), 'StrongPassword123');
+test('password policy enforces the current supported length bounds', () => {
+  assert.throws(() => validatePasswordStrength('short'), /6-200/);
+  assert.equal(validatePasswordStrength('123456'), '123456');
+  assert.equal(validatePasswordStrength('alllowercase12345'), 'alllowercase12345');
+  assert.throws(() => validatePasswordStrength('x'.repeat(201)), /6-200/);
 });
 
 test('scrypt password hashes are salted and verifiable', async () => {

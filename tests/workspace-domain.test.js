@@ -22,13 +22,17 @@ test('extractDriveFolderId supports folder URL and empty value', () => {
   assert.equal(extractDriveFolderId(''), '');
 });
 
-test('slugifyWorkspaceName is deterministic and bounded', () => {
+test('slugifyWorkspaceName is deterministic, transliterates Cyrillic and stays bounded', () => {
   assert.equal(slugifyWorkspaceName('Andijon KIP 01'), 'andijon-kip-01');
-  assert.throws(() => slugifyWorkspaceName('Андижон'), /Latin letters or numbers/);
+  assert.equal(slugifyWorkspaceName('Андижон'), 'andijon');
+  assert.ok(slugifyWorkspaceName('A'.repeat(120)).length <= 80);
+  assert.throws(() => slugifyWorkspaceName('---'), /letters or numbers/);
 });
 
-test('validateWorkspaceRole rejects unknown roles', () => {
-  assert.equal(validateWorkspaceRole('Engineer'), 'engineer');
+test('validateWorkspaceRole accepts the simplified four-role model only', () => {
+  assert.equal(validateWorkspaceRole(' Operator '), 'operator');
+  assert.equal(validateWorkspaceRole('VIEWER'), 'viewer');
+  assert.throws(() => validateWorkspaceRole('Engineer'), /Invalid workspace role/);
   assert.throws(() => validateWorkspaceRole('root'), /Invalid workspace role/);
 });
 
