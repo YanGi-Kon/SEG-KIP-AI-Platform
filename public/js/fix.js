@@ -68,7 +68,10 @@ function isSanegLoginActive(){
   function applyBranding(){
     const nextTitle = renameText(document.title || BRAND);
     if (document.title !== nextTitle) document.title = nextTitle;
-    setText('.brand .logo', 'SANEG');
+    const logo = document.querySelector('.brand .logo');
+    if (logo && !logo.querySelector('img')) {
+      logo.innerHTML = '<img src="assets/images/saneg-favicon.png?v=saneg3" alt="SANEG">';
+    }
     setText('.brand h1', BRAND);
     setText('.brand p', 'DIGITAL PLATFORM');
     const topTitle = document.querySelector('.topbar h2');
@@ -194,7 +197,7 @@ function isSanegLoginActive(){
   document.querySelectorAll('#segEntryLoginScript,#sanegLoginGateScript').forEach((node) => node.remove());
   const script = document.createElement('script');
   script.id = 'sanegLoginGateScript';
-  script.src = 'js/saneg-login-gate.js?v=stage1e';
+  script.src = 'js/saneg-login-gate.js?v=stage1f';
   script.async = false;
   script.defer = true;
   document.head.appendChild(script);

@@ -71,8 +71,8 @@
       .saneg-login-left{display:flex;align-items:center;justify-content:center;padding:36px;background:radial-gradient(circle at 10% 8%,rgba(34,211,238,.16),transparent 34%),linear-gradient(180deg,#fff,#f3f8fb);}
       .saneg-login-card{width:min(520px,100%);border:1px solid rgba(15,23,42,.08);border-radius:28px;padding:34px;background:rgba(255,255,255,.95);box-shadow:0 28px 86px rgba(15,23,42,.16);color:#071427;}
       .saneg-brand{display:flex;align-items:center;gap:16px;margin-bottom:30px;}
-      .saneg-logo{width:62px;height:62px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,#0ea5e9,#10b981);box-shadow:0 14px 32px rgba(14,165,233,.24);}
-      .saneg-logo:before{content:'S';width:40px;height:40px;border-radius:13px;display:grid;place-items:center;border:4px solid rgba(255,255,255,.85);color:#fff;font-size:26px;font-weight:1000;line-height:1;}
+      .saneg-logo{width:62px;height:62px;flex:0 0 62px;display:grid;place-items:center;overflow:hidden;}
+      .saneg-logo:before{content:'';width:100%;height:100%;background:url('/assets/images/saneg-favicon.png?v=saneg4') center/contain no-repeat;}
       .saneg-brand h1{margin:0;font-size:18px;letter-spacing:-.3px;color:#061427;font-weight:1000;}
       .saneg-brand p{margin:5px 0 0;color:#516172;font-size:14px;}
       .saneg-login-title{margin:0 0 8px;font-size:28px;font-weight:1000;color:#071427;}

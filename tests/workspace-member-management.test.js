@@ -8,8 +8,12 @@ import {
   normalizeWorkspaceMemberStatus,
 } from '../domain/workspaceMember.js';
 
-test('workspace member role normalization excludes owner assignments', () => {
-  assert.equal(normalizeWorkspaceMemberRole(' Department_Manager '), 'department_manager');
+test('workspace member role normalization follows the simplified role model and excludes owner assignments', () => {
+  assert.equal(normalizeWorkspaceMemberRole(' Operator '), 'operator');
+  assert.throws(
+    () => normalizeWorkspaceMemberRole('department_manager'),
+    (error) => error.code === 'INVALID_WORKSPACE_MEMBER_ROLE',
+  );
   assert.throws(
     () => normalizeWorkspaceMemberRole('owner'),
     (error) => error.code === 'INVALID_WORKSPACE_MEMBER_ROLE',
@@ -26,7 +30,7 @@ test('workspace member status accepts only persisted states', () => {
 
 test('owner and administrator can assign only roles below their own rank', () => {
   assert.equal(assertCanAssignWorkspaceRole('owner', 'administrator'), true);
-  assert.equal(assertCanAssignWorkspaceRole('administrator', 'department_manager'), true);
+  assert.equal(assertCanAssignWorkspaceRole('administrator', 'operator'), true);
   assert.throws(
     () => assertCanAssignWorkspaceRole('administrator', 'administrator'),
     (error) => error.code === 'WORKSPACE_MEMBER_ROLE_FORBIDDEN',
@@ -59,11 +63,11 @@ test('workspace settings UI manages members through workspace-scoped endpoints',
   assert.match(source, /memberAction === 'remove'/);
 });
 
-test('workspace member reads use the current dynamic platform-role schema', async () => {
+test('workspace member reads use the simplified platform_role schema', async () => {
   const source = await fs.readFile(new URL('../repositories/workspaceRepository.js', import.meta.url), 'utf8');
   const memberSection = source.slice(source.indexOf('export async function listWorkspaceMembers'));
 
-  assert.match(memberSection, /JOIN system_roles sr ON sr\.id = u\.system_role_id/);
-  assert.match(memberSection, /sr\.name AS platform_role/);
-  assert.doesNotMatch(memberSection, /u\.platform_role/);
+  assert.match(memberSection, /u\.platform_role/);
+  assert.doesNotMatch(memberSection, /JOIN system_roles sr ON sr\.id = u\.system_role_id/);
+  assert.doesNotMatch(memberSection, /u\.system_role_id/);
 });
