@@ -14,8 +14,8 @@ import {
   getToPeriodReport,
   listToReportFolders,
   openToPeriodApproval,
-  sendToPeriodForApproval,
 } from '../services/toPeriodApprovalService.js';
+import { sendToPeriodForApprovalWithFallback } from '../services/toPeriodEmailDeliveryService.js';
 
 const router = express.Router();
 
@@ -221,7 +221,7 @@ router.get('/reports/:year/:month', async (req, res) => {
 router.post('/reports/:year/:month/send', requireToSend, async (req, res) => {
   try {
     const { year, month } = normalizePeriod(req.params.year, req.params.month);
-    const result = await sendToPeriodForApproval(req.workspace, year, month, req);
+    const result = await sendToPeriodForApprovalWithFallback(req.workspace, year, month, req);
     return res.json({ ok: true, ...result });
   } catch (error) {
     return res.status(Number(error?.statusCode) || 400).json({
