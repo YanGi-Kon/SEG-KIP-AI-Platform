@@ -12,8 +12,10 @@ test('TO module period bridge script is served before static fallback', () => {
   assert.match(server, /app\.use\("\/api\/to-period-bridge", toPeriodSheetBridgeRouter\)/);
 });
 
-test('project period selection writes Sheets B7:C7 and re-reads A:H', () => {
+test('project period selection writes Sheets B7:C7 as raw text and re-reads A:H', () => {
   assert.match(route, /range: `\$\{quoteSheetName\(sheetName\)\}!B7:C7`/);
+  assert.match(route, /valueInputOption: 'RAW'/);
+  assert.doesNotMatch(route, /valueInputOption: 'USER_ENTERED'/);
   assert.match(route, /values: \[\[monthName, String\(year\)\]\]/);
   assert.match(route, /range: 'A:H'/);
   assert.match(route, /parseToSheetRows\(rows\)/);
