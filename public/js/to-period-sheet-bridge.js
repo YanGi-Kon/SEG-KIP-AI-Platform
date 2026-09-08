@@ -131,8 +131,6 @@
       lastSyncedKey = selected.key;
       observedKey = selected.key;
 
-      // Mavjud DB davri bo‘lsa — shu davrni ochadi.
-      // DB davri hali yaratilmagan bo‘lsa — endpointdan qaytgan yangi Sheets snapshotini ko‘rsatadi.
       if (window.ToJournalWorkspace?.openSelectedPeriod) {
         await window.ToJournalWorkspace.openSelectedPeriod({ fallbackToSource: true });
       } else {
@@ -216,6 +214,16 @@
     }
   }
 
+  async function refreshReportsAfterSave(state) {
+    const reports = window.ToJournalReports;
+    if (!reports?.loadFolders) return;
+    await reports.loadFolders();
+    const modalOpen = $('toReportsModal')?.classList.contains('show');
+    if (modalOpen && reports.openFolder) {
+      await reports.openFolder(state.periodYear, state.periodMonth);
+    }
+  }
+
   async function saveCurrentDocument() {
     const state = journalState();
     const button = $('toDocumentSaveBtn');
@@ -241,8 +249,9 @@
         await syncCurrentPeriodToSheet();
       }
 
+      await refreshReportsAfterSave(state);
       if (button) button.textContent = '✓ Сақланди';
-      setStatus(`${periodLabel(state.periodYear, state.periodMonth)} · saqlandi`, 'ok');
+      setStatus(`${periodLabel(state.periodYear, state.periodMonth)} · 3. Хисоботлар га сақланди`, 'ok');
       window.setTimeout(() => {
         const current = $('toDocumentSaveBtn');
         if (current && !current.disabled) current.textContent = 'Сақлаш';
@@ -289,7 +298,6 @@
   }
 
   function init() {
-    // Davr oy/yil tanlanganda avtomatik ochiladi, shuning uchun alohida "Открыть" tugmasi kerak emas.
     $('toOpenPeriodBtn')?.remove();
     loadSignersPanel();
     loadReportsPanel();
@@ -297,14 +305,9 @@
 
     $('toPeriodMonth')?.addEventListener('change', scheduleSync);
     $('toPeriodYear')?.addEventListener('change', scheduleSync);
-
-    // ← / → tugmalari selector qiymatini JavaScript orqali o‘zgartiradi,
-    // shuning uchun change hodisasidan tashqari clickdan keyin ham sinxronlaymiz.
     $('toPrevPeriodBtn')?.addEventListener('click', scheduleSync);
     $('toNextPeriodBtn')?.addEventListener('click', scheduleSync);
 
-    // Workspace yuklanganda oxirgi davr selectorlar orqali dasturiy o‘rnatilishi mumkin.
-    // Tarmoq so‘rovi faqat qiymat real o‘zgarganida yuboriladi.
     window.setInterval(() => {
       const selected = selection();
       if (!selected) return;
