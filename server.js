@@ -16,6 +16,7 @@ import workbookRouter from "./routes/workbook.js";
 import menuRouter from "./routes/menu.js";
 import actsRouter from "./routes/acts.js";
 import toRouter from "./routes/to.js";
+import toPeriodSheetBridgeRouter from "./routes/toPeriodSheetBridge.js";
 import ulchovRouter from "./routes/ulchov.js";
 import signaturesRouter from "./routes/signatures.js";
 import authRouter from "./routes/auth.js";
@@ -59,6 +60,7 @@ const __dirname = dirname(__filename);
 const publicDir = join(__dirname, "public");
 const publicAssetsDir = join(publicDir, "assets");
 const indexHtmlPath = join(publicDir, "index.html");
+const toHtmlPath = join(publicDir, "modules", "to.html");
 
 const staticNoCacheOptions = {
   etag: false,
@@ -133,6 +135,19 @@ app.get("/", (_req, res, next) => {
   }
 });
 
+app.get("/modules/to.html", (_req, res, next) => {
+  try {
+    const html = readFileSync(toHtmlPath, "utf8");
+    const bridgeScript = '<script id="toPeriodSheetBridgeScript" src="/js/to-period-sheet-bridge.js?v=to-period-bridge1"></script>';
+    const safeHtml = html.includes("toPeriodSheetBridgeScript")
+      ? html
+      : html.replace("</body>", `${bridgeScript}\n</body>`);
+    res.type("html").send(safeHtml);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Public asset URL mapping:
 // public/assets/login/slides/slide-1.webp -> /assets/login/slides/slide-1.webp
 // express.static requires filesystem path strings, not URL objects.
@@ -149,6 +164,7 @@ app.use("/api/base", baseRouter);
 app.use("/api/workbook", workbookRouter);
 app.use("/api/menu", menuRouter);
 app.use("/api/acts", actsRouter);
+app.use("/api/to-period-bridge", toPeriodSheetBridgeRouter);
 app.use("/api/to", toRouter);
 app.use("/api/ulchov", ulchovRouter);
 app.use("/api/kuduk", createKudukRouter(io));
