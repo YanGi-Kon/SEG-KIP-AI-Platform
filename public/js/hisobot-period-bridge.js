@@ -15,6 +15,7 @@
   let requestVersion = 0;
   let busy = false;
   let initialized = false;
+  let rawFetchState = null;
 
   const byId = (id) => document.getElementById(id);
   const clean = (value) => String(value ?? '').trim();
@@ -306,6 +307,7 @@
   function wrapJournalLifecycle() {
     if (typeof fetchState === 'function' && !fetchState.__hisobotPeriodWrapped) {
       const originalFetchState = fetchState;
+      rawFetchState = originalFetchState;
       const wrapped = async function(...args) {
         const result = await originalFetchState(...args);
         captureCanonical(true);
@@ -344,7 +346,6 @@
 
     if (typeof saveRow === 'function' && !saveRow.__hisobotPeriodWrapped) {
       const originalSaveRow = saveRow;
-      const originalFetchState = typeof fetchState === 'function' ? fetchState : null;
       const wrapped = async function(...args) {
         const routeSheet = typeof currentSheet !== 'undefined' ? currentSheet : '';
         const row = typeof editing !== 'undefined' ? editing?.row : null;
@@ -358,7 +359,7 @@
         } finally {
           if (typeof currentSheet !== 'undefined') currentSheet = routeSheet;
         }
-        if (originalFetchState) await originalFetchState(workspaceIdValue());
+        if (rawFetchState) await rawFetchState(workspaceIdValue());
         captureCanonical(true);
         await requestPeriod({ fromSheet: false });
       };
@@ -376,6 +377,7 @@
         } finally {
           if (typeof currentSheet !== 'undefined') currentSheet = routeSheet;
         }
+        if (rawFetchState) await rawFetchState(workspaceIdValue());
         captureCanonical(true);
         await requestPeriod({ fromSheet: false });
       };
