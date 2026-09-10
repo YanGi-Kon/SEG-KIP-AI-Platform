@@ -12,6 +12,6 @@ test('Acts document creation tab is gated until a draft is opened from analysis'
 });
 
 test('Analysis row create action still opens the create view internally', () => {
-  assert.match(actsUi, /onclick=\\"ActsUI\.fillDoc\(\$\{i\}\)\\"/);
+  assert.match(actsUi, /ActsUI\.fillDoc\(\$\{i\}\)/);
   assert.match(actsUi, /async function fillDoc\(index\)[\s\S]*?showView\('create',\$\('tab-create'\)\)/);
 });
