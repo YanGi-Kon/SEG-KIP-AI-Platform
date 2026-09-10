@@ -1,10 +1,17 @@
 import express from 'express';
 import { readSheetRows, listSheets, validateServiceAccount } from '../services/googleSheetsService.js';
-import { getDailyReports, writeActDocument } from '../services/actBlankSheetService.js';
+import { deleteActDocument, getDailyReports, writeActDocument } from '../services/actBlankSheetService.js';
 import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
 import { requireAccessToken } from '../middleware/auth.js';
 
 const router = express.Router();
+const RU_MONTHS = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+const RU_MONTH_NUMBERS = new Map([
+  ['январь', 1], ['января', 1], ['февраль', 2], ['февраля', 2], ['март', 3], ['марта', 3],
+  ['апрель', 4], ['апреля', 4], ['май', 5], ['мая', 5], ['июнь', 6], ['июня', 6],
+  ['июль', 7], ['июля', 7], ['август', 8], ['августа', 8], ['сентябрь', 9], ['сентября', 9],
+  ['октябрь', 10], ['октября', 10], ['ноябрь', 11], ['ноября', 11], ['декабрь', 12], ['декабря', 12],
+]);
 
 function workspaceGuards(permission) {
   const authorizeWorkspace = requireWorkspaceRequestPermission(permission);
@@ -12,6 +19,7 @@ function workspaceGuards(permission) {
 }
 
 router.use(workspaceGuards('workspace:read'));
+const requireActsDelete = requireWorkspaceRequestPermission('documents:cancel');
 
 function clean(value) {
   return String(value ?? '').trim();
@@ -48,9 +56,54 @@ function resolveActsConfig(req) {
   };
 }
 
-function isTargetWork(value) {
-  const v = String(value || '').trim().toLowerCase().replace(/\s+/g, '');
-  return ['то-2','то2','to-2','to2','акт','akt'].includes(v);
+export function isTargetWork(value) {
+  const v = String(value || '').trim();
+  return v === 'AKT' || v === 'АКТ';
+}
+
+function validDateParts(year, month, day) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) return null;
+  return { year, month, day };
+}
+
+export function parseAnalysisDate(value) {
+  const raw = clean(value);
+  if (!raw) return null;
+
+  let match = raw.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})(?:\D|$)/);
+  if (match) return validDateParts(Number(match[3]), Number(match[2]), Number(match[1]));
+
+  match = raw.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})(?:\D|$)/);
+  if (match) return validDateParts(Number(match[1]), Number(match[2]), Number(match[3]));
+
+  match = raw.toLowerCase().replace(/ё/g, 'е').match(/^(\d{1,2})\s+([а-я]+)\s+(\d{4})(?:\D|$)/u);
+  if (match) {
+    const month = RU_MONTH_NUMBERS.get(match[2]);
+    if (month) return validDateParts(Number(match[3]), month, Number(match[1]));
+  }
+
+  if (/^\d+$/.test(raw)) return null;
+  const timestamp = Date.parse(raw);
+  if (!Number.isFinite(timestamp)) return null;
+  const parsed = new Date(timestamp);
+  const year = parsed.getUTCFullYear();
+  if (year < 2000 || year > 2100) return null;
+  return validDateParts(year, parsed.getUTCMonth() + 1, parsed.getUTCDate());
+}
+
+export function isAnalysisDateInPeriod(value, year, month) {
+  const parsed = parseAnalysisDate(value);
+  return Boolean(parsed && parsed.year === Number(year) && parsed.month === Number(month));
+}
+
+function normalizeAnalysisPeriod(yearRaw, monthRaw) {
+  const now = new Date();
+  const year = Number(yearRaw ?? now.getFullYear());
+  const month = Number(monthRaw ?? (now.getMonth() + 1));
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) throw new Error('Ойлик анализ йили нотўғри');
+  if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error('Ойлик анализ ойи нотўғри');
+  return { year, month, monthName: RU_MONTHS[month] };
 }
 
 // Find the header row and map column names to their indices
@@ -133,7 +186,8 @@ function getPayload(req) {
   return { ...req.query, ...req.body };
 }
 
-async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount }) {
+async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount, year: yearRaw, month: monthRaw }) {
+  const { year, month, monthName } = normalizeAnalysisPeriod(yearRaw, monthRaw);
   const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:K' });
   const reports = await getDailyReports({ spreadsheetUrl, serviceAccount });
   const completedByKey = new Map(
@@ -150,19 +204,24 @@ async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount 
     .map((row, index) => ({ row, index }))
     .filter(x => x.index > headerRowIndex) // skip header rows
     .filter(x => isDataRow(x.row, headerRowIndex, colMap));
+
+  const periodRows = dataRows.filter(x => isAnalysisDateInPeriod(x.row[0], year, month));
   
-  const matched = dataRows
+  const matched = periodRows
     .filter(x => isTargetWork(x.row[wrkIdx]))
     .map(x => mapRow(x.row, x.index, sheetName, completedByKey, colMap));
   
-  const createdDocuments = matched.filter(row => row.isCompleted).length || reports.length;
+  const createdDocuments = matched.filter(row => row.isCompleted).length;
   const completionPercentage = matched.length ? Math.min(100, Math.round((createdDocuments / matched.length) * 100)) : 0;
   return {
-    totalRows: dataRows.length,
+    totalRows: periodRows.length,
     plannedDocuments: matched.length,
     createdDocuments,
     completionPercentage,
     sheetName,
+    periodYear: year,
+    periodMonth: month,
+    periodMonthName: monthName,
     rows: matched
   };
 }
@@ -179,9 +238,9 @@ router.post('/settings/test', async (req, res) => {
 
 router.post('/monthly-analysis', async (req, res) => {
   try {
-    const { sheetName } = getPayload(req);
+    const { sheetName, year, month } = getPayload(req);
     const config = resolveActsConfig(req);
-    const data = await buildMonthlyAnalysis({ ...config, sheetName });
+    const data = await buildMonthlyAnalysis({ ...config, sheetName, year, month });
     res.json(data);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -210,6 +269,16 @@ router.post('/reports/daily', async (req, res) => {
     res.json({ rows });
   } catch (err) {
     res.status(400).json({ error: err.message, rows: [] });
+  }
+});
+
+router.delete('/reports/daily/:actNo', requireActsDelete, async (req, res) => {
+  try {
+    const config = resolveActsConfig(req);
+    const result = await deleteActDocument({ ...config, actNo: req.params.actNo });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ ok: false, error: err.message });
   }
 });
 

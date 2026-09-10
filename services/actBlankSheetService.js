@@ -295,3 +295,79 @@ export async function writeActDocument({ spreadsheetUrl, serviceAccount, act }) 
   await appendRegistryRow({ spreadsheetUrl, serviceAccount, act, actNo, rowStart });
   return { actNo, duplicate: false, rowStart, reportSheetName: DAILY_SHEET_NAME, registrySheetName: REGISTRY_SHEET_NAME, message: 'Ҳужжат АКТЛАР_КУНЛИК варағига blank кўринишида сақланди.' };
 }
+
+export async function deleteActDocument({ spreadsheetUrl, serviceAccount, actNo }) {
+  const normalizedActNo = safeText(actNo);
+  if (!normalizedActNo) {
+    const error = new Error('Акт рақами киритилмаган');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const { sheets, spreadsheetId, sheetId: registrySheetId } = await ensureRegistrySheet({
+    spreadsheetUrl,
+    serviceAccount,
+  });
+  const lastColumn = colLetter(REGISTRY_HEADERS.length);
+  const registryResponse = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${q(REGISTRY_SHEET_NAME)}!A:${lastColumn}`,
+  });
+  const registryRows = registryResponse.data.values || [];
+  const registryRowIndex = registryRows.findIndex((row, index) => (
+    index > 0 && safeText(row[0]) === normalizedActNo
+  ));
+
+  if (registryRowIndex < 0) {
+    const error = new Error(`${normalizedActNo} ҳисоботлар рўйхатидан топилмади`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const registryRow = registryRows[registryRowIndex] || [];
+  const rowStart = Number.parseInt(registryRow[5], 10);
+  const requests = [];
+
+  if (Number.isInteger(rowStart) && rowStart > 0) {
+    const dailySheetId = await ensureSheet({
+      spreadsheetUrl,
+      serviceAccount,
+      sheetName: DAILY_SHEET_NAME,
+    });
+    const blankRowCount = buildActBlankRows({}, normalizedActNo).length;
+    const dailyRange = {
+      sheetId: dailySheetId,
+      startRowIndex: rowStart - 1,
+      endRowIndex: rowStart - 1 + blankRowCount,
+      startColumnIndex: 0,
+      endColumnIndex: BLANK_COLUMNS,
+    };
+    requests.push(
+      { unmergeCells: { range: dailyRange } },
+      { updateCells: { range: dailyRange, fields: '*' } },
+    );
+  }
+
+  requests.push({
+    deleteDimension: {
+      range: {
+        sheetId: registrySheetId,
+        dimension: 'ROWS',
+        startIndex: registryRowIndex,
+        endIndex: registryRowIndex + 1,
+      },
+    },
+  });
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests },
+  });
+
+  return {
+    deleted: true,
+    actNo: normalizedActNo,
+    sourceKey: safeText(registryRow[3]),
+    rowStart: Number.isInteger(rowStart) ? rowStart : null,
+  };
+}

@@ -3,7 +3,10 @@
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const WORKSPACE_ID_KEY = 'seg_kip_selected_workspace_id';
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
-  const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null, signatureObjectUrls: [], draftSignatureUrls: {} };
+  const ANALYSIS_PERIOD_KEY_PREFIX = 'acts_analysis_period_';
+  const ANALYSIS_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const initialPeriodDate = new Date();
+  const state = { analysisRows: [], dailyRows: [], signers: [], selected: null, saving: false, workspaceApprovers: null, signatureObjectUrls: [], draftSignatureUrls: {}, analysisYear: initialPeriodDate.getFullYear(), analysisMonth: initialPeriodDate.getMonth()+1, analysisRequestVersion: 0 };
   let activeWorkspaceId = '';
   let workspaceLoadVersion = 0;
   const PDF_MONTHS = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
@@ -18,10 +21,61 @@
   function settings(){
     return { sheetName: localStorage.getItem(KEYS.sheet) || '' };
   }
+  function analysisSettings(){return {...settings(),year:state.analysisYear,month:state.analysisMonth};}
   function hasSettings(){ const s=settings(); return Boolean(s.sheetName); }
   function setStatus(text, cls=''){ const el=$('actsStatus'); if(el) el.innerHTML = `Ҳолат: <span class="${cls}">${esc(text)}</span>`; }
   function setSignersMsg(text, cls=''){ const el=$('signersMsg'); if(el) el.innerHTML = `<span class="${cls}">${esc(text)}</span>`; }
   function parentOnline(status){ try { parent.postMessage({ type:'SEG_ACTS_STATUS', status }, '*'); } catch(_) {} }
+
+  function analysisPeriodStorageKey(expectedWorkspaceId=workspaceId()){return `${ANALYSIS_PERIOD_KEY_PREFIX}${clean(expectedWorkspaceId)||'default'}`;}
+  function analysisPeriodLabel(){return `${ANALYSIS_MONTHS[state.analysisMonth-1]||state.analysisMonth} ${state.analysisYear}`;}
+  function setAnalysisPeriodStatus(text,kind='sync'){
+    const el=$('actsPeriodStatus');
+    if(!el)return;
+    el.textContent=text;
+    el.className=`acts-period-status${kind?` ${kind}`:''}`;
+  }
+  function ensureAnalysisYearOption(year){
+    const select=$('actsPeriodYear');
+    if(!select||Array.from(select.options||[]).some((option)=>Number(option.value)===Number(year)))return;
+    const option=document.createElement('option');option.value=String(year);option.textContent=String(year);select.appendChild(option);
+  }
+  function renderAnalysisPeriodSelectors(){
+    const month=$('actsPeriodMonth'),year=$('actsPeriodYear');
+    if(month){month.innerHTML=ANALYSIS_MONTHS.map((name,index)=>`<option value="${index+1}">${name}</option>`).join('');month.value=String(state.analysisMonth);}
+    if(year){const now=new Date().getFullYear();const start=Math.min(now,state.analysisYear)-3;const end=Math.max(now,state.analysisYear)+5;year.innerHTML=Array.from({length:end-start+1},(_,index)=>start+index).map((value)=>`<option value="${value}">${value}</option>`).join('');year.value=String(state.analysisYear);}
+    setAnalysisPeriodStatus(`${analysisPeriodLabel()} · танланган`,'sync');
+  }
+  function readAnalysisPeriodSelectors(){
+    const year=Number($('actsPeriodYear')?.value||state.analysisYear);
+    const month=Number($('actsPeriodMonth')?.value||state.analysisMonth);
+    if(Number.isInteger(year)&&year>=2000&&year<=2100)state.analysisYear=year;
+    if(Number.isInteger(month)&&month>=1&&month<=12)state.analysisMonth=month;
+    return {year:state.analysisYear,month:state.analysisMonth};
+  }
+  function persistAnalysisPeriod(expectedWorkspaceId=workspaceId()){
+    try{localStorage.setItem(analysisPeriodStorageKey(expectedWorkspaceId),JSON.stringify({year:state.analysisYear,month:state.analysisMonth}));}catch(_){}
+  }
+  function restoreAnalysisPeriod(expectedWorkspaceId=workspaceId()){
+    try{
+      const stored=JSON.parse(localStorage.getItem(analysisPeriodStorageKey(expectedWorkspaceId))||'null');
+      if(Number.isInteger(stored?.year)&&stored.year>=2000&&stored.year<=2100)state.analysisYear=stored.year;
+      if(Number.isInteger(stored?.month)&&stored.month>=1&&stored.month<=12)state.analysisMonth=stored.month;
+    }catch(_){}
+    renderAnalysisPeriodSelectors();
+  }
+  async function applyAnalysisPeriodSelection(){
+    readAnalysisPeriodSelectors();persistAnalysisPeriod();setAnalysisPeriodStatus(`${analysisPeriodLabel()} · юкланмоқда...`,'sync');await loadAnalysis();
+  }
+  async function navigateAnalysisPeriod(delta){
+    readAnalysisPeriodSelectors();
+    const index=state.analysisYear*12+(state.analysisMonth-1)+Number(delta||0);
+    state.analysisYear=Math.floor(index/12);state.analysisMonth=(index%12+12)%12+1;
+    ensureAnalysisYearOption(state.analysisYear);
+    if($('actsPeriodYear'))$('actsPeriodYear').value=String(state.analysisYear);
+    if($('actsPeriodMonth'))$('actsPeriodMonth').value=String(state.analysisMonth);
+    persistAnalysisPeriod();await loadAnalysis();
+  }
 
   function toBase64Url(value){
     const bytes = new TextEncoder().encode(String(value));
@@ -118,6 +172,22 @@
     return false;
   }
   function activeSignerRows(rows=[]){ return rows.filter((row)=>!row.status || normalizeSignerText(row.status)==='active'); }
+  function signerById(signerId){
+    const id=clean(signerId);
+    if(!id)return null;
+    return activeSignerRows(Array.isArray(state.workspaceApprovers)?state.workspaceApprovers:[]).find((row)=>clean(row.signerId)===id)||null;
+  }
+  function selectedSignerForSlot(slot){return signerById($(`person${slot}`)?.value);}
+  function renderSignerSelectOptions(rows=[]){
+    const activeRows=activeSignerRows(rows).filter((row)=>clean(row.signerId)&&clean(row.fio));
+    [1,2,3].forEach((slot)=>{
+      const select=$(`person${slot}`);
+      if(!select)return;
+      const selectedId=clean(select.value);
+      select.innerHTML='<option value="">Ф.И.Ш.</option>'+activeRows.map((row)=>`<option value="${esc(row.signerId)}">${esc(row.fio)}</option>`).join('');
+      select.value=activeRows.some((row)=>clean(row.signerId)===selectedId)?selectedId:'';
+    });
+  }
   function findKipMasterSigner(rows=[]){
     const activeRows = activeSignerRows(rows);
     return activeRows.find(isKipMasterSigner) || activeRows.find((row)=>{
@@ -131,7 +201,7 @@
     const person1 = $('person1');
     const position1 = $('position1');
     const department1 = $('department1');
-    if(person1 && !person1.value.trim()) person1.value = kipMaster.fio || kipMaster.fullName || '';
+    if(person1 && !person1.value.trim()) person1.value = kipMaster.signerId || '';
     if(position1 && !position1.value.trim()) position1.value = kipMaster.position || '';
     if(department1 && !department1.value.trim()) department1.value = kipMaster.department || '';
   }
@@ -153,8 +223,19 @@
         status: clean(row.status || 'active').toLowerCase()
       };
     }).filter((row)=>row.signerId || row.fio || row.gmail);
+    renderSignerSelectOptions(state.workspaceApprovers);
     applyKipMasterSignerFromApprovers(state.workspaceApprovers);
     return state.workspaceApprovers;
+  }
+
+  async function refreshSignerChoices(){return loadWorkspaceApproverRegistry(true);}
+
+  function handleSignerSelection(slot){
+    const signer=selectedSignerForSlot(slot);
+    const position=$(`position${slot}`);
+    if(position)position.value=clean(signer?.position);
+    renderDraftFinalSignatures();
+    refreshDraftSignatureImages().catch(()=>{});
   }
 
   function injectStyles(){
@@ -281,18 +362,19 @@
 
   function renderRows(rows){
     const tb=$('analysisRows');
-    if(!rows||!rows.length){tb.innerHTML='<tr><td colspan="11">ТО-2 / АКТ қаторлари топилмади.</td></tr>';return;}
+    if(!rows||!rows.length){tb.innerHTML='<tr><td colspan="11">AKT / АКТ қаторлари топилмади.</td></tr>';return;}
     tb.innerHTML=rows.map((r,i)=>{const action=r.isCompleted?`<button class="btn done" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Хужат якунланди</button>`:`<button class="btn green workspace-operator-only" onclick="ActsUI.fillDoc(${i})">Хужат яратиш</button>`;return `<tr data-source-key="${esc(r.sourceKey||'')}"><td>${i+1}</td><td>${esc(r.date)}</td><td>${esc(r.positionNo)}</td><td>${esc(r.deviceName)}</td><td>${esc(r.typeMark)}</td><td>${esc(r.serialNo)}</td><td>${esc(r.measureRange)}</td><td>${esc(r.place)}</td><td class="icol">${esc(r.workType)}</td><td>${esc(r.executor)}</td><td>${action}</td></tr>`;}).join('');
   }
   async function loadAnalysis(expectedWorkspaceId=workspaceId()){
     if(!hasSettings()){openSettings();setStatus('Google Sheets созламалари киритилмаган.','bad');return;}
-    try{setStatus('Google Sheets билан синхронланмоқда...','sync');parentOnline('SYNCING');const data=await postJson('/api/acts/monthly-analysis',settings(),expectedWorkspaceId);if(expectedWorkspaceId&&expectedWorkspaceId!==workspaceId())return false;state.analysisRows=data.rows||[];updateKpi(data);renderRows(state.analysisRows);setStatus('Google Sheets уланди. Маълумотлар янгиланди.','ok');parentOnline('ONLINE');return data;}
-    catch(err){if(err.code==='STALE_WORKSPACE_RESPONSE')return false;setStatus(err.message,'bad');parentOnline('OFFLINE');return false;}
+    const requestVersion=++state.analysisRequestVersion;
+    try{setStatus(`${analysisPeriodLabel()} учун Google Sheets билан синхронланмоқда...`,'sync');setAnalysisPeriodStatus(`${analysisPeriodLabel()} · юкланмоқда...`,'sync');parentOnline('SYNCING');const data=await postJson('/api/acts/monthly-analysis',analysisSettings(),expectedWorkspaceId);if(requestVersion!==state.analysisRequestVersion||(expectedWorkspaceId&&expectedWorkspaceId!==workspaceId()))return false;state.analysisRows=data.rows||[];updateKpi(data);renderRows(state.analysisRows);setStatus(`${analysisPeriodLabel()} маълумотлари янгиланди.`,'ok');setAnalysisPeriodStatus(`${analysisPeriodLabel()} · ${data.plannedDocuments??0} та АКТ`,'ok');parentOnline('ONLINE');return data;}
+    catch(err){if(requestVersion!==state.analysisRequestVersion||err.code==='STALE_WORKSPACE_RESPONSE')return false;setStatus(err.message,'bad');setAnalysisPeriodStatus(`${analysisPeriodLabel()} · хато`,'bad');parentOnline('OFFLINE');return false;}
   }
   async function loadReports(expectedWorkspaceId=workspaceId()){
     const tb=$('dailyRows');
     if(!hasSettings()){tb.innerHTML='<tr><td colspan="9">Google Sheets созламалари киритилмаган.</td></tr>';return[];}
-    try{const data=await postJson('/api/acts/reports/daily',settings(),expectedWorkspaceId);if(expectedWorkspaceId&&expectedWorkspaceId!==workspaceId())return[];const rows=data.rows||[];state.dailyRows=rows;if(!rows.length){tb.innerHTML='<tr><td colspan="9">Кунлик ҳисоботда ҳужжатлар йўқ.</td></tr>';return rows;}tb.innerHTML=rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.actNo)}</td><td>${esc(r.date)}</td><td>${esc(r.device)}</td><td>${esc(r.serial)}</td><td>${esc(r.place)}</td><td>${esc(r.executor)}</td><td>${esc(r.status)}</td><td><button class="btn primary small" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Кўриш</button> <button class="btn orange small" onclick="ActsUI.sendDoc('${ref(r.actNo)}')">Хужатни юбориш</button></td></tr>`).join('');return rows;}
+    try{const data=await postJson('/api/acts/reports/daily',settings(),expectedWorkspaceId);if(expectedWorkspaceId&&expectedWorkspaceId!==workspaceId())return[];const rows=data.rows||[];state.dailyRows=rows;if(!rows.length){tb.innerHTML='<tr><td colspan="9">Кунлик ҳисоботда ҳужжатлар йўқ.</td></tr>';return rows;}tb.innerHTML=rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.actNo)}</td><td>${esc(r.date)}</td><td>${esc(r.device)}</td><td>${esc(r.serial)}</td><td>${esc(r.place)}</td><td>${esc(r.executor)}</td><td>${esc(r.status)}</td><td><div class="report-actions"><button class="btn primary small" onclick="ActsUI.viewDoc('${ref(r.actNo)}')">Кўриш</button><button class="btn orange small workspace-operator-only" onclick="ActsUI.sendDoc('${ref(r.actNo)}')">Хужатни юбориш</button><button class="btn red small workspace-admin-only" onclick="ActsUI.deleteReport('${ref(r.actNo)}')">Учириш</button></div></td></tr>`).join('');return rows;}
     catch(err){if(err.code==='STALE_WORKSPACE_RESPONSE')return[];tb.innerHTML=`<tr><td colspan="9">${esc(err.message)}</td></tr>`;return[];}
   }
 
@@ -418,7 +500,7 @@
     }));
     return act;
   }
-  function collectActBase(){const r=state.selected||{};const base={actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),time:$('actTime').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:$('person1').value.trim(),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:$('person2').value.trim(),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:$('person3').value.trim(),position3:$('position3').value.trim(),department3:$('department3').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||'',failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),actionDate:$('actionDate').value.trim(),actionTime:$('actionTime').value.trim(),conclusion:$('conclusion').value.trim()};
+  function collectActBase(){const r=state.selected||{};const selectedSigners={1:selectedSignerForSlot(1),2:selectedSignerForSlot(2),3:selectedSignerForSlot(3)};const base={actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),time:$('actTime').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:clean(selectedSigners[1]?.fio),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:clean(selectedSigners[2]?.fio),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:clean(selectedSigners[3]?.fio),position3:$('position3').value.trim(),department3:$('department3').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||'',failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),actionDate:$('actionDate').value.trim(),actionTime:$('actionTime').value.trim(),conclusion:$('conclusion').value.trim()};
     const firstSigner=findSignerForPerson(base.person1);
     return Object.assign(base, {
       signatureUrl1: clean(firstSigner&&isKipMasterSigner(firstSigner)?firstSigner.signatureUrl:''),
@@ -427,7 +509,7 @@
     });
   }
   function collectAssignedApproverSlots(base){
-    return [1,2,3].map((slot)=>{const signer=findSignerForPerson(base[`person${slot}`]);return{slot,signerId:clean(signer?.signerId),fio:clean(base[`person${slot}`]),position:clean(base[`position${slot}`]||signer?.position),gmail:clean(signer?.gmail),department:clean(base[`department${slot}`]),signatureFileId:clean(signer?.signatureFileId)};}).filter((row)=>row.signerId||row.fio||row.position||row.department||row.gmail);
+    return [1,2,3].map((slot)=>{const signer=selectedSignerForSlot(slot)||findSignerForPerson(base[`person${slot}`]);return{slot,signerId:clean(signer?.signerId),fio:clean(base[`person${slot}`]),position:clean(base[`position${slot}`]||signer?.position),gmail:clean(signer?.gmail),department:clean(base[`department${slot}`]),signatureFileId:clean(signer?.signatureFileId)};}).filter((row)=>row.signerId||row.fio||row.position||row.department||row.gmail);
   }
   function signerCell(value,label,signatureUrl='',signatureSlot=0){const signature=signerSignatureHtml(signatureUrl);const slotContent=signatureSlot?`<!--SEG_SIGNATURE_SLOT_${signatureSlot}_START-->${signature}<!--SEG_SIGNATURE_SLOT_${signatureSlot}_END-->`:signature;return `<div class="act-signers-cell"${signatureSlot?` data-signature-slot="${signatureSlot}"`:''}><div class="act-signers-value${signature?' has-signature':''}"><span class="act-signer-text">${esc(value || '')}</span>${slotContent}</div><div class="act-signers-label">${label}</div></div>`;}
   function buildSignerRows(a){
@@ -496,6 +578,22 @@
   function reportToAct(report){const base={actNo:report.actNo,date:report.date,workPlace:report.workPlace,failureText:report.failureText,impactText:report.impactText,reasonText:report.reasonText,actionText:report.actionText,conclusion:report.conclusion,person1:report.person1||'',position1:report.position1||'',department1:report.department1||'',person2:report.person2||'',position2:report.position2||'',department2:report.department2||'',person3:report.person3||'',position3:report.position3||'',department3:report.department3||''};return Object.assign(base,{signatureUrl1:clean(report.signatureUrl1||findSignatureForPerson(base.person1)||''),signatureUrl2:clean(report.signatureUrl2||findSignatureForPerson(base.person2)||''),signatureUrl3:clean(report.signatureUrl3||findSignatureForPerson(base.person3)||'')});}
   async function viewDoc(actNo){const report=await findReport(actNo);if(!report){alert('Ҳужжат топилмади. Excel очилади.');openExcel();return;}const expectedWorkspaceId=workspaceId();await loadWorkspaceApproverRegistry().catch(() => []);let act=null;try{act=JSON.parse(report.a4Json||'null');}catch(_){}revokeSignatureObjectUrls();const printableAct=await hydrateActSignatureUrls(act||reportToAct(report),expectedWorkspaceId);const html=stripLegacyManualSignatureBlock(buildA4ActHtml(printableAct));ensureA4Modal();$('actsA4Content').innerHTML=html;$('actsA4Modal').classList.add('show');}
   async function sendDoc(actNo){ const no=unref(actNo); if(!confirm(`${no} ҳужжатини тайинланган тасдиқловчиларга Gmail орқали юборишни тасдиқлайсизми?`))return; try{setStatus(`${no} тасдиқловчиларга юборилмоқда...`,'sync');const result=await postJson('/api/document/send',{...settings(),actNo:no,sentBy:'KIP Administrator'});const sent=(result.results||[]).filter(x=>x.status==='sent').length;const failed=(result.results||[]).filter(x=>x.status==='email-failed').length;setStatus(`${no}: ${sent} та Gmail юборилди${failed?`, ${failed} та хатолик`:''}. Ҳолат: ${result.status}` ,failed?'sync':'ok');await loadReports();}catch(err){setStatus(err.message,'bad');} }
+  async function deleteReport(actNo){
+    const no=unref(actNo);
+    if(!no||!confirm(`${no} ҳисоботини учиришни тасдиқлайсизми?`))return;
+    const expectedWorkspaceId=workspaceId();
+    try{
+      setStatus(`${no} учирилмоқда...`,'sync');
+      await apiFetch(`/api/acts/reports/daily/${encodeURIComponent(no)}`,{method:'DELETE'},true,expectedWorkspaceId);
+      if(expectedWorkspaceId!==workspaceId())return;
+      await loadReports(expectedWorkspaceId);
+      await loadAnalysis(expectedWorkspaceId);
+      setStatus(`${no} ҳисоботи учирилди.`,'ok');
+    }catch(err){
+      if(err.code==='STALE_WORKSPACE_RESPONSE')return;
+      setStatus(err.message,'bad');
+    }
+  }
 
   function openSigners(){ if(!hasSettings()){openSettings();setStatus('Аввал Google Sheets созламаларини киритинг.','bad');return;} $('signersModal').classList.add('show'); loadSigners(); }
   function closeSigners(){$('signersModal').classList.remove('show');}
@@ -532,14 +630,13 @@
   function bind(){
     injectStyles();
     clearLegacyDonutOverrides();
-    loadWorkspaceApproverRegistry().then((rows)=>{
-      if(!rows?.length) return;
-      applyKipMasterSignerFromApprovers(rows);
-      let list = $('actsApproverList');
-      if(!list){ list = document.createElement('datalist'); list.id = 'actsApproverList'; document.body.appendChild(list); }
-      list.innerHTML = rows.map((row)=>`<option value="${esc(row.fio)}">${esc(row.position || row.gmail || '')}</option>`).join('');
-      ['person1','person2','person3'].forEach((id)=>{ const input=$(id); if(input) input.setAttribute('list','actsApproverList'); });
-    }).catch(()=>{});
+    renderAnalysisPeriodSelectors();
+    $('actsPeriodMonth')?.addEventListener('change',()=>void applyAnalysisPeriodSelection());
+    $('actsPeriodYear')?.addEventListener('change',()=>void applyAnalysisPeriodSelection());
+    $('actsPrevPeriodBtn')?.addEventListener('click',()=>void navigateAnalysisPeriod(-1));
+    $('actsNextPeriodBtn')?.addEventListener('click',()=>void navigateAnalysisPeriod(1));
+    loadWorkspaceApproverRegistry().catch(()=>{});
+    [1,2,3].forEach((slot)=>$('person'+slot)?.addEventListener('change',()=>handleSignerSelection(slot)));
     $('serviceFile')?.addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{const json=JSON.parse(await file.text());if(!json.client_email||!json.private_key||!json.project_id)throw new Error('client_email, private_key ёки project_id топилмади');localStorage.setItem(KEYS.service,JSON.stringify(json));$('serviceFileName').innerHTML=`${esc(file.name)} ✓`;$('settingsMsg').innerHTML='<span class="ok">SERVICE ACCOUNT JSON юкланди.</span>';}catch(err){$('settingsMsg').innerHTML=`<span class="bad">${esc(err.message)}</span>`;}});
     ['failureText','impactText','reasonText','actionText','actDate','actTime','actionDate','actionTime','conclusion'].forEach(id=>$(id)?.addEventListener('input',validateDoc));
     ['person1','position1','person2','position2','person3','position3'].forEach(id=>$(id)?.addEventListener('input',renderDraftFinalSignatures));
@@ -560,6 +657,13 @@
     state.signers = [];
     state.selected = null;
     state.workspaceApprovers = null;
+    renderSignerSelectOptions([]);
+    [1,2,3].forEach((slot)=>{
+      const position=$(`position${slot}`);
+      const department=$(`department${slot}`);
+      if(position)position.value='';
+      if(department)department.value='';
+    });
     const analysisRows = $('analysisRows');
     const dailyRows = $('dailyRows');
     if(analysisRows) analysisRows.innerHTML = '<tr><td colspan="11">Янги Workspace маълумотлари юкланмоқда...</td></tr>';
@@ -576,6 +680,7 @@
     const loadVersion = ++workspaceLoadVersion;
     activeWorkspaceId = nextId;
     if(nextId) localStorage.setItem(WORKSPACE_ID_KEY, nextId);
+    restoreAnalysisPeriod(nextId);
     window.actsIsAdmin = isAdmin;
     // Only hide the button if we are SURE the user is NOT admin.
     // Leave it visible if isAdmin is true or unknown.
@@ -616,6 +721,6 @@
     }
   });
 
-  window.ActsUI={state,showView,showReport,openSettings,closeSettings,saveSettings,loadAnalysis,loadReports,handleWorkspace,fillDoc,saveAct,openExcel,setStatus,viewDoc,closeA4Modal,sendDoc,openSigners,closeSigners,loadSigners,addSignerRow,editSigner,saveSigner,deleteSigner};
+  window.ActsUI={state,showView,showReport,openSettings,closeSettings,saveSettings,loadAnalysis,loadReports,handleWorkspace,fillDoc,saveAct,openExcel,setStatus,viewDoc,closeA4Modal,sendDoc,deleteReport,openSigners,closeSigners,loadSigners,addSignerRow,editSigner,saveSigner,deleteSigner,refreshSignerChoices};
   document.addEventListener('DOMContentLoaded',bind);
 })();
