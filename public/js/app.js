@@ -1,6 +1,6 @@
 // SEG KIP modular frontend controller
 const MODULES = {
-  journal: 'modules/kuduk-journal.html?v=20260910-hisobot-period2',
+  journal: 'modules/hisobot-journal.html?v=20260910-period3',
   acts: 'modules/acts.html?v=20260901-email-approval-signatures-4',
   faults: 'modules/faults.html?v=20260901-responsible-signature-1',
   to: 'modules/to.html',
