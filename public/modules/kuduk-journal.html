@@ -32,7 +32,6 @@
       <div class="toolbar">
         <button class="btn orange workspace-operator-only" onclick="syncNow()">🔄 LIVE SYNC</button>
         <input id="search" class="input" placeholder="Qidirish: hudud yoki ЖУРНАЛ..." oninput="renderRoutes()">
-        <select id="routeSelect" class="select" style="max-width:300px" onchange="selectRoute(this.value)"></select>
       </div>
     </div>
     <div id="routes" class="routes"></div>
@@ -285,5 +284,6 @@ window.addEventListener('load', () => {
   try{ parent.postMessage({ type:'REQUEST_WORKSPACE_INFO' }, '*'); }catch(_){}
 });
 </script>
+<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period2"></script>
 </body>
 </html>
