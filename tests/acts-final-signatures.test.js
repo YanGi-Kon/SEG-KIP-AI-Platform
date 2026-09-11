@@ -28,7 +28,7 @@ test('upper signer information block has no electronic signature slots', () => {
 });
 
 test('Acts module cache version exposes the final signatures build', () => {
-  assert.match(moduleHtml, /acts\.js\?v=20260910-final-signatures-report-delete-signer-select-akt-only-period-1/);
+  assert.match(moduleHtml, /acts\.js\?v=20260911-nuvaa-auto-signer-1/);
 });
 
 test('document editor shows the same three-row signatures preview below conclusion', () => {
