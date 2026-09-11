@@ -29,7 +29,7 @@ function isAutomaticKipMasterSigner(signer = {}) {
 }
 
 export function selectEmailApprovalTargets(signers = []) {
-  return signers.filter((signer) => !(Number(signer?.slot) === 1 && isAutomaticKipMasterSigner(signer)));
+  return [...signers];
 }
 
 function q(name) {
@@ -239,7 +239,7 @@ async function readApprovalRows(config, actNo) {
   })).filter((row) => row.id && row.actNo === actNo);
 }
 
-async function writeApproval(config, input) {
+async function writeApproval(config, input, { resetExisting = false } = {}) {
   const existing = (await readApprovalRows(config, input.actNo)).find((row) => row.signerId === input.signerId);
   const { sheets, spreadsheetId } = await ensureApprovalSheet(config);
   const row = [
@@ -249,12 +249,12 @@ async function writeApproval(config, input) {
     input.position,
     input.fio,
     input.gmail,
-    existing?.status === 'Тасдиқланди' ? 'Тасдиқланди' : 'Кутилмоқда',
+    resetExisting ? 'Кутилмоқда' : (existing?.status === 'Тасдиқланди' ? 'Тасдиқланди' : 'Кутилмоқда'),
     input.link,
     input.tokenHash,
     input.createdAt,
-    existing?.openedAt || '',
-    existing?.approvedAt || '',
+    resetExisting ? '' : (existing?.openedAt || ''),
+    resetExisting ? '' : (existing?.approvedAt || ''),
     '',
     '',
     input.signatureFileId,
@@ -382,7 +382,7 @@ async function resolveWorkspaceDocumentTargets(workspace, actNo, synced) {
   await persistResolvedAssignedApprovers(document, metadata, resolved.signers);
   const targetSigners = selectEmailApprovalTargets(resolved.signers);
   if (!targetSigners.length) {
-    throw new Error('2- ва 3-қатор учун email орқали тасдиқловчи имзоловчилар бириктирилмаган');
+    throw new Error('Email орқали тасдиқловчи имзоловчилар бириктирилмаган');
   }
   return { document, metadata, assignedSigners: resolved.signers, targetSigners };
 }
@@ -441,19 +441,15 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resol
       tokenHash: sha256(token),
       createdAt: nowIso(),
       signatureFileId: signatureValue(signer),
-    });
-    if (approval.status === 'Тасдиқланди') {
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'already-approved', approvalLinkCreated: true });
-      continue;
-    }
+    }, { resetExisting: true });
     try {
-      await sendHttpEmail({
+      const delivery = await sendHttpEmail({
         to: signer.email,
         subject,
         text,
         html,
       });
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: provider.provider, approvalLinkCreated: true });
+      results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: provider.provider, providerMessageId: clean(delivery?.id), approvalLinkCreated: true });
     } catch (error) {
       results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', approvalLinkCreated: true, code: error.code || 'EMAIL_HTTP_FAILED', error: error.message, providerStatus: error.providerStatus || '', providerMessage: error.providerMessage || '' });
     }
@@ -462,8 +458,8 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resol
   const total = targetSigners.length;
   const sent = results.filter((item) => item.status === 'sent').length;
   const failed = results.filter((item) => item.status === 'email-failed').length;
-  const approved = results.filter((item) => item.status === 'already-approved').length;
-  const status = total > 0 && approved === total && failed === 0 && sent === 0 ? 'Тасдиқланди' : (sent > 0 || approved > 0 ? 'Кутилмоқда' : 'Email xatosi');
+  const approved = 0;
+  const status = sent > 0 ? 'Кутилмоқда' : 'Email xatosi';
   await refreshDocumentApprovalState(config, actNo, baseUrl);
   return { actNo, status, sent, failed, approved, total, results, provider: provider.provider, fromMode: provider.fromMode, warning: provider.warning || '', recommendedFix: provider.recommendedFix || '', workspaceId: workspace.id, workspaceName: workspace.name, signersSource: 'assigned_workspace_signers', signersSynced: synced.signersCount, targetedApprovers: total };
 }
@@ -502,6 +498,7 @@ export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
       actNo,
       workspaceId: workspace.id,
       workspaceName: workspace.name,
+      resetExistingApprovals: true,
       assignedApprovers: resolvedTargets.targetSigners.map((signer) => ({
         slot: signer.slot || '',
         signerId: signer.id,
