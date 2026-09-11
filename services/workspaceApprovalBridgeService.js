@@ -522,6 +522,15 @@ export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
   if (!actNo) throw new Error('Акт рақами киритилмаган');
   const resolvedTargets = await resolveWorkspaceDocumentTargets(workspace, actNo, synced);
 
+  const invalidRecipients = resolvedTargets.targetSigners.filter((signer) => !isValidEmail(signer.email));
+  if (invalidRecipients.length) {
+    throw makeWorkspaceEmailError({
+      code: 'EMAIL_INVALID_RECIPIENT',
+      error: `Tasdiqlovchi Gmail manzili noto‘g‘ri: ${invalidRecipients.map((signer) => clean(signer.fullName) || clean(signer.email) || 'tasdiqlovchi').join(', ')}`,
+      recommendedFix: 'Imzolovchilar sozlamasida har bir tasdiqlovchining Gmail manzilini name@gmail.com ko‘rinishida kiriting.',
+    });
+  }
+
   if (provider.hasHttpEmailProvider && provider.fromMode === 'missing') {
     throw makeWorkspaceEmailError({
       code: 'EMAIL_FROM_MISSING',
