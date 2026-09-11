@@ -50,7 +50,8 @@ test('faults frontend links the first column to Acts reports without local journ
   assert.doesNotMatch(scriptMatch[1], /class="row-number"/);
   assert.match(scriptMatch[1], /function loadWorkspace/);
   assert.match(scriptMatch[1], /REQUEST_WORKSPACE_INFO/);
-  assert.doesNotMatch(scriptMatch[1], /ROWS_KEY|CONFIG_KEY|openModal|saveForm|removeRow|SAVE_MODULE_SETTINGS|localStorage\.setItem/);
+  assert.doesNotMatch(scriptMatch[1], /ROWS_KEY|CONFIG_KEY|openModal|saveForm|removeRow|SAVE_MODULE_SETTINGS/);
+  assert.match(scriptMatch[1], /PERIOD_STORAGE_PREFIX='seg_faults_period_v1'/);
 });
 
 test('faults frontend inserts all 22 editable rows when the page loads', () => {
