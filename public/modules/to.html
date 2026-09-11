@@ -85,6 +85,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   const WORKSPACE_TOKEN_KEY='seg_kip_workspace_access_token';
   const ADMIN_TOKEN_KEY='seg_kip_admin_jwt';
   const MODULE_SHEET_KEY='to_sheet_name';
+  const PERIOD_STORAGE_PREFIX='seg_to_period_v1';
   const DEFAULT_KIP_MASTER='Фазилов И. Б.';
   const DEFAULT_PERIOD_YEAR=2026;
   const DEFAULT_PERIOD_MONTH=6;
@@ -105,6 +106,46 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   function selectedWorkspaceId(){return localStorage.getItem(WORKSPACE_ID_KEY)||parentStorage('localStorage',WORKSPACE_ID_KEY)||''}
   function sessionValue(key){try{return sessionStorage.getItem(key)||parentStorage('sessionStorage',key)||''}catch(_){return parentStorage('sessionStorage',key)}}
   function token(){return sessionValue(WORKSPACE_TOKEN_KEY)||sessionValue(ADMIN_TOKEN_KEY)}
+
+  function periodStorageKey(workspaceId=state.workspaceId||selectedWorkspaceId()){
+    const id=clean(workspaceId);
+    return id?`${PERIOD_STORAGE_PREFIX}:${id}`:'';
+  }
+  function readSavedPeriod(workspaceId=state.workspaceId||selectedWorkspaceId()){
+    const key=periodStorageKey(workspaceId); if(!key)return null;
+    let raw='';
+    try{raw=localStorage.getItem(key)||parentStorage('localStorage',key)||''}catch(_){raw=parentStorage('localStorage',key)||''}
+    if(!raw)return null;
+    try{
+      const saved=JSON.parse(raw);
+      const year=Number(saved?.year),month=Number(saved?.month);
+      if(!Number.isInteger(year)||year<2000||year>2100)return null;
+      if(!Number.isInteger(month)||month<1||month>12)return null;
+      return{year,month};
+    }catch(_){return null}
+  }
+  function saveSelectedPeriod(workspaceId=state.workspaceId){
+    const key=periodStorageKey(workspaceId);
+    const year=Number(state.periodYear),month=Number(state.periodMonth);
+    if(!key||!Number.isInteger(year)||!Number.isInteger(month)||month<1||month>12)return;
+    const value=JSON.stringify({year,month});
+    try{localStorage.setItem(key,value)}catch(_){}
+    try{if(parent&&parent!==window)parent.localStorage?.setItem(key,value)}catch(_){}
+  }
+  function ensurePeriodYearOption(year){
+    const select=$('toPeriodYear'); if(!select)return;
+    if(Array.from(select.options).some(option=>Number(option.value)===Number(year)))return;
+    const option=document.createElement('option'); option.value=String(year); option.textContent=String(year); select.appendChild(option);
+  }
+  function restoreSavedPeriod(workspaceId=state.workspaceId){
+    const saved=readSavedPeriod(workspaceId); if(!saved)return false;
+    state.periodYear=saved.year; state.periodMonth=saved.month;
+    ensurePeriodYearOption(state.periodYear);
+    if($('toPeriodYear'))$('toPeriodYear').value=String(state.periodYear);
+    if($('toPeriodMonth'))$('toPeriodMonth').value=String(state.periodMonth);
+    previewSelectedPeriodDate();
+    return true;
+  }
 
   function setSourceStatus(text,kind=''){
     const el=$('toSourceStatus'); if(!el)return;
@@ -283,8 +324,10 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     }
     state.periodYear=Number(state.period.year)||state.periodYear;
     state.periodMonth=Number(state.period.month)||state.periodMonth;
+    ensurePeriodYearOption(state.periodYear);
     if($('toPeriodYear'))$('toPeriodYear').value=String(state.periodYear);
     if($('toPeriodMonth'))$('toPeriodMonth').value=String(state.periodMonth);
+    saveSelectedPeriod();
     const date=$('toDocumentDateText'); if(date)date.textContent=formatDocumentDate(state.period.documentDate,state.periodYear,state.periodMonth);
     const conclusion=$('toConclusion'); if(conclusion)conclusion.textContent=state.period.conclusion||'Заключение: оборудование исправно и пригодно к эксплуатации';
     renderPeriodItems(state.periodItems);
@@ -393,8 +436,10 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if($('toPeriodYear')&&!Array.from($('toPeriodYear').options).some(o=>Number(o.value)===state.periodYear)){
       const option=document.createElement('option'); option.value=String(state.periodYear); option.textContent=String(state.periodYear); $('toPeriodYear').appendChild(option);
     }
+    ensurePeriodYearOption(state.periodYear);
     if($('toPeriodYear'))$('toPeriodYear').value=String(state.periodYear);
     if($('toPeriodMonth'))$('toPeriodMonth').value=String(state.periodMonth);
+    saveSelectedPeriod();
     await openSelectedPeriod();
   }
 
@@ -498,6 +543,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     state.workspaceName=String(workspace?.name||'').trim();
     state.isAdmin=Boolean(isAdmin);
     state.sheetName=String(workspace?.moduleSettings?.[MODULE_SHEET_KEY]??'');
+    restoreSavedPeriod(id);
     const name=$('toWorkspaceName'); if(name)name.textContent=state.workspaceName||'—';
     setSourceStatus(state.sheetName?`ASOSIY VAROQ: ${state.sheetName}`:'ASOSIY VAROQ: sozlanmagan');
     updatePeriodButtons();
@@ -554,8 +600,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   }
 
   function wirePeriodUi(){
-    $('toPeriodMonth')?.addEventListener('change',()=>{readPeriodSelectors();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync')});
-    $('toPeriodYear')?.addEventListener('change',()=>{readPeriodSelectors();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync')});
+    $('toPeriodMonth')?.addEventListener('change',()=>{readPeriodSelectors();saveSelectedPeriod();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync')});
+    $('toPeriodYear')?.addEventListener('change',()=>{readPeriodSelectors();saveSelectedPeriod();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync')});
     $('toOpenPeriodBtn')?.addEventListener('click',()=>void openSelectedPeriod());
     $('toCreatePeriodBtn')?.addEventListener('click',()=>void createSelectedPeriod());
     $('toPrevPeriodBtn')?.addEventListener('click',()=>void navigatePeriod(-1));
@@ -574,16 +620,22 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
       void loadData(state.workspaceId);
       void loadKipMasterSigner(state.workspaceId);
       void loadPeriodIndex(state.workspaceId).then(periods=>{
+        const restored=restoreSavedPeriod(state.workspaceId);
         const latest=periods[0];
-        if(latest){
+        if(restored){
+          void openSelectedPeriod().then(()=>window.ToPeriodSheetBridge?.sync?.());
+        }else if(latest){
           state.periodYear=Number(latest.year)||state.periodYear;
           state.periodMonth=Number(latest.month)||state.periodMonth;
+          ensurePeriodYearOption(state.periodYear);
           if($('toPeriodYear'))$('toPeriodYear').value=String(state.periodYear);
           if($('toPeriodMonth'))$('toPeriodMonth').value=String(state.periodMonth);
-          void openSelectedPeriod();
+          saveSelectedPeriod();
+          void openSelectedPeriod().then(()=>window.ToPeriodSheetBridge?.sync?.());
         }else{
           resetPeriodView();
           setPeriodStatus(`${selectedPeriodLabel()} · davr yaratilmagan`,'sync');
+          window.ToPeriodSheetBridge?.sync?.();
         }
       });
     }
