@@ -73,8 +73,21 @@ function signToken(payload) {
   });
 }
 
+function extractSignatureFileId(value) {
+  const raw = clean(value);
+  if (!raw) return '';
+  if (/^db:[0-9a-f-]{36}$/i.test(raw)) return raw;
+  const internalId = raw.match(/\/signers\/signature\/([0-9a-f-]{36})/i)?.[1];
+  if (internalId) return `db:${internalId}`;
+  return raw.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]
+    || raw.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1]
+    || raw.match(/^[a-zA-Z0-9_-]{20,}$/)?.[0]
+    || '';
+}
+
 function createSignatureImageToken(fileId) {
-  return jwt.sign({ type: 'signature-image', fileId: clean(fileId) }, approvalSecret(), {
+  const normalized = extractSignatureFileId(fileId) || clean(fileId);
+  return jwt.sign({ type: 'signature-image', fileId: normalized }, approvalSecret(), {
     expiresIn: process.env.SIGNATURE_IMAGE_TOKEN_TTL || '365d',
     issuer: 'SEG-KIP-AI',
     audience: 'signature-image',
@@ -405,7 +418,7 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
       link,
       tokenHash: sha256(token),
       createdAt: new Date().toISOString(),
-      signatureFileId: signer.signatureFileId || signer.signatureUrl || '',
+      signatureFileId: extractSignatureFileId(signer.signatureFileId || signer.signatureUrl) || signer.signatureFileId || signer.signatureUrl || '',
     }, { resetExisting: true });
     const mail = buildApprovalEmail({ workspace, label, signer, link, token });
     try {
