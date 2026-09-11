@@ -10,6 +10,7 @@ import {
 import { selectEmailApprovalTargets } from '../services/workspaceApprovalBridgeService.js';
 
 const metadata = {
+  approvalPolicy: 'all-assigned-v2',
   assignedApprovers: [
     { slot: 1, signerId: 'kip-1', fio: 'Fozilov O', position: 'КИП Мастер', gmail: 'kip@example.com', signatureFileId: 'db:11111111-1111-4111-8111-111111111111' },
     { slot: 2, signerId: 'signer-2', fio: 'Imzolovchi Ikki', position: 'Sex boshlig‘i', gmail: 'two@example.com', signatureFileId: 'db:22222222-2222-4222-8222-222222222222' },
@@ -113,4 +114,27 @@ test('final signatures mavjud bo‘lsa eski yuqori imzolar olib tashlanadi', () 
   assert.ok(firstImage > finalStart);
   assert.equal((result.html.match(/data-approved-signature-slot="1"/g) || []).length, 0);
   assert.equal((result.html.match(/data-approved-signature-slot="2"/g) || []).length, 1);
+});
+
+
+test('legacy hujjatlar yangi 3-of-3 siyosatiga retroaktiv o‘tmaydi', () => {
+  const legacyMetadata = {
+    assignedApprovers: metadata.assignedApprovers,
+  };
+  const summary = summarizeRequiredApprovals(approvals, legacyMetadata);
+  const source = `<div class="a4-preview">${slotCell(1)}${slotCell(2)}${slotCell(3)}</div>`;
+  const result = injectApprovalSignaturesIntoSlots(
+    source,
+    approvals,
+    legacyMetadata,
+    '',
+    (fileId) => `/signature/${encodeURIComponent(fileId)}`,
+  );
+
+  assert.equal(summary.total, 2);
+  assert.equal(summary.approved, 1);
+  assert.equal(summary.status, 'Қисман тасдиқланди');
+  assert.match(result.html, /data-approved-signature-slot="1"/);
+  assert.match(result.html, /data-approved-signature-slot="2"/);
+  assert.doesNotMatch(result.html, /data-approved-signature-slot="3"/);
 });
