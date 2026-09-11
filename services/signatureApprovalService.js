@@ -815,6 +815,9 @@ export async function sendDocumentForApproval(configInput, input, req) {
       results.push({ signer: signer.fio, gmail: signer.gmail, status: 'sent' });
       await appendAudit(config, { action: 'DOCUMENT_SENT', actor: clean(input.sentBy) || 'Administrator', actNo, signerId: signer.id, gmail: signer.gmail, ip: req.ip, userAgent: req.get('user-agent'), details: link });
     } catch (error) {
+      if (input.resetExistingApprovals && existingApproval) {
+        await upsertApproval(config, existingApproval, { resetExisting: false }).catch(() => {});
+      }
       results.push({ signer: signer.fio, gmail: signer.gmail, status: 'email-failed', error: error.message });
       await appendAudit(config, { action: 'EMAIL_FAILED', actor: clean(input.sentBy) || 'Administrator', actNo, signerId: signer.id, gmail: signer.gmail, ip: req.ip, userAgent: req.get('user-agent'), details: error.message });
     }
