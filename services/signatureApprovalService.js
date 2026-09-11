@@ -589,6 +589,10 @@ function approvalStatus(total, approved) {
   return 'Кутилмоқда';
 }
 
+function requiresAllAssignedApprovals(metadata = {}) {
+  return clean(metadata?.approvalPolicy) === 'all-assigned-v2';
+}
+
 export function summarizeRequiredApprovals(approvals = [], metadata = {}) {
   const hasExplicitAssignments = Array.isArray(metadata?.assignedApprovers) && metadata.assignedApprovers.length > 0;
   if (!hasExplicitAssignments) {
@@ -596,7 +600,10 @@ export function summarizeRequiredApprovals(approvals = [], metadata = {}) {
     return { approvals: [...approvals], total: approvals.length, approved, status: approvalStatus(approvals.length, approved) };
   }
 
-  const requiredAssignments = assignedSignerSlots(metadata);
+  const assignments = assignedSignerSlots(metadata);
+  const requiredAssignments = requiresAllAssignedApprovals(metadata)
+    ? assignments
+    : assignments.filter((assignment) => Number(assignment.slot) === 2 || Number(assignment.slot) === 3);
   const requiredApprovals = requiredAssignments
     .map((assignment) => approvals.find((approval) => approvalSlot(approval, metadata) === Number(assignment.slot)) || null)
     .filter(Boolean);
@@ -688,7 +695,7 @@ export function injectApprovalSignaturesIntoSlots(html, approvals = [], metadata
     const assignment = assignments.find((row) => Number(row.slot) === slot) || {};
     const approval = approvals.find((row) => approvalSlot(row, metadata) === slot) || null;
     const approved = clean(approval?.status) === 'Тасдиқланди';
-    const visible = approved;
+    const visible = approved || (!requiresAllAssignedApprovals(metadata) && slot === 1 && isKipMasterAssignment(assignment));
     const rawFileId = clean(approval?.signatureFileId || assignment.signatureFileId);
     const fileId = extractSignatureFileId(rawFileId) || rawFileId;
     const image = visible && fileId
