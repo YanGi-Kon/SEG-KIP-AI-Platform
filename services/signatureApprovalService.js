@@ -449,7 +449,7 @@ function transportConfig() {
   };
 }
 
-async function upsertApproval(config, approval) {
+async function upsertApproval(config, approval, { resetExisting = false } = {}) {
   const existing = (await listApprovals(config, approval.actNo)).find((a) => a.signerId === approval.signerId);
   const { sheets, spreadsheetId } = await ensureTable(config, APPROVALS_SHEET, APPROVAL_HEADERS);
   const row = [
@@ -460,9 +460,9 @@ async function upsertApproval(config, approval) {
   if (existing) {
     approval.id = existing.id;
     row[0] = existing.id;
-    row[10] = existing.openedAt || approval.openedAt || '';
-    row[11] = existing.approvedAt || approval.approvedAt || '';
-    if (existing.status === 'Тасдиқланди') row[6] = existing.status;
+    row[10] = resetExisting ? '' : (existing.openedAt || approval.openedAt || '');
+    row[11] = resetExisting ? '' : (existing.approvedAt || approval.approvedAt || '');
+    if (!resetExisting && existing.status === 'Тасдиқланди') row[6] = existing.status;
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${q(APPROVALS_SHEET)}!A${existing.rowNumber}:O${existing.rowNumber}`,
@@ -793,8 +793,8 @@ export async function sendDocumentForApproval(configInput, input, req) {
       tokenHash: sha256(token),
       createdAt: nowIso(),
       signatureFileId: extractSignatureFileId(signer.signatureUrl),
-    });
-    if (approval.status === 'Тасдиқланди') {
+    }, { resetExisting: Boolean(input.resetExistingApprovals) });
+    if (!input.resetExistingApprovals && approval.status === 'Тасдиқланди') {
       results.push({ signer: signer.fio, gmail: signer.gmail, status: 'already-approved' });
       continue;
     }
