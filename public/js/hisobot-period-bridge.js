@@ -6,6 +6,7 @@
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const API_PATH = '/api/hisobot-period/select';
+  const PERIOD_STORAGE_PREFIX = 'seg_hisobot_period_v1';
 
   let canonicalSheets = null;
   let canonicalRoutes = null;
@@ -55,6 +56,50 @@
     } catch (_) {
       return clean(parentStorage('sessionStorage', WORKSPACE_TOKEN_KEY) || parentStorage('sessionStorage', ADMIN_TOKEN_KEY));
     }
+  }
+
+  function periodStorageKey(workspaceId = workspaceIdValue()) {
+    const wid = clean(workspaceId);
+    return wid ? `${PERIOD_STORAGE_PREFIX}:${wid}` : '';
+  }
+
+  function readSavedPeriod(workspaceId = workspaceIdValue()) {
+    const key = periodStorageKey(workspaceId);
+    if (!key) return null;
+    let raw = '';
+    try { raw = localStorage.getItem(key) || parentStorage('localStorage', key); } catch (_) { raw = parentStorage('localStorage', key); }
+    if (!raw) return null;
+    try {
+      const saved = JSON.parse(raw);
+      const year = Number(saved?.year);
+      const month = Number(saved?.month);
+      if (!Number.isInteger(year) || year < 2000 || year > 2100) return null;
+      if (!Number.isInteger(month) || month < 1 || month > 12) return null;
+      return { year, month };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeSavedPeriod(year = periodYear, month = periodMonth, workspaceId = workspaceIdValue()) {
+    const key = periodStorageKey(workspaceId);
+    const safeYear = Number(year);
+    const safeMonth = Number(month);
+    if (!key || !Number.isInteger(safeYear) || !Number.isInteger(safeMonth) || safeMonth < 1 || safeMonth > 12) return;
+    const value = JSON.stringify({ year: safeYear, month: safeMonth });
+    try { localStorage.setItem(key, value); } catch (_) {}
+    try {
+      if (parent && parent !== window) parent.localStorage?.setItem(key, value);
+    } catch (_) {}
+  }
+
+  function restoreSavedPeriod(workspaceId = workspaceIdValue()) {
+    const saved = readSavedPeriod(workspaceId);
+    if (!saved) return false;
+    periodYear = saved.year;
+    periodMonth = saved.month;
+    updateControls();
+    return true;
   }
 
   function isMasterRouteLocal(route) {
@@ -183,6 +228,7 @@
     periodYear = Number(data?.selector?.year || periodYear);
     periodMonth = Number(data?.selector?.month || periodMonth);
     updateControls();
+    writeSavedPeriod(periodYear, periodMonth);
 
     const baseRows = Array.isArray(data?.rows) ? data.rows : [];
     const routes = Array.isArray(canonicalRoutes) ? canonicalRoutes : [];
@@ -311,7 +357,8 @@
       const wrapped = async function(...args) {
         const result = await originalFetchState(...args);
         captureCanonical(true);
-        await requestPeriod({ fromSheet: true });
+        const restored = restoreSavedPeriod();
+        await requestPeriod({ fromSheet: !restored });
         return result;
       };
       wrapped.__hisobotPeriodWrapped = true;
@@ -338,7 +385,9 @@
         periodBaseSheet = '';
         requestVersion += 1;
         busy = false;
-        return originalActivateWorkspace(...args);
+        const result = await originalActivateWorkspace(...args);
+        restoreSavedPeriod();
+        return result;
       };
       wrapped.__hisobotPeriodWrapped = true;
       activateWorkspace = wrapped;
@@ -397,7 +446,8 @@
     window.setTimeout(() => {
       if (typeof state !== 'undefined' && state?.connected && !state.__hisobotPeriodApplied) {
         captureCanonical(true);
-        void requestPeriod({ fromSheet: true });
+        const restored = restoreSavedPeriod();
+        void requestPeriod({ fromSheet: !restored });
       }
     }, 700);
   }
