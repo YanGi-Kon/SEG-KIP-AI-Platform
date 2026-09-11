@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { ensureSheet, extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
 import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
-import { refreshDocumentApprovalState, sendDocumentForApproval } from './signatureApprovalService.js';
+import { appendAudit, refreshDocumentApprovalState, sendDocumentForApproval } from './signatureApprovalService.js';
 import { verifySafeEmailTransport } from './emailDiagnosticsService.js';
 import { getHttpEmailSummary, hasHttpEmailProvider, sendHttpEmail } from './httpEmailService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
@@ -389,6 +389,11 @@ async function resolveWorkspaceDocumentTargets(workspace, actNo, synced) {
   if (!resolved.requested.length || !resolved.signers.length) {
     throw new Error('Hujjatga approver biriktirilmagan');
   }
+  if (resolved.signers.length !== resolved.requested.length) {
+    const unresolved = resolved.requested.filter((item) => !resolved.signers.some((signer) => Number(signer.slot) === Number(item.slot)));
+    const details = unresolved.map((item) => `#${item.slot} ${clean(item.fio) || clean(item.gmail) || clean(item.position) || 'tasdiqlovchi'}`).join(', ');
+    throw new Error(`Hujjatdagi barcha tasdiqlovchilar topilmadi: ${details || `${resolved.signers.length}/${resolved.requested.length}`}`);
+  }
   await persistResolvedAssignedApprovers(document, metadata, resolved.signers);
   const targetSigners = selectEmailApprovalTargets(resolved.signers);
   if (!targetSigners.length) {
@@ -459,12 +464,33 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resol
         text,
         html,
       });
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: provider.provider, providerMessageId: clean(delivery?.id), approvalLinkCreated: true });
+      const providerMessageId = clean(delivery?.id);
+      results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: provider.provider, providerMessageId, approvalLinkCreated: true });
+      await appendAudit(config, {
+        action: 'DOCUMENT_SENT',
+        actor: clean(input.sentBy) || 'KIP Administrator',
+        actNo,
+        signerId: signer.id,
+        gmail: signer.email,
+        ip: req.ip,
+        userAgent: req.get?.('user-agent') || '',
+        details: `provider=${provider.provider}; messageId=${providerMessageId || '-'}`,
+      }).catch(() => {});
     } catch (error) {
       if (existing) {
         await writeApproval(config, existing, { resetExisting: false }).catch(() => {});
       }
       results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', approvalLinkCreated: true, code: error.code || 'EMAIL_HTTP_FAILED', error: error.message, providerStatus: error.providerStatus || '', providerMessage: error.providerMessage || '' });
+      await appendAudit(config, {
+        action: 'EMAIL_FAILED',
+        actor: clean(input.sentBy) || 'KIP Administrator',
+        actNo,
+        signerId: signer.id,
+        gmail: signer.email,
+        ip: req.ip,
+        userAgent: req.get?.('user-agent') || '',
+        details: `${error.code || 'EMAIL_HTTP_FAILED'}: ${error.message}`,
+      }).catch(() => {});
     }
   }
 
