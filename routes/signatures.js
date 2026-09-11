@@ -6,6 +6,7 @@ import {
   createSigner,
   deleteSigner,
   getAudit,
+  getApprovalStatus,
   listSigners,
   openApproval,
   parseConfigHeader,
@@ -36,6 +37,7 @@ export function isPublicSignatureRequest(method, path) {
   if (normalizedMethod === 'POST' && normalizedPath === '/auth/login') return true;
   if (normalizedMethod === 'POST' && normalizedPath === '/document/approve') return true;
   if (normalizedMethod === 'GET' && /^\/document\/approve\/[^/]+$/.test(normalizedPath)) return true;
+  if (normalizedMethod === 'GET' && /^\/document\/approve\/status\/[^/]+$/.test(normalizedPath)) return true;
   if (normalizedMethod === 'GET' && /^\/signature\/render\/[^/]+$/.test(normalizedPath)) return true;
   return false;
 }
@@ -207,6 +209,17 @@ router.post('/document/send', requireAdmin, async (req, res) => {
     res.json({ ok: true, ...result });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+
+router.get('/document/approve/status/:token', async (req, res) => {
+  try {
+    const status = await getApprovalStatus(req.params.token);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, ...status });
+  } catch (error) {
+    res.status(403).json({ ok: false, error: error.message });
   }
 });
 
