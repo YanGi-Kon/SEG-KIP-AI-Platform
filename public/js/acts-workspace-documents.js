@@ -79,9 +79,25 @@
     const anchor=host.querySelector('.subtabs')||host.querySelector('.tablewrap')||host.firstChild;
     host.insertBefore(box,anchor?.nextSibling||anchor||null);
   }
+  function showEmailDeliveryTrace(result){
+    clearEmailDiagnostics();
+    const rows=(result?.results||[]).filter(item=>item.status==='sent');
+    if(!rows.length)return;
+    const box=document.createElement('div');
+    box.id='actsEmailDiagnostics';
+    box.className='email-diagnostic-card ok';
+    const detail=rows.map(item=>'<div class="email-diagnostic-row"><b>'+esc(item.signer||'-')+':</b> '+esc(item.gmail||'-')+(item.providerMessageId?' · ID '+esc(item.providerMessageId):'')+'</div>').join('');
+    const warning=result?.warning?'<div class="email-diagnostic-fix"><b>Provider eslatmasi:</b> '+esc(result.warning)+'</div>':'';
+    box.innerHTML='<div class="email-diagnostic-title">Email provider qabul qildi: '+esc(rows.length)+' / '+esc(result?.total||rows.length)+'</div>'+detail+warning+'<div class="email-diagnostic-row">Bu holat provider so‘rovni qabul qilganini bildiradi; Gmail inboxga yetib borishi provider va spam filtrlarga bog‘liq.</div>';
+    const host=document.getElementById('reports');
+    if(!host)return;
+    const anchor=host.querySelector('.subtabs')||host.querySelector('.tablewrap')||host.firstChild;
+    host.insertBefore(box,anchor?.nextSibling||anchor||null);
+  }
   function statusClass(value){
     const v=String(value||'').toLowerCase();
     if(v.includes('email')||v.includes('юборилмади'))return 'status-error';
+    if(v.includes('қисман')||v.includes('qisman')||v.includes('кутил')||v.includes('kutil'))return 'status-pending';
     if(v.includes('тасдиқ')||v.includes('tasdiq'))return 'status-approved';
     return 'status-pending';
   }
@@ -121,7 +137,9 @@
         return;
       }
       if(failed>0)showEmailDiagnostics(result);
-      setStatus(no+': '+sent+' ta Gmail yuborildi'+(failed?', '+failed+' ta xatolik':'')+synced+'. Ҳолат: '+(result.status||'Кутилмоқда'),failed?'sync':'ok');
+      else showEmailDeliveryTrace(result);
+      const total=Number.isFinite(Number(result.total))?Number(result.total):results.length;
+      setStatus(no+': '+sent+'/'+total+' ta email provider tomonidan qabul qilindi'+(failed?', '+failed+' ta xatolik':'')+synced+'. Ҳолат: '+(result.status||'Кутилмоқда'),failed?'sync':'ok');
       await window.ActsUI?.loadReports?.();
       setTimeout(decorateReportStatuses,80);
     }catch(e){
@@ -159,6 +177,7 @@
     window.ActsUI.sendDoc=sendDoc;
     window.ActsUI.openExcel=exportReportsExcel;
     window.ActsUI.showEmailDiagnostics=showEmailDiagnostics;
+    window.ActsUI.showEmailDeliveryTrace=showEmailDeliveryTrace;
     window.ActsUI.__workspaceDocumentsPatched=true;
     setTimeout(decorateReportStatuses,100);
     return true;
