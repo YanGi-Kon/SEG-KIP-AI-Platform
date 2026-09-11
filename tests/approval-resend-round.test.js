@@ -37,3 +37,13 @@ test('HTTP email provider natijasi audit logga message ID bilan yoziladi', () =>
   assert.match(bridge, /messageId=/);
   assert.match(bridge, /action: 'EMAIL_FAILED'/);
 });
+
+
+test('Resend test sender bir nechta Gmail uchun approval holatini reset qilishdan oldin to‘xtaydi', () => {
+  assert.match(bridge, /provider\.fromMode === 'resend-test-sender'/);
+  assert.match(bridge, /uniqueRecipients\.size > 1/);
+  assert.match(bridge, /EMAIL_PROVIDER_RECIPIENT_NOT_ALLOWED/);
+  const preflightIndex = bridge.indexOf("provider.fromMode === 'resend-test-sender'");
+  const sendIndex = bridge.indexOf('return sendWorkspaceDocumentViaHttp');
+  assert.ok(preflightIndex >= 0 && sendIndex > preflightIndex);
+});
