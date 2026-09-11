@@ -449,7 +449,7 @@ function transportConfig() {
   };
 }
 
-async function upsertApproval(config, approval) {
+async function upsertApproval(config, approval, { resetExisting = false } = {}) {
   const existing = (await listApprovals(config, approval.actNo)).find((a) => a.signerId === approval.signerId);
   const { sheets, spreadsheetId } = await ensureTable(config, APPROVALS_SHEET, APPROVAL_HEADERS);
   const row = [
@@ -460,9 +460,9 @@ async function upsertApproval(config, approval) {
   if (existing) {
     approval.id = existing.id;
     row[0] = existing.id;
-    row[10] = existing.openedAt || approval.openedAt || '';
-    row[11] = existing.approvedAt || approval.approvedAt || '';
-    if (existing.status === 'Тасдиқланди') row[6] = existing.status;
+    row[10] = resetExisting ? '' : (existing.openedAt || approval.openedAt || '');
+    row[11] = resetExisting ? '' : (existing.approvedAt || approval.approvedAt || '');
+    if (!resetExisting && existing.status === 'Тасдиқланди') row[6] = existing.status;
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${q(APPROVALS_SHEET)}!A${existing.rowNumber}:O${existing.rowNumber}`,
@@ -589,6 +589,10 @@ function approvalStatus(total, approved) {
   return 'Кутилмоқда';
 }
 
+function requiresAllAssignedApprovals(metadata = {}) {
+  return clean(metadata?.approvalPolicy) === 'all-assigned-v2';
+}
+
 export function summarizeRequiredApprovals(approvals = [], metadata = {}) {
   const hasExplicitAssignments = Array.isArray(metadata?.assignedApprovers) && metadata.assignedApprovers.length > 0;
   if (!hasExplicitAssignments) {
@@ -596,8 +600,10 @@ export function summarizeRequiredApprovals(approvals = [], metadata = {}) {
     return { approvals: [...approvals], total: approvals.length, approved, status: approvalStatus(approvals.length, approved) };
   }
 
-  const requiredAssignments = assignedSignerSlots(metadata)
-    .filter((assignment) => Number(assignment.slot) === 2 || Number(assignment.slot) === 3);
+  const assignments = assignedSignerSlots(metadata);
+  const requiredAssignments = requiresAllAssignedApprovals(metadata)
+    ? assignments
+    : assignments.filter((assignment) => Number(assignment.slot) === 2 || Number(assignment.slot) === 3);
   const requiredApprovals = requiredAssignments
     .map((assignment) => approvals.find((approval) => approvalSlot(approval, metadata) === Number(assignment.slot)) || null)
     .filter(Boolean);
@@ -689,7 +695,7 @@ export function injectApprovalSignaturesIntoSlots(html, approvals = [], metadata
     const assignment = assignments.find((row) => Number(row.slot) === slot) || {};
     const approval = approvals.find((row) => approvalSlot(row, metadata) === slot) || null;
     const approved = clean(approval?.status) === 'Тасдиқланди';
-    const visible = (slot === 1 && isKipMasterAssignment(assignment)) || ((slot === 2 || slot === 3) && approved);
+    const visible = approved || (!requiresAllAssignedApprovals(metadata) && slot === 1 && isKipMasterAssignment(assignment));
     const rawFileId = clean(approval?.signatureFileId || assignment.signatureFileId);
     const fileId = extractSignatureFileId(rawFileId) || rawFileId;
     const image = visible && fileId
@@ -793,8 +799,8 @@ export async function sendDocumentForApproval(configInput, input, req) {
       tokenHash: sha256(token),
       createdAt: nowIso(),
       signatureFileId: extractSignatureFileId(signer.signatureUrl),
-    });
-    if (approval.status === 'Тасдиқланди') {
+    }, { resetExisting: Boolean(input.resetExistingApprovals) });
+    if (!input.resetExistingApprovals && approval.status === 'Тасдиқланди') {
       results.push({ signer: signer.fio, gmail: signer.gmail, status: 'already-approved' });
       continue;
     }
