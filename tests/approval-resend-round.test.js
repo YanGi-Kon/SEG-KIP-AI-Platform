@@ -30,3 +30,15 @@ test('email provider resend muvaffaqiyatsiz bo‘lsa avvalgi tasdiq holati qayta
   assert.match(bridge, /if \(existing\) \{\s*await writeApproval\(config, existing, \{ resetExisting: false \}\)\.catch/);
   assert.match(approval, /if \(input\.resetExistingApprovals && existingApproval\) \{\s*await upsertApproval\(config, existingApproval, \{ resetExisting: false \}\)\.catch/);
 });
+
+
+test('biriktirilgan tasdiqlovchilardan bittasi topilmasa qisman yuborish boshlanmaydi', () => {
+  assert.match(bridge, /resolved\.signers\.length !== resolved\.requested\.length/);
+  assert.match(bridge, /Hujjatdagi barcha tasdiqlovchilar topilmadi/);
+});
+
+test('HTTP email provider natijasi audit logga message ID bilan yoziladi', () => {
+  assert.match(bridge, /action: 'DOCUMENT_SENT'/);
+  assert.match(bridge, /messageId=/);
+  assert.match(bridge, /action: 'EMAIL_FAILED'/);
+});
