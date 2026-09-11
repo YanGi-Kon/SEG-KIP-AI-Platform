@@ -64,3 +64,14 @@ test('HISOBOT bridge keeps period rows editable through their real Base row numb
   assert.match(bridgeSource, /currentSheet = periodBaseSheet/);
   assert.match(bridgeSource, /rawFetchState/);
 });
+
+
+test('HISOBOT selected month/year persists per Workspace and is restored after leaving the menu', () => {
+  assert.match(bridgeSource, /PERIOD_STORAGE_PREFIX = 'seg_hisobot_period_v1'/);
+  assert.match(bridgeSource, /function periodStorageKey/);
+  assert.match(bridgeSource, /function writeSavedPeriod/);
+  assert.match(bridgeSource, /function restoreSavedPeriod/);
+  assert.match(bridgeSource, /writeSavedPeriod\(periodYear, periodMonth\)/);
+  assert.match(bridgeSource, /const restored = restoreSavedPeriod\(\)/);
+  assert.match(bridgeSource, /requestPeriod\(\{ fromSheet: !restored \}\)/);
+});
