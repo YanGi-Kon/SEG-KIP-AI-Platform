@@ -47,3 +47,12 @@ test('Resend test sender bir nechta Gmail uchun approval holatini reset qilishda
   const sendIndex = bridge.indexOf('return sendWorkspaceDocumentViaHttp');
   assert.ok(preflightIndex >= 0 && sendIndex > preflightIndex);
 });
+
+
+test('yangi approval raundi boshlanishidan oldin barcha Gmail manzillari validatsiya qilinadi', () => {
+  assert.match(bridge, /const invalidRecipients = resolvedTargets\.targetSigners\.filter/);
+  assert.match(bridge, /EMAIL_INVALID_RECIPIENT/);
+  const validationIndex = bridge.indexOf('const invalidRecipients = resolvedTargets.targetSigners.filter');
+  const policyPersistIndex = bridge.indexOf('const nextMetadata = await persistResolvedAssignedApprovers');
+  assert.ok(validationIndex >= 0 && policyPersistIndex > validationIndex);
+});
