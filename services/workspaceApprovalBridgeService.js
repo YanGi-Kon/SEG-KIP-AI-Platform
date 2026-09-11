@@ -22,11 +22,6 @@ function normalizeText(value) {
   return clean(value).toLowerCase().replace(/\s+/g, ' ');
 }
 
-function isAutomaticKipMasterSigner(signer = {}) {
-  const text = normalizeText(`${signer.position || ''} ${signer.fullName || signer.fio || ''}`);
-  return (text.includes('кип') && (text.includes('мастер') || text.includes('инженер')))
-    || (text.includes('kip') && (text.includes('master') || text.includes('engineer')));
-}
 
 export function selectEmailApprovalTargets(signers = []) {
   return [...signers];
