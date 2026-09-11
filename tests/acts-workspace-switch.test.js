@@ -87,7 +87,7 @@ test('viewDoc registry va himoyalangan PNG yuklangandan keyin A4 ni ko‘rsatish
           json: async () => ({ rows: [{
             id: 'signer-1',
             fullName: 'Ali Valiyev',
-            position: 'КИП Мастер',
+            position: 'НУВваА устаси',
             status: 'active',
             signatureFileId: `db:${signatureId}`,
             signatureUrl: 'https://drive.google.com/file/d/not-an-image/view',
@@ -104,7 +104,7 @@ test('viewDoc registry va himoyalangan PNG yuklangandan keyin A4 ni ko‘rsatish
     sessionStorage,
     setTimeout,
     URL: {
-      createObjectURL: () => 'blob:kip-master-signature',
+      createObjectURL: () => 'blob:nuvaa-auto-signature',
       revokeObjectURL() {},
     },
     window: { addEventListener() {}, parent },
@@ -115,7 +115,7 @@ test('viewDoc registry va himoyalangan PNG yuklangandan keyin A4 ni ko‘rsatish
     a4Json: JSON.stringify({
       actNo: '444',
       person1: 'Ali Valiyev',
-      position1: 'КИП Мастер',
+      position1: 'НУВваА устаси',
       department1: 'Цех №1',
     }),
   }];
@@ -126,9 +126,9 @@ test('viewDoc registry va himoyalangan PNG yuklangandan keyin A4 ni ko‘rsatish
   assert.ok(requests.every(({ authorization }) => authorization === 'Bearer workspace-token'));
   assert.match(requests[1].url, new RegExp(`/signers/signature/${signatureId}$`));
   const a4Html = element('actsA4Content').innerHTML;
-  assert.match(a4Html, /src="blob:kip-master-signature"/);
+  assert.match(a4Html, /src="blob:nuvaa-auto-signature"/);
   assert.match(a4Html, /act-signers-label">цех ва и\/ж\./);
-  assert.ok(a4Html.indexOf('КИП Мастер') < a4Html.indexOf('blob:kip-master-signature'));
+  assert.ok(a4Html.indexOf('НУВваА устаси') < a4Html.indexOf('blob:nuvaa-auto-signature'));
 });
 
 test('2–3-slot imzolari email tasdiq holatiga qarab yuklanadi', async () => {
@@ -166,12 +166,12 @@ test('2–3-slot imzolari email tasdiq holatiga qarab yuklanadi', async () => {
     pending: '33333333-3333-4333-8333-333333333333',
   };
   const signers = [
-    { id: 'kip-1', fullName: 'Fozilov O', position: 'КИП Мастер', email: 'kip@example.com', signatureFileId: `db:${ids.kip}`, status: 'active' },
+    { id: 'kip-1', fullName: 'Fozilov O', position: 'НУВваА устаси', email: 'kip@example.com', signatureFileId: `db:${ids.kip}`, status: 'active' },
     { id: 'signer-2', fullName: 'Imzolovchi Ikki', position: 'Sex boshlig‘i', email: 'two@example.com', signatureFileId: `db:${ids.approved}`, status: 'active' },
     { id: 'signer-3', fullName: 'Imzolovchi Uch', position: 'Muhandis', email: 'three@example.com', signatureFileId: `db:${ids.pending}`, status: 'active' },
   ];
   const assignedApprovers = [
-    { slot: 1, signerId: 'kip-1', fio: 'Fozilov O', position: 'КИП Мастер', gmail: 'kip@example.com' },
+    { slot: 1, signerId: 'kip-1', fio: 'Fozilov O', position: 'НУВваА устаси', gmail: 'kip@example.com' },
     { slot: 2, signerId: 'signer-2', fio: 'Imzolovchi Ikki', position: 'Sex boshlig‘i', gmail: 'two@example.com' },
     { slot: 3, signerId: 'signer-3', fio: 'Imzolovchi Uch', position: 'Muhandis', gmail: 'three@example.com' },
   ];
@@ -218,7 +218,7 @@ test('2–3-slot imzolari email tasdiq holatiga qarab yuklanadi', async () => {
     actNo: '777',
     a4Json: JSON.stringify({
       actNo: '777',
-      person1: 'Fozilov O', position1: 'КИП Мастер', department1: 'Цех №1',
+      person1: 'Fozilov O', position1: 'НУВваА устаси', department1: 'Цех №1',
       person2: 'Imzolovchi Ikki', position2: 'Sex boshlig‘i', department2: 'Цех №1',
       person3: 'Imzolovchi Uch', position3: 'Muhandis', department3: 'Цех №1',
       assignedApprovers,
