@@ -12,14 +12,14 @@ import { selectEmailApprovalTargets } from '../services/workspaceApprovalBridgeS
 const metadata = {
   approvalPolicy: 'all-assigned-v2',
   assignedApprovers: [
-    { slot: 1, signerId: 'kip-1', fio: 'Fozilov O', position: 'КИП Мастер', gmail: 'kip@example.com', signatureFileId: 'db:11111111-1111-4111-8111-111111111111' },
+    { slot: 1, signerId: 'kip-1', fio: 'Fozilov O', position: 'НУВваА устаси', gmail: 'kip@example.com', signatureFileId: 'db:11111111-1111-4111-8111-111111111111' },
     { slot: 2, signerId: 'signer-2', fio: 'Imzolovchi Ikki', position: 'Sex boshlig‘i', gmail: 'two@example.com', signatureFileId: 'db:22222222-2222-4222-8222-222222222222' },
     { slot: 3, signerId: 'signer-3', fio: 'Imzolovchi Uch', position: 'Muhandis', gmail: 'three@example.com', signatureFileId: 'db:33333333-3333-4333-8333-333333333333' },
   ],
 };
 
 const approvals = [
-  { signerId: 'kip-1', fio: 'Fozilov O', position: 'КИП Мастер', gmail: 'kip@example.com', status: 'Кутилмоқда', signatureFileId: 'db:11111111-1111-4111-8111-111111111111' },
+  { signerId: 'kip-1', fio: 'Fozilov O', position: 'НУВваА устаси', gmail: 'kip@example.com', status: 'Кутилмоқда', signatureFileId: 'db:11111111-1111-4111-8111-111111111111' },
   { signerId: 'signer-2', fio: 'Imzolovchi Ikki', position: 'Sex boshlig‘i', gmail: 'two@example.com', status: 'Тасдиқланди', approvedAt: '2026-09-01T10:00:00.000Z', signatureFileId: 'db:22222222-2222-4222-8222-222222222222' },
   { signerId: 'signer-3', fio: 'Imzolovchi Uch', position: 'Muhandis', gmail: 'three@example.com', status: 'Кутилмоқда', signatureFileId: 'db:33333333-3333-4333-8333-333333333333' },
 ];
@@ -137,4 +137,35 @@ test('legacy hujjatlar yangi 3-of-3 siyosatiga retroaktiv o‘tmaydi', () => {
   assert.match(result.html, /data-approved-signature-slot="1"/);
   assert.match(result.html, /data-approved-signature-slot="2"/);
   assert.doesNotMatch(result.html, /data-approved-signature-slot="3"/);
+});
+
+
+test('НУВваА Чилангари ham legacy 1-slotda avtomatik imzo oladi', () => {
+  const chilangarMetadata = {
+    assignedApprovers: metadata.assignedApprovers.map((row) => row.slot === 1 ? { ...row, position: 'НУВваА Чилангари' } : row),
+  };
+  const source = `<div class="a4-preview">${slotCell(1)}${slotCell(2)}${slotCell(3)}</div>`;
+  const result = injectApprovalSignaturesIntoSlots(
+    source,
+    approvals,
+    chilangarMetadata,
+    '',
+    (fileId) => `/signature/${encodeURIComponent(fileId)}`,
+  );
+  assert.match(result.html, /data-approved-signature-slot="1"/);
+});
+
+test('eski КИП мастер lavozimi endi avtomatik imzo bermaydi', () => {
+  const oldRoleMetadata = {
+    assignedApprovers: metadata.assignedApprovers.map((row) => row.slot === 1 ? { ...row, position: 'КИП мастер' } : row),
+  };
+  const source = `<div class="a4-preview">${slotCell(1)}${slotCell(2)}${slotCell(3)}</div>`;
+  const result = injectApprovalSignaturesIntoSlots(
+    source,
+    approvals,
+    oldRoleMetadata,
+    '',
+    (fileId) => `/signature/${encodeURIComponent(fileId)}`,
+  );
+  assert.doesNotMatch(result.html, /data-approved-signature-slot="1"/);
 });
