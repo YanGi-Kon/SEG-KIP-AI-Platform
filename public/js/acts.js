@@ -409,8 +409,8 @@
       ||null;
   }
   function canRenderSignerSlotSignature(act,slot,signer=null){
-    const automaticSignerSlot=slot===1&&isAutomaticSignatureSigner(signer||{fio:act?.person1,position:act?.position1});
-    if(automaticSignerSlot)return true;
+    const automaticSigner=isAutomaticSignatureSigner(signer||{fio:act?.[`person${slot}`],position:act?.[`position${slot}`]});
+    if(automaticSigner)return true;
     if(slot!==2&&slot!==3)return false;
     return isApprovedStatus(approvalForSignerSlot(act,slot,signer)?.status);
   }
@@ -496,12 +496,12 @@
     return act;
   }
   function collectActBase(){const r=state.selected||{};const selectedSigners={1:selectedSignerForSlot(1),2:selectedSignerForSlot(2),3:selectedSignerForSlot(3)};const base={actNo:$('actNo').value.trim(),date:$('actDate').value.trim(),time:$('actTime').value.trim(),workPlace:$('workPlace').value.trim(),deviceName:r.deviceName||'',serialNo:r.serialNo||'',place:r.place||'',executor:r.executor||'',person1:clean(selectedSigners[1]?.fio),position1:$('position1').value.trim(),department1:$('department1').value.trim(),person2:clean(selectedSigners[2]?.fio),position2:$('position2').value.trim(),department2:$('department2').value.trim(),person3:clean(selectedSigners[3]?.fio),position3:$('position3').value.trim(),department3:$('department3').value.trim(),sourceSheet:r.sourceSheet||'',sourceRowNumber:r.sourceRowNumber||'',sourceKey:r.sourceKey||'',failureText:$('failureText').value.trim(),impactText:$('impactText').value.trim(),reasonText:$('reasonText').value.trim(),actionText:$('actionText').value.trim(),actionDate:$('actionDate').value.trim(),actionTime:$('actionTime').value.trim(),conclusion:$('conclusion').value.trim()};
-    const firstSigner=findSignerForPerson(base.person1);
-    return Object.assign(base, {
-      signatureUrl1: clean(firstSigner&&isAutomaticSignatureSigner(firstSigner)?firstSigner.signatureUrl:''),
-      signatureUrl2: '',
-      signatureUrl3: '',
+    const automaticSignatureUrls={};
+    [1,2,3].forEach((slot)=>{
+      const signer=selectedSigners[slot]||findSignerForPerson(base[`person${slot}`]);
+      automaticSignatureUrls[`signatureUrl${slot}`]=clean(signer&&isAutomaticSignatureSigner(signer)?signer.signatureUrl:'');
     });
+    return Object.assign(base, automaticSignatureUrls);
   }
   function collectAssignedApproverSlots(base){
     return [1,2,3].map((slot)=>{const signer=selectedSignerForSlot(slot)||findSignerForPerson(base[`person${slot}`]);return{slot,signerId:clean(signer?.signerId),fio:clean(base[`person${slot}`]),position:clean(base[`position${slot}`]||signer?.position),gmail:clean(signer?.gmail),department:clean(base[`department${slot}`]),signatureFileId:clean(signer?.signatureFileId)};}).filter((row)=>row.signerId||row.fio||row.position||row.department||row.gmail);
