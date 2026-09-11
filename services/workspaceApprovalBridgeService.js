@@ -350,6 +350,7 @@ function resolveAssignedWorkspaceSigners(meta, signers = []) {
 async function persistResolvedAssignedApprovers(document, meta, signers) {
   const nextMeta = {
     ...meta,
+    approvalPolicy: 'all-assigned-v2',
     assignedApprovers: signers.map((signer) => ({
       slot: signer.slot || '',
       signerId: clean(signer.id),
