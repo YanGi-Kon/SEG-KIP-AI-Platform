@@ -11,6 +11,7 @@ import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess
 import { parseToSheetRows } from './to.js';
 import {
   approveToPeriod,
+  getToPeriodApprovalStatus,
   getToPeriodReport,
   listToReportFolders,
   openToPeriodApproval,
@@ -117,6 +118,7 @@ function quoteSheetName(sheetName) {
 function isPublicApprovalRequest(req) {
   const method = String(req.method || '').toUpperCase();
   const path = String(req.path || '').split('?')[0];
+  if (method === 'GET' && /^\/approve\/status\/[^/]+$/.test(path)) return true;
   if (method === 'GET' && /^\/approve\/[^/]+$/.test(path)) return true;
   if (method === 'POST' && path === '/approve') return true;
   return false;
@@ -230,6 +232,16 @@ router.post('/reports/:year/:month/send', requireToSend, async (req, res) => {
       code: error?.code || 'TO_REPORT_SEND_FAILED',
       recommendedFix: error?.recommendedFix || '',
     });
+  }
+});
+
+router.get('/approve/status/:token', async (req, res) => {
+  try {
+    const result = await getToPeriodApprovalStatus(req.params.token);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(403).json({ ok: false, error: error?.message || 'TO approval status xatosi' });
   }
 });
 
