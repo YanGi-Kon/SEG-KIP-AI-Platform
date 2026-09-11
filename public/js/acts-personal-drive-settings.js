@@ -41,3 +41,49 @@
   window.addEventListener('seg-kip:workspace-change',remount);
   window.addEventListener('message',(event)=>{if(event.data?.type==='SEG_KIP_WORKSPACE_CHANGE')remount();});
 })();
+
+(function setupActsCreateEntryGate(){
+  'use strict';
+
+  function mountGate(){
+    const tab=document.getElementById('tab-create');
+    const createView=document.getElementById('create');
+    const ui=window.ActsUI;
+    if(!tab||!createView||!ui||typeof ui.showView!=='function')return false;
+    if(ui.__createEntryGateInstalled)return true;
+
+    const originalShowView=ui.showView.bind(ui);
+    ui.showView=function gatedShowView(id,btn){
+      if(id==='create'&&!createView.classList.contains('active'))return false;
+      return originalShowView(id,btn);
+    };
+    ui.__createEntryGateInstalled=true;
+
+    function syncTabState(){
+      const createIsOpen=createView.classList.contains('active');
+      tab.disabled=!createIsOpen;
+      tab.setAttribute('aria-disabled',createIsOpen?'false':'true');
+      tab.title=createIsOpen
+        ?'Ҳужжат яратиш бўлими очиқ'
+        :'Аввал 1. Ойлик анализдан «Хужат яратиш» тугмасини босинг';
+      tab.style.opacity=createIsOpen?'':'0.45';
+      tab.style.cursor=createIsOpen?'':'not-allowed';
+    }
+
+    const observer=new MutationObserver(syncTabState);
+    observer.observe(createView,{attributes:true,attributeFilter:['class']});
+    syncTabState();
+    return true;
+  }
+
+  function start(){
+    if(mountGate())return;
+    let tries=0;
+    const timer=setInterval(()=>{
+      tries+=1;
+      if(mountGate()||tries>=40)clearInterval(timer);
+    },50);
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();

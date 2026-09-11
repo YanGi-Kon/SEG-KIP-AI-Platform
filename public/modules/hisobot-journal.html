@@ -229,7 +229,7 @@ function renderRoutes(){
   const sel = $('routeSelect');
   const q = ($('search')?.value || '').toLowerCase();
   const routes = (state.routes||[]).filter(r => !q || [r.title, r.sheet, r.sourceCell].join(' ').toLowerCase().includes(q));
-  sel.innerHTML = '<option value="">Hudud yoki ЖУРНАЛ tanlang...</option>' + routes.map(r => `<option value="${esc(r.sheet)}">${esc(r.title)} — ${esc(r.sheet)}</option>`).join('');
+  if(sel) sel.innerHTML = '<option value="">Hudud yoki ЖУРНАЛ tanlang...</option>' + routes.map(r => `<option value="${esc(r.sheet)}">${esc(r.title)} — ${esc(r.sheet)}</option>`).join('');
   if(!state.routes?.length){ el.innerHTML = '<div class="panel empty">Dynamic Route Map topilmadi. Asosiy varoqdagi C9:Q49 blokida HYPERLINK yoki varoq nomi bo‘lishi kerak.</div>'; return; }
   if(!routes.length){ el.innerHTML = '<div class="panel empty">Qidiruv bo‘yicha menyu topilmadi.</div>'; return; }
   el.innerHTML = routes.map(r => {
@@ -284,6 +284,6 @@ window.addEventListener('load', () => {
   try{ parent.postMessage({ type:'REQUEST_WORKSPACE_INFO' }, '*'); }catch(_){}
 });
 </script>
-<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period2"></script>
+<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period3"></script>
 </body>
 </html>

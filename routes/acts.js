@@ -1,5 +1,11 @@
 import express from 'express';
-import { readSheetRows, listSheets, validateServiceAccount } from '../services/googleSheetsService.js';
+import {
+  extractSpreadsheetId,
+  getSheetsClient,
+  readSheetRows,
+  listSheets,
+  validateServiceAccount,
+} from '../services/googleSheetsService.js';
 import { deleteActDocument, getDailyReports, writeActDocument } from '../services/actBlankSheetService.js';
 import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
 import { requireAccessToken } from '../middleware/auth.js';
@@ -106,13 +112,19 @@ function normalizeAnalysisPeriod(yearRaw, monthRaw) {
   return { year, month, monthName: RU_MONTHS[month] };
 }
 
-// Find the header row and map column names to their indices
+function normalizeMonthNumber(value) {
+  const raw = clean(value);
+  if (!raw) return null;
+  const numeric = Number(raw);
+  if (Number.isInteger(numeric) && numeric >= 1 && numeric <= 12) return numeric;
+  return RU_MONTH_NUMBERS.get(raw.toLowerCase().replace(/ё/g, 'е')) || null;
+}
+
 function buildColumnMap(rows) {
   const HEADER_KEYWORDS = ['наименование', 'заводской', 'перечень', 'предел'];
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
     const joined = rows[i].map(v => String(v || '').toLowerCase()).join(' ');
     if (HEADER_KEYWORDS.filter(k => joined.includes(k)).length >= 2) {
-      // This is the header row
       const map = {};
       rows[i].forEach((cell, idx) => {
         const key = String(cell || '').trim().toLowerCase().replace(/\s+/g, '');
@@ -121,16 +133,66 @@ function buildColumnMap(rows) {
       return { headerRowIndex: i, map };
     }
   }
-  // fallback: assume standard layout (База style)
   return { headerRowIndex: -1, map: {} };
 }
 
-// Resolve column index with fallback
 function colIdx(map, keys, fallback) {
   for (const key of keys) {
     if (map[key] !== undefined) return map[key];
   }
   return fallback;
+}
+
+function findColIdx(map, keys) {
+  for (const key of keys) {
+    if (map[key] !== undefined) return map[key];
+  }
+  return -1;
+}
+
+export function isAnalysisRowInPeriod(row, colMap, year, month) {
+  const helperYearIdx = findColIdx(colMap, ['__год']);
+  const helperMonthIdx = findColIdx(colMap, ['__месяц']);
+  if (helperYearIdx >= 0 && helperMonthIdx >= 0) {
+    return Number(clean(row[helperYearIdx])) === Number(year)
+      && normalizeMonthNumber(row[helperMonthIdx]) === Number(month);
+  }
+  return isAnalysisDateInPeriod(row[0], year, month);
+}
+
+function hasAnalysisPeriodHelpers(colMap) {
+  return findColIdx(colMap, ['__год']) >= 0 && findColIdx(colMap, ['__месяц']) >= 0;
+}
+
+function sheetA1Title(sheetName) {
+  return `'${String(sheetName || '').replace(/'/g, "''")}'`;
+}
+
+async function syncAnalysisPeriodSelector({ spreadsheetUrl, serviceAccount, sheetName, year, monthName }) {
+  try {
+    const selectorRows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'N1:Q1' });
+    const selector = selectorRows?.[0] || [];
+    if (clean(selector[0]).toUpperCase() !== 'ГОД' || clean(selector[2]).toUpperCase() !== 'МЕСЯЦ') {
+      return { synced: false, reason: 'selector_layout_not_found' };
+    }
+
+    const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
+    const sheets = await getSheetsClient(serviceAccount);
+    const sheetRef = sheetA1Title(sheetName);
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: 'RAW',
+        data: [
+          { range: `${sheetRef}!O1`, values: [[Number(year)]] },
+          { range: `${sheetRef}!Q1`, values: [[monthName]] },
+        ],
+      },
+    });
+    return { synced: true, yearCell: `${sheetName}!O1`, monthCell: `${sheetName}!Q1` };
+  } catch (err) {
+    return { synced: false, reason: 'selector_sync_failed', error: clean(err?.message) };
+  }
 }
 
 function isDataRow(row, headerRowIndex, colMap) {
@@ -188,29 +250,29 @@ function getPayload(req) {
 
 async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount, year: yearRaw, month: monthRaw }) {
   const { year, month, monthName } = normalizeAnalysisPeriod(yearRaw, monthRaw);
-  const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:K' });
+  const selectorSync = await syncAnalysisPeriodSelector({ spreadsheetUrl, serviceAccount, sheetName, year, monthName });
+  const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'A:M' });
   const reports = await getDailyReports({ spreadsheetUrl, serviceAccount });
   const completedByKey = new Map(
     reports
       .filter(r => String(r.sourceKey || '').trim())
       .map(r => [String(r.sourceKey).trim(), r])
   );
-  
-  // Auto-detect column positions from the header row
+
   const { headerRowIndex, map: colMap } = buildColumnMap(rows);
   const wrkIdx = colIdx(colMap, ['переченьв/р','переченьвр','перечень','worktype'], 8);
-  
+
   const dataRows = rows
     .map((row, index) => ({ row, index }))
-    .filter(x => x.index > headerRowIndex) // skip header rows
+    .filter(x => x.index > headerRowIndex)
     .filter(x => isDataRow(x.row, headerRowIndex, colMap));
 
-  const periodRows = dataRows.filter(x => isAnalysisDateInPeriod(x.row[0], year, month));
-  
+  const periodRows = dataRows.filter(x => isAnalysisRowInPeriod(x.row, colMap, year, month));
+
   const matched = periodRows
     .filter(x => isTargetWork(x.row[wrkIdx]))
     .map(x => mapRow(x.row, x.index, sheetName, completedByKey, colMap));
-  
+
   const createdDocuments = matched.filter(row => row.isCompleted).length;
   const completionPercentage = matched.length ? Math.min(100, Math.round((createdDocuments / matched.length) * 100)) : 0;
   return {
@@ -222,6 +284,9 @@ async function buildMonthlyAnalysis({ spreadsheetUrl, sheetName, serviceAccount,
     periodYear: year,
     periodMonth: month,
     periodMonthName: monthName,
+    periodSource: hasAnalysisPeriodHelpers(colMap) ? 'helpers' : 'date',
+    selectorSynced: selectorSync.synced,
+    selectorSyncReason: selectorSync.reason || '',
     rows: matched
   };
 }

@@ -17,6 +17,7 @@ import menuRouter from "./routes/menu.js";
 import actsRouter from "./routes/acts.js";
 import toRouter from "./routes/to.js";
 import toPeriodSheetBridgeRouter from "./routes/toPeriodSheetBridge.js";
+import hisobotPeriodRouter from "./routes/hisobotPeriod.js";
 import ulchovRouter from "./routes/ulchov.js";
 import signaturesRouter from "./routes/signatures.js";
 import authRouter from "./routes/auth.js";
@@ -61,6 +62,7 @@ const publicDir = join(__dirname, "public");
 const publicAssetsDir = join(publicDir, "assets");
 const indexHtmlPath = join(publicDir, "index.html");
 const toHtmlPath = join(publicDir, "modules", "to.html");
+const kudukJournalHtmlPath = join(publicDir, "modules", "kuduk-journal.html");
 const faviconPngPath = join(publicAssetsDir, "images", "saneg-favicon.png");
 
 const staticNoCacheOptions = {
@@ -161,6 +163,20 @@ app.get("/modules/to.html", (_req, res, next) => {
   }
 });
 
+app.get("/modules/kuduk-journal.html", (_req, res, next) => {
+  try {
+    const html = readFileSync(kudukJournalHtmlPath, "utf8");
+    const bridgeScript = '<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period1"></script>';
+    const htmlWithoutLegacySelector = html.replace(/<select id="routeSelect"[^>]*><\/select>/, "");
+    const safeHtml = htmlWithoutLegacySelector.includes("hisobotPeriodBridgeScript")
+      ? htmlWithoutLegacySelector
+      : htmlWithoutLegacySelector.replace("</body>", `${bridgeScript}\n</body>`);
+    res.type("html").send(safeHtml);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Public asset URL mapping:
 // public/assets/login/slides/slide-1.webp -> /assets/login/slides/slide-1.webp
 // express.static requires filesystem path strings, not URL objects.
@@ -178,6 +194,7 @@ app.use("/api/workbook", workbookRouter);
 app.use("/api/menu", menuRouter);
 app.use("/api/acts", actsRouter);
 app.use("/api/to-period-bridge", toPeriodSheetBridgeRouter);
+app.use("/api/hisobot-period", hisobotPeriodRouter);
 app.use("/api/to", toRouter);
 app.use("/api/ulchov", ulchovRouter);
 app.use("/api/kuduk", createKudukRouter(io));

@@ -44,3 +44,15 @@ test('TO hujjat sanasi tanlangan oy va yilga dinamik bog‘langan', () => {
   assert.match(html, /DEFAULT_PERIOD_YEAR=2026/);
   assert.match(html, /DEFAULT_PERIOD_MONTH=6/);
 });
+
+
+test('TO JURNALI tanlangan oy/yilni Workspace bo‘yicha eslab qoladi', () => {
+  assert.match(html, /PERIOD_STORAGE_PREFIX='seg_to_period_v1'/);
+  assert.match(html, /function periodStorageKey/);
+  assert.match(html, /function readSavedPeriod/);
+  assert.match(html, /function saveSelectedPeriod/);
+  assert.match(html, /function restoreSavedPeriod/);
+  assert.match(html, /saveSelectedPeriod\(\)/);
+  assert.match(html, /restoreSavedPeriod\(state\.workspaceId\)/);
+  assert.match(html, /ToPeriodSheetBridge\?\.sync\?\.\(\)/);
+});
