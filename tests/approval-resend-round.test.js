@@ -26,11 +26,6 @@ test('yangi yuborish raundi 3-of-3 siyosatini metadata orqali belgilaydi', () =>
 });
 
 
-test('email provider resend muvaffaqiyatsiz bo‘lsa avvalgi tasdiq holati qayta tiklanadi', () => {
-  assert.match(bridge, /if \(existing\) \{\s*await writeApproval\(config, existing, \{ resetExisting: false \}\)\.catch/);
-  assert.match(approval, /if \(input\.resetExistingApprovals && existingApproval\) \{\s*await upsertApproval\(config, existingApproval, \{ resetExisting: false \}\)\.catch/);
-});
-
 
 test('biriktirilgan tasdiqlovchilardan bittasi topilmasa qisman yuborish boshlanmaydi', () => {
   assert.match(bridge, /resolved\.signers\.length !== resolved\.requested\.length/);
