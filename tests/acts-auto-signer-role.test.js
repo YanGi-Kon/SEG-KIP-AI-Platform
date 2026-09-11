@@ -18,3 +18,10 @@ test('AKTLAR still auto-selects the matching signer into the first empty signer 
   assert.match(source, /function applyAutomaticSignatureSignerFromApprovers/);
   assert.match(source, /person1 && !person1\.value\.trim\(\)/);
 });
+
+
+test('automatic role signature is not limited to the first signer slot', () => {
+  assert.match(source, /const automaticSigner=isAutomaticSignatureSigner/);
+  assert.doesNotMatch(source, /slot===1&&isAutomaticSignatureSigner/);
+  assert.match(source, /automaticSignatureUrls\[\`signatureUrl\\\$\{slot\}\`\]/);
+});
