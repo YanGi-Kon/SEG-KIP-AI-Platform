@@ -477,9 +477,6 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resol
         details: `provider=${provider.provider}; messageId=${providerMessageId || '-'}`,
       }).catch(() => {});
     } catch (error) {
-      if (existing) {
-        await writeApproval(config, existing, { resetExisting: false }).catch(() => {});
-      }
       results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', approvalLinkCreated: true, code: error.code || 'EMAIL_HTTP_FAILED', error: error.message, providerStatus: error.providerStatus || '', providerMessage: error.providerMessage || '' });
       await appendAudit(config, {
         action: 'EMAIL_FAILED',
