@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { ensureSheet, extractSpreadsheetId, getSheetsClient } from './googleSheetsService.js';
 import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
-import { refreshDocumentApprovalState, sendDocumentForApproval } from './signatureApprovalService.js';
+import { appendAudit, refreshDocumentApprovalState, sendDocumentForApproval } from './signatureApprovalService.js';
 import { verifySafeEmailTransport } from './emailDiagnosticsService.js';
 import { getHttpEmailSummary, hasHttpEmailProvider, sendHttpEmail } from './httpEmailService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
@@ -29,7 +29,7 @@ function isAutomaticKipMasterSigner(signer = {}) {
 }
 
 export function selectEmailApprovalTargets(signers = []) {
-  return signers.filter((signer) => !(Number(signer?.slot) === 1 && isAutomaticKipMasterSigner(signer)));
+  return [...signers];
 }
 
 function q(name) {
@@ -239,7 +239,7 @@ async function readApprovalRows(config, actNo) {
   })).filter((row) => row.id && row.actNo === actNo);
 }
 
-async function writeApproval(config, input) {
+async function writeApproval(config, input, { resetExisting = false } = {}) {
   const existing = (await readApprovalRows(config, input.actNo)).find((row) => row.signerId === input.signerId);
   const { sheets, spreadsheetId } = await ensureApprovalSheet(config);
   const row = [
@@ -249,12 +249,12 @@ async function writeApproval(config, input) {
     input.position,
     input.fio,
     input.gmail,
-    existing?.status === 'Тасдиқланди' ? 'Тасдиқланди' : 'Кутилмоқда',
+    resetExisting ? 'Кутилмоқда' : (existing?.status === 'Тасдиқланди' ? 'Тасдиқланди' : 'Кутилмоқда'),
     input.link,
     input.tokenHash,
     input.createdAt,
-    existing?.openedAt || '',
-    existing?.approvedAt || '',
+    resetExisting ? '' : (existing?.openedAt || ''),
+    resetExisting ? '' : (existing?.approvedAt || ''),
     '',
     '',
     input.signatureFileId,
@@ -350,6 +350,7 @@ function resolveAssignedWorkspaceSigners(meta, signers = []) {
 async function persistResolvedAssignedApprovers(document, meta, signers) {
   const nextMeta = {
     ...meta,
+    approvalPolicy: 'all-assigned-v2',
     assignedApprovers: signers.map((signer) => ({
       slot: signer.slot || '',
       signerId: clean(signer.id),
@@ -367,7 +368,7 @@ async function persistResolvedAssignedApprovers(document, meta, signers) {
     range: `${q(REGISTRY_SHEET)}!N${document.rowNumber}`,
     valueInputOption: 'RAW',
     requestBody: { values: [[nextJson]] },
-  }).catch(() => {});
+  });
   document.a4Json = nextJson;
   return nextMeta;
 }
@@ -379,10 +380,14 @@ async function resolveWorkspaceDocumentTargets(workspace, actNo, synced) {
   if (!resolved.requested.length || !resolved.signers.length) {
     throw new Error('Hujjatga approver biriktirilmagan');
   }
-  await persistResolvedAssignedApprovers(document, metadata, resolved.signers);
+  if (resolved.signers.length !== resolved.requested.length) {
+    const unresolved = resolved.requested.filter((item) => !resolved.signers.some((signer) => Number(signer.slot) === Number(item.slot)));
+    const details = unresolved.map((item) => `#${item.slot} ${clean(item.fio) || clean(item.gmail) || clean(item.position) || 'tasdiqlovchi'}`).join(', ');
+    throw new Error(`Hujjatdagi barcha tasdiqlovchilar topilmadi: ${details || `${resolved.signers.length}/${resolved.requested.length}`}`);
+  }
   const targetSigners = selectEmailApprovalTargets(resolved.signers);
   if (!targetSigners.length) {
-    throw new Error('2- ва 3-қатор учун email орқали тасдиқловчи имзоловчилар бириктирилмаган');
+    throw new Error('Email орқали тасдиқловчи имзоловчилар бириктирилмаган');
   }
   return { document, metadata, assignedSigners: resolved.signers, targetSigners };
 }
@@ -430,7 +435,7 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resol
       approverName: signer.fullName,
       link,
     });
-    const approval = await writeApproval(config, {
+    await writeApproval(config, {
       id: approvalId,
       actNo,
       signerId: signer.id,
@@ -441,29 +446,46 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resol
       tokenHash: sha256(token),
       createdAt: nowIso(),
       signatureFileId: signatureValue(signer),
-    });
-    if (approval.status === 'Тасдиқланди') {
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'already-approved', approvalLinkCreated: true });
-      continue;
-    }
+    }, { resetExisting: true });
     try {
-      await sendHttpEmail({
+      const delivery = await sendHttpEmail({
         to: signer.email,
         subject,
         text,
         html,
       });
-      results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: provider.provider, approvalLinkCreated: true });
+      const providerMessageId = clean(delivery?.id);
+      results.push({ signer: signer.fullName, gmail: signer.email, status: 'sent', provider: provider.provider, providerMessageId, approvalLinkCreated: true });
+      await appendAudit(config, {
+        action: 'DOCUMENT_SENT',
+        actor: clean(input.sentBy) || 'KIP Administrator',
+        actNo,
+        signerId: signer.id,
+        gmail: signer.email,
+        ip: req.ip,
+        userAgent: req.get?.('user-agent') || '',
+        details: `provider=${provider.provider}; messageId=${providerMessageId || '-'}`,
+      }).catch(() => {});
     } catch (error) {
       results.push({ signer: signer.fullName, gmail: signer.email, status: 'email-failed', approvalLinkCreated: true, code: error.code || 'EMAIL_HTTP_FAILED', error: error.message, providerStatus: error.providerStatus || '', providerMessage: error.providerMessage || '' });
+      await appendAudit(config, {
+        action: 'EMAIL_FAILED',
+        actor: clean(input.sentBy) || 'KIP Administrator',
+        actNo,
+        signerId: signer.id,
+        gmail: signer.email,
+        ip: req.ip,
+        userAgent: req.get?.('user-agent') || '',
+        details: `${error.code || 'EMAIL_HTTP_FAILED'}: ${error.message}`,
+      }).catch(() => {});
     }
   }
 
   const total = targetSigners.length;
   const sent = results.filter((item) => item.status === 'sent').length;
   const failed = results.filter((item) => item.status === 'email-failed').length;
-  const approved = results.filter((item) => item.status === 'already-approved').length;
-  const status = total > 0 && approved === total && failed === 0 && sent === 0 ? 'Тасдиқланди' : (sent > 0 || approved > 0 ? 'Кутилмоқда' : 'Email xatosi');
+  const approved = 0;
+  const status = sent > 0 ? 'Кутилмоқда' : 'Email xatosi';
   await refreshDocumentApprovalState(config, actNo, baseUrl);
   return { actNo, status, sent, failed, approved, total, results, provider: provider.provider, fromMode: provider.fromMode, warning: provider.warning || '', recommendedFix: provider.recommendedFix || '', workspaceId: workspace.id, workspaceName: workspace.name, signersSource: 'assigned_workspace_signers', signersSynced: synced.signersCount, targetedApprovers: total };
 }
@@ -491,6 +513,40 @@ export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
   if (!actNo) throw new Error('Акт рақами киритилмаган');
   const resolvedTargets = await resolveWorkspaceDocumentTargets(workspace, actNo, synced);
 
+  const invalidRecipients = resolvedTargets.targetSigners.filter((signer) => !isValidEmail(signer.email));
+  if (invalidRecipients.length) {
+    throw makeWorkspaceEmailError({
+      code: 'EMAIL_INVALID_RECIPIENT',
+      error: `Tasdiqlovchi Gmail manzili noto‘g‘ri: ${invalidRecipients.map((signer) => clean(signer.fullName) || clean(signer.email) || 'tasdiqlovchi').join(', ')}`,
+      recommendedFix: 'Imzolovchilar sozlamasida har bir tasdiqlovchining Gmail manzilini name@gmail.com ko‘rinishida kiriting.',
+    });
+  }
+
+  if (provider.hasHttpEmailProvider && provider.fromMode === 'missing') {
+    throw makeWorkspaceEmailError({
+      code: 'EMAIL_FROM_MISSING',
+      error: 'EMAIL_FROM kiritilmagan.',
+      recommendedFix: provider.recommendedFix,
+    });
+  }
+  if (provider.hasHttpEmailProvider && provider.fromMode === 'resend-test-sender') {
+    const uniqueRecipients = new Set(resolvedTargets.targetSigners.map((signer) => clean(signer.email).toLowerCase()).filter(Boolean));
+    if (uniqueRecipients.size > 1) {
+      throw makeWorkspaceEmailError({
+        code: 'EMAIL_PROVIDER_RECIPIENT_NOT_ALLOWED',
+        error: 'Resend test sender bilan bir nechta turli Gmail manziliga tasdiqlash xabari yuborib bo‘lmaydi.',
+        recommendedFix: provider.recommendedFix,
+      });
+    }
+  }
+
+  const nextMetadata = await persistResolvedAssignedApprovers(
+    resolvedTargets.document,
+    resolvedTargets.metadata,
+    resolvedTargets.assignedSigners,
+  );
+  resolvedTargets.metadata = nextMetadata;
+
   if (hasHttpEmailProvider()) return sendWorkspaceDocumentViaHttp(workspace, { ...input, actNo }, req, synced, resolvedTargets);
 
   try {
@@ -502,6 +558,7 @@ export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
       actNo,
       workspaceId: workspace.id,
       workspaceName: workspace.name,
+      resetExistingApprovals: true,
       assignedApprovers: resolvedTargets.targetSigners.map((signer) => ({
         slot: signer.slot || '',
         signerId: signer.id,
