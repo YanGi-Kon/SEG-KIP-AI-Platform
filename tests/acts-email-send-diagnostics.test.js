@@ -20,5 +20,13 @@ test('top-level SMTP failure renders cause, response code and recommended fix', 
 });
 
 test('document-send frontend cache version is bumped', () => {
-  assert.match(loader, /acts-workspace-documents\.js\?v=stage8g/);
+  assert.match(loader, /acts-workspace-documents\.js\?v=stage8h/);
+});
+
+
+test('successful send shows exact recipient/provider trace instead of claiming mailbox delivery', () => {
+  assert.match(source, /function showEmailDeliveryTrace/);
+  assert.match(source, /providerMessageId/);
+  assert.match(source, /email provider tomonidan qabul qilindi/);
+  assert.match(source, /Gmail inboxga yetib borishi provider va spam filtrlarga bog‘liq/);
 });
