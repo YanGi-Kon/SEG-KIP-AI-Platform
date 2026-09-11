@@ -119,7 +119,7 @@
       .to-reports-approval-list{display:grid;gap:6px;margin:10px 0}.to-reports-approval-row{display:grid;grid-template-columns:minmax(0,1fr) 180px;gap:12px;font-size:12px;padding:8px 10px;border:1px solid rgba(255,255,255,.09);border-radius:10px;background:rgba(255,255,255,.035)}
       .to-reports-approval-row b{color:#a5f3fc}.to-reports-approval-status{text-align:right}.to-reports-approval-status.approved{color:#86efac}.to-reports-approval-status.pending{color:#fde68a}
       .to-reports-sendbar{display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}.to-reports-sendmsg{margin-right:auto;font-size:12px;color:#cdeeff}.to-reports-sendmsg.ok{color:#86efac}.to-reports-sendmsg.bad{color:#fca5a5}.to-reports-sendmsg.sync{color:#fde68a}
-      .to-reports-diagnostic{display:none;margin:12px 0 0;padding:12px 14px;border-radius:12px;border:1px solid rgba(239,68,68,.38);background:rgba(127,29,29,.18);color:#fecaca;font-size:12px;line-height:1.5}.to-reports-diagnostic.show{display:block}.to-reports-diagnostic-title{font-weight:900;color:#fff;margin-bottom:6px}.to-reports-diagnostic-fix{margin-top:8px;padding:9px;border-radius:9px;background:rgba(15,23,42,.58);color:#fde68a}.to-reports-diagnostic-provider{color:#a5f3fc}
+      .to-reports-diagnostic{display:none;margin:12px 0 0;padding:12px 14px;border-radius:12px;border:1px solid rgba(239,68,68,.38);background:rgba(127,29,29,.18);color:#fecaca;font-size:12px;line-height:1.5}.to-reports-diagnostic.show{display:block}.to-reports-diagnostic.ok{border-color:rgba(34,197,94,.38);background:rgba(20,83,45,.18);color:#bbf7d0}.to-reports-diagnostic-title{font-weight:900;color:#fff;margin-bottom:6px}.to-reports-diagnostic-fix{margin-top:8px;padding:9px;border-radius:9px;background:rgba(15,23,42,.58);color:#fde68a}.to-reports-diagnostic-provider{color:#a5f3fc}.to-reports-delivery-row{margin:4px 0}
       @media(max-width:900px){.to-reports-content{grid-template-columns:1fr}.to-reports-folders{max-height:220px;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.to-reports-shell{height:96vh}.to-reports-preview{padding:10px}}
     `;
     document.head.appendChild(style);
@@ -193,7 +193,7 @@
     const code = clean(data.code);
     if (code === 'EMAIL_AUTH_FAILED') return '3. AKTLAR JURNALI ishlatadigan Gmail App Password / SMTP credentiallarini tekshiring.';
     if (code === 'EMAIL_CONFIG_MISSING' || code === 'EMAIL_HTTP_NOT_CONFIGURED') return 'AKTLAR JURNALI uchun ishlayotgan GMAIL_USER/GMAIL_APP_PASSWORD yoki SMTP_USER/SMTP_PASS sozlamasi TO moduliga ham server environment orqali mavjud bo‘lishi kerak.';
-    if (code === 'EMAIL_INVALID_RECIPIENT') return '4. Imzo chekuvchilar menyusida Gmail manzilini tekshiring.';
+    if (code === 'EMAIL_INVALID_RECIPIENT') return '5. TO JURNALI umumiy imzo chekuvchilar ro‘yxatida Gmail manzilini tekshiring.';
     return 'Email provider yoki Gmail/SMTP sozlamasini tekshiring.';
   }
 
@@ -213,6 +213,18 @@
       : `<div>${esc(emailCodeMessage(first))}</div>`;
     host.className = 'to-reports-diagnostic show';
     host.innerHTML = `<div class="to-reports-diagnostic-title">Email yuborilmadi</div>${provider ? `<div class="to-reports-diagnostic-provider">Provider: ${esc(provider)}</div>` : ''}${rows}<div class="to-reports-diagnostic-fix"><b>Yechim:</b> ${esc(diagnosticFix(first.recommendedFix ? first : { ...first, recommendedFix: data.recommendedFix }))}</div>`;
+  }
+
+  function showDeliveryTrace(data = null) {
+    const host = $('toReportsSendDiagnostic');
+    if (!host || !data) return;
+    const sent = Array.isArray(data.results) ? data.results.filter((row) => row.status === 'sent') : [];
+    if (!sent.length) return;
+    const provider = clean(data.deliveryMode || data.provider || sent[0]?.provider || '');
+    const rows = sent.map((row) => `<div class="to-reports-delivery-row"><b>${esc(row.signer || row.fio || 'Imzolovchi')}:</b> ${esc(row.email || row.gmail || '—')}${row.providerMessageId ? ` · ID ${esc(row.providerMessageId)}` : ''}</div>`).join('');
+    const warning = clean(data.warning) ? `<div class="to-reports-diagnostic-fix"><b>Provider eslatmasi:</b> ${esc(data.warning)}</div>` : '';
+    host.className = 'to-reports-diagnostic show ok';
+    host.innerHTML = `<div class="to-reports-diagnostic-title">Email provider qabul qildi: ${esc(sent.length)} / ${esc(data.total || sent.length)}</div>${provider ? `<div class="to-reports-diagnostic-provider">Provider: ${esc(provider)}</div>` : ''}${rows}${warning}<div class="to-reports-delivery-row">Bu holat provider so‘rovni qabul qilganini bildiradi; Gmail inboxga yetib borishi provider va spam filtrlarga bog‘liq.</div>`;
   }
 
   function folderLabel(period) {
@@ -265,7 +277,10 @@
     css.textContent = report.a4Css || '';
     host.innerHTML = `<div class="to-reports-a4-host">${report.a4Html || ''}</div><div class="to-reports-bottom"><div style="font-weight:900">${esc(report.label || '')} · imzolash holati</div>${approvalRowsHtml(report.approvals || [])}<div id="toReportsSendDiagnostic" class="to-reports-diagnostic"></div><div class="to-reports-sendbar"><div id="toReportsSendMsg" class="to-reports-sendmsg">Tayyor A4 hujjat imzolovchilarga individual havola bilan yuboriladi.</div><button id="toReportsSendBtn" class="btn primary" type="button">Хужатни юбориш</button></div></div>`;
     $('toReportsSendBtn')?.addEventListener('click', () => void sendCurrent());
-    if (state.lastSendResult) showSendDiagnostic(state.lastSendResult);
+    if (state.lastSendResult) {
+      if (Number(state.lastSendResult.failed || 0) > 0) showSendDiagnostic(state.lastSendResult);
+      else showDeliveryTrace(state.lastSendResult);
+    }
   }
 
   async function loadFolders() {
@@ -320,16 +335,19 @@
     try {
       const result = await api(`/reports/${selected.year}/${selected.month}/send`, { method: 'POST', body: '{}' });
       const failed = Number(result.failed || 0);
+      const sent = Number(result.sent || 0);
+      const total = Number.isFinite(Number(result.total)) ? Number(result.total) : sent + failed;
       const provider = clean(result.deliveryMode || result.provider);
-      if (failed > 0) state.lastSendResult = result;
+      state.lastSendResult = result;
       const providerText = provider ? ` · ${provider.toUpperCase()}` : '';
-      const summary = `${result.sent || 0} ta yuborildi${result.approved ? ` · ${result.approved} ta avval tasdiqlangan` : ''}${failed ? ` · ${failed} ta xatolik` : ''}${providerText}.`;
+      const summary = `${sent}/${total} ta email provider tomonidan qabul qilindi${failed ? ` · ${failed} ta xatolik` : ''}${providerText}.`;
       setSendMessage(summary, failed ? 'sync' : 'ok');
       const refreshed = await api(`/reports/${selected.year}/${selected.month}`);
       state.report = refreshed;
       renderReport();
       setSendMessage(summary, failed ? 'sync' : 'ok');
       if (failed > 0) showSendDiagnostic(result);
+      else showDeliveryTrace(result);
     } catch (error) {
       const detail = error?.data && typeof error.data === 'object'
         ? { ...error.data, error: error.message }
@@ -372,5 +390,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 
-  window.ToJournalReports = { open, close, loadFolders, openFolder, sendCurrent, showSendDiagnostic, state };
+  window.ToJournalReports = { open, close, loadFolders, openFolder, sendCurrent, showSendDiagnostic, showDeliveryTrace, state };
 })();
