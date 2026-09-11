@@ -97,6 +97,7 @@
   function statusClass(value){
     const v=String(value||'').toLowerCase();
     if(v.includes('email')||v.includes('юборилмади'))return 'status-error';
+    if(v.includes('қисман')||v.includes('qisman')||v.includes('кутил')||v.includes('kutil'))return 'status-pending';
     if(v.includes('тасдиқ')||v.includes('tasdiq'))return 'status-approved';
     return 'status-pending';
   }
