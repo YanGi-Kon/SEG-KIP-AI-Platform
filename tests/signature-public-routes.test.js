@@ -4,6 +4,7 @@ import { isPublicSignatureRequest } from '../routes/signatures.js';
 
 test('email approval flow is public because its signed token provides authorization', () => {
   assert.equal(isPublicSignatureRequest('GET', '/document/approve/signed.jwt.token'), true);
+  assert.equal(isPublicSignatureRequest('GET', '/document/approve/status/signed.jwt.token'), true);
   assert.equal(isPublicSignatureRequest('POST', '/document/approve'), true);
   assert.equal(isPublicSignatureRequest('GET', '/signature/render/signed-image-token'), true);
 });
