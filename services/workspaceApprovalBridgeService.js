@@ -377,7 +377,7 @@ async function persistResolvedAssignedApprovers(document, meta, signers) {
     range: `${q(REGISTRY_SHEET)}!N${document.rowNumber}`,
     valueInputOption: 'RAW',
     requestBody: { values: [[nextJson]] },
-  }).catch(() => {});
+  });
   document.a4Json = nextJson;
   return nextMeta;
 }
@@ -394,7 +394,6 @@ async function resolveWorkspaceDocumentTargets(workspace, actNo, synced) {
     const details = unresolved.map((item) => `#${item.slot} ${clean(item.fio) || clean(item.gmail) || clean(item.position) || 'tasdiqlovchi'}`).join(', ');
     throw new Error(`Hujjatdagi barcha tasdiqlovchilar topilmadi: ${details || `${resolved.signers.length}/${resolved.requested.length}`}`);
   }
-  await persistResolvedAssignedApprovers(document, metadata, resolved.signers);
   const targetSigners = selectEmailApprovalTargets(resolved.signers);
   if (!targetSigners.length) {
     throw new Error('Email орқали тасдиқловчи имзоловчилар бириктирилмаган');
@@ -540,6 +539,13 @@ export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
       });
     }
   }
+
+  const nextMetadata = await persistResolvedAssignedApprovers(
+    resolvedTargets.document,
+    resolvedTargets.metadata,
+    resolvedTargets.assignedSigners,
+  );
+  resolvedTargets.metadata = nextMetadata;
 
   if (hasHttpEmailProvider()) return sendWorkspaceDocumentViaHttp(workspace, { ...input, actNo }, req, synced, resolvedTargets);
 
