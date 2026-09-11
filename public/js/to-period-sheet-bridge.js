@@ -161,7 +161,7 @@
     if (document.getElementById('toReportsPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toReportsPanelScript';
-    script.src = '/js/to-reports-panel.js?v=to-reports1';
+    script.src = '/js/to-reports-panel.js?v=to-reports-full-approval-2';
     script.defer = true;
     document.head.appendChild(script);
   }
