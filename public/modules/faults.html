@@ -330,6 +330,17 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     const act=reportActData(report);
     return parseReportPeriod(report?.date||act?.date||'');
   }
+
+  function latestReportPeriod(reports=[]){
+    let latest=null;
+    for(const report of reports){
+      const period=reportPeriod(report);
+      if(!period)continue;
+      const key=period.year*12+period.month;
+      if(!latest||key>latest.key)latest={...period,key};
+    }
+    return latest;
+  }
   function applyPeriodFilter(){
     state.reports=state.allReports.filter(report=>{
       const period=reportPeriod(report);
@@ -578,9 +589,18 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
       state.responsibleSigner=await responsibleSignerPromise;
       if(requestVersion!==state.requestVersion||expectedWorkspaceId!==state.workspaceId)return [];
       state.allReports=Array.isArray(data.rows)?data.rows:[];
+      if(!readSavedPeriod(expectedWorkspaceId)){
+        const latest=latestReportPeriod(state.allReports);
+        if(latest){
+          state.periodYear=latest.year;
+          state.periodMonth=latest.month;
+          updatePeriodControls();
+          saveSelectedPeriod();
+        }
+      }
       applyPeriodFilter();
       const linkedCount=state.reports.filter((row)=>String(row?.actNo||'').trim()).length;
-      setIntegrationStatus('BOG‘LANGAN',`${selectedPeriodLabel()} · ${linkedCount} ta dalolatnoma yuklandi`);
+      setIntegrationStatus('BOG‘LANGAN',`${linkedCount} ta dalolatnoma raqami yuklandi`);
       return state.reports;
     }catch(error){
       if(requestVersion!==state.requestVersion||expectedWorkspaceId!==state.workspaceId)return [];
