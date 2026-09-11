@@ -11,7 +11,7 @@ test('acts report rows expose a functional delete action', () => {
   assert.match(actsUi, /ActsUI\.deleteReport/);
   assert.match(actsUi, />Учириш<\/button>/);
   assert.match(actsUi, /method:'DELETE'/);
-  assert.match(actsHtml, /acts\.js\?v=20260911-nuvaa-auto-signer-1/);
+  assert.match(actsHtml, /acts\.js\?v=20260911-nuvaa-auto-signer-any-slot-2/);
 });
 
 test('acts report delete endpoint requires cancel permission', () => {
