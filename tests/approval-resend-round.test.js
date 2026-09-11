@@ -18,7 +18,9 @@ test('qayta yuborishda eski tasdiqlangan holat saqlanib qolmaydi', () => {
   assert.match(bridge, /resetExistingApprovals: true/);
 });
 
-test('umumiy hujjat holati uchala biriktirilgan tasdiqlovchi bo‘yicha hisoblanadi', () => {
-  assert.match(approval, /const requiredAssignments = assignedSignerSlots\(metadata\);/);
-  assert.doesNotMatch(approval, /Number\(assignment\.slot\) === 2 \|\| Number\(assignment\.slot\) === 3/);
+test('yangi yuborish raundi 3-of-3 siyosatini metadata orqali belgilaydi', () => {
+  assert.match(bridge, /approvalPolicy: 'all-assigned-v2'/);
+  assert.match(approval, /function requiresAllAssignedApprovals/);
+  assert.match(approval, /requiresAllAssignedApprovals\(metadata\)/);
+  assert.match(approval, /assignments\.filter\(\(assignment\) => Number\(assignment\.slot\) === 2 \|\| Number\(assignment\.slot\) === 3\)/);
 });
