@@ -24,3 +24,9 @@ test('yangi yuborish raundi 3-of-3 siyosatini metadata orqali belgilaydi', () =>
   assert.match(approval, /requiresAllAssignedApprovals\(metadata\)/);
   assert.match(approval, /assignments\.filter\(\(assignment\) => Number\(assignment\.slot\) === 2 \|\| Number\(assignment\.slot\) === 3\)/);
 });
+
+
+test('email provider resend muvaffaqiyatsiz bo‘lsa avvalgi tasdiq holati qayta tiklanadi', () => {
+  assert.match(bridge, /if \(existing\) \{\s*await writeApproval\(config, existing, \{ resetExisting: false \}\)\.catch/);
+  assert.match(approval, /if \(input\.resetExistingApprovals && existingApproval\) \{\s*await upsertApproval\(config, existingApproval, \{ resetExisting: false \}\)\.catch/);
+});
