@@ -169,3 +169,28 @@ test('eski КИП мастер lavozimi endi avtomatik imzo bermaydi', () => {
   );
   assert.doesNotMatch(result.html, /data-approved-signature-slot="1"/);
 });
+
+
+test('НУВваА устаси yoki НУВваА Чилангари legacy hujjatda qaysi slotda bo‘lsa ham avtomatik imzo ko‘rinadi', () => {
+  const legacyMetadata = {
+    assignedApprovers: metadata.assignedApprovers.map((row) => {
+      if (row.slot === 1) return { ...row, position: 'Oddiy imzolovchi' };
+      if (row.slot === 2) return { ...row, position: 'НУВваА устаси' };
+      if (row.slot === 3) return { ...row, position: 'НУВваА Чилангари' };
+      return row;
+    }),
+  };
+  const pendingApprovals = approvals.map((row) => ({ ...row, status: 'Кутилмоқда', approvedAt: '' }));
+  const source = `<div class="a4-preview">${slotCell(1)}${slotCell(2)}${slotCell(3)}</div>`;
+  const result = injectApprovalSignaturesIntoSlots(
+    source,
+    pendingApprovals,
+    legacyMetadata,
+    '',
+    (fileId) => `/signature/${encodeURIComponent(fileId)}`,
+  );
+
+  assert.doesNotMatch(result.html, /data-approved-signature-slot="1"/);
+  assert.match(result.html, /data-approved-signature-slot="2"/);
+  assert.match(result.html, /data-approved-signature-slot="3"/);
+});
