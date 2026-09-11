@@ -11,6 +11,7 @@ import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess
 import { parseToSheetRows } from './to.js';
 import {
   approveToPeriod,
+  getToPeriodApprovalStatus,
   getToPeriodReport,
   listToReportFolders,
   openToPeriodApproval,
@@ -118,6 +119,7 @@ function isPublicApprovalRequest(req) {
   const method = String(req.method || '').toUpperCase();
   const path = String(req.path || '').split('?')[0];
   if (method === 'GET' && /^\/approve\/[^/]+$/.test(path)) return true;
+  if (method === 'GET' && /^\/approve\/status\/[^/]+$/.test(path)) return true;
   if (method === 'POST' && path === '/approve') return true;
   return false;
 }
@@ -207,7 +209,7 @@ router.get('/reports', async (req, res) => {
 router.get('/reports/:year/:month', async (req, res) => {
   try {
     const { year, month } = normalizePeriod(req.params.year, req.params.month);
-    const report = await getToPeriodReport(req.workspace, year, month);
+    const report = await getToPeriodReport(req.workspace, year, month, req);
     return res.json({ ok: true, ...report });
   } catch (error) {
     return res.status(Number(error?.statusCode) || 400).json({
@@ -245,9 +247,23 @@ router.get('/approve/:token', async (req, res) => {
   }
 });
 
+router.get('/approve/status/:token', async (req, res) => {
+  try {
+    const result = await getToPeriodApprovalStatus(req.params.token);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return res.status(Number(error?.statusCode) || 403).json({
+      ok: false,
+      error: error?.message || 'TO tasdiqlash holatini o‘qish xatosi',
+      code: error?.code || 'TO_APPROVAL_STATUS_FAILED',
+    });
+  }
+});
+
 router.post('/approve', async (req, res) => {
   try {
-    const result = await approveToPeriod(req.body?.token, req);
+    const result = await approveToPeriod(req.body?.token, req.body?.csrfToken, req);
     return res.json({ ok: true, ...result });
   } catch (error) {
     return res.status(400).json({
