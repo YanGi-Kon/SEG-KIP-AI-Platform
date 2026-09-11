@@ -233,18 +233,9 @@ async function readApprovalRows(config, actNo) {
     id: row[0] || '',
     actNo: row[1] || '',
     signerId: row[2] || '',
-    position: row[3] || '',
-    fio: row[4] || '',
-    gmail: row[5] || '',
     status: row[6] || '',
-    link: row[7] || '',
-    tokenHash: row[8] || '',
-    createdAt: row[9] || '',
     openedAt: row[10] || '',
     approvedAt: row[11] || '',
-    ip: row[12] || '',
-    userAgent: row[13] || '',
-    signatureFileId: row[14] || '',
   })).filter((row) => row.id && row.actNo === actNo);
 }
 
@@ -258,14 +249,14 @@ async function writeApproval(config, input, { resetExisting = false } = {}) {
     input.position,
     input.fio,
     input.gmail,
-    resetExisting ? 'Кутилмоқда' : ((existing?.status === 'Тасдиқланди' || input.status === 'Тасдиқланди') ? 'Тасдиқланди' : 'Кутилмоқда'),
+    resetExisting ? 'Кутилмоқда' : (existing?.status === 'Тасдиқланди' ? 'Тасдиқланди' : 'Кутилмоқда'),
     input.link,
     input.tokenHash,
     input.createdAt,
-    resetExisting ? '' : (existing?.openedAt || input.openedAt || ''),
-    resetExisting ? '' : (existing?.approvedAt || input.approvedAt || ''),
-    resetExisting ? '' : (input.ip || ''),
-    resetExisting ? '' : (input.userAgent || ''),
+    resetExisting ? '' : (existing?.openedAt || ''),
+    resetExisting ? '' : (existing?.approvedAt || ''),
+    '',
+    '',
     input.signatureFileId,
   ];
   if (existing) {
@@ -444,7 +435,7 @@ async function sendWorkspaceDocumentViaHttp(workspace, input, req, synced, resol
       approverName: signer.fullName,
       link,
     });
-    const approval = await writeApproval(config, {
+    await writeApproval(config, {
       id: approvalId,
       actNo,
       signerId: signer.id,
