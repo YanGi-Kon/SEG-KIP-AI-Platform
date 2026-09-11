@@ -694,7 +694,7 @@ export function injectApprovalSignaturesIntoSlots(html, approvals = [], metadata
     const assignment = assignments.find((row) => Number(row.slot) === slot) || {};
     const approval = approvals.find((row) => approvalSlot(row, metadata) === slot) || null;
     const approved = clean(approval?.status) === 'Тасдиқланди';
-    const visible = approved || (!requiresAllAssignedApprovals(metadata) && slot === 1 && isAutomaticSignatureAssignment(assignment));
+    const visible = approved || (!requiresAllAssignedApprovals(metadata) && isAutomaticSignatureAssignment(assignment));
     const rawFileId = clean(approval?.signatureFileId || assignment.signatureFileId);
     const fileId = extractSignatureFileId(rawFileId) || rawFileId;
     const image = visible && fileId
