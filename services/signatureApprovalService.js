@@ -407,7 +407,7 @@ export function verifyCsrfToken(csrfToken, approvalId, approvalToken) {
   }
 }
 
-function createSignatureImageToken(fileId) {
+export function createSignatureImageToken(fileId) {
   return jwt.sign({ type: 'signature-image', fileId }, jwtSecret(), {
     expiresIn: process.env.SIGNATURE_IMAGE_TOKEN_TTL || '365d',
     issuer: 'SEG-KIP-AI',
