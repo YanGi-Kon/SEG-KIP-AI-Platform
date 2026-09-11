@@ -647,10 +647,9 @@ export function buildApprovalSlotMetadata(approvals = [], metadata = {}) {
   }));
 }
 
-function isKipMasterAssignment(assignment = {}) {
-  const text = normalizeText(`${assignment.position || ''} ${assignment.fio || ''}`);
-  return (text.includes('кип') && (text.includes('мастер') || text.includes('инженер')))
-    || (text.includes('kip') && (text.includes('master') || text.includes('engineer')));
+function isAutomaticSignatureAssignment(assignment = {}) {
+  const position = normalizeText(assignment.position || '');
+  return position.includes('нувваа чилангари') || position.includes('нувваа устаси');
 }
 
 export function ensureSignatureSlotMarkers(html) {
@@ -695,7 +694,7 @@ export function injectApprovalSignaturesIntoSlots(html, approvals = [], metadata
     const assignment = assignments.find((row) => Number(row.slot) === slot) || {};
     const approval = approvals.find((row) => approvalSlot(row, metadata) === slot) || null;
     const approved = clean(approval?.status) === 'Тасдиқланди';
-    const visible = approved || (!requiresAllAssignedApprovals(metadata) && slot === 1 && isKipMasterAssignment(assignment));
+    const visible = approved || (!requiresAllAssignedApprovals(metadata) && slot === 1 && isAutomaticSignatureAssignment(assignment));
     const rawFileId = clean(approval?.signatureFileId || assignment.signatureFileId);
     const fileId = extractSignatureFileId(rawFileId) || rawFileId;
     const image = visible && fileId
