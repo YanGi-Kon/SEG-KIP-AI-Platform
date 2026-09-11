@@ -523,6 +523,24 @@ export async function sendWorkspaceDocumentForApproval(workspace, input, req) {
   if (!actNo) throw new Error('Акт рақами киритилмаган');
   const resolvedTargets = await resolveWorkspaceDocumentTargets(workspace, actNo, synced);
 
+  if (provider.hasHttpEmailProvider && provider.fromMode === 'missing') {
+    throw makeWorkspaceEmailError({
+      code: 'EMAIL_FROM_MISSING',
+      error: 'EMAIL_FROM kiritilmagan.',
+      recommendedFix: provider.recommendedFix,
+    });
+  }
+  if (provider.hasHttpEmailProvider && provider.fromMode === 'resend-test-sender') {
+    const uniqueRecipients = new Set(resolvedTargets.targetSigners.map((signer) => clean(signer.email).toLowerCase()).filter(Boolean));
+    if (uniqueRecipients.size > 1) {
+      throw makeWorkspaceEmailError({
+        code: 'EMAIL_PROVIDER_RECIPIENT_NOT_ALLOWED',
+        error: 'Resend test sender bilan bir nechta turli Gmail manziliga tasdiqlash xabari yuborib bo‘lmaydi.',
+        recommendedFix: provider.recommendedFix,
+      });
+    }
+  }
+
   if (hasHttpEmailProvider()) return sendWorkspaceDocumentViaHttp(workspace, { ...input, actNo }, req, synced, resolvedTargets);
 
   try {
