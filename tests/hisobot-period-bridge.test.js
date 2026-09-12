@@ -139,3 +139,13 @@ test('HISOBOT trusts a parseable visible date over stale helper values', () => {
   assert.equal(parseHisobotPeriodRows(rows, 2026, 1).rows.length, 1);
   assert.equal(parseHisobotPeriodRows(rows, 2026, 8).rows.length, 0);
 });
+
+
+test('HISOBOT refreshes the Google Sheets basic filter after O1/Q1 period changes', () => {
+  assert.match(routeSource, /refreshPeriodFilter/);
+  assert.match(routeSource, /clearBasicFilter/);
+  assert.match(routeSource, /setBasicFilter/);
+  assert.match(routeSource, /CUSTOM_FORMULA/);
+  assert.match(routeSource, /\$L5=TO_TEXT\(\$O\$1\)/);
+  assert.match(routeSource, /\$M5=\$Q\$1/);
+});

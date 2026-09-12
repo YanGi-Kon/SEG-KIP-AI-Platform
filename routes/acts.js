@@ -168,6 +168,50 @@ function sheetA1Title(sheetName) {
   return `'${String(sheetName || '').replace(/'/g, "''")}'`;
 }
 
+async function refreshAnalysisPeriodFilter({ sheets, spreadsheetId, sheetName }) {
+  const metadata = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets(properties(sheetId,title,gridProperties(rowCount)))',
+  });
+  const target = (metadata.data.sheets || []).find(
+    (sheet) => clean(sheet?.properties?.title) === clean(sheetName),
+  );
+  const sheetId = target?.properties?.sheetId;
+  const rowCount = Number(target?.properties?.gridProperties?.rowCount || 0);
+  if (!Number.isInteger(sheetId) || rowCount < 5) return false;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        { clearBasicFilter: { sheetId } },
+        {
+          setBasicFilter: {
+            filter: {
+              range: {
+                sheetId,
+                startRowIndex: 3,
+                endRowIndex: rowCount,
+                startColumnIndex: 0,
+                endColumnIndex: 13,
+              },
+              criteria: {
+                11: {
+                  condition: {
+                    type: 'CUSTOM_FORMULA',
+                    values: [{ userEnteredValue: '=И($L5=TO_TEXT($O$1);$M5=$Q$1)' }],
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  });
+  return true;
+}
+
 async function syncAnalysisPeriodSelector({ spreadsheetUrl, serviceAccount, sheetName, year, monthName }) {
   try {
     const selectorRows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName, range: 'N1:Q1' });
@@ -189,6 +233,7 @@ async function syncAnalysisPeriodSelector({ spreadsheetUrl, serviceAccount, shee
         ],
       },
     });
+    await refreshAnalysisPeriodFilter({ sheets, spreadsheetId, sheetName });
     return { synced: true, yearCell: `${sheetName}!O1`, monthCell: `${sheetName}!Q1` };
   } catch (err) {
     return { synced: false, reason: 'selector_sync_failed', error: clean(err?.message) };
