@@ -48,7 +48,7 @@ test('HISOBOT period source prefers Base __Год and __Месяц when visible 
   ];
 
   const july = parseHisobotPeriodRows(rows, 2026, 7);
-  assert.equal(july.periodSource, 'helpers');
+  assert.equal(july.periodSource, 'date+helpers-fallback');
   assert.equal(july.rows.length, 2);
   assert.equal(july.rows[0]._periodBaseRowNumber, 5);
   assert.equal(july.rows[0].serial, 'CE5H');
@@ -110,4 +110,32 @@ test('HISOBOT source diagnostic links directly to the exact Spreadsheet being re
   assert.match(bridgeSource, /docs\.google\.com\/spreadsheets\/d\/\$\{encodeURIComponent\(spreadsheetId\)\}\/edit/);
   assert.match(bridgeSource, /Manba Google Sheets/);
   assert.match(bridgeSource, /filtr faol bo‘lsa/);
+});
+
+
+test('HISOBOT opens January rows even when helper columns exist but are blank', () => {
+  const rows = [
+    [''],
+    [''],
+    [''],
+    ['Дата','Поз номер','Наименование СИ','Тип, марка','Заводской номер','Предел измерения','Место установки','СКВ','Перечень в/р','Исполнитель работ: Должность Ф.И.О.','Подпись','__Год','__Месяц'],
+    ['01.2026г', '10', 'Манометр', 'WIKA', 'JAN-1', '1 МПа', '1-участка', 'скв. 10', 'ТО-2', '', '', '', ''],
+    ['', '11', 'Манометр', 'WIKA', 'JAN-2', '1.6 МПа', '1-участка', 'скв. 11', 'АКТ', '', '', '2026', 'Январь'],
+    ['08.2026г', '12', 'Манометр', 'WIKA', 'AUG-1', '1.6 МПа', '1-участка', 'скв. 12', 'ТО-2', '', '', '2026', 'Август'],
+  ];
+
+  const january = parseHisobotPeriodRows(rows, 2026, 'Январь');
+  assert.equal(january.rows.length, 2);
+  assert.equal(january.rows[0].serial, 'JAN-1');
+  assert.equal(january.rows[1].serial, 'JAN-2');
+});
+
+test('HISOBOT trusts a parseable visible date over stale helper values', () => {
+  const rows = [
+    ['Дата','Поз номер','Наименование СИ','Тип, марка','Заводской номер','Предел измерения','Место установки','СКВ','Перечень в/р','Исполнитель работ: Должность Ф.И.О.','Подпись','__Год','__Месяц'],
+    ['01.2026г', '20', 'Манометр', 'WIKA', 'JAN-STABLE', '1 МПа', '1-участка', 'скв. 20', 'ТО-2', '', '', '2026', 'Август'],
+  ];
+
+  assert.equal(parseHisobotPeriodRows(rows, 2026, 1).rows.length, 1);
+  assert.equal(parseHisobotPeriodRows(rows, 2026, 8).rows.length, 0);
 });
