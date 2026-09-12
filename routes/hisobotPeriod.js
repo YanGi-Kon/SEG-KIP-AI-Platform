@@ -303,6 +303,7 @@ router.post('/select', async (req, res) => {
 
     return res.json({
       ok: true,
+      sourceSpreadsheetId: spreadsheetId,
       baseSheet,
       selector: {
         year: parsed.year,
