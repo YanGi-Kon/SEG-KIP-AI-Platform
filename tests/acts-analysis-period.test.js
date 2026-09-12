@@ -64,3 +64,11 @@ test('Acts period selector refreshes the same Base filter after O1/Q1 sync', () 
   assert.match(actsRoute, /setBasicFilter/);
   assert.match(actsRoute, /CUSTOM_FORMULA/);
 });
+
+
+test('Acts clears manual row hiding before applying the period filter', () => {
+  const source = actsRoute;
+  assert.match(source, /updateDimensionProperties/);
+  assert.match(source, /hiddenByUser:\s*false/);
+  assert.match(source, /fields:\s*'hiddenByUser'/);
+});
