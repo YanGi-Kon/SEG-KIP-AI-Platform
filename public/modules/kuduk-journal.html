@@ -74,6 +74,8 @@ let socket = null;
 let currentSheet = '';
 let editing = null;
 let activeWorkspaceId = '';
+let workspaceReloading = false;
+let workspaceReloadPending = false;
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -166,19 +168,36 @@ async function fetchState(expectedWorkspaceId = workspaceId()){
   catch(e){ setStatus('ERROR','error','Failed to fetch'); msg('Backend bilan aloqa yo‘q: ' + e.message, 'err'); }
 }
 
+function finishWorkspaceReload(nextWorkspaceId){
+  workspaceReloading = false;
+  const shouldRetry = workspaceReloadPending && !state.connected;
+  workspaceReloadPending = false;
+  if(shouldRetry) setTimeout(() => void activateWorkspace(nextWorkspaceId), 0);
+}
+
 async function activateWorkspace(nextWorkspaceId){
   const nextId = String(nextWorkspaceId || workspaceId() || '').trim();
-  if(!nextId || nextId === activeWorkspaceId) return;
-  activeWorkspaceId = nextId;
-  localStorage.setItem('seg_kip_selected_workspace_id', nextId);
-  metadataLoadedFor = '';
-  currentSheet = '';
-  editing = null;
-  state = { connected:false, routes:[], sheets:{}, statuses:{}, sexId:'sex_4', currentView:'menu', selectedRoute:null, rows:[], metadata:{ installationPlaces:[], deviceTypes:[], workTypes:[] } };
-  setStatus('SYNCING','offline','Yangi Workspace ma’lumotlari yuklanmoqda...');
-  renderAll();
-  connectSocket();
-  await fetchState(nextId);
+  const workspaceChanged = Boolean(nextId && nextId !== activeWorkspaceId);
+  if(!nextId) return;
+  if(!workspaceChanged && workspaceReloading){ workspaceReloadPending = true; return; }
+  if(!workspaceChanged && state.connected) return;
+  workspaceReloading = true;
+  try{
+    if(workspaceChanged){
+      activeWorkspaceId = nextId;
+      localStorage.setItem('seg_kip_selected_workspace_id', nextId);
+      metadataLoadedFor = '';
+      currentSheet = '';
+      editing = null;
+      state = { connected:false, routes:[], sheets:{}, statuses:{}, sexId:'sex_4', currentView:'menu', selectedRoute:null, rows:[], metadata:{ installationPlaces:[], deviceTypes:[], workTypes:[] } };
+      renderAll();
+      connectSocket();
+    }
+    setStatus('SYNCING','offline', workspaceChanged ? 'Yangi Workspace ma’lumotlari yuklanmoqda...' : 'Workspace sessiyasi tiklanmoqda...');
+    await fetchState(nextId);
+  }finally{
+    finishWorkspaceReload(nextId);
+  }
 }
 async function readJsonFile(input){
   const file = input.files?.[0];
@@ -235,8 +254,7 @@ function renderRoutes(){
   el.innerHTML = routes.map(r => {
     const master = isMasterRoute(r);
     const title = master ? '📘 ЖУРНАЛ' : r.title;
-    const sub = master ? 'Умумий журнал: База' : 'Варақ: <b>'+esc(r.sheet)+'</b>';
-    return `<div class="card ${r.sheet===currentSheet?'active':''}" onclick="selectRoute('${esc(r.sheet)}')"><h3>${esc(title)}</h3><div class="small">${sub}</div><div style="margin-top:10px"><span class="badge">${r.count||0} ta yozuv</span></div><div class="small" style="margin-top:8px">${esc(r.status||'')}</div></div>`;
+    return `<div class="card ${r.sheet===currentSheet?'active':''}" onclick="selectRoute('${esc(r.sheet)}')"><h3>${esc(title)}</h3><div style="margin-top:10px"><span class="badge">${r.count||0} ta yozuv</span></div><div class="small" style="margin-top:8px">${esc(r.status||'')}</div></div>`;
   }).join('');
 }
 function rows(){ return state.sheets?.[currentSheet] || state.rows || []; }
@@ -280,10 +298,12 @@ window.addEventListener('message', event => {
 window.addEventListener('load', () => {
   activeWorkspaceId = workspaceId();
   try{ const saved = localStorage.getItem('seg_kip_sheet_url') || localStorage.getItem('spreadsheetUrl'); }catch(_){}
-  connectSocket(); fetchState();
+  workspaceReloading = true;
+  connectSocket();
+  Promise.resolve(fetchState()).finally(() => finishWorkspaceReload(activeWorkspaceId));
   try{ parent.postMessage({ type:'REQUEST_WORKSPACE_INFO' }, '*'); }catch(_){}
 });
 </script>
-<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period2"></script>
+<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period6-auth-retry"></script>
 </body>
 </html>

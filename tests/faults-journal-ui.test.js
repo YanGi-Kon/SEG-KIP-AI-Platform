@@ -4,6 +4,9 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const html = fs.readFileSync(new URL('../public/modules/faults.html', import.meta.url), 'utf8');
+const appSource = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+const indexSource = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+const styleSource = fs.readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 
 test('faults module renders the seven-column reglament journal frontend', () => {
@@ -52,6 +55,20 @@ test('faults frontend links the first column to Acts reports without local journ
   assert.match(scriptMatch[1], /REQUEST_WORKSPACE_INFO/);
   assert.doesNotMatch(scriptMatch[1], /ROWS_KEY|CONFIG_KEY|openModal|saveForm|removeRow|SAVE_MODULE_SETTINGS/);
   assert.match(scriptMatch[1], /PERIOD_STORAGE_PREFIX='seg_faults_period_v1'/);
+});
+
+test('faults journal keeps a dedicated persistent iframe across menu navigation', () => {
+  assert.match(indexSource, /id="faultsModuleFrame"/);
+  assert.match(indexSource, /js\/app\.js\?v=20260912-faults-persistent-frame1/);
+  assert.match(indexSource, /css\/style\.css\?v=5/);
+  assert.match(styleSource, /#faultsModuleFrame\{/);
+  assert.match(styleSource, /#faultsModuleFrame\[hidden\]/);
+  assert.match(appSource, /const faultsFrame = document\.getElementById\('faultsModuleFrame'\)/);
+  assert.match(appSource, /const isFaults = moduleName === 'faults'/);
+  assert.match(appSource, /faultsFrame\.hidden = !isFaults/);
+  assert.match(appSource, /genericFrame\.hidden = isJournal \|\| isFaults/);
+  assert.match(appSource, /isFaults \? faultsFrame : genericFrame/);
+  assert.match(appSource, /activeModuleName === 'faults'.*return faultsFrame/s);
 });
 
 test('faults frontend inserts all 22 editable rows when the page loads', () => {
@@ -203,6 +220,118 @@ test('faults frontend puts linked Acts report fields into their journal columns'
   assert.doesNotMatch(rowsBody.children[0].innerHTML, />1<\/td>/);
   assert.match(elements.get('faultsStatus').textContent, /BOG.*LANGAN/);
   assert.equal(elements.get('faultsStatusSub').textContent, '1 ta dalolatnoma raqami yuklandi');
+});
+
+test('faults loads ACTS daily reports even when acts_sheet_name is not configured', async () => {
+  const rowsBody = {
+    _innerHTML: '',
+    children: [],
+    set innerHTML(value) { this._innerHTML = value; this.children = []; },
+    get innerHTML() { return this._innerHTML; },
+    appendChild(fragment) { this.children.push(...fragment.children); },
+  };
+  const elements = new Map([
+    ['faultsRows', rowsBody],
+    ['faultsStatus', { textContent: '' }],
+    ['faultsStatusSub', { textContent: '' }],
+    ['faultsWorkspaceName', { textContent: '' }],
+  ]);
+  const handlers = {};
+  const requests = [];
+  const parent = {
+    localStorage: { getItem: () => null },
+    sessionStorage: { getItem: () => null },
+    postMessage() {},
+  };
+  const window = { parent, addEventListener(type, handler) { handlers[type] = handler; } };
+  const document = {
+    getElementById: (id) => elements.get(id) || null,
+    createElement: () => ({ dataset: {}, innerHTML: '' }),
+    createDocumentFragment: () => ({ children: [], appendChild(child) { this.children.push(child); } }),
+  };
+
+  vm.runInNewContext(scriptMatch[1], {
+    document,
+    fetch: async (url, options) => {
+      requests.push({ url, options });
+      return { ok: true, json: async () => ({ rows: [] }) };
+    },
+    localStorage: { getItem: () => null },
+    sessionStorage: { getItem: () => null },
+    parent,
+    window,
+  });
+
+  handlers.message({
+    data: {
+      type: 'SEG_KIP_WORKSPACE_CHANGE',
+      workspaceId: 'workspace-a',
+      workspace: { id: 'workspace-a', name: 'Sex A', moduleSettings: {} },
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const reportRequest = requests.find(({ url }) => url === '/api/acts/reports/daily');
+  assert.ok(reportRequest, 'faults must request ACTS reports without acts_sheet_name');
+  assert.equal(reportRequest.options.headers['x-workspace-id'], 'workspace-a');
+  assert.deepEqual(JSON.parse(reportRequest.options.body), { sheetName: '' });
+  assert.match(elements.get('faultsStatus').textContent, /BOG.*LANGAN/);
+  assert.doesNotMatch(elements.get('faultsStatusSub').textContent, /sozlamalari topilmadi/);
+});
+
+test('faults period filter links ACTS reports whose date is stored as 08.2026г', () => {
+  const rowsBody = {
+    _innerHTML: '',
+    children: [],
+    set innerHTML(value) { this._innerHTML = value; this.children = []; },
+    get innerHTML() { return this._innerHTML; },
+    appendChild(fragment) { this.children.push(...fragment.children); },
+  };
+  const periodStatus = { textContent: '', className: '' };
+  const periodBadge = { textContent: '' };
+  const elements = new Map([
+    ['faultsRows', rowsBody],
+    ['faultsPeriodStatus', periodStatus],
+    ['faultsPeriodBadge', periodBadge],
+  ]);
+  const handlers = {};
+  const parent = { localStorage: { getItem: () => null }, postMessage() {} };
+  const window = { parent, addEventListener(type, handler) { handlers[type] = handler; } };
+  const document = {
+    getElementById: (id) => elements.get(id) || null,
+    createElement: () => ({ dataset: {}, innerHTML: '' }),
+    createDocumentFragment: () => ({
+      children: [],
+      appendChild(child) { this.children.push(child); },
+    }),
+  };
+
+  vm.runInNewContext(scriptMatch[1], {
+    document,
+    localStorage: { getItem: () => null },
+    sessionStorage: { getItem: () => null },
+    parent,
+    window,
+  });
+
+  const state = window.FaultsJournalWorkspace.state;
+  state.periodYear = 2026;
+  state.periodMonth = 8;
+  state.allReports = [
+    { actNo: '333', date: '08.2026г', a4Json: '{}' },
+    { actNo: '334', date: 'legacy-value', a4Json: JSON.stringify({ date: '08.2026г' }) },
+    { actNo: '335', date: '09.2026г', a4Json: '{}' },
+  ];
+
+  window.FaultsJournalFrontend.applyPeriodFilter();
+
+  assert.equal(state.reports.length, 2);
+  assert.equal(state.reports[0].actNo, '333');
+  assert.equal(state.reports[1].actNo, '334');
+  assert.match(rowsBody.children[0].innerHTML, /value="333" readonly/);
+  assert.match(rowsBody.children[1].innerHTML, /value="334" readonly/);
+  assert.equal(periodBadge.textContent, '2 ta dalolatnoma');
+  assert.match(periodStatus.textContent, /Август 2026 · 2 ta dalolatnoma/);
 });
 
 test('faults table keeps the source document column proportions', () => {

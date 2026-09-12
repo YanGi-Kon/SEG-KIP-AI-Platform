@@ -1,8 +1,8 @@
 // SEG KIP modular frontend controller
 const MODULES = {
-  journal: 'modules/hisobot-journal.html?v=20260910-period3',
+  journal: 'modules/hisobot-journal.html?v=20260912-hide-source1',
   acts: 'modules/acts.html?v=20260901-email-approval-signatures-4',
-  faults: 'modules/faults.html?v=20260911-period1',
+  faults: 'modules/faults.html?v=20260912-month-year1',
   to: 'modules/to.html?v=20260911-period-persist1',
   replacement: 'modules/replacement.html',
   openai: 'modules/openai.html',
@@ -189,10 +189,18 @@ function openModulePage(moduleName, title) {
   
   hideAllPages();
   const page = document.getElementById('genericModulePage');
-  const frame = document.getElementById('genericModuleFrame');
-  if (frame) frame.src = src;
+  const journalFrame = document.getElementById('hisobotModuleFrame');
+  const faultsFrame = document.getElementById('faultsModuleFrame');
+  const genericFrame = document.getElementById('genericModuleFrame');
+  const isJournal = moduleName === 'journal';
+  const isFaults = moduleName === 'faults';
+  if (journalFrame) journalFrame.hidden = !isJournal;
+  if (faultsFrame) faultsFrame.hidden = !isFaults;
+  if (genericFrame) genericFrame.hidden = isJournal || isFaults;
+  const frame = isJournal ? journalFrame : (isFaults ? faultsFrame : genericFrame);
+  if (frame && frame.getAttribute('src') !== src) frame.src = src;
   if (page) page.classList.add('active');
-  const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'ТО ЖУРНАЛ', replacement:'АЛМАШИШ ЖУРНАЛИ', users:'ПОЛЬЗОВАТЕЛИ', roles:'РОЛИ', settings:'НАСТРОЙКИ' };
+  const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'АКТ ВЫПОЛНЕННЫХ РАБОТ', replacement:'АЛМАШИШ ЖУРНАЛИ', users:'ПОЛЬЗОВАТЕЛИ', roles:'РОЛИ', settings:'НАСТРОЙКИ' };
   setActiveMenu(menuLabels[moduleName] || 'ЖУРНАЛ УЧЕТА');
   setTopbar(title || 'SEG KIP AI Platform — Модул', 'Модул алоҳида HTML файлдан юкланади');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -368,7 +376,13 @@ function setAiInputDisabled(disabled) {
 function getVisibleFrame() {
   const genericPage = document.getElementById('genericModulePage');
   const ulchovPage = document.getElementById('ulchovIntegratedPage');
-  if (genericPage?.classList.contains('active')) return document.getElementById('genericModuleFrame');
+  if (genericPage?.classList.contains('active')) {
+    const journalFrame = document.getElementById('hisobotModuleFrame');
+    const faultsFrame = document.getElementById('faultsModuleFrame');
+    if (activeModuleName === 'journal' && journalFrame && !journalFrame.hidden) return journalFrame;
+    if (activeModuleName === 'faults' && faultsFrame && !faultsFrame.hidden) return faultsFrame;
+    return document.getElementById('genericModuleFrame');
+  }
   if (ulchovPage?.classList.contains('active')) return document.getElementById('claUlchovFrame');
   return null;
 }
