@@ -149,3 +149,11 @@ test('HISOBOT refreshes the Google Sheets basic filter after O1/Q1 period change
   assert.match(routeSource, /\$L5=TO_TEXT\(\$O\$1\)/);
   assert.match(routeSource, /\$M5=\$Q\$1/);
 });
+
+
+test('HISOBOT clears manual row hiding before applying the period filter', () => {
+  const source = routeSource;
+  assert.match(source, /updateDimensionProperties/);
+  assert.match(source, /hiddenByUser:\s*false/);
+  assert.match(source, /fields:\s*'hiddenByUser'/);
+});
