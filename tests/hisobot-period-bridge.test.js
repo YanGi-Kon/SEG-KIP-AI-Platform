@@ -7,6 +7,7 @@ const bridgeSource = fs.readFileSync(new URL('../public/js/hisobot-period-bridge
 const appSource = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
 const indexSource = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
 const hisobotHtmlSource = fs.readFileSync(new URL('../public/modules/hisobot-journal.html', import.meta.url), 'utf8');
+const kudukHtmlSource = fs.readFileSync(new URL('../public/modules/kuduk-journal.html', import.meta.url), 'utf8');
 const routeSource = fs.readFileSync(new URL('../routes/hisobotPeriod.js', import.meta.url), 'utf8');
 const kudukRouteSource = fs.readFileSync(new URL('../routes/kuduk.js', import.meta.url), 'utf8');
 const {
@@ -18,12 +19,20 @@ const {
 test('HISOBOT JURNALI removes legacy route dropdown and injects TO-style period bridge', () => {
   assert.match(serverSource, /app\.get\("\/modules\/kuduk-journal\.html"/);
   assert.match(serverSource, /html\.replace\(\/<select id="routeSelect"/);
-  assert.match(serverSource, /hisobot-period-bridge\.js\?v=hisobot-period6-auth-retry/);
+  assert.match(serverSource, /hisobot-period-bridge\.js\?v=hisobot-period7-hide-source/);
   assert.match(bridgeSource, /oldSelector\.remove\(\)/);
   assert.match(bridgeSource, /hisobotPrevPeriodBtn/);
   assert.match(bridgeSource, /hisobotPeriodMonth/);
   assert.match(bridgeSource, /hisobotPeriodYear/);
   assert.match(bridgeSource, /hisobotNextPeriodBtn/);
+});
+
+test('HISOBOT cards do not expose internal Google Sheets source labels to users', () => {
+  for (const source of [bridgeSource, hisobotHtmlSource, kudukHtmlSource]) {
+    assert.doesNotMatch(source, /Умумий журнал: База/);
+    assert.doesNotMatch(source, /Варақ:\s*<b>/);
+  }
+  assert.match(appSource, /modules\/hisobot-journal\.html\?v=20260912-hide-source1/);
 });
 
 test('HISOBOT month and year changes automatically synchronize the selected Sheets period', () => {

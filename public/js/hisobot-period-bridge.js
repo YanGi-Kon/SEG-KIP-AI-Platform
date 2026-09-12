@@ -501,8 +501,7 @@
     el.innerHTML = routes.map((route) => {
       const master = isMasterRouteLocal(route);
       const title = master ? '📘 ЖУРНАЛ' : route.title;
-      const sub = master ? 'Умумий журнал: База' : `Варақ: <b>${escHtml(route.sheet)}</b>`;
-      return `<div class="card ${route.sheet === selectedSheet ? 'active' : ''}" onclick="selectRoute('${escHtml(route.sheet)}')"><h3>${escHtml(title)}</h3><div class="small">${sub}</div><div style="margin-top:10px"><span class="badge">${Number(route.count) || 0} ta yozuv</span></div><div class="small" style="margin-top:8px">${escHtml(route.status || '')}</div></div>`;
+      return `<div class="card ${route.sheet === selectedSheet ? 'active' : ''}" onclick="selectRoute('${escHtml(route.sheet)}')"><h3>${escHtml(title)}</h3><div style="margin-top:10px"><span class="badge">${Number(route.count) || 0} ta yozuv</span></div><div class="small" style="margin-top:8px">${escHtml(route.status || '')}</div></div>`;
     }).join('');
   }
 

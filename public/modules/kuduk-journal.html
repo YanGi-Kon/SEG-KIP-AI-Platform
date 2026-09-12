@@ -254,8 +254,7 @@ function renderRoutes(){
   el.innerHTML = routes.map(r => {
     const master = isMasterRoute(r);
     const title = master ? '📘 ЖУРНАЛ' : r.title;
-    const sub = master ? 'Умумий журнал: База' : 'Варақ: <b>'+esc(r.sheet)+'</b>';
-    return `<div class="card ${r.sheet===currentSheet?'active':''}" onclick="selectRoute('${esc(r.sheet)}')"><h3>${esc(title)}</h3><div class="small">${sub}</div><div style="margin-top:10px"><span class="badge">${r.count||0} ta yozuv</span></div><div class="small" style="margin-top:8px">${esc(r.status||'')}</div></div>`;
+    return `<div class="card ${r.sheet===currentSheet?'active':''}" onclick="selectRoute('${esc(r.sheet)}')"><h3>${esc(title)}</h3><div style="margin-top:10px"><span class="badge">${r.count||0} ta yozuv</span></div><div class="small" style="margin-top:8px">${esc(r.status||'')}</div></div>`;
   }).join('');
 }
 function rows(){ return state.sheets?.[currentSheet] || state.rows || []; }

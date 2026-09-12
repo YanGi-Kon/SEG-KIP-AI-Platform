@@ -166,7 +166,7 @@ app.get("/modules/to.html", (_req, res, next) => {
 app.get("/modules/kuduk-journal.html", (_req, res, next) => {
   try {
     const html = readFileSync(kudukJournalHtmlPath, "utf8");
-    const bridgeScript = '<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period6-auth-retry"></script>';
+    const bridgeScript = '<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period7-hide-source"></script>';
     const htmlWithoutLegacySelector = html.replace(/<select id="routeSelect"[^>]*><\/select>/, "");
     const safeHtml = htmlWithoutLegacySelector.includes("hisobotPeriodBridgeScript")
       ? htmlWithoutLegacySelector
