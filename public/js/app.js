@@ -190,11 +190,14 @@ function openModulePage(moduleName, title) {
   hideAllPages();
   const page = document.getElementById('genericModulePage');
   const journalFrame = document.getElementById('hisobotModuleFrame');
+  const faultsFrame = document.getElementById('faultsModuleFrame');
   const genericFrame = document.getElementById('genericModuleFrame');
   const isJournal = moduleName === 'journal';
+  const isFaults = moduleName === 'faults';
   if (journalFrame) journalFrame.hidden = !isJournal;
-  if (genericFrame) genericFrame.hidden = isJournal;
-  const frame = isJournal ? journalFrame : genericFrame;
+  if (faultsFrame) faultsFrame.hidden = !isFaults;
+  if (genericFrame) genericFrame.hidden = isJournal || isFaults;
+  const frame = isJournal ? journalFrame : (isFaults ? faultsFrame : genericFrame);
   if (frame && frame.getAttribute('src') !== src) frame.src = src;
   if (page) page.classList.add('active');
   const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'ТО ЖУРНАЛ', replacement:'АЛМАШИШ ЖУРНАЛИ', users:'ПОЛЬЗОВАТЕЛИ', roles:'РОЛИ', settings:'НАСТРОЙКИ' };
@@ -375,7 +378,9 @@ function getVisibleFrame() {
   const ulchovPage = document.getElementById('ulchovIntegratedPage');
   if (genericPage?.classList.contains('active')) {
     const journalFrame = document.getElementById('hisobotModuleFrame');
+    const faultsFrame = document.getElementById('faultsModuleFrame');
     if (activeModuleName === 'journal' && journalFrame && !journalFrame.hidden) return journalFrame;
+    if (activeModuleName === 'faults' && faultsFrame && !faultsFrame.hidden) return faultsFrame;
     return document.getElementById('genericModuleFrame');
   }
   if (ulchovPage?.classList.contains('active')) return document.getElementById('claUlchovFrame');
