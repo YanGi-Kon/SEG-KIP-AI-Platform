@@ -102,6 +102,18 @@ async function refreshPeriodFilter({ sheets, spreadsheetId, sheetName }) {
     spreadsheetId,
     requestBody: {
       requests: [
+        {
+          updateDimensionProperties: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: 4,
+              endIndex: rowCount,
+            },
+            properties: { hiddenByUser: false },
+            fields: 'hiddenByUser',
+          },
+        },
         { clearBasicFilter: { sheetId } },
         {
           setBasicFilter: {
