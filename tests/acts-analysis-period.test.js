@@ -56,3 +56,11 @@ test('Acts backend filters rows by selected period before the exact AKT marker',
   assert.match(actsRoute, /const matched = periodRows\s*\.filter\(x => isTargetWork\(x\.row\[wrkIdx\]\)\)/);
   assert.match(actsRoute, /totalRows: periodRows\.length/);
 });
+
+
+test('Acts period selector refreshes the same Base filter after O1/Q1 sync', () => {
+  assert.match(actsRoute, /refreshAnalysisPeriodFilter/);
+  assert.match(actsRoute, /clearBasicFilter/);
+  assert.match(actsRoute, /setBasicFilter/);
+  assert.match(actsRoute, /CUSTOM_FORMULA/);
+});
