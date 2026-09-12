@@ -7,6 +7,8 @@
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const API_PATH = '/api/hisobot-period/select';
   const PERIOD_STORAGE_PREFIX = 'seg_hisobot_period_v1';
+  const PERIOD_CACHE_PROPERTY = '__segKipHisobotPeriodCacheV1';
+  const REQUEST_TIMEOUT_MS = 20_000;
 
   let canonicalSheets = null;
   let canonicalRoutes = null;
@@ -17,6 +19,7 @@
   let busy = false;
   let initialized = false;
   let rawFetchState = null;
+  let forceNextPeriodRequest = false;
 
   const byId = (id) => document.getElementById(id);
   const clean = (value) => String(value ?? '').trim();
@@ -100,6 +103,73 @@
     periodMonth = saved.month;
     updateControls();
     return true;
+  }
+
+  function periodCacheHost() {
+    try {
+      return parent && parent !== window ? parent : window;
+    } catch (_) {
+      return window;
+    }
+  }
+
+  function periodCacheKey(workspaceId = workspaceIdValue(), year = periodYear, month = periodMonth) {
+    const wid = clean(workspaceId);
+    const safeYear = Number(year);
+    const safeMonth = Number(month);
+    if (!wid || !Number.isInteger(safeYear) || !Number.isInteger(safeMonth)) return '';
+    return `${wid}|${safeYear}-${String(safeMonth).padStart(2, '0')}`;
+  }
+
+  function periodCache() {
+    const host = periodCacheHost();
+    try {
+      if (!host[PERIOD_CACHE_PROPERTY]) host[PERIOD_CACHE_PROPERTY] = Object.create(null);
+      return host[PERIOD_CACHE_PROPERTY];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function rememberPeriodData(data) {
+    const key = periodCacheKey(
+      workspaceIdValue(),
+      Number(data?.selector?.year || periodYear),
+      Number(data?.selector?.month || periodMonth),
+    );
+    const cache = periodCache();
+    if (!key || !cache) return;
+    const prefix = `${workspaceIdValue()}|`;
+    Object.keys(cache).forEach((cachedKey) => {
+      if (cachedKey.startsWith(prefix) && cachedKey !== key) delete cache[cachedKey];
+    });
+    cache[key] = {
+      data,
+      stateVersion: Number(typeof state !== 'undefined' ? state?.version : 0) || 0,
+    };
+  }
+
+  function restoreCachedPeriod() {
+    const key = periodCacheKey();
+    const cached = key ? periodCache()?.[key] : null;
+    if (!cached?.data) return false;
+    const currentStateVersion = Number(typeof state !== 'undefined' ? state?.version : 0) || 0;
+    if (cached.stateVersion !== currentStateVersion) {
+      delete periodCache()[key];
+      return false;
+    }
+    applyPeriodData(cached.data);
+    setPeriodStatus(`✓ ${cached.data.selector?.monthName || MONTHS[periodMonth - 1]} ${cached.data.selector?.year || periodYear}`, 'ok');
+    return true;
+  }
+
+  function clearPeriodCache(workspaceId = workspaceIdValue()) {
+    const prefix = `${clean(workspaceId)}|`;
+    const cache = periodCache();
+    if (!clean(workspaceId) || !cache) return;
+    Object.keys(cache).forEach((key) => {
+      if (key.startsWith(prefix)) delete cache[key];
+    });
   }
 
   function isMasterRouteLocal(route) {
@@ -279,6 +349,8 @@
     readControls();
     const currentVersion = ++requestVersion;
     busy = true;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     setPeriodStatus(`${periodLabel()} · Sheets синхронланмоқда...`, 'sync');
 
     try {
@@ -291,16 +363,22 @@
           'x-workspace-id': wid,
         },
         body: JSON.stringify(fromSheet ? {} : { year: periodYear, month: periodMonth }),
+        signal: controller.signal,
       });
       const data = await response.json().catch(() => ({}));
       if (currentVersion !== requestVersion) return;
       if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
       applyPeriodData(data);
+      rememberPeriodData(data);
       setPeriodStatus(`✓ ${data.selector?.monthName || MONTHS[periodMonth - 1]} ${data.selector?.year || periodYear}`, 'ok');
     } catch (error) {
       if (currentVersion !== requestVersion) return;
-      setPeriodStatus(`Хато: ${error.message}`, 'bad');
+      const message = error?.name === 'AbortError'
+        ? 'Google Sheets 20 soniyada javob bermadi. Qayta urinib ko‘ring.'
+        : error.message;
+      setPeriodStatus(`Хато: ${message}`, 'bad');
     } finally {
+      window.clearTimeout(timeoutId);
       if (currentVersion === requestVersion) busy = false;
     }
   }
@@ -358,6 +436,9 @@
         const result = await originalFetchState(...args);
         captureCanonical(true);
         const restored = restoreSavedPeriod();
+        const forceRequest = forceNextPeriodRequest;
+        forceNextPeriodRequest = false;
+        if (!forceRequest && restored && restoreCachedPeriod()) return result;
         await requestPeriod({ fromSheet: !restored });
         return result;
       };
@@ -380,6 +461,15 @@
     if (typeof activateWorkspace === 'function' && !activateWorkspace.__hisobotPeriodWrapped) {
       const originalActivateWorkspace = activateWorkspace;
       const wrapped = async function(...args) {
+        const nextWorkspaceId = clean(args[0]);
+        const currentWorkspaceId = typeof activeWorkspaceId !== 'undefined'
+          ? clean(activeWorkspaceId)
+          : workspaceIdValue();
+        const workspaceChanged = Boolean(nextWorkspaceId && nextWorkspaceId !== currentWorkspaceId);
+        if (workspaceChanged) {
+          clearPeriodCache(nextWorkspaceId);
+          forceNextPeriodRequest = true;
+        }
         canonicalSheets = null;
         canonicalRoutes = null;
         periodBaseSheet = '';
@@ -442,14 +532,6 @@
     installRouteRenderer();
     injectControls();
     wrapJournalLifecycle();
-
-    window.setTimeout(() => {
-      if (typeof state !== 'undefined' && state?.connected && !state.__hisobotPeriodApplied) {
-        captureCanonical(true);
-        const restored = restoreSavedPeriod();
-        void requestPeriod({ fromSheet: !restored });
-      }
-    }, 700);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

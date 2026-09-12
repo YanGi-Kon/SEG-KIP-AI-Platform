@@ -789,7 +789,7 @@ export function createKudukRouter(io) {
     try {
       const t = await loadRequestTenant(req, req.query.sexId || "sex_default");
       if (!t.sheetsApi) throw new Error("Sex konfiguratsiyasi topilmadi.");
-      res.json(await loadMetadata(t));
+      res.json(await getTenantMetadata(t));
     } catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   router.get("/debug/mapping", async (req, res) => {

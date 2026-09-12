@@ -2,8 +2,6 @@ import express from 'express';
 import {
   extractSpreadsheetId,
   getSheetsClient,
-  listSheets,
-  readSheetRows,
   validateServiceAccount,
 } from '../services/googleSheetsService.js';
 import { requireAccessToken } from '../middleware/auth.js';
@@ -82,6 +80,33 @@ function workspaceServiceAccount(workspace = {}) {
 
 function quoteSheetName(sheetName) {
   return `'${String(sheetName).replace(/'/g, "''")}'`;
+}
+
+function parseSelectorRow(selector = [], baseSheet = '') {
+  if (clean(selector[0]).toUpperCase() !== 'ГОД' || clean(selector[2]).toUpperCase() !== 'МЕСЯЦ') {
+    const error = new Error(`${baseSheet || 'База'}!N1:Q1 davr selektori topilmadi`);
+    error.code = 'HISOBOT_PERIOD_SELECTOR_NOT_FOUND';
+    throw error;
+  }
+  return { year: selector[1], month: selector[3] };
+}
+
+async function readSelector({ sheets, spreadsheetId, baseSheet }) {
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${quoteSheetName(baseSheet)}!N1:Q1`,
+    valueRenderOption: 'FORMATTED_VALUE',
+  });
+  return parseSelectorRow(response.data.values?.[0] || [], baseSheet);
+}
+
+async function readPeriodRows({ sheets, spreadsheetId, baseSheet }) {
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${quoteSheetName(baseSheet)}!A:M`,
+    valueRenderOption: 'FORMATTED_VALUE',
+  });
+  return response.data.values || [];
 }
 
 function resolveBaseSheetName(sheetNames = []) {
@@ -229,19 +254,10 @@ export function parseHisobotPeriodRows(rows = [], yearRaw, monthRaw) {
   };
 }
 
-async function readSelector({ sheets, spreadsheetId, baseSheet }) {
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${quoteSheetName(baseSheet)}!N1:Q1`,
-    valueRenderOption: 'FORMATTED_VALUE',
-  });
-  const selector = response.data.values?.[0] || [];
-  if (clean(selector[0]).toUpperCase() !== 'ГОД' || clean(selector[2]).toUpperCase() !== 'МЕСЯЦ') {
-    const error = new Error('База!N1:Q1 davr selektori topilmadi');
-    error.code = 'HISOBOT_PERIOD_SELECTOR_NOT_FOUND';
-    throw error;
-  }
-  return { year: selector[1], month: selector[3] };
+export function shouldWriteHisobotSelector(currentSelector = {}, selection = {}, explicitlyRequested = false) {
+  if (!explicitlyRequested) return false;
+  return Number(currentSelector.year) !== Number(selection.year)
+    || normalizeMonthNumber(currentSelector.month) !== Number(selection.month);
 }
 
 async function writeSelector({ sheets, spreadsheetId, baseSheet, year, monthName }) {
@@ -255,6 +271,34 @@ async function writeSelector({ sheets, spreadsheetId, baseSheet, year, monthName
       ],
     },
   });
+}
+
+export async function loadHisobotPeriodData({
+  sheets,
+  spreadsheetId,
+  baseSheet,
+  requestedYear,
+  requestedMonth,
+  explicitlyRequested = false,
+}) {
+  const currentSelector = await readSelector({ sheets, spreadsheetId, baseSheet });
+  const selection = normalizeSelection(
+    requestedYear ?? currentSelector.year,
+    requestedMonth ?? currentSelector.month,
+  );
+
+  if (shouldWriteHisobotSelector(currentSelector, selection, explicitlyRequested)) {
+    await writeSelector({
+      sheets,
+      spreadsheetId,
+      baseSheet,
+      year: selection.year,
+      monthName: selection.monthName,
+    });
+  }
+
+  const rows = await readPeriodRows({ sheets, spreadsheetId, baseSheet });
+  return { currentSelector, selection, rows };
 }
 
 const requireWorkspaceRead = requireWorkspaceRequestPermission('workspace:read');
@@ -271,33 +315,30 @@ router.post('/select', async (req, res) => {
     }
 
     const serviceAccount = workspaceServiceAccount(workspace);
-    const sheetNames = await listSheets({ spreadsheetUrl, serviceAccount });
-    const baseSheet = resolveBaseSheetName(sheetNames);
     const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
     const sheets = await getSheetsClient(serviceAccount);
-    const currentSelector = await readSelector({ sheets, spreadsheetId, baseSheet });
-
-    const requestedYear = req.body?.year ?? currentSelector.year;
-    const requestedMonth = req.body?.month ?? currentSelector.month;
-    const selection = normalizeSelection(requestedYear, requestedMonth);
-
-    if (req.body?.year !== undefined || req.body?.month !== undefined) {
-      await writeSelector({
-        sheets,
-        spreadsheetId,
-        baseSheet,
-        year: selection.year,
-        monthName: selection.monthName,
-      });
-    }
-
-    const rows = await readSheetRows({
-      spreadsheetUrl,
-      serviceAccount,
-      sheetName: baseSheet,
-      range: 'A:M',
+    const metadata = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties.title',
     });
-    const parsed = parseHisobotPeriodRows(rows, selection.year, selection.month);
+    const sheetNames = (metadata.data.sheets || [])
+      .map((sheet) => sheet.properties?.title)
+      .filter(Boolean);
+    const baseSheet = resolveBaseSheetName(sheetNames);
+    const explicitlyRequested = req.body?.year !== undefined || req.body?.month !== undefined;
+    const periodData = await loadHisobotPeriodData({
+      sheets,
+      spreadsheetId,
+      baseSheet,
+      requestedYear: req.body?.year,
+      requestedMonth: req.body?.month,
+      explicitlyRequested,
+    });
+    const parsed = parseHisobotPeriodRows(
+      periodData.rows,
+      periodData.selection.year,
+      periodData.selection.month,
+    );
 
     return res.json({
       ok: true,

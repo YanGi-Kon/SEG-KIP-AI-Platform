@@ -5,7 +5,12 @@ import fs from 'node:fs';
 const serverSource = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
 const bridgeSource = fs.readFileSync(new URL('../public/js/hisobot-period-bridge.js', import.meta.url), 'utf8');
 const routeSource = fs.readFileSync(new URL('../routes/hisobotPeriod.js', import.meta.url), 'utf8');
-const { parseHisobotPeriodRows } = await import('../routes/hisobotPeriod.js');
+const kudukRouteSource = fs.readFileSync(new URL('../routes/kuduk.js', import.meta.url), 'utf8');
+const {
+  loadHisobotPeriodData,
+  parseHisobotPeriodRows,
+  shouldWriteHisobotSelector,
+} = await import('../routes/hisobotPeriod.js');
 
 test('HISOBOT JURNALI removes legacy route dropdown and injects TO-style period bridge', () => {
   assert.match(serverSource, /app\.get\("\/modules\/kuduk-journal\.html"/);
@@ -74,4 +79,69 @@ test('HISOBOT selected month/year persists per Workspace and is restored after l
   assert.match(bridgeSource, /writeSavedPeriod\(periodYear, periodMonth\)/);
   assert.match(bridgeSource, /const restored = restoreSavedPeriod\(\)/);
   assert.match(bridgeSource, /requestPeriod\(\{ fromSheet: !restored \}\)/);
+});
+
+test('HISOBOT restores the last successful period without syncing again after menu navigation', () => {
+  assert.match(bridgeSource, /PERIOD_CACHE_PROPERTY = '__segKipHisobotPeriodCacheV1'/);
+  assert.match(bridgeSource, /function rememberPeriodData/);
+  assert.match(bridgeSource, /function restoreCachedPeriod/);
+  assert.match(bridgeSource, /cached\.stateVersion !== currentStateVersion/);
+  assert.match(bridgeSource, /restored && restoreCachedPeriod\(\)/);
+  assert.doesNotMatch(bridgeSource, /\}, 700\);/);
+});
+
+test('HISOBOT period request times out instead of leaving the syncing status indefinitely', () => {
+  assert.match(bridgeSource, /REQUEST_TIMEOUT_MS = 20_000/);
+  assert.match(bridgeSource, /new AbortController\(\)/);
+  assert.match(bridgeSource, /signal: controller\.signal/);
+  assert.match(bridgeSource, /error\?\.name === 'AbortError'/);
+});
+
+test('HISOBOT backend reuses one Sheets client and skips unchanged selector writes', () => {
+  assert.equal([...routeSource.matchAll(/await getSheetsClient\(/g)].length, 1);
+  assert.match(routeSource, /async function readSelector/);
+  assert.match(routeSource, /async function readPeriodRows/);
+  assert.doesNotMatch(routeSource, /await listSheets\(/);
+  assert.doesNotMatch(routeSource, /await readSheetRows\(/);
+  assert.equal(shouldWriteHisobotSelector({ year: 2026, month: 'Август' }, { year: 2026, month: 8 }, true), false);
+  assert.equal(shouldWriteHisobotSelector({ year: 2026, month: 'Июль' }, { year: 2026, month: 8 }, true), true);
+  assert.equal(shouldWriteHisobotSelector({ year: 2026, month: 'Июль' }, { year: 2026, month: 8 }, false), false);
+});
+
+test('HISOBOT writes a changed selector before reading calculated period rows', async () => {
+  const calls = [];
+  const sheets = {
+    spreadsheets: {
+      values: {
+        get: async ({ range }) => {
+          if (range.endsWith('!N1:Q1')) {
+            calls.push('read-selector');
+            return { data: { values: [['ГОД', '2026', 'МЕСЯЦ', 'Июль']] } };
+          }
+          calls.push('read-rows');
+          return { data: { values: [] } };
+        },
+        batchUpdate: async () => {
+          calls.push('write-selector');
+          return { data: {} };
+        },
+      },
+    },
+  };
+
+  const result = await loadHisobotPeriodData({
+    sheets,
+    spreadsheetId: 'spreadsheet-id',
+    baseSheet: 'База',
+    requestedYear: 2026,
+    requestedMonth: 8,
+    explicitlyRequested: true,
+  });
+
+  assert.deepEqual(calls, ['read-selector', 'write-selector', 'read-rows']);
+  assert.deepEqual(result.selection, { year: 2026, month: 8, monthName: 'Август' });
+});
+
+test('HISOBOT menu reuses the server metadata cache instead of rereading validation grids on every return', () => {
+  assert.match(kudukRouteSource, /router\.get\("\/metadata"[\s\S]*?getTenantMetadata\(t\)/);
 });
