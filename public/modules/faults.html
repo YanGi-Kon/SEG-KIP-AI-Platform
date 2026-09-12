@@ -320,6 +320,11 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     if(match)return{year:Number(match[1]),month:Number(match[2])};
     match=raw.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})(?:\D|$)/);
     if(match)return{year:Number(match[3]),month:Number(match[2])};
+    match=raw.match(/^(\d{1,2})[.\/-](\d{4})\s*г?\.?$/iu);
+    if(match){
+      const month=Number(match[1]),year=Number(match[2]);
+      if(month>=1&&month<=12&&year>=2000&&year<=2100)return{year,month};
+    }
     match=raw.toLowerCase().replace(/ё/g,'е').match(/^(\d{1,2})\s+([а-я]+)\s+(\d{4})(?:\D|$)/u);
     if(match){const month=RU_MONTH_NUMBERS.get(match[2]);if(month)return{year:Number(match[3]),month}}
     const timestamp=Date.parse(raw);
@@ -328,7 +333,7 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
   }
   function reportPeriod(report){
     const act=reportActData(report);
-    return parseReportPeriod(report?.date||act?.date||'');
+    return parseReportPeriod(report?.date)||parseReportPeriod(act?.date)||null;
   }
 
   function latestReportPeriod(reports=[]){
