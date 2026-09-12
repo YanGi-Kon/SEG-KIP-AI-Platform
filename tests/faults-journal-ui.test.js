@@ -262,6 +262,61 @@ test('faults loads ACTS daily reports even when acts_sheet_name is not configure
   assert.doesNotMatch(elements.get('faultsStatusSub').textContent, /sozlamalari topilmadi/);
 });
 
+test('faults period filter links ACTS reports whose date is stored as 08.2026г', () => {
+  const rowsBody = {
+    _innerHTML: '',
+    children: [],
+    set innerHTML(value) { this._innerHTML = value; this.children = []; },
+    get innerHTML() { return this._innerHTML; },
+    appendChild(fragment) { this.children.push(...fragment.children); },
+  };
+  const periodStatus = { textContent: '', className: '' };
+  const periodBadge = { textContent: '' };
+  const elements = new Map([
+    ['faultsRows', rowsBody],
+    ['faultsPeriodStatus', periodStatus],
+    ['faultsPeriodBadge', periodBadge],
+  ]);
+  const handlers = {};
+  const parent = { localStorage: { getItem: () => null }, postMessage() {} };
+  const window = { parent, addEventListener(type, handler) { handlers[type] = handler; } };
+  const document = {
+    getElementById: (id) => elements.get(id) || null,
+    createElement: () => ({ dataset: {}, innerHTML: '' }),
+    createDocumentFragment: () => ({
+      children: [],
+      appendChild(child) { this.children.push(child); },
+    }),
+  };
+
+  vm.runInNewContext(scriptMatch[1], {
+    document,
+    localStorage: { getItem: () => null },
+    sessionStorage: { getItem: () => null },
+    parent,
+    window,
+  });
+
+  const state = window.FaultsJournalWorkspace.state;
+  state.periodYear = 2026;
+  state.periodMonth = 8;
+  state.allReports = [
+    { actNo: '333', date: '08.2026г', a4Json: '{}' },
+    { actNo: '334', date: 'legacy-value', a4Json: JSON.stringify({ date: '08.2026г' }) },
+    { actNo: '335', date: '09.2026г', a4Json: '{}' },
+  ];
+
+  window.FaultsJournalFrontend.applyPeriodFilter();
+
+  assert.equal(state.reports.length, 2);
+  assert.equal(state.reports[0].actNo, '333');
+  assert.equal(state.reports[1].actNo, '334');
+  assert.match(rowsBody.children[0].innerHTML, /value="333" readonly/);
+  assert.match(rowsBody.children[1].innerHTML, /value="334" readonly/);
+  assert.equal(periodBadge.textContent, '2 ta dalolatnoma');
+  assert.match(periodStatus.textContent, /Август 2026 · 2 ta dalolatnoma/);
+});
+
 test('faults table keeps the source document column proportions', () => {
   for (const width of ['6.17%', '10.70%', '9.56%', '31.26%', '21.52%', '9.38%', '11.41%']) {
     assert.match(html, new RegExp(`width:${width.replace('.', '\\.')}`));
