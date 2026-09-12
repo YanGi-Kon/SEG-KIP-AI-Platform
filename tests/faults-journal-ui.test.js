@@ -4,6 +4,9 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const html = fs.readFileSync(new URL('../public/modules/faults.html', import.meta.url), 'utf8');
+const appSource = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+const indexSource = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+const styleSource = fs.readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 
 test('faults module renders the seven-column reglament journal frontend', () => {
@@ -52,6 +55,20 @@ test('faults frontend links the first column to Acts reports without local journ
   assert.match(scriptMatch[1], /REQUEST_WORKSPACE_INFO/);
   assert.doesNotMatch(scriptMatch[1], /ROWS_KEY|CONFIG_KEY|openModal|saveForm|removeRow|SAVE_MODULE_SETTINGS/);
   assert.match(scriptMatch[1], /PERIOD_STORAGE_PREFIX='seg_faults_period_v1'/);
+});
+
+test('faults journal keeps a dedicated persistent iframe across menu navigation', () => {
+  assert.match(indexSource, /id="faultsModuleFrame"/);
+  assert.match(indexSource, /js\/app\.js\?v=20260912-faults-persistent-frame1/);
+  assert.match(indexSource, /css\/style\.css\?v=5/);
+  assert.match(styleSource, /#faultsModuleFrame\{/);
+  assert.match(styleSource, /#faultsModuleFrame\[hidden\]/);
+  assert.match(appSource, /const faultsFrame = document\.getElementById\('faultsModuleFrame'\)/);
+  assert.match(appSource, /const isFaults = moduleName === 'faults'/);
+  assert.match(appSource, /faultsFrame\.hidden = !isFaults/);
+  assert.match(appSource, /genericFrame\.hidden = isJournal \|\| isFaults/);
+  assert.match(appSource, /isFaults \? faultsFrame : genericFrame/);
+  assert.match(appSource, /activeModuleName === 'faults'.*return faultsFrame/s);
 });
 
 test('faults frontend inserts all 22 editable rows when the page loads', () => {

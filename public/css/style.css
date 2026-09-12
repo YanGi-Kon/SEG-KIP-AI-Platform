@@ -651,7 +651,8 @@ body::after {
 }
 .generic-module-page.active{display:block;}
 #genericModuleFrame,
-#hisobotModuleFrame{
+#hisobotModuleFrame,
+#faultsModuleFrame{
   width:100%;
   min-height:780px;
   height:calc(100vh - 150px);
@@ -660,7 +661,8 @@ body::after {
   background:#050d1a;
 }
 #genericModuleFrame[hidden],
-#hisobotModuleFrame[hidden]{display:none;}
+#hisobotModuleFrame[hidden],
+#faultsModuleFrame[hidden]{display:none;}
 
 
 /* ===== SHARED EXCEL BUTTON (layout-neutral overlay) ===== */
