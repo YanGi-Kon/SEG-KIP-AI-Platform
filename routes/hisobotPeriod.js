@@ -199,14 +199,18 @@ export function parseHisobotPeriodRows(rows = [], yearRaw, monthRaw) {
     const row = rows[index] || [];
     if (!isDataRow(row, indexes)) continue;
 
-    let rowMatches = false;
-    if (hasHelpers) {
-      rowMatches = clean(row[helperYearIndex]) === String(year)
-        && normalizeMonthNumber(row[helperMonthIndex]) === month;
-    } else {
-      const parsed = parseDatePeriod(indexes.date >= 0 ? row[indexes.date] : row[0]);
-      rowMatches = Boolean(parsed && parsed.year === year && parsed.month === month);
-    }
+    // Visible Дата is the primary period source whenever it contains a parseable value.
+    // __Год / __Месяц exist mainly to carry the month/year for continuation rows where Дата is blank.
+    // Treating helper columns as globally authoritative breaks older months when helper cells are blank
+    // or were populated only for newer data (e.g. August while January still has a real Дата value).
+    const parsedDate = parseDatePeriod(indexes.date >= 0 ? row[indexes.date] : row[0]);
+    const helperYear = hasHelpers ? Number(clean(row[helperYearIndex])) : NaN;
+    const helperMonth = hasHelpers ? normalizeMonthNumber(row[helperMonthIndex]) : null;
+    const helperValid = Number.isInteger(helperYear) && helperYear >= 2000 && helperYear <= 2100
+      && Number.isInteger(helperMonth) && helperMonth >= 1 && helperMonth <= 12;
+
+    const rowPeriod = parsedDate || (helperValid ? { year: helperYear, month: helperMonth } : null);
+    const rowMatches = Boolean(rowPeriod && rowPeriod.year === year && rowPeriod.month === month);
     if (!rowMatches) continue;
 
     const item = {
@@ -226,7 +230,7 @@ export function parseHisobotPeriodRows(rows = [], yearRaw, monthRaw) {
     year,
     month,
     monthName,
-    periodSource: hasHelpers ? 'helpers' : 'date',
+    periodSource: hasHelpers ? 'date+helpers-fallback' : 'date',
     headerRow: headerIndex + 1,
   };
 }
