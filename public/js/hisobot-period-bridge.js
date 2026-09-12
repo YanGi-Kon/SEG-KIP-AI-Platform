@@ -7,6 +7,9 @@
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const API_PATH = '/api/hisobot-period/select';
   const PERIOD_STORAGE_PREFIX = 'seg_hisobot_period_v1';
+  const PERIOD_MIN_YEAR = 2026;
+  const PERIOD_MAX_YEAR = 2028;
+  const PERIOD_YEARS = [2026, 2027, 2028];
 
   let canonicalSheets = null;
   let canonicalRoutes = null;
@@ -73,7 +76,7 @@
       const saved = JSON.parse(raw);
       const year = Number(saved?.year);
       const month = Number(saved?.month);
-      if (!Number.isInteger(year) || year < 2000 || year > 2100) return null;
+      if (!Number.isInteger(year) || year < PERIOD_MIN_YEAR || year > PERIOD_MAX_YEAR) return null;
       if (!Number.isInteger(month) || month < 1 || month > 12) return null;
       return { year, month };
     } catch (_) {
@@ -85,7 +88,7 @@
     const key = periodStorageKey(workspaceId);
     const safeYear = Number(year);
     const safeMonth = Number(month);
-    if (!key || !Number.isInteger(safeYear) || !Number.isInteger(safeMonth) || safeMonth < 1 || safeMonth > 12) return;
+    if (!key || !Number.isInteger(safeYear) || safeYear < PERIOD_MIN_YEAR || safeYear > PERIOD_MAX_YEAR || !Number.isInteger(safeMonth) || safeMonth < 1 || safeMonth > 12) return;
     const value = JSON.stringify({ year: safeYear, month: safeMonth });
     try { localStorage.setItem(key, value); } catch (_) {}
     try {
@@ -125,6 +128,7 @@
   function ensureYearOption(year) {
     const select = byId('hisobotPeriodYear');
     if (!select) return;
+    if (!Number.isInteger(Number(year)) || Number(year) < PERIOD_MIN_YEAR || Number(year) > PERIOD_MAX_YEAR) return;
     if (Array.from(select.options).some((option) => Number(option.value) === Number(year))) return;
     const option = document.createElement('option');
     option.value = String(year);
@@ -168,13 +172,11 @@
     host.className = 'hisobot-period-controls';
     host.setAttribute('aria-label', 'HISOBOT JURNALI oylik davr boshqaruvi');
 
-    const now = new Date();
-    const startYear = Math.min(2026, now.getFullYear()) - 3;
-    const endYear = Math.max(2026, now.getFullYear()) + 5;
+    const allowedYears = PERIOD_YEARS;
     host.innerHTML = `
       <button id="hisobotPrevPeriodBtn" class="btn" type="button" title="Oldingi oy">←</button>
       <select id="hisobotPeriodMonth" class="hisobot-period-select" aria-label="Oy">${MONTHS.map((name, index) => `<option value="${index + 1}">${name}</option>`).join('')}</select>
-      <select id="hisobotPeriodYear" class="hisobot-period-select year" aria-label="Yil">${Array.from({ length: endYear - startYear + 1 }, (_, index) => startYear + index).map((year) => `<option value="${year}">${year}</option>`).join('')}</select>
+      <select id="hisobotPeriodYear" class="hisobot-period-select year" aria-label="Yil">${allowedYears.map((year) => `<option value="${year}">${year}</option>`).join('')}</select>
       <span id="hisobotPeriodStatus" class="hisobot-period-status sync">Давр юкланмоқда...</span>
       <button id="hisobotNextPeriodBtn" class="btn" type="button" title="Keyingi oy">→</button>
     `;
@@ -192,7 +194,7 @@
   function readControls() {
     const year = Number(byId('hisobotPeriodYear')?.value || periodYear);
     const month = Number(byId('hisobotPeriodMonth')?.value || periodMonth);
-    if (Number.isInteger(year) && year >= 2000 && year <= 2100) periodYear = year;
+    if (Number.isInteger(year) && year >= PERIOD_MIN_YEAR && year <= PERIOD_MAX_YEAR) periodYear = year;
     if (Number.isInteger(month) && month >= 1 && month <= 12) periodMonth = month;
   }
 
@@ -313,8 +315,18 @@
   async function navigatePeriod(delta) {
     readControls();
     const absolute = periodYear * 12 + (periodMonth - 1) + Number(delta || 0);
-    periodYear = Math.floor(absolute / 12);
-    periodMonth = ((absolute % 12) + 12) % 12 + 1;
+    const candidateYear = Math.floor(absolute / 12);
+    const candidateMonth = ((absolute % 12) + 12) % 12 + 1;
+    if (candidateYear < PERIOD_MIN_YEAR) {
+      periodYear = PERIOD_MIN_YEAR;
+      periodMonth = 1;
+    } else if (candidateYear > PERIOD_MAX_YEAR) {
+      periodYear = PERIOD_MAX_YEAR;
+      periodMonth = 12;
+    } else {
+      periodYear = candidateYear;
+      periodMonth = candidateMonth;
+    }
     updateControls();
     await requestPeriod({ fromSheet: false });
   }
