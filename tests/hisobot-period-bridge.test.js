@@ -104,3 +104,10 @@ test('HISOBOT exposes the exact active Google Sheets source in the journal UI', 
   assert.match(bridgeSource, /Davr manbasi:/);
   assert.match(bridgeSource, /Yozuv:/);
 });
+
+
+test('HISOBOT source diagnostic links directly to the exact Spreadsheet being read', () => {
+  assert.match(bridgeSource, /docs\.google\.com\/spreadsheets\/d\/\$\{encodeURIComponent\(spreadsheetId\)\}\/edit/);
+  assert.match(bridgeSource, /Manba Google Sheets/);
+  assert.match(bridgeSource, /filtr faol bo‘lsa/);
+});

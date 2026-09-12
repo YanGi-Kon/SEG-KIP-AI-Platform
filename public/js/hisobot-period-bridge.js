@@ -156,7 +156,7 @@
       .hisobot-period-status{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:7px 11px;border-radius:10px;border:1px solid rgba(34,211,238,.24);font-size:12px;font-weight:900;white-space:nowrap;color:#fde68a;background:rgba(15,23,42,.72)}
       .hisobot-period-status.ok{color:#86efac}.hisobot-period-status.bad{color:#fca5a5}.hisobot-period-status.sync{color:#fde68a}
       .hisobot-source-diagnostic{flex:1 1 100%;font-size:11px;line-height:1.35;color:#93c5fd;opacity:.95;word-break:break-all;padding:2px 4px}
-      .hisobot-source-diagnostic.bad{color:#fca5a5}
+      .hisobot-source-diagnostic.bad{color:#fca5a5}.hisobot-source-link{margin-left:8px;color:#67e8f9;font-weight:900;text-decoration:underline;cursor:pointer}
       @media(max-width:760px){.hisobot-period-controls{width:100%}.hisobot-period-select{flex:1}.hisobot-period-status{order:5;width:100%}.hisobot-source-diagnostic{order:6}}
     `;
     document.head.appendChild(style);
@@ -208,7 +208,18 @@
       rowCount !== null ? `Yozuv: ${rowCount}` : '',
     ].filter(Boolean);
     el.textContent = parts.join(' · ');
-    el.title = spreadsheetId ? `Google Spreadsheet ID: ${spreadsheetId}` : '';
+    if (spreadsheetId) {
+      const link = document.createElement('a');
+      link.className = 'hisobot-source-link';
+      link.href = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/edit`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = 'Manba Google Sheets ↗';
+      el.appendChild(link);
+    }
+    el.title = spreadsheetId
+      ? 'Platforma aynan shu Google Spreadsheet manbasini o‘qiyapti. Sheets oynasida filtr faol bo‘lsa, yashirilgan qatorlar API orqali baribir o‘qiladi.'
+      : '';
     el.className = `hisobot-source-diagnostic${kind === 'bad' ? ' bad' : ''}`;
   }
 
