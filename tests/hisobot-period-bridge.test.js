@@ -94,3 +94,13 @@ test('HISOBOT backend rejects years outside 2026-2028', () => {
   assert.throws(() => parseHisobotPeriodRows(rows, 2025, 1), (error) => error?.code === 'HISOBOT_PERIOD_YEAR_INVALID');
   assert.throws(() => parseHisobotPeriodRows(rows, 2029, 1), (error) => error?.code === 'HISOBOT_PERIOD_YEAR_INVALID');
 });
+
+
+test('HISOBOT exposes the exact active Google Sheets source in the journal UI', () => {
+  assert.match(routeSource, /sourceSpreadsheetId:\s*spreadsheetId/);
+  assert.match(bridgeSource, /hisobotSourceDiagnostic/);
+  assert.match(bridgeSource, /Sheets ID:/);
+  assert.match(bridgeSource, /Varaq:/);
+  assert.match(bridgeSource, /Davr manbasi:/);
+  assert.match(bridgeSource, /Yozuv:/);
+});
