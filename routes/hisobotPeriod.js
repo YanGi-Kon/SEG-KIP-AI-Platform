@@ -86,6 +86,50 @@ function quoteSheetName(sheetName) {
   return `'${String(sheetName).replace(/'/g, "''")}'`;
 }
 
+async function refreshPeriodFilter({ sheets, spreadsheetId, sheetName }) {
+  const metadata = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets(properties(sheetId,title,gridProperties(rowCount)))',
+  });
+  const target = (metadata.data.sheets || []).find(
+    (sheet) => clean(sheet?.properties?.title) === clean(sheetName),
+  );
+  const sheetId = target?.properties?.sheetId;
+  const rowCount = Number(target?.properties?.gridProperties?.rowCount || 0);
+  if (!Number.isInteger(sheetId) || rowCount < 5) return false;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        { clearBasicFilter: { sheetId } },
+        {
+          setBasicFilter: {
+            filter: {
+              range: {
+                sheetId,
+                startRowIndex: 3,
+                endRowIndex: rowCount,
+                startColumnIndex: 0,
+                endColumnIndex: 13,
+              },
+              criteria: {
+                11: {
+                  condition: {
+                    type: 'CUSTOM_FORMULA',
+                    values: [{ userEnteredValue: '=И($L5=TO_TEXT($O$1);$M5=$Q$1)' }],
+                  },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  });
+  return true;
+}
+
 function resolveBaseSheetName(sheetNames = []) {
   for (const candidate of BASE_SHEET_CANDIDATES) {
     const exact = sheetNames.find((name) => clean(name) === candidate);
@@ -261,6 +305,7 @@ async function writeSelector({ sheets, spreadsheetId, baseSheet, year, monthName
       ],
     },
   });
+  await refreshPeriodFilter({ sheets, spreadsheetId, sheetName: baseSheet });
 }
 
 const requireWorkspaceRead = requireWorkspaceRequestPermission('workspace:read');
