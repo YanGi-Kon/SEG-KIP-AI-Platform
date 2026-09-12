@@ -4,18 +4,22 @@ import fs from 'node:fs';
 
 const serverSource = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
 const bridgeSource = fs.readFileSync(new URL('../public/js/hisobot-period-bridge.js', import.meta.url), 'utf8');
+const appSource = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+const indexSource = fs.readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+const hisobotHtmlSource = fs.readFileSync(new URL('../public/modules/hisobot-journal.html', import.meta.url), 'utf8');
 const routeSource = fs.readFileSync(new URL('../routes/hisobotPeriod.js', import.meta.url), 'utf8');
 const kudukRouteSource = fs.readFileSync(new URL('../routes/kuduk.js', import.meta.url), 'utf8');
 const {
   loadHisobotPeriodData,
   parseHisobotPeriodRows,
   shouldWriteHisobotSelector,
+  createHisobotPeriodResponseCache,
 } = await import('../routes/hisobotPeriod.js');
 
 test('HISOBOT JURNALI removes legacy route dropdown and injects TO-style period bridge', () => {
   assert.match(serverSource, /app\.get\("\/modules\/kuduk-journal\.html"/);
   assert.match(serverSource, /html\.replace\(\/<select id="routeSelect"/);
-  assert.match(serverSource, /hisobot-period-bridge\.js\?v=hisobot-period4-sync-cache/);
+  assert.match(serverSource, /hisobot-period-bridge\.js\?v=hisobot-period6-auth-retry/);
   assert.match(bridgeSource, /oldSelector\.remove\(\)/);
   assert.match(bridgeSource, /hisobotPrevPeriodBtn/);
   assert.match(bridgeSource, /hisobotPeriodMonth/);
@@ -28,7 +32,7 @@ test('HISOBOT month and year changes automatically synchronize the selected Shee
   assert.match(bridgeSource, /addEventListener\('change', \(\) => void selectFromControls\(\)\)/);
   assert.match(bridgeSource, /navigatePeriod\(-1\)/);
   assert.match(bridgeSource, /navigatePeriod\(1\)/);
-  assert.match(bridgeSource, /JSON\.stringify\(fromSheet \? \{\} : \{ year: periodYear, month: periodMonth \}\)/);
+  assert.match(bridgeSource, /body: JSON\.stringify\(requestBody\)/);
   assert.match(serverSource, /app\.use\("\/api\/hisobot-period", hisobotPeriodRouter\)/);
 });
 
@@ -83,11 +87,49 @@ test('HISOBOT selected month/year persists per Workspace and is restored after l
 
 test('HISOBOT restores the last successful period without syncing again after menu navigation', () => {
   assert.match(bridgeSource, /PERIOD_CACHE_PROPERTY = '__segKipHisobotPeriodCacheV1'/);
+  assert.match(bridgeSource, /PERIOD_CACHE_DB = 'seg-kip-hisobot-period-cache-v1'/);
   assert.match(bridgeSource, /function rememberPeriodData/);
   assert.match(bridgeSource, /function restoreCachedPeriod/);
-  assert.match(bridgeSource, /cached\.stateVersion !== currentStateVersion/);
-  assert.match(bridgeSource, /restored && restoreCachedPeriod\(\)/);
+  assert.match(bridgeSource, /cached\.stateSignature !== stateSignature\(\)/);
+  assert.match(bridgeSource, /restored && await restoreCachedPeriod\(\)/);
+  assert.match(bridgeSource, /writePersistentPeriod\(entry\)/);
   assert.doesNotMatch(bridgeSource, /\}, 700\);/);
+});
+
+test('HISOBOT iframe remains alive while another top-level menu is used', () => {
+  assert.match(indexSource, /id="hisobotModuleFrame"/);
+  assert.match(appSource, /const isJournal = moduleName === 'journal'/);
+  assert.match(appSource, /frame\.getAttribute\('src'\) !== src/);
+  assert.match(appSource, /journalFrame\.hidden = !isJournal/);
+});
+
+test('HISOBOT retries the same Workspace after the parent session finishes restoring', () => {
+  assert.match(hisobotHtmlSource, /let workspaceReloading = false/);
+  assert.match(hisobotHtmlSource, /let workspaceReloadPending = false/);
+  assert.match(hisobotHtmlSource, /!workspaceChanged && workspaceReloading/);
+  assert.match(hisobotHtmlSource, /workspaceReloadPending = true/);
+  assert.match(hisobotHtmlSource, /function finishWorkspaceReload/);
+  assert.match(hisobotHtmlSource, /Workspace sessiyasi tiklanmoqda/);
+  assert.match(hisobotHtmlSource, /finally\(\(\) => finishWorkspaceReload\(activeWorkspaceId\)\)/);
+  assert.match(bridgeSource, /!state\?\.connected[\s\S]*?Workspace sessiyasi kutilmoqda/);
+});
+
+test('HISOBOT backend cache survives reload requests until journal state changes', () => {
+  const cache = createHisobotPeriodResponseCache(2);
+  const context = {
+    workspaceId: 'workspace-1',
+    spreadsheetId: 'sheet-1',
+    stateVersion: 7,
+    stateUpdatedAt: '2026-09-12T10:00:00.000Z',
+    year: 2026,
+    month: 8,
+  };
+  const response = { ok: true, selector: { year: 2026, month: 8 }, rows: [{ pos: '1' }] };
+  cache.set(context, response);
+  assert.equal(cache.get(context), response);
+  assert.equal(cache.get({ ...context, month: 9 }), null);
+  assert.equal(cache.get({ ...context, stateVersion: 8 }), null);
+  assert.equal(cache.get({ ...context, stateUpdatedAt: '2026-09-12T10:01:00.000Z' }), null);
 });
 
 test('HISOBOT period request times out instead of leaving the syncing status indefinitely', () => {

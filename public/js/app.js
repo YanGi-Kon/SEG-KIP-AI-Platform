@@ -1,6 +1,6 @@
 // SEG KIP modular frontend controller
 const MODULES = {
-  journal: 'modules/hisobot-journal.html?v=20260912-sync-cache1',
+  journal: 'modules/hisobot-journal.html?v=20260912-durable-cache2',
   acts: 'modules/acts.html?v=20260901-email-approval-signatures-4',
   faults: 'modules/faults.html?v=20260911-period1',
   to: 'modules/to.html?v=20260911-period-persist1',
@@ -189,8 +189,13 @@ function openModulePage(moduleName, title) {
   
   hideAllPages();
   const page = document.getElementById('genericModulePage');
-  const frame = document.getElementById('genericModuleFrame');
-  if (frame) frame.src = src;
+  const journalFrame = document.getElementById('hisobotModuleFrame');
+  const genericFrame = document.getElementById('genericModuleFrame');
+  const isJournal = moduleName === 'journal';
+  if (journalFrame) journalFrame.hidden = !isJournal;
+  if (genericFrame) genericFrame.hidden = isJournal;
+  const frame = isJournal ? journalFrame : genericFrame;
+  if (frame && frame.getAttribute('src') !== src) frame.src = src;
   if (page) page.classList.add('active');
   const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'ТО ЖУРНАЛ', replacement:'АЛМАШИШ ЖУРНАЛИ', users:'ПОЛЬЗОВАТЕЛИ', roles:'РОЛИ', settings:'НАСТРОЙКИ' };
   setActiveMenu(menuLabels[moduleName] || 'ЖУРНАЛ УЧЕТА');
@@ -368,7 +373,11 @@ function setAiInputDisabled(disabled) {
 function getVisibleFrame() {
   const genericPage = document.getElementById('genericModulePage');
   const ulchovPage = document.getElementById('ulchovIntegratedPage');
-  if (genericPage?.classList.contains('active')) return document.getElementById('genericModuleFrame');
+  if (genericPage?.classList.contains('active')) {
+    const journalFrame = document.getElementById('hisobotModuleFrame');
+    if (activeModuleName === 'journal' && journalFrame && !journalFrame.hidden) return journalFrame;
+    return document.getElementById('genericModuleFrame');
+  }
   if (ulchovPage?.classList.contains('active')) return document.getElementById('claUlchovFrame');
   return null;
 }

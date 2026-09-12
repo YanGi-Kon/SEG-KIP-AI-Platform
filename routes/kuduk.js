@@ -58,6 +58,15 @@ export function resolveKudukTenantId({ workspaceId = "", legacySexId = "sex_defa
     ? safeSexId(`workspace_${normalizedWorkspaceId}`)
     : safeSexId(legacySexId);
 }
+export function getKudukTenantRevision({ workspaceId = "", legacySexId = "sex_default" } = {}) {
+  const tenant = TENANTS.get(resolveKudukTenantId({ workspaceId, legacySexId }));
+  if (!tenant) return null;
+  return {
+    spreadsheetId: tenant.spreadsheetId || "",
+    version: Number(tenant.version || 0),
+    updatedAt: tenant.updatedAt || "",
+  };
+}
 function tenantFile(sexId) { return path.join(DATA_DIR, `${safeSexId(sexId)}.json`); }
 function norm(s) { return String(s || "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/ё/g, "е").trim().toLowerCase(); }
 function hardNorm(s) { return norm(s).replace(/[\s\-_.,:;()"'`«»№#]+/g, ""); }

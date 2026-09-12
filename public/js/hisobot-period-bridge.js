@@ -8,6 +8,8 @@
   const API_PATH = '/api/hisobot-period/select';
   const PERIOD_STORAGE_PREFIX = 'seg_hisobot_period_v1';
   const PERIOD_CACHE_PROPERTY = '__segKipHisobotPeriodCacheV1';
+  const PERIOD_CACHE_DB = 'seg-kip-hisobot-period-cache-v1';
+  const PERIOD_CACHE_STORE = 'periods';
   const REQUEST_TIMEOUT_MS = 20_000;
 
   let canonicalSheets = null;
@@ -20,6 +22,7 @@
   let initialized = false;
   let rawFetchState = null;
   let forceNextPeriodRequest = false;
+  let periodCacheDbPromise = null;
 
   const byId = (id) => document.getElementById(id);
   const clean = (value) => String(value ?? '').trim();
@@ -121,6 +124,14 @@
     return `${wid}|${safeYear}-${String(safeMonth).padStart(2, '0')}`;
   }
 
+  function stateSignature() {
+    if (typeof state === 'undefined' || !state) return '';
+    const spreadsheetId = clean(state.spreadsheetId);
+    const version = Number(state.version || 0);
+    const updatedAt = clean(state.updatedAt);
+    return spreadsheetId && updatedAt ? `${spreadsheetId}|${version}|${updatedAt}` : '';
+  }
+
   function periodCache() {
     const host = periodCacheHost();
     try {
@@ -131,6 +142,64 @@
     }
   }
 
+  function openPeriodCacheDb() {
+    if (!('indexedDB' in window)) return Promise.resolve(null);
+    if (periodCacheDbPromise) return periodCacheDbPromise;
+    periodCacheDbPromise = new Promise((resolve) => {
+      const request = indexedDB.open(PERIOD_CACHE_DB, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(PERIOD_CACHE_STORE)) {
+          db.createObjectStore(PERIOD_CACHE_STORE, { keyPath: 'key' });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+      request.onblocked = () => resolve(null);
+    });
+    return periodCacheDbPromise;
+  }
+
+  async function readPersistentPeriod(key) {
+    const db = await openPeriodCacheDb();
+    if (!db || !key) return null;
+    return new Promise((resolve) => {
+      const request = db.transaction(PERIOD_CACHE_STORE, 'readonly').objectStore(PERIOD_CACHE_STORE).get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => resolve(null);
+    });
+  }
+
+  async function writePersistentPeriod(entry) {
+    const db = await openPeriodCacheDb();
+    if (!db || !entry?.key) return;
+    await new Promise((resolve) => {
+      const request = db.transaction(PERIOD_CACHE_STORE, 'readwrite').objectStore(PERIOD_CACHE_STORE).put(entry);
+      request.onsuccess = () => resolve();
+      request.onerror = () => resolve();
+    });
+  }
+
+  async function deletePersistentPeriods(workspaceId) {
+    const db = await openPeriodCacheDb();
+    const prefix = `${clean(workspaceId)}|`;
+    if (!db || !clean(workspaceId)) return;
+    await new Promise((resolve) => {
+      const transaction = db.transaction(PERIOD_CACHE_STORE, 'readwrite');
+      const store = transaction.objectStore(PERIOD_CACHE_STORE);
+      const request = store.openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        if (String(cursor.key).startsWith(prefix)) cursor.delete();
+        cursor.continue();
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => resolve();
+      transaction.onabort = () => resolve();
+    });
+  }
+
   function rememberPeriodData(data) {
     const key = periodCacheKey(
       workspaceIdValue(),
@@ -138,26 +207,34 @@
       Number(data?.selector?.month || periodMonth),
     );
     const cache = periodCache();
-    if (!key || !cache) return;
+    if (!key) return;
     const prefix = `${workspaceIdValue()}|`;
-    Object.keys(cache).forEach((cachedKey) => {
-      if (cachedKey.startsWith(prefix) && cachedKey !== key) delete cache[cachedKey];
-    });
-    cache[key] = {
+    if (cache) {
+      Object.keys(cache).forEach((cachedKey) => {
+        if (cachedKey.startsWith(prefix) && cachedKey !== key) delete cache[cachedKey];
+      });
+    }
+    const entry = {
+      key,
+      workspaceId: workspaceIdValue(),
       data,
-      stateVersion: Number(typeof state !== 'undefined' ? state?.version : 0) || 0,
+      stateSignature: stateSignature(),
     };
+    if (cache) cache[key] = entry;
+    void writePersistentPeriod(entry);
   }
 
-  function restoreCachedPeriod() {
+  async function restoreCachedPeriod() {
     const key = periodCacheKey();
-    const cached = key ? periodCache()?.[key] : null;
+    const memoryCache = periodCache();
+    const cached = key ? (memoryCache?.[key] || await readPersistentPeriod(key)) : null;
     if (!cached?.data) return false;
-    const currentStateVersion = Number(typeof state !== 'undefined' ? state?.version : 0) || 0;
-    if (cached.stateVersion !== currentStateVersion) {
-      delete periodCache()[key];
+    if (!cached.stateSignature || cached.stateSignature !== stateSignature()) {
+      if (memoryCache) delete memoryCache[key];
+      void deletePersistentPeriods(workspaceIdValue());
       return false;
     }
+    if (memoryCache) memoryCache[key] = cached;
     applyPeriodData(cached.data);
     setPeriodStatus(`✓ ${cached.data.selector?.monthName || MONTHS[periodMonth - 1]} ${cached.data.selector?.year || periodYear}`, 'ok');
     return true;
@@ -166,10 +243,13 @@
   function clearPeriodCache(workspaceId = workspaceIdValue()) {
     const prefix = `${clean(workspaceId)}|`;
     const cache = periodCache();
-    if (!clean(workspaceId) || !cache) return;
-    Object.keys(cache).forEach((key) => {
-      if (key.startsWith(prefix)) delete cache[key];
-    });
+    if (!clean(workspaceId)) return;
+    if (cache) {
+      Object.keys(cache).forEach((key) => {
+        if (key.startsWith(prefix)) delete cache[key];
+      });
+    }
+    void deletePersistentPeriods(workspaceId);
   }
 
   function isMasterRouteLocal(route) {
@@ -337,7 +417,7 @@
     if (typeof renderAll === 'function') renderAll();
   }
 
-  async function requestPeriod({ fromSheet = false } = {}) {
+  async function requestPeriod({ fromSheet = false, forceRefresh = false } = {}) {
     if (busy) return;
     const token = authToken();
     const wid = workspaceIdValue();
@@ -354,6 +434,12 @@
     setPeriodStatus(`${periodLabel()} · Sheets синхронланмоқда...`, 'sync');
 
     try {
+      const requestBody = {
+        stateVersion: Number(typeof state !== 'undefined' ? state?.version : 0) || 0,
+        stateUpdatedAt: clean(typeof state !== 'undefined' ? state?.updatedAt : ''),
+        ...(fromSheet ? {} : { year: periodYear, month: periodMonth }),
+        ...(forceRefresh ? { forceRefresh: true } : {}),
+      };
       const response = await fetch(API_PATH, {
         method: 'POST',
         credentials: 'include',
@@ -362,7 +448,7 @@
           Authorization: `Bearer ${token}`,
           'x-workspace-id': wid,
         },
-        body: JSON.stringify(fromSheet ? {} : { year: periodYear, month: periodMonth }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
       const data = await response.json().catch(() => ({}));
@@ -434,11 +520,15 @@
       rawFetchState = originalFetchState;
       const wrapped = async function(...args) {
         const result = await originalFetchState(...args);
+        if (typeof state === 'undefined' || !state?.connected) {
+          setPeriodStatus('Workspace sessiyasi kutilmoqda...', 'sync');
+          return result;
+        }
         captureCanonical(true);
         const restored = restoreSavedPeriod();
         const forceRequest = forceNextPeriodRequest;
         forceNextPeriodRequest = false;
-        if (!forceRequest && restored && restoreCachedPeriod()) return result;
+        if (!forceRequest && restored && await restoreCachedPeriod()) return result;
         await requestPeriod({ fromSheet: !restored });
         return result;
       };
@@ -538,7 +628,7 @@
   else init();
 
   window.HisobotPeriodBridge = {
-    refresh: () => requestPeriod({ fromSheet: false }),
+    refresh: () => requestPeriod({ fromSheet: false, forceRefresh: true }),
     loadFromSheet: () => requestPeriod({ fromSheet: true }),
   };
 })();

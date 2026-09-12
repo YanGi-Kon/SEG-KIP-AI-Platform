@@ -6,6 +6,7 @@ import {
 } from '../services/googleSheetsService.js';
 import { requireAccessToken } from '../middleware/auth.js';
 import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
+import { getKudukTenantRevision } from './kuduk.js';
 
 const router = express.Router();
 
@@ -22,6 +23,7 @@ const RU_MONTH_NUMBERS = new Map([
   ['ноябрь', 11], ['ноября', 11], ['декабрь', 12], ['декабря', 12],
 ]);
 const BASE_SHEET_CANDIDATES = ['База', 'ОБШИЕ', 'Общие', 'OBSHIE', 'Baza'];
+const PERIOD_RESPONSE_CACHE_LIMIT = 32;
 const FIELDS = [
   ['date', ['дата']],
   ['pos', ['позномер', 'поз', 'позиция']],
@@ -147,6 +149,56 @@ function normalizeSelection(yearRaw, monthRaw) {
   }
   return { year, month, monthName: RU_MONTHS[month] };
 }
+
+export function createHisobotPeriodResponseCache(limit = PERIOD_RESPONSE_CACHE_LIMIT) {
+  const entries = new Map();
+  const maxEntries = Math.max(1, Number(limit) || PERIOD_RESPONSE_CACHE_LIMIT);
+
+  function sourceKey(input = {}) {
+    const workspaceId = clean(input.workspaceId);
+    const spreadsheetId = clean(input.spreadsheetId);
+    return workspaceId && spreadsheetId ? `${workspaceId}|${spreadsheetId}` : '';
+  }
+
+  function signature(input = {}) {
+    const updatedAt = clean(input.stateUpdatedAt);
+    if (!updatedAt) return '';
+    return `${Number(input.stateVersion || 0)}|${updatedAt}`;
+  }
+
+  return {
+    get(input = {}) {
+      const key = sourceKey(input);
+      const wantedSignature = signature(input);
+      const selection = normalizeSelection(input.year, input.month);
+      const entry = key ? entries.get(key) : null;
+      if (!entry || !wantedSignature || entry.signature !== wantedSignature) return null;
+      if (entry.year !== selection.year || entry.month !== selection.month) return null;
+      entries.delete(key);
+      entries.set(key, entry);
+      return entry.response;
+    },
+    set(input = {}, response) {
+      const key = sourceKey(input);
+      const nextSignature = signature(input);
+      const selection = normalizeSelection(input.year, input.month);
+      if (!key || !nextSignature || !response) return;
+      entries.delete(key);
+      entries.set(key, {
+        signature: nextSignature,
+        year: selection.year,
+        month: selection.month,
+        response,
+      });
+      while (entries.size > maxEntries) entries.delete(entries.keys().next().value);
+    },
+    get size() {
+      return entries.size;
+    },
+  };
+}
+
+const periodResponseCache = createHisobotPeriodResponseCache();
 
 function findHeaderRow(rows = []) {
   let best = { index: -1, score: -1 };
@@ -316,6 +368,25 @@ router.post('/select', async (req, res) => {
 
     const serviceAccount = workspaceServiceAccount(workspace);
     const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
+    const explicitlyRequested = req.body?.year !== undefined || req.body?.month !== undefined;
+    const requestedSelection = req.body?.year !== undefined && req.body?.month !== undefined
+      ? normalizeSelection(req.body?.year, req.body?.month)
+      : null;
+    const tenantRevision = getKudukTenantRevision({ workspaceId: workspace.id });
+    const hasCurrentTenantRevision = tenantRevision?.spreadsheetId === spreadsheetId;
+    const cacheContext = requestedSelection ? {
+      workspaceId: workspace.id || req.headers['x-workspace-id'],
+      spreadsheetId,
+      stateVersion: hasCurrentTenantRevision ? tenantRevision.version : req.body?.stateVersion,
+      stateUpdatedAt: hasCurrentTenantRevision ? tenantRevision.updatedAt : req.body?.stateUpdatedAt,
+      year: requestedSelection.year,
+      month: requestedSelection.month,
+    } : null;
+    const cachedResponse = req.body?.forceRefresh === true || !cacheContext
+      ? null
+      : periodResponseCache.get(cacheContext);
+    if (cachedResponse) return res.json({ ...cachedResponse, cacheHit: true });
+
     const sheets = await getSheetsClient(serviceAccount);
     const metadata = await sheets.spreadsheets.get({
       spreadsheetId,
@@ -325,7 +396,6 @@ router.post('/select', async (req, res) => {
       .map((sheet) => sheet.properties?.title)
       .filter(Boolean);
     const baseSheet = resolveBaseSheetName(sheetNames);
-    const explicitlyRequested = req.body?.year !== undefined || req.body?.month !== undefined;
     const periodData = await loadHisobotPeriodData({
       sheets,
       spreadsheetId,
@@ -340,7 +410,7 @@ router.post('/select', async (req, res) => {
       periodData.selection.month,
     );
 
-    return res.json({
+    const response = {
       ok: true,
       baseSheet,
       selector: {
@@ -354,7 +424,10 @@ router.post('/select', async (req, res) => {
       headerRow: parsed.headerRow,
       totalRows: parsed.rows.length,
       rows: parsed.rows,
-    });
+      cacheHit: false,
+    };
+    if (cacheContext) periodResponseCache.set(cacheContext, response);
+    return res.json(response);
   } catch (error) {
     return res.status(Number(error?.statusCode) || 400).json({
       ok: false,
