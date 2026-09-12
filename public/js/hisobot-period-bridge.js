@@ -155,7 +155,9 @@
       .hisobot-period-select.year{min-width:82px}
       .hisobot-period-status{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:7px 11px;border-radius:10px;border:1px solid rgba(34,211,238,.24);font-size:12px;font-weight:900;white-space:nowrap;color:#fde68a;background:rgba(15,23,42,.72)}
       .hisobot-period-status.ok{color:#86efac}.hisobot-period-status.bad{color:#fca5a5}.hisobot-period-status.sync{color:#fde68a}
-      @media(max-width:760px){.hisobot-period-controls{width:100%}.hisobot-period-select{flex:1}.hisobot-period-status{order:5;width:100%}}
+      .hisobot-source-diagnostic{flex:1 1 100%;font-size:11px;line-height:1.35;color:#93c5fd;opacity:.95;word-break:break-all;padding:2px 4px}
+      .hisobot-source-diagnostic.bad{color:#fca5a5}
+      @media(max-width:760px){.hisobot-period-controls{width:100%}.hisobot-period-select{flex:1}.hisobot-period-status{order:5;width:100%}.hisobot-source-diagnostic{order:6}}
     `;
     document.head.appendChild(style);
   }
@@ -179,6 +181,7 @@
       <select id="hisobotPeriodYear" class="hisobot-period-select year" aria-label="Yil">${allowedYears.map((year) => `<option value="${year}">${year}</option>`).join('')}</select>
       <span id="hisobotPeriodStatus" class="hisobot-period-status sync">Давр юкланмоқда...</span>
       <button id="hisobotNextPeriodBtn" class="btn" type="button" title="Keyingi oy">→</button>
+      <span id="hisobotSourceDiagnostic" class="hisobot-source-diagnostic">Google Sheets manbasi aniqlanmoqda...</span>
     `;
 
     const search = byId('search');
@@ -189,6 +192,24 @@
     byId('hisobotPeriodYear')?.addEventListener('change', () => void selectFromControls());
     byId('hisobotPrevPeriodBtn')?.addEventListener('click', () => void navigatePeriod(-1));
     byId('hisobotNextPeriodBtn')?.addEventListener('click', () => void navigatePeriod(1));
+  }
+
+  function setSourceDiagnostic(data = {}, kind = 'ok') {
+    const el = byId('hisobotSourceDiagnostic');
+    if (!el) return;
+    const spreadsheetId = clean(data?.sourceSpreadsheetId || (typeof state !== 'undefined' ? state?.spreadsheetId : ''));
+    const baseSheet = clean(data?.baseSheet || periodBaseSheet || 'База');
+    const source = clean(data?.periodSource || '');
+    const rowCount = Number.isFinite(Number(data?.totalRows)) ? Number(data.totalRows) : null;
+    const parts = [
+      spreadsheetId ? `Sheets ID: ${spreadsheetId}` : 'Sheets ID: aniqlanmadi',
+      `Varaq: ${baseSheet}`,
+      source ? `Davr manbasi: ${source}` : '',
+      rowCount !== null ? `Yozuv: ${rowCount}` : '',
+    ].filter(Boolean);
+    el.textContent = parts.join(' · ');
+    el.title = spreadsheetId ? `Google Spreadsheet ID: ${spreadsheetId}` : '';
+    el.className = `hisobot-source-diagnostic${kind === 'bad' ? ' bad' : ''}`;
   }
 
   function readControls() {
@@ -233,6 +254,12 @@
     writeSavedPeriod(periodYear, periodMonth);
 
     const baseRows = Array.isArray(data?.rows) ? data.rows : [];
+    setSourceDiagnostic({
+      sourceSpreadsheetId: data?.sourceSpreadsheetId,
+      baseSheet: periodBaseSheet,
+      periodSource: data?.periodSource,
+      totalRows: data?.totalRows ?? baseRows.length,
+    });
     const routes = Array.isArray(canonicalRoutes) ? canonicalRoutes : [];
     const periodSheets = {};
 
@@ -302,6 +329,10 @@
     } catch (error) {
       if (currentVersion !== requestVersion) return;
       setPeriodStatus(`Хато: ${error.message}`, 'bad');
+      setSourceDiagnostic({
+        sourceSpreadsheetId: typeof state !== 'undefined' ? state?.spreadsheetId : '',
+        baseSheet: periodBaseSheet || 'База',
+      }, 'bad');
     } finally {
       if (currentVersion === requestVersion) busy = false;
     }
