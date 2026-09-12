@@ -13,7 +13,6 @@ const {
   loadHisobotPeriodData,
   parseHisobotPeriodRows,
   shouldWriteHisobotSelector,
-  createHisobotPeriodResponseCache,
 } = await import('../routes/hisobotPeriod.js');
 
 test('HISOBOT JURNALI removes legacy route dropdown and injects TO-style period bridge', () => {
@@ -114,22 +113,10 @@ test('HISOBOT retries the same Workspace after the parent session finishes resto
   assert.match(bridgeSource, /!state\?\.connected[\s\S]*?Workspace sessiyasi kutilmoqda/);
 });
 
-test('HISOBOT backend cache survives reload requests until journal state changes', () => {
-  const cache = createHisobotPeriodResponseCache(2);
-  const context = {
-    workspaceId: 'workspace-1',
-    spreadsheetId: 'sheet-1',
-    stateVersion: 7,
-    stateUpdatedAt: '2026-09-12T10:00:00.000Z',
-    year: 2026,
-    month: 8,
-  };
-  const response = { ok: true, selector: { year: 2026, month: 8 }, rows: [{ pos: '1' }] };
-  cache.set(context, response);
-  assert.equal(cache.get(context), response);
-  assert.equal(cache.get({ ...context, month: 9 }), null);
-  assert.equal(cache.get({ ...context, stateVersion: 8 }), null);
-  assert.equal(cache.get({ ...context, stateUpdatedAt: '2026-09-12T10:01:00.000Z' }), null);
+test('HISOBOT server does not cache explicit period responses ahead of the Sheets selector', () => {
+  assert.doesNotMatch(routeSource, /periodResponseCache/);
+  assert.doesNotMatch(routeSource, /createHisobotPeriodResponseCache/);
+  assert.doesNotMatch(routeSource, /cacheHit/);
 });
 
 test('HISOBOT period request times out instead of leaving the syncing status indefinitely', () => {
@@ -182,6 +169,60 @@ test('HISOBOT writes a changed selector before reading calculated period rows', 
 
   assert.deepEqual(calls, ['read-selector', 'write-selector', 'read-rows']);
   assert.deepEqual(result.selection, { year: 2026, month: 8, monthName: 'Август' });
+});
+
+test('HISOBOT reselects August after September by writing the real Sheets selector again', async () => {
+  const calls = [];
+  let selectorMonth = 'Июль';
+  const sheets = {
+    spreadsheets: {
+      values: {
+        get: async ({ range }) => {
+          if (range.endsWith('!N1:Q1')) {
+            calls.push(`read-selector:${selectorMonth}`);
+            return { data: { values: [['ГОД', '2026', 'МЕСЯЦ', selectorMonth]] } };
+          }
+          calls.push('read-rows');
+          return { data: { values: [] } };
+        },
+        batchUpdate: async ({ requestBody }) => {
+          selectorMonth = requestBody.data.find((item) => item.range.endsWith('!Q1'))?.values?.[0]?.[0] || selectorMonth;
+          calls.push(`write-selector:${selectorMonth}`);
+          return { data: {} };
+        },
+      },
+    },
+  };
+
+  await loadHisobotPeriodData({
+    sheets,
+    spreadsheetId: 'spreadsheet-id',
+    baseSheet: 'База',
+    requestedYear: 2026,
+    requestedMonth: 8,
+    explicitlyRequested: true,
+  });
+  await loadHisobotPeriodData({
+    sheets,
+    spreadsheetId: 'spreadsheet-id',
+    baseSheet: 'База',
+    requestedYear: 2026,
+    requestedMonth: 9,
+    explicitlyRequested: true,
+  });
+  await loadHisobotPeriodData({
+    sheets,
+    spreadsheetId: 'spreadsheet-id',
+    baseSheet: 'База',
+    requestedYear: 2026,
+    requestedMonth: 8,
+    explicitlyRequested: true,
+  });
+
+  assert.deepEqual(
+    calls.filter((call) => call.startsWith('write-selector:')),
+    ['write-selector:Август', 'write-selector:Сентябрь', 'write-selector:Август'],
+  );
 });
 
 test('HISOBOT menu reuses the server metadata cache instead of rereading validation grids on every return', () => {
