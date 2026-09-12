@@ -5,7 +5,7 @@ import fs from 'node:fs';
 const serverSource = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
 const bridgeSource = fs.readFileSync(new URL('../public/js/hisobot-period-bridge.js', import.meta.url), 'utf8');
 const routeSource = fs.readFileSync(new URL('../routes/hisobotPeriod.js', import.meta.url), 'utf8');
-const { parseHisobotPeriodRows } = await import('../routes/hisobotPeriod.js');
+const { parseHisobotPeriodRows, HISOBOT_PERIOD_MIN_YEAR, HISOBOT_PERIOD_MAX_YEAR } = await import('../routes/hisobotPeriod.js');
 
 test('HISOBOT JURNALI removes legacy route dropdown and injects TO-style period bridge', () => {
   assert.match(serverSource, /app\.get\("\/modules\/kuduk-journal\.html"/);
@@ -74,4 +74,23 @@ test('HISOBOT selected month/year persists per Workspace and is restored after l
   assert.match(bridgeSource, /writeSavedPeriod\(periodYear, periodMonth\)/);
   assert.match(bridgeSource, /const restored = restoreSavedPeriod\(\)/);
   assert.match(bridgeSource, /requestPeriod\(\{ fromSheet: !restored \}\)/);
+});
+
+
+test('HISOBOT year selector is intentionally limited to 2026-2028', () => {
+  assert.equal(HISOBOT_PERIOD_MIN_YEAR, 2026);
+  assert.equal(HISOBOT_PERIOD_MAX_YEAR, 2028);
+  assert.match(bridgeSource, /const PERIOD_MIN_YEAR = 2026/);
+  assert.match(bridgeSource, /const PERIOD_MAX_YEAR = 2028/);
+  assert.match(bridgeSource, /const PERIOD_YEARS = \[2026, 2027, 2028\]/);
+  assert.doesNotMatch(bridgeSource, /Math\.min\(2026, now\.getFullYear\(\)\)/);
+  assert.doesNotMatch(bridgeSource, /Math\.max\(2026, now\.getFullYear\(\)\)/);
+});
+
+test('HISOBOT backend rejects years outside 2026-2028', () => {
+  const rows = [
+    ['Дата','Поз номер','Наименование СИ','Тип, марка','Заводской номер','Предел измерения','Место установки','СКВ','Перечень в/р','Исполнитель работ: Должность Ф.И.О.','Подпись','__Год','__Месяц'],
+  ];
+  assert.throws(() => parseHisobotPeriodRows(rows, 2025, 1), (error) => error?.code === 'HISOBOT_PERIOD_YEAR_INVALID');
+  assert.throws(() => parseHisobotPeriodRows(rows, 2029, 1), (error) => error?.code === 'HISOBOT_PERIOD_YEAR_INVALID');
 });

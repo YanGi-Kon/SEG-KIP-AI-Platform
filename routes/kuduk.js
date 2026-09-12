@@ -375,10 +375,13 @@ async function loadSheet(t, route) {
     t.statuses[route.sheet] = { status: parsed.rows.length ? "ok" : "empty", message: "OK", updatedAt: new Date().toISOString(), headerRow: parsed.header.row + 1, indexMap: parsed.header.idx, headers: parsed.header.headers };
     return { changed, rows: parsed.rows };
   } catch (e) {
-    if (!Array.isArray(t.sheets[route.sheet])) t.sheets[route.sheet] = [];
+    // A failed authoritative read must never leave an old in-memory row set looking current.
+    // Keep the error status, but clear stale rows/hash so route counts cannot show phantom data.
+    t.sheets[route.sheet] = [];
+    delete t.hashes[route.sheet];
     t.statuses[route.sheet] = { status: "error", message: e.message, updatedAt: new Date().toISOString() };
     log(t, "error", e.message, { sheet: route.sheet });
-    return { changed: false, rows: t.sheets[route.sheet] };
+    return { changed: true, rows: [] };
   }
 }
 async function loadMultipleSheets(t, routes) {
@@ -401,7 +404,8 @@ async function loadMultipleSheets(t, routes) {
       for (const route of chunk) {
         const grid = returnedSheets.find(s => norm(s.properties.title) === norm(route.sheet));
         if (!grid) {
-          if (!Array.isArray(t.sheets[route.sheet])) t.sheets[route.sheet] = [];
+          t.sheets[route.sheet] = [];
+          delete t.hashes[route.sheet];
           t.statuses[route.sheet] = { status: "error", message: `"${route.sheet}" varog‘i topilmadi.`, updatedAt: new Date().toISOString() };
           continue;
         }
@@ -413,7 +417,8 @@ async function loadMultipleSheets(t, routes) {
           if (changed) { t.sheets[route.sheet] = parsed.rows; t.hashes[route.sheet] = hash; }
           t.statuses[route.sheet] = { status: parsed.rows.length ? "ok" : "empty", message: "OK", updatedAt: new Date().toISOString(), headerRow: parsed.header.row + 1, indexMap: parsed.header.idx, headers: parsed.header.headers };
         } catch (e) {
-          if (!Array.isArray(t.sheets[route.sheet])) t.sheets[route.sheet] = [];
+          t.sheets[route.sheet] = [];
+          delete t.hashes[route.sheet];
           t.statuses[route.sheet] = { status: "error", message: e.message, updatedAt: new Date().toISOString() };
           log(t, "error", e.message, { sheet: route.sheet });
         }
@@ -421,7 +426,8 @@ async function loadMultipleSheets(t, routes) {
     } catch (err) {
       log(t, "error", "Batch sheet yuklashda xato: " + err.message);
       for (const r of chunk) {
-         if (!Array.isArray(t.sheets[r.sheet])) t.sheets[r.sheet] = [];
+         t.sheets[r.sheet] = [];
+         delete t.hashes[r.sheet];
          t.statuses[r.sheet] = { status: "error", message: err.message, updatedAt: new Date().toISOString() };
       }
     }
@@ -751,8 +757,16 @@ export function createKudukRouter(io) {
     res.json({ ok: true, sexId, connected: Boolean(t?.connected), status: t?.connected ? "READY" : "OFFLINE" });
   });
   router.get("/state", async (req, res) => {
-    try { res.json(publicState(await loadRequestTenant(req, req.query.sexId || "sex_default"))); }
-    catch (e) { res.status(400).json({ ok: false, error: e.message }); }
+    try {
+      const tenant = await loadRequestTenant(req, req.query.sexId || "sex_default");
+      const fresh = ["1", "true", "yes"].includes(String(req.query.fresh || "").trim().toLowerCase());
+      if (fresh && tenant?.sheetsApi) {
+        return res.json(await syncTenant(tenant.sexId, "state-fresh"));
+      }
+      return res.json(publicState(tenant));
+    } catch (e) {
+      return res.status(400).json({ ok: false, error: e.message });
+    }
   });
   // Frontend/future compatibility aliases required by the project specification.
   router.post("/connect", async (req, res) => {

@@ -109,3 +109,19 @@ test('Workspace message reloads journal state with the new workspace header and 
   ]);
   assert.deepEqual(socketWorkspaces, ['workspace-a', 'workspace-b']);
 });
+
+
+test('journal requests authoritative fresh Sheets state when opened or Workspace changes', () => {
+  const journal = fs.readFileSync(new URL('../public/modules/hisobot-journal.html', import.meta.url), 'utf8');
+  const legacyJournal = fs.readFileSync(new URL('../public/modules/kuduk-journal.html', import.meta.url), 'utf8');
+  assert.match(journal, /\/state\?sexId=.*fresh=1/);
+  assert.match(legacyJournal, /\/state\?sexId=.*fresh=1/);
+});
+
+test('kuduk backend clears stale in-memory rows after authoritative sheet read failures', () => {
+  const route = fs.readFileSync(new URL('../routes/kuduk.js', import.meta.url), 'utf8');
+  assert.match(route, /t\.sheets\[route\.sheet\] = \[\];\s*delete t\.hashes\[route\.sheet\]/);
+  assert.match(route, /t\.sheets\[r\.sheet\] = \[\];\s*delete t\.hashes\[r\.sheet\]/);
+  assert.match(route, /req\.query\.fresh/);
+  assert.match(route, /syncTenant\(tenant\.sexId, "state-fresh"\)/);
+});

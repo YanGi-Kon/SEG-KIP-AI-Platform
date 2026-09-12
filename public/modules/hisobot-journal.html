@@ -157,7 +157,7 @@ function renderFieldEditor(key, label, value=''){
 }
 async function fetchState(expectedWorkspaceId = workspaceId()){
   try {
-    const nextState = await request('/state?sexId=' + encodeURIComponent(sexId()));
+    const nextState = await request('/state?sexId=' + encodeURIComponent(sexId()) + '&fresh=1');
     if(expectedWorkspaceId && expectedWorkspaceId !== workspaceId()) return;
     state = { ...state, ...nextState };
     if(state.connected) await loadMetadata(true);
@@ -284,6 +284,6 @@ window.addEventListener('load', () => {
   try{ parent.postMessage({ type:'REQUEST_WORKSPACE_INFO' }, '*'); }catch(_){}
 });
 </script>
-<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period3"></script>
+<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period4-fresh-years"></script>
 </body>
 </html>

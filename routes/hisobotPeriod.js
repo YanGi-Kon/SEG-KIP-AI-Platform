@@ -24,6 +24,8 @@ const RU_MONTH_NUMBERS = new Map([
   ['ноябрь', 11], ['ноября', 11], ['декабрь', 12], ['декабря', 12],
 ]);
 const BASE_SHEET_CANDIDATES = ['База', 'ОБШИЕ', 'Общие', 'OBSHIE', 'Baza'];
+export const HISOBOT_PERIOD_MIN_YEAR = 2026;
+export const HISOBOT_PERIOD_MAX_YEAR = 2028;
 const FIELDS = [
   ['date', ['дата']],
   ['pos', ['позномер', 'поз', 'позиция']],
@@ -110,8 +112,8 @@ function normalizeMonthNumber(value) {
 function normalizeSelection(yearRaw, monthRaw) {
   const year = Number(yearRaw);
   const month = normalizeMonthNumber(monthRaw);
-  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-    const error = new Error('Hisobot davri yili noto‘g‘ri');
+  if (!Number.isInteger(year) || year < HISOBOT_PERIOD_MIN_YEAR || year > HISOBOT_PERIOD_MAX_YEAR) {
+    const error = new Error(`Hisobot davri yili faqat ${HISOBOT_PERIOD_MIN_YEAR}–${HISOBOT_PERIOD_MAX_YEAR} oralig‘ida bo‘lishi kerak`);
     error.code = 'HISOBOT_PERIOD_YEAR_INVALID';
     throw error;
   }
