@@ -564,10 +564,10 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     const sheetName=String(workspace?.moduleSettings?.acts_sheet_name||'').trim();
     revokeSignatureObjectUrls();
     state.responsibleSigner=null;
-    if(!expectedWorkspaceId||!sheetName){
+    if(!expectedWorkspaceId){
       state.allReports=[];state.reports=[];
       applyPeriodFilter();
-      setIntegrationStatus('HISOBOT KUTILMOQDA','AKTLAR JURNALI sozlamalari topilmadi');
+      setIntegrationStatus('HISOBOT KUTILMOQDA','Workspace tanlanmagan');
       return [];
     }
 

@@ -205,6 +205,63 @@ test('faults frontend puts linked Acts report fields into their journal columns'
   assert.equal(elements.get('faultsStatusSub').textContent, '1 ta dalolatnoma raqami yuklandi');
 });
 
+test('faults loads ACTS daily reports even when acts_sheet_name is not configured', async () => {
+  const rowsBody = {
+    _innerHTML: '',
+    children: [],
+    set innerHTML(value) { this._innerHTML = value; this.children = []; },
+    get innerHTML() { return this._innerHTML; },
+    appendChild(fragment) { this.children.push(...fragment.children); },
+  };
+  const elements = new Map([
+    ['faultsRows', rowsBody],
+    ['faultsStatus', { textContent: '' }],
+    ['faultsStatusSub', { textContent: '' }],
+    ['faultsWorkspaceName', { textContent: '' }],
+  ]);
+  const handlers = {};
+  const requests = [];
+  const parent = {
+    localStorage: { getItem: () => null },
+    sessionStorage: { getItem: () => null },
+    postMessage() {},
+  };
+  const window = { parent, addEventListener(type, handler) { handlers[type] = handler; } };
+  const document = {
+    getElementById: (id) => elements.get(id) || null,
+    createElement: () => ({ dataset: {}, innerHTML: '' }),
+    createDocumentFragment: () => ({ children: [], appendChild(child) { this.children.push(child); } }),
+  };
+
+  vm.runInNewContext(scriptMatch[1], {
+    document,
+    fetch: async (url, options) => {
+      requests.push({ url, options });
+      return { ok: true, json: async () => ({ rows: [] }) };
+    },
+    localStorage: { getItem: () => null },
+    sessionStorage: { getItem: () => null },
+    parent,
+    window,
+  });
+
+  handlers.message({
+    data: {
+      type: 'SEG_KIP_WORKSPACE_CHANGE',
+      workspaceId: 'workspace-a',
+      workspace: { id: 'workspace-a', name: 'Sex A', moduleSettings: {} },
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const reportRequest = requests.find(({ url }) => url === '/api/acts/reports/daily');
+  assert.ok(reportRequest, 'faults must request ACTS reports without acts_sheet_name');
+  assert.equal(reportRequest.options.headers['x-workspace-id'], 'workspace-a');
+  assert.deepEqual(JSON.parse(reportRequest.options.body), { sheetName: '' });
+  assert.match(elements.get('faultsStatus').textContent, /BOG.*LANGAN/);
+  assert.doesNotMatch(elements.get('faultsStatusSub').textContent, /sozlamalari topilmadi/);
+});
+
 test('faults table keeps the source document column proportions', () => {
   for (const width of ['6.17%', '10.70%', '9.56%', '31.26%', '21.52%', '9.38%', '11.41%']) {
     assert.match(html, new RegExp(`width:${width.replace('.', '\\.')}`));
