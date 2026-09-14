@@ -57,7 +57,80 @@
   }
 
   function normalize(value) {
-    return String(value || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/giu, ' ').trim();
+    return String(value || '')
+      .toLowerCase()
+      .replace(/ё/g, 'е')
+      .replace(/[^a-zа-яўқғҳ0-9]+/giu, ' ')
+      .trim();
+  }
+
+  function readLanguage() {
+    let value = '';
+    try {
+      value = localStorage.getItem(LANG_KEY)
+        || parentStorage('localStorage', LANG_KEY)
+        || clean(parent?.currentLang);
+    } catch (_) {
+      value = parentStorage('localStorage', LANG_KEY);
+    }
+    return SUPPORTED_LANGS.has(value) ? value : 'ru';
+  }
+
+  function translatePosition(value, lang = state.language) {
+    const raw = clean(value);
+    if (!raw) return '—';
+    const key = normalize(raw);
+    const translation = POSITION_TRANSLATIONS.find((entry) => (
+      normalize(entry.ru) === key
+      || normalize(entry.uz_cyrl) === key
+      || entry.aliases.some((alias) => normalize(alias) === key)
+    ));
+    return clean(translation?.[lang]) || raw;
+  }
+
+  function languageLabel(lang = state.language) {
+    return lang === 'uz_cyrl' ? 'Ўзбекча (кирилл)' : 'Русский';
+  }
+
+  function updateLanguageUi() {
+    const button = $('toSignersLangBtn');
+    const menu = $('toSignersLangMenu');
+    if (button) {
+      button.title = 'Текущий язык: ' + languageLabel();
+      button.setAttribute('aria-label', 'Язык интерфейса. ' + languageLabel());
+    }
+    menu?.querySelectorAll('[data-to-signers-lang]').forEach((option) => {
+      const selected = option.dataset.toSignersLang === state.language;
+      option.classList.toggle('active', selected);
+      option.setAttribute('aria-checked', selected ? 'true' : 'false');
+    });
+  }
+
+  function closeLanguageMenu() {
+    const menu = $('toSignersLangMenu');
+    const button = $('toSignersLangBtn');
+    menu?.classList.remove('show');
+    button?.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleLanguageMenu() {
+    const menu = $('toSignersLangMenu');
+    const button = $('toSignersLangBtn');
+    if (!menu || !button) return;
+    const open = !menu.classList.contains('show');
+    menu.classList.toggle('show', open);
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function selectLanguage(lang) {
+    if (!SUPPORTED_LANGS.has(lang)) return;
+    state.language = lang;
+    try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+    try { parent?.localStorage?.setItem(LANG_KEY, lang); } catch (_) {}
+    try { parent?.setLanguage?.(lang); } catch (_) {}
+    updateLanguageUi();
+    closeLanguageMenu();
+    render();
   }
 
   function isKipMaster(row = {}) {
