@@ -6,7 +6,7 @@ const bridge = fs.readFileSync(new URL('../public/js/to-period-sheet-bridge.js',
 const panel = fs.readFileSync(new URL('../public/js/to-signers-panel.js', import.meta.url), 'utf8');
 
 test('TO JURNALI loads the signers panel and removes the redundant Open button', () => {
-  assert.match(bridge, /to-signers-panel\\.js\\?v=to-signers3-auto-roles/);
+  assert.match(bridge, /to-signers-panel\.js\?v=to-signers3-auto-roles/);
   assert.match(bridge, /toOpenPeriodBtn'\)\?\.remove/);
 });
 
