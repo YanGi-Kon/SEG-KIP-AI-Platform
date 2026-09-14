@@ -22,7 +22,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
 .header-text{text-align:right;font-size:15px;margin-bottom:30px}.title-text{text-align:center;font-size:18px;font-weight:bold;margin:30px 0}.preamble{font-size:16px;margin-bottom:20px;text-align:justify}.signature-list{margin:10px 0 20px;padding-left:0}
 .journal-table{width:100%;border-collapse:collapse;margin-bottom:30px;font-size:14px;table-layout:fixed}.journal-table th,.journal-table td{border:1px solid #000;padding:6px;text-align:center;vertical-align:middle;word-break:break-word}.journal-table th{font-weight:bold;background:#f0f0f0}.journal-table .group-header{text-align:left;font-weight:bold;background:#e8e8e8;padding-left:10px}
 .journal-table input,.journal-table textarea{width:100%;background:transparent;border:none;color:inherit;font-family:inherit;font-size:inherit;resize:vertical;outline:none;text-align:center}.journal-table textarea{text-align:center}.journal-table input:focus,.journal-table textarea:focus{background:rgba(34,211,238,.1)}.journal-table [readonly]{opacity:.82;cursor:default}
-.conclusion{margin:20px 0 30px;font-size:16px;font-weight:bold}.signers-block{display:grid;gap:20px;font-size:16px}.signer-row{display:flex;justify-content:space-between;align-items:flex-end;min-height:34px}.signer-role{width:45%}.signer-name{width:25%;text-align:left}.signer-sign{width:25%;border-bottom:1px solid #000;text-align:center;padding-bottom:2px;min-height:30px;display:flex;align-items:flex-end;justify-content:center}.signer-sign img{display:block;max-width:150px;max-height:52px;object-fit:contain}.signer-auto-badge{font-family:Arial,sans-serif;font-size:9px;color:#64748b;margin-left:6px;white-space:nowrap}
+.conclusion{margin:20px 0 30px;font-size:16px;font-weight:bold}.signers-block{display:grid;gap:20px;font-size:16px}.signer-row{display:flex;justify-content:space-between;align-items:flex-end;min-height:34px}.signer-role{width:45%}.signer-name{width:25%;text-align:left}.signer-name-select{width:100%;border:0;border-bottom:1px dashed transparent;background:transparent;color:#111;font:inherit;padding:2px 22px 2px 0;outline:none;cursor:pointer}.signer-name-select:hover,.signer-name-select:focus{border-bottom-color:#0891b2;background:rgba(8,145,178,.05)}.signer-name-select:disabled{cursor:default;opacity:.72}.signer-sign{width:25%;border-bottom:1px solid #000;text-align:center;padding-bottom:2px;min-height:30px;display:flex;align-items:flex-end;justify-content:center}.signer-sign img{display:block;max-width:150px;max-height:52px;object-fit:contain}.signer-auto-badge{font-family:Arial,sans-serif;font-size:9px;color:#64748b;margin-left:6px;white-space:nowrap}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.76);display:none;align-items:center;justify-content:center;padding:18px;z-index:100;font-family:Arial,sans-serif}.modal.show{display:flex}.modalbox{width:min(650px,100%);max-height:92vh;overflow:auto;background:#071427;border:1px solid var(--line);border-radius:18px;padding:20px;color:#eaf7ff;box-shadow:0 24px 80px rgba(0,0,0,.45)}.modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.modal-head h2{margin:0;font-size:20px}.field{margin-top:16px}.field label{display:block;color:#cdeeff;font-size:13px;font-weight:900;margin-bottom:7px}.field input{width:100%;background:#061120;border:1px solid rgba(255,255,255,.16);border-radius:12px;color:#fff;padding:12px;font-size:14px}.note{color:var(--muted);font-size:12px;line-height:1.4}.msg{margin-top:12px;padding:10px;border-radius:12px;border:1px dashed rgba(255,255,255,.18);min-height:38px;color:#dbeafe}.ok{color:#86efac}.bad{color:#fca5a5}.sync{color:#fde68a}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 @media(max-width:760px){body{padding:10px}.document-container{padding:24px 18px;overflow:auto}.workspace-source,.period-controls,.period-meta{width:100%}.source-pill{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.period-select{flex:1}}
 </style>
@@ -67,13 +67,13 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   </table>
   <div id="toConclusion" class="conclusion">Заключение: оборудование исправно и пригодно к эксплуатации</div>
   <div class="signers-block">
-    <div class="signer-row"><div class="signer-role">Ответственный от ОАиМ; Начальник отдела</div><div class="signer-name">Ходжаев С. Х.</div><div class="signer-sign">(Подпись)</div></div>
-    <div id="toKipChiefSignerRow" class="signer-row"><div class="signer-role">Ответственный от участок КИПиА; Начальник КИПиА<span id="toKipChiefAutoBadge" class="signer-auto-badge"></span></div><div id="toKipChiefName" class="signer-name">Куйликов Р. А.</div><div id="toKipChiefSignature" class="signer-sign">(Подпись)</div></div>
-    <div id="toKipMasterSignerRow" class="signer-row"><div class="signer-role">Ответственный за выполнение работ; Мастер КИПиА<span id="toKipMasterAutoBadge" class="signer-auto-badge"></span></div><div id="toKipMasterName" class="signer-name">Фазилов И. Б.</div><div id="toKipMasterSignature" class="signer-sign">(Подпись)</div></div>
-    <div id="toProductionMaster1SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1<span id="toProductionMaster1AutoBadge" class="signer-auto-badge"></span></div><div id="toProductionMaster1Name" class="signer-name">Хошимов Б.</div><div id="toProductionMaster1Signature" class="signer-sign">(Подпись)</div></div>
-    <div id="toProductionMaster2SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1<span id="toProductionMaster2AutoBadge" class="signer-auto-badge"></span></div><div id="toProductionMaster2Name" class="signer-name">Мазординов Э.</div><div id="toProductionMaster2Signature" class="signer-sign">(Подпись)</div></div>
-    <div id="toPpnMaster1SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1<span id="toPpnMaster1AutoBadge" class="signer-auto-badge"></span></div><div id="toPpnMaster1Name" class="signer-name">Бакиров У.</div><div id="toPpnMaster1Signature" class="signer-sign">(Подпись)</div></div>
-    <div id="toPpnMaster2SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1<span id="toPpnMaster2AutoBadge" class="signer-auto-badge"></span></div><div id="toPpnMaster2Name" class="signer-name">Щоимкулов Ш.</div><div id="toPpnMaster2Signature" class="signer-sign">(Подпись)</div></div>
+    <div id="toDepartmentChiefSignerRow" class="signer-row"><div class="signer-role">Ответственный от ОАиМ; Начальник отдела<span id="toDepartmentChiefAutoBadge" class="signer-auto-badge"></span></div><div class="signer-name"><select id="toDepartmentChiefName" class="signer-name-select" data-to-signer-slot="department-chief"><option value="">— Танланг —</option></select></div><div id="toDepartmentChiefSignature" class="signer-sign">(Подпись)</div></div>
+    <div id="toKipChiefSignerRow" class="signer-row"><div class="signer-role">Ответственный от участок КИПиА; Начальник КИПиА<span id="toKipChiefAutoBadge" class="signer-auto-badge"></span></div><div class="signer-name"><select id="toKipChiefName" class="signer-name-select" data-to-signer-slot="kip-chief"><option value="">— Танланг —</option></select></div><div id="toKipChiefSignature" class="signer-sign">(Подпись)</div></div>
+    <div id="toKipMasterSignerRow" class="signer-row"><div class="signer-role">Ответственный за выполнение работ; Мастер КИПиА<span id="toKipMasterAutoBadge" class="signer-auto-badge"></span></div><div class="signer-name"><select id="toKipMasterName" class="signer-name-select" data-to-signer-slot="kip-master"><option value="">— Танланг —</option></select></div><div id="toKipMasterSignature" class="signer-sign">(Подпись)</div></div>
+    <div id="toProductionMaster1SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1<span id="toProductionMaster1AutoBadge" class="signer-auto-badge"></span></div><div class="signer-name"><select id="toProductionMaster1Name" class="signer-name-select" data-to-signer-slot="production-master"><option value="">— Танланг —</option></select></div><div id="toProductionMaster1Signature" class="signer-sign">(Подпись)</div></div>
+    <div id="toProductionMaster2SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1<span id="toProductionMaster2AutoBadge" class="signer-auto-badge"></span></div><div class="signer-name"><select id="toProductionMaster2Name" class="signer-name-select" data-to-signer-slot="production-master"><option value="">— Танланг —</option></select></div><div id="toProductionMaster2Signature" class="signer-sign">(Подпись)</div></div>
+    <div id="toPpnMaster1SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1<span id="toPpnMaster1AutoBadge" class="signer-auto-badge"></span></div><div class="signer-name"><select id="toPpnMaster1Name" class="signer-name-select" data-to-signer-slot="ppn-master"><option value="">— Танланг —</option></select></div><div id="toPpnMaster1Signature" class="signer-sign">(Подпись)</div></div>
+    <div id="toPpnMaster2SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1<span id="toPpnMaster2AutoBadge" class="signer-auto-badge"></span></div><div class="signer-name"><select id="toPpnMaster2Name" class="signer-name-select" data-to-signer-slot="ppn-master"><option value="">— Танланг —</option></select></div><div id="toPpnMaster2Signature" class="signer-sign">(Подпись)</div></div>
   </div>
 </div>
 
@@ -86,13 +86,15 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   const ADMIN_TOKEN_KEY='seg_kip_admin_jwt';
   const MODULE_SHEET_KEY='to_sheet_name';
   const PERIOD_STORAGE_PREFIX='seg_to_period_v1';
+  const SIGNER_SELECTION_STORAGE_PREFIX='seg_to_signer_selection_v1';
   const AUTO_SIGNER_SLOTS=[
-    {key:'kip-chief',nameId:'toKipChiefName',signatureId:'toKipChiefSignature',badgeId:'toKipChiefAutoBadge',defaultName:'Куйликов Р. А.'},
-    {key:'kip-master',nameId:'toKipMasterName',signatureId:'toKipMasterSignature',badgeId:'toKipMasterAutoBadge',defaultName:'Фазилов И. Б.'},
-    {key:'production-master',nameId:'toProductionMaster1Name',signatureId:'toProductionMaster1Signature',badgeId:'toProductionMaster1AutoBadge',defaultName:'Хошимов Б.'},
-    {key:'production-master',nameId:'toProductionMaster2Name',signatureId:'toProductionMaster2Signature',badgeId:'toProductionMaster2AutoBadge',defaultName:'Мазординов Э.'},
-    {key:'ppn-master',nameId:'toPpnMaster1Name',signatureId:'toPpnMaster1Signature',badgeId:'toPpnMaster1AutoBadge',defaultName:'Бакиров У.'},
-    {key:'ppn-master',nameId:'toPpnMaster2Name',signatureId:'toPpnMaster2Signature',badgeId:'toPpnMaster2AutoBadge',defaultName:'Щоимкулов Ш.'}
+    {key:'department-chief',nameId:'toDepartmentChiefName',signatureId:'toDepartmentChiefSignature',badgeId:'toDepartmentChiefAutoBadge',preferredName:'Ходжаев С. Х.'},
+    {key:'kip-chief',nameId:'toKipChiefName',signatureId:'toKipChiefSignature',badgeId:'toKipChiefAutoBadge',preferredName:'Куйликов Р. А.'},
+    {key:'kip-master',nameId:'toKipMasterName',signatureId:'toKipMasterSignature',badgeId:'toKipMasterAutoBadge',preferredName:'Фазилов И. Б.'},
+    {key:'production-master',nameId:'toProductionMaster1Name',signatureId:'toProductionMaster1Signature',badgeId:'toProductionMaster1AutoBadge',preferredName:'Хошимов Б.'},
+    {key:'production-master',nameId:'toProductionMaster2Name',signatureId:'toProductionMaster2Signature',badgeId:'toProductionMaster2AutoBadge',preferredName:'Мазординов Э.'},
+    {key:'ppn-master',nameId:'toPpnMaster1Name',signatureId:'toPpnMaster1Signature',badgeId:'toPpnMaster1AutoBadge',preferredName:'Бакиров У.'},
+    {key:'ppn-master',nameId:'toPpnMaster2Name',signatureId:'toPpnMaster2Signature',badgeId:'toPpnMaster2AutoBadge',preferredName:'Щоимкулов Ш.'}
   ];
   const DEFAULT_PERIOD_YEAR=2026;
   const DEFAULT_PERIOD_MONTH=6;
@@ -100,7 +102,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   const state={
     workspaceId:'',workspace:null,workspaceName:'',isAdmin:false,sheetName:'',
     sections:[],totalItems:0,requestVersion:0,signerRequestVersion:0,
-    autoSigners:{},signatureObjectUrls:[],
+    signerRegistry:[],autoSigners:{},signatureObjectUrls:[],
     periodYear:DEFAULT_PERIOD_YEAR,periodMonth:DEFAULT_PERIOD_MONTH,
     period:null,periodItems:[],periods:[],periodRequestVersion:0,periodBusy:false
   };
@@ -447,6 +449,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if($('toPeriodYear'))$('toPeriodYear').value=String(state.periodYear);
     if($('toPeriodMonth'))$('toPeriodMonth').value=String(state.periodMonth);
     saveSelectedPeriod();
+    if(state.signerRegistry.length)void applySignerSelectionsForCurrentPeriod();
     await openSelectedPeriod();
   }
 
@@ -492,6 +495,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   }
   function signerRoleKey(row={}){
     const text=normalizeSignerText(row.position||'');
+    const isDepartmentChief=text.includes('начальник отдела')||text.includes('нач отдела')||text.includes('бўлим бошли')||text.includes('булим бошли');
+    if(isDepartmentChief)return'department-chief';
     const hasKip=text.includes('кип')||text.includes('kip')||text.includes('нўвваа')||text.includes('нувваа');
     const isChief=text.includes('начальник')||text.includes('бошли');
     const isMaster=text.includes('мастер')||text.includes('master')||text.includes('устаси');
@@ -503,16 +508,57 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     return'';
   }
   function isKipMasterSigner(row={}){return signerRoleKey(row)==='kip-master'}
+  function signerSelectionStorageKey(workspaceId=state.workspaceId,year=state.periodYear,month=state.periodMonth){
+    const ws=clean(workspaceId); const y=Number(year); const m=Number(month);
+    if(!ws||!Number.isInteger(y)||!Number.isInteger(m)||m<1||m>12)return'';
+    return `${SIGNER_SELECTION_STORAGE_PREFIX}:${ws}:${y}-${String(m).padStart(2,'0')}`;
+  }
+  function readSignerSelections(){
+    const key=signerSelectionStorageKey(); if(!key)return{};
+    let raw='';
+    try{raw=localStorage.getItem(key)||parentStorage('localStorage',key)||''}catch(_){raw=parentStorage('localStorage',key)||''}
+    if(!raw)return{};
+    try{
+      const value=JSON.parse(raw);
+      return value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+    }catch(_){return{}}
+  }
+  function writeSignerSelections(value={}){
+    const key=signerSelectionStorageKey(); if(!key)return;
+    const raw=JSON.stringify(value);
+    try{localStorage.setItem(key,raw)}catch(_){}
+    try{if(parent&&parent!==window)parent.localStorage?.setItem(key,raw)}catch(_){}
+  }
   function revokeSignatureObjectUrls(){
     state.signatureObjectUrls.splice(0).forEach(url=>{try{URL.revokeObjectURL(url)}catch(_){}});
   }
-  function renderAutoSigner(slot,signer=null,signatureUrl=''){
-    const fio=clean(signer?.fullName||signer?.fio)||slot.defaultName;
+  function populateSignerSelect(slot,selectedSignerId=''){
+    const select=$(slot.nameId); if(!(select instanceof HTMLSelectElement))return;
+    const selected=clean(selectedSignerId||select.value);
+    const options=state.signerRegistry.map(row=>{
+      const id=clean(row.id);
+      const fio=clean(row.fullName||row.fio)||'—';
+      const position=clean(row.position);
+      return `<option value="${esc(id)}">${esc(fio)}${position?` — ${esc(position)}`:''}</option>`;
+    }).join('');
+    select.innerHTML=`<option value="">— Танланг —</option>${options}`;
+    select.disabled=!state.signerRegistry.length;
+    if(selected&&state.signerRegistry.some(row=>clean(row.id)===selected))select.value=selected;
+  }
+  function populateAllSignerSelects(){
+    AUTO_SIGNER_SLOTS.forEach(slot=>populateSignerSelect(slot,clean(state.autoSigners[slot.nameId]?.id)));
+  }
+  function renderAutoSigner(slot,signer=null,signatureUrl='',mode='auto'){
+    const fio=clean(signer?.fullName||signer?.fio);
     state.autoSigners[slot.nameId]=signer||null;
-    const name=$(slot.nameId),sign=$(slot.signatureId),badge=$(slot.badgeId);
-    if(name)name.textContent=fio;
-    if(sign)sign.innerHTML=signatureUrl?`<img src="${esc(signatureUrl)}" alt="${esc(fio)} imzosi" title="${esc(fio)}">`:'(Подпись)';
-    if(badge)badge.textContent=signer?'· avtomatik':'';
+    const select=$(slot.nameId),sign=$(slot.signatureId),badge=$(slot.badgeId);
+    if(select instanceof HTMLSelectElement){
+      const signerId=clean(signer?.id);
+      if(signerId&&!Array.from(select.options).some(option=>option.value===signerId))populateSignerSelect(slot,signerId);
+      select.value=signerId;
+    }
+    if(sign)sign.innerHTML=signatureUrl&&fio?`<img src="${esc(signatureUrl)}" alt="${esc(fio)} imzosi" title="${esc(fio)}">`:'(Подпись)';
+    if(badge)badge.textContent=signer?(mode==='manual'?'· tanlandi':'· avtomatik'):'';
   }
   function resetAutoSigners(){
     revokeSignatureObjectUrls();
@@ -539,8 +585,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     const remaining=[...signers];
     const assigned=slots.map(()=>null);
     slots.forEach((slot,slotIndex)=>{
-      const fallbackName=normalizeSignerText(slot.defaultName);
-      const signerIndex=remaining.findIndex(row=>normalizeSignerText(row.fullName||row.fio||'')===fallbackName);
+      const preferredName=normalizeSignerText(slot.preferredName);
+      const signerIndex=remaining.findIndex(row=>normalizeSignerText(row.fullName||row.fio||'')===preferredName);
       if(signerIndex>=0)assigned[slotIndex]=remaining.splice(signerIndex,1)[0];
     });
     slots.forEach((_,slotIndex)=>{
@@ -548,38 +594,88 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     });
     return assigned;
   }
+  function automaticSignerAssignments(){
+    const grouped=new Map();
+    state.signerRegistry.forEach(row=>{
+      const key=signerRoleKey(row); if(!key)return;
+      if(!grouped.has(key))grouped.set(key,[]);
+      grouped.get(key).push(row);
+    });
+    const assigned=new Map();
+    [...new Set(AUTO_SIGNER_SLOTS.map(slot=>slot.key))].forEach(key=>{
+      const slots=AUTO_SIGNER_SLOTS.filter(slot=>slot.key===key);
+      const signers=assignSignersToSlots(grouped.get(key)||[],slots);
+      slots.forEach((slot,index)=>assigned.set(slot.nameId,signers[index]||null));
+    });
+    return assigned;
+  }
+  async function applySignerSelectionsForCurrentPeriod(){
+    const expectedWsId=state.workspaceId;
+    const requestVersion=++state.signerRequestVersion;
+    revokeSignatureObjectUrls();
+    state.autoSigners={};
+    populateAllSignerSelects();
+    const saved=readSignerSelections();
+    const automatic=automaticSignerAssignments();
+    for(const slot of AUTO_SIGNER_SLOTS){
+      if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return[];
+      const hasSaved=Object.prototype.hasOwnProperty.call(saved,slot.nameId);
+      const savedId=hasSaved?clean(saved[slot.nameId]):'';
+      const signer=hasSaved
+        ? state.signerRegistry.find(row=>clean(row.id)===savedId)||null
+        : automatic.get(slot.nameId)||null;
+      let signatureUrl='';
+      if(signer){
+        try{signatureUrl=await signatureDisplayUrl(signer,expectedWsId,requestVersion)}catch(_){signatureUrl=''}
+      }
+      if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return[];
+      renderAutoSigner(slot,signer,signatureUrl,hasSaved?'manual':'auto');
+    }
+    return AUTO_SIGNER_SLOTS.map(slot=>state.autoSigners[slot.nameId]).filter(Boolean);
+  }
+  async function selectSignerForSlot(slot,signerId){
+    const expectedWsId=state.workspaceId;
+    const requestVersion=++state.signerRequestVersion;
+    const id=clean(signerId);
+    const signer=state.signerRegistry.find(row=>clean(row.id)===id)||null;
+    const saved=readSignerSelections();
+    saved[slot.nameId]=id;
+    writeSignerSelections(saved);
+    renderAutoSigner(slot,signer,'','manual');
+    if(!signer)return null;
+    let signatureUrl='';
+    try{signatureUrl=await signatureDisplayUrl(signer,expectedWsId,requestVersion)}catch(_){signatureUrl=''}
+    if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return null;
+    renderAutoSigner(slot,signer,signatureUrl,'manual');
+    return signer;
+  }
+  function wireSignerSelectors(){
+    AUTO_SIGNER_SLOTS.forEach(slot=>{
+      const select=$(slot.nameId);
+      if(!(select instanceof HTMLSelectElement)||select.dataset.signerWired==='1')return;
+      select.dataset.signerWired='1';
+      select.addEventListener('change',()=>void selectSignerForSlot(slot,select.value));
+    });
+  }
   async function loadAutoSigners(expectedWsId=state.workspaceId){
     const requestVersion=++state.signerRequestVersion;
     resetAutoSigners();
+    state.signerRegistry=[];
+    populateAllSignerSelects();
     const auth=token(); if(!expectedWsId||!auth)return[];
     try{
       const response=await fetch(`/api/workspaces/${encodeURIComponent(expectedWsId)}/signers?includeInactive=true`,{headers:{Authorization:`Bearer ${auth}`},credentials:'include'});
       if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return[];
       const data=await response.json().catch(()=>({}));
       if(!response.ok||data.error)return[];
-      const active=(Array.isArray(data.rows)?data.rows:[]).filter(row=>!row.status||normalizeSignerText(row.status)==='active');
-      const grouped=new Map();
-      active.forEach(row=>{
-        const key=signerRoleKey(row); if(!key)return;
-        if(!grouped.has(key))grouped.set(key,[]);
-        grouped.get(key).push(row);
-      });
-      const assignments=[];
-      [...new Set(AUTO_SIGNER_SLOTS.map(slot=>slot.key))].forEach(key=>{
-        const slots=AUTO_SIGNER_SLOTS.filter(slot=>slot.key===key);
-        const signers=assignSignersToSlots(grouped.get(key)||[],slots);
-        slots.forEach((slot,index)=>assignments.push({slot,signer:signers[index]||null}));
-      });
-      for(const {slot,signer} of assignments){
-        if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return[];
-        if(!signer)continue;
-        let signatureUrl='';
-        try{signatureUrl=await signatureDisplayUrl(signer,expectedWsId,requestVersion)}catch(_){signatureUrl=''}
-        if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return[];
-        renderAutoSigner(slot,signer,signatureUrl);
-      }
-      return assignments.filter(item=>item.signer).map(item=>item.signer);
-    }catch(_){return[]}
+      state.signerRegistry=(Array.isArray(data.rows)?data.rows:[]).filter(row=>!row.status||normalizeSignerText(row.status)==='active');
+      populateAllSignerSelects();
+      return await applySignerSelectionsForCurrentPeriod();
+    }catch(_){
+      state.signerRegistry=[];
+      populateAllSignerSelects();
+      return[];
+    }
   }
   function loadKipMasterSigner(expectedWsId=state.workspaceId){return loadAutoSigners(expectedWsId)}
 
@@ -589,7 +685,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if(id!==state.workspaceId){
       state.signerRequestVersion+=1;
       state.periodRequestVersion+=1;
-      resetAutoSigners(); resetPeriodView();
+      state.signerRegistry=[];
+      resetAutoSigners(); populateAllSignerSelects(); resetPeriodView();
     }
     state.workspaceId=id; state.workspace=workspace||null;
     state.workspaceName=String(workspace?.name||'').trim();
@@ -652,8 +749,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   }
 
   function wirePeriodUi(){
-    $('toPeriodMonth')?.addEventListener('change',()=>{readPeriodSelectors();saveSelectedPeriod();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync')});
-    $('toPeriodYear')?.addEventListener('change',()=>{readPeriodSelectors();saveSelectedPeriod();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync')});
+    $('toPeriodMonth')?.addEventListener('change',()=>{readPeriodSelectors();saveSelectedPeriod();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync');if(state.signerRegistry.length)void applySignerSelectionsForCurrentPeriod()});
+    $('toPeriodYear')?.addEventListener('change',()=>{readPeriodSelectors();saveSelectedPeriod();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync');if(state.signerRegistry.length)void applySignerSelectionsForCurrentPeriod()});
     $('toOpenPeriodBtn')?.addEventListener('click',()=>void openSelectedPeriod());
     $('toCreatePeriodBtn')?.addEventListener('click',()=>void createSelectedPeriod());
     $('toPrevPeriodBtn')?.addEventListener('click',()=>void navigatePeriod(-1));
@@ -698,6 +795,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     renderFallback();
     populatePeriodSelectors();
     wirePeriodUi();
+    wireSignerSelectors();
     loadWorkspace(null,selectedWorkspaceId(),false);
     void loadAutoSigners(state.workspaceId);
     if(parent&&parent!==window)parent.postMessage({type:'REQUEST_WORKSPACE_INFO'},'*');
@@ -706,7 +804,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   window.ToJournalWorkspace={
     state,openSettings,closeSettings,saveSettings,
     reload:()=>Promise.all([loadData(state.workspaceId),loadAutoSigners(state.workspaceId),openSelectedPeriod()]),
-    loadWorkspace,loadAutoSigners,loadKipMasterSigner,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod
+    loadWorkspace,loadAutoSigners,loadKipMasterSigner,applySignerSelectionsForCurrentPeriod,selectSignerForSlot,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod
   };
 })();
 </script>
