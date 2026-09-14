@@ -533,7 +533,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     state.signatureObjectUrls.splice(0).forEach(url=>{try{URL.revokeObjectURL(url)}catch(_){}});
   }
   function populateSignerSelect(slot,selectedSignerId=''){
-    const select=$(slot.nameId); if(!(select instanceof HTMLSelectElement))return;
+    const select=$(slot.nameId); if(!select||String(select.tagName||'').toUpperCase()!=='SELECT')return;
     const selected=clean(selectedSignerId||select.value);
     const options=state.signerRegistry.map(row=>{
       const id=clean(row.id);
@@ -552,7 +552,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     const fio=clean(signer?.fullName||signer?.fio);
     state.autoSigners[slot.nameId]=signer||null;
     const select=$(slot.nameId),sign=$(slot.signatureId),badge=$(slot.badgeId);
-    if(select instanceof HTMLSelectElement){
+    if(select&&String(select.tagName||'').toUpperCase()==='SELECT'){
       const signerId=clean(signer?.id);
       if(signerId&&!Array.from(select.options).some(option=>option.value===signerId))populateSignerSelect(slot,signerId);
       select.value=signerId;
@@ -652,7 +652,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   function wireSignerSelectors(){
     AUTO_SIGNER_SLOTS.forEach(slot=>{
       const select=$(slot.nameId);
-      if(!(select instanceof HTMLSelectElement)||select.dataset.signerWired==='1')return;
+      if(!select||String(select.tagName||'').toUpperCase()!=='SELECT'||select.dataset.signerWired==='1')return;
       select.dataset.signerWired='1';
       select.addEventListener('change',()=>void selectSignerForSlot(slot,select.value));
     });
