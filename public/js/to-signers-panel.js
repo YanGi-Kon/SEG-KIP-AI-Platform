@@ -290,6 +290,116 @@
     el.textContent = text;
   }
 
+  function setAddMessage(text = '', tone = '') {
+    const el = $('toSignersAddMessage');
+    if (!el) return;
+    el.className = `to-signers-add-message${tone ? ` ${tone}` : ''}`;
+    el.textContent = text;
+  }
+
+  function resetAddForm() {
+    $('toSignersAddForm')?.reset();
+    setAddMessage('');
+  }
+
+  function setAddPanelOpen(open) {
+    const panel = $('toSignersAddPanel');
+    if (!panel) return;
+    panel.classList.toggle('show', Boolean(open));
+    if (open) {
+      resetAddForm();
+      window.setTimeout(() => $('toSignerAddPosition')?.focus(), 0);
+    } else {
+      setAddMessage('');
+    }
+  }
+
+  async function uploadNewSignerSignature(wsId, auth, file, position, fullName) {
+    const form = new FormData();
+    form.append('signature', file);
+    form.append('position', position);
+    form.append('fullName', fullName);
+    const response = await fetch(`/api/workspaces/${encodeURIComponent(wsId)}/signers/signature`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${auth}`, 'x-workspace-id': wsId },
+      credentials: 'include',
+      body: form,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
+    if (!clean(data.fileId)) throw new Error('PNG imzo saqlanmadi.');
+    return data;
+  }
+
+  async function createNewSigner(wsId, auth, payload) {
+    const response = await fetch(`/api/workspaces/${encodeURIComponent(wsId)}/signers`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${auth}`,
+        'x-workspace-id': wsId,
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
+    return data.signer || null;
+  }
+
+  async function saveNewSigner(event) {
+    event?.preventDefault();
+    if (state.saving) return;
+    const wsId = workspaceId();
+    const auth = token();
+    if (!wsId) { setAddMessage('Workspace tanlanmagan.', 'bad'); return; }
+    if (!auth) { setAddMessage('Workspace sessiyasi topilmadi.', 'bad'); return; }
+
+    const position = clean($('toSignerAddPosition')?.value);
+    const fullName = clean($('toSignerAddFullName')?.value);
+    const email = clean($('toSignerAddEmail')?.value);
+    const file = $('toSignerAddSignature')?.files?.[0] || null;
+    if (!position || !fullName || !email || !file) {
+      setAddMessage('Lavozim, F.I.O., Email va PNG imzo majburiy.', 'bad');
+      return;
+    }
+    if (file.type !== 'image/png' || !/\.png$/i.test(file.name || '')) {
+      setAddMessage('Faqat PNG imzo fayli qabul qilinadi.', 'bad');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setAddMessage('PNG hajmi 2 MB dan oshmasligi kerak.', 'bad');
+      return;
+    }
+
+    state.saving = true;
+    const saveButton = $('toSignersAddSaveBtn');
+    if (saveButton) saveButton.disabled = true;
+    setAddMessage('PNG imzo yuklanmoqda...', '');
+    try {
+      const uploaded = await uploadNewSignerSignature(wsId, auth, file, position, fullName);
+      if (wsId !== workspaceId()) throw new Error('Workspace o‘zgardi. Qayta urinib ko‘ring.');
+      setAddMessage('Imzo saqlandi. Imzo chekuvchi yaratilmoqda...', '');
+      await createNewSigner(wsId, auth, {
+        position,
+        fullName,
+        email,
+        signatureFileId: clean(uploaded.fileId),
+        signatureUrl: clean(uploaded.webViewLink),
+        status: 'active',
+      });
+      setAddMessage('Imzo chekuvchi qo‘shildi.', 'ok');
+      await load();
+      try { await window.ToJournalWorkspace?.loadAutoSigners?.(wsId); } catch (_) {}
+      window.setTimeout(() => setAddPanelOpen(false), 350);
+    } catch (error) {
+      setAddMessage(`Qo‘shish xatosi: ${error.message}`, 'bad');
+    } finally {
+      state.saving = false;
+      if (saveButton) saveButton.disabled = false;
+    }
+  }
+
   function render() {
     const body = $('toSignersRows');
     if (!body) return;
