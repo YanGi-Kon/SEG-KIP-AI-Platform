@@ -266,6 +266,9 @@
     document.body.appendChild(modal);
     $('toSignersCloseBtn')?.addEventListener('click', close);
     $('toSignersRefreshBtn')?.addEventListener('click', () => void load());
+    $('toSignersAddBtn')?.addEventListener('click', () => setAddPanelOpen(!$('toSignersAddPanel')?.classList.contains('show')));
+    $('toSignersAddCancelBtn')?.addEventListener('click', () => setAddPanelOpen(false));
+    $('toSignersAddForm')?.addEventListener('submit', (event) => void saveNewSigner(event));
     $('toSignersLangBtn')?.addEventListener('click', (event) => {
       event.stopPropagation();
       toggleLanguageMenu();
@@ -463,6 +466,7 @@
 
   function close() {
     closeLanguageMenu();
+    setAddPanelOpen(false);
     $('toSignersModal')?.classList.remove('show');
   }
 
@@ -483,6 +487,6 @@
   else init();
 
   window.ToJournalSigners = {
-    open, close, load, state, selectLanguage, translatePosition,
+    open, close, load, state, selectLanguage, translatePosition, saveNewSigner, setAddPanelOpen,
   };
 })();
