@@ -103,6 +103,10 @@
     }
     const addButton = $('toSignersAddBtn');
     if (addButton) addButton.textContent = state.language === 'uz_cyrl' ? '+ Қўшиш' : '+ Добавить';
+    const saveButton = $('toSignersAddSaveBtn');
+    if (saveButton) saveButton.textContent = state.language === 'uz_cyrl' ? 'Сақлаш' : 'Сохранить';
+    const cancelButton = $('toSignersAddCancelBtn');
+    if (cancelButton) cancelButton.textContent = state.language === 'uz_cyrl' ? 'Бекор қилиш' : 'Отмена';
     menu?.querySelectorAll('[data-to-signers-lang]').forEach((option) => {
       const selected = option.dataset.toSignersLang === state.language;
       option.classList.toggle('active', selected);
