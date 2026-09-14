@@ -6,7 +6,7 @@
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const LANG_KEY = 'seg_kip_lang';
   const SUPPORTED_LANGS = new Set(['ru', 'uz_cyrl']);
-  const state = { rows: [], loading: false, language: 'ru' };
+  const state = { rows: [], loading: false, saving: false, language: 'ru' };
 
   const POSITION_TRANSLATIONS = [
     { ru: 'Начальник участка', uz_cyrl: 'Участка бошлиғи', aliases: ['начальник участка', 'нач участка', 'нч участка', 'участка бошлиғи'] },
@@ -101,6 +101,8 @@
       button.title = 'Текущий язык: ' + languageLabel();
       button.setAttribute('aria-label', 'Язык интерфейса. ' + languageLabel());
     }
+    const addButton = $('toSignersAddBtn');
+    if (addButton) addButton.textContent = state.language === 'uz_cyrl' ? '+ Қўшиш' : '+ Добавить';
     menu?.querySelectorAll('[data-to-signers-lang]').forEach((option) => {
       const selected = option.dataset.toSignersLang === state.language;
       option.classList.toggle('active', selected);
