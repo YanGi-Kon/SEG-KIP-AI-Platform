@@ -163,6 +163,15 @@
       .to-signers-lang-option{width:100%;border:0;border-radius:9px;padding:9px 11px;background:transparent;color:#dff7ff;text-align:left;font-size:12px;font-weight:700;cursor:pointer}
       .to-signers-lang-option:hover,.to-signers-lang-option.active{background:rgba(34,211,238,.12);color:#67e8f9}
       .to-signers-lang-option.active::after{content:'✓';float:right;color:#86efac}
+      .to-signers-add-panel{display:none;margin:0 0 12px;padding:14px;border:1px solid rgba(34,211,238,.24);border-radius:14px;background:rgba(5,23,42,.92)}
+      .to-signers-add-panel.show{display:block}
+      .to-signers-add-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+      .to-signers-add-field{display:grid;gap:5px;font-size:11px;color:#a9c8d8}
+      .to-signers-add-field input{width:100%;box-sizing:border-box;border:1px solid rgba(148,163,184,.25);border-radius:9px;background:#091729;color:#eaf7ff;padding:9px 10px;outline:none}
+      .to-signers-add-field input:focus{border-color:rgba(34,211,238,.65);box-shadow:0 0 0 2px rgba(34,211,238,.08)}
+      .to-signers-add-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+      .to-signers-add-message{min-height:16px;margin-top:8px;font-size:11px;color:#fde68a}
+      .to-signers-add-message.bad{color:#fca5a5}.to-signers-add-message.ok{color:#86efac}
       .to-signers-status{font-size:12px;color:#cdeeff}
       .to-signers-status.ok{color:#86efac}.to-signers-status.bad{color:#fca5a5}.to-signers-status.sync{color:#fde68a}
       .to-signers-tablewrap{overflow:auto;border:1px solid rgba(255,255,255,.12);border-radius:14px}
@@ -172,6 +181,7 @@
       .to-signers-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:800;border:1px solid rgba(34,211,238,.28);background:rgba(34,211,238,.08);color:#a5f3fc;margin-left:6px}
       .to-signers-state{font-weight:800}.to-signers-state.active{color:#86efac}.to-signers-state.inactive{color:#fca5a5}
       .to-signers-empty{padding:24px;text-align:center;color:#9fb7c7}
+      @media(max-width:720px){.to-signers-add-grid{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
   }
@@ -208,6 +218,7 @@
         <div class="to-signers-toolbar">
           <div id="toSignersStatus" class="to-signers-status">Ro‘yxat hali yuklanmagan.</div>
           <div class="to-signers-toolbar-actions">
+            <button id="toSignersAddBtn" class="btn" type="button">+ Добавить</button>
             <div class="to-signers-lang">
               <button id="toSignersLangBtn" class="btn" type="button" aria-haspopup="menu" aria-expanded="false">🌐 Язык интерфейса</button>
               <div id="toSignersLangMenu" class="to-signers-lang-menu" role="menu">
@@ -217,6 +228,29 @@
             </div>
             <button id="toSignersRefreshBtn" class="btn" type="button">↻ Yangilash</button>
           </div>
+        </div>
+        <div id="toSignersAddPanel" class="to-signers-add-panel">
+          <form id="toSignersAddForm">
+            <div class="to-signers-add-grid">
+              <label class="to-signers-add-field">Lavozim
+                <input id="toSignerAddPosition" autocomplete="off" required>
+              </label>
+              <label class="to-signers-add-field">F.I.O.
+                <input id="toSignerAddFullName" autocomplete="off" required>
+              </label>
+              <label class="to-signers-add-field">Email
+                <input id="toSignerAddEmail" type="email" autocomplete="off" required>
+              </label>
+              <label class="to-signers-add-field">PNG imzo
+                <input id="toSignerAddSignature" type="file" accept="image/png,.png" required>
+              </label>
+            </div>
+            <div id="toSignersAddMessage" class="to-signers-add-message"></div>
+            <div class="to-signers-add-actions">
+              <button id="toSignersAddCancelBtn" class="btn" type="button">Bekor qilish</button>
+              <button id="toSignersAddSaveBtn" class="btn" type="submit">Saqlash</button>
+            </div>
+          </form>
         </div>
         <div class="to-signers-tablewrap">
           <table class="to-signers-table">
