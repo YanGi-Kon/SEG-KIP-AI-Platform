@@ -15,7 +15,7 @@ test('TO JURNALI exposes 5. ИМЗО ЧЕКУВЧИЛАР from the selected Work
   assert.match(panel, /toSignersBtn/);
   assert.match(panel, /toSignersModal/);
   assert.match(panel, /\/api\/workspaces\/\$\{encodeURIComponent\(wsId\)\}\/signers\?includeInactive=true/);
-  assert.match(panel, /TO · Мастер КИПиА/);
+  assert.match(panel, /translatePosition\('Мастер КИПиА'\)/);
   assert.match(panel, /SEG_KIP_WORKSPACE_CHANGE/);
 });
 
