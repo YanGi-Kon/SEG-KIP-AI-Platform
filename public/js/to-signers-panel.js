@@ -151,6 +151,13 @@
       .to-signers-head h2{margin:0;font-size:20px}
       .to-signers-note{margin:0 0 14px;color:#a9c8d8;font-size:12px;line-height:1.45}
       .to-signers-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+      .to-signers-toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+      .to-signers-lang{position:relative}
+      .to-signers-lang-menu{position:absolute;right:0;top:calc(100% + 7px);z-index:4;display:none;min-width:205px;padding:6px;background:#0a1a2d;border:1px solid rgba(34,211,238,.30);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.45)}
+      .to-signers-lang-menu.show{display:grid;gap:4px}
+      .to-signers-lang-option{width:100%;border:0;border-radius:9px;padding:9px 11px;background:transparent;color:#dff7ff;text-align:left;font-size:12px;font-weight:700;cursor:pointer}
+      .to-signers-lang-option:hover,.to-signers-lang-option.active{background:rgba(34,211,238,.12);color:#67e8f9}
+      .to-signers-lang-option.active::after{content:'✓';float:right;color:#86efac}
       .to-signers-status{font-size:12px;color:#cdeeff}
       .to-signers-status.ok{color:#86efac}.to-signers-status.bad{color:#fca5a5}.to-signers-status.sync{color:#fde68a}
       .to-signers-tablewrap{overflow:auto;border:1px solid rgba(255,255,255,.12);border-radius:14px}
@@ -195,7 +202,16 @@
         <p class="to-signers-note">Ro‘yxat tanlangan Workspace ichidagi umumiy imzo chekuvchilar registridan olinadi. AKTLAR JURNALI va TO JURNALI bir xil Workspace manbasidan foydalanadi.</p>
         <div class="to-signers-toolbar">
           <div id="toSignersStatus" class="to-signers-status">Ro‘yxat hali yuklanmagan.</div>
-          <button id="toSignersRefreshBtn" class="btn" type="button">↻ Yangilash</button>
+          <div class="to-signers-toolbar-actions">
+            <div class="to-signers-lang">
+              <button id="toSignersLangBtn" class="btn" type="button" aria-haspopup="menu" aria-expanded="false">🌐 Язык интерфейса</button>
+              <div id="toSignersLangMenu" class="to-signers-lang-menu" role="menu">
+                <button class="to-signers-lang-option" type="button" role="menuitemradio" data-to-signers-lang="ru">🇷🇺 Русский</button>
+                <button class="to-signers-lang-option" type="button" role="menuitemradio" data-to-signers-lang="uz_cyrl">🇺🇿 Ўзбекча (кирилл)</button>
+              </div>
+            </div>
+            <button id="toSignersRefreshBtn" class="btn" type="button">↻ Yangilash</button>
+          </div>
         </div>
         <div class="to-signers-tablewrap">
           <table class="to-signers-table">
