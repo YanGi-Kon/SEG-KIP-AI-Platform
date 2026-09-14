@@ -6,7 +6,7 @@ const bridge = fs.readFileSync(new URL('../public/js/to-period-sheet-bridge.js',
 const panel = fs.readFileSync(new URL('../public/js/to-signers-panel.js', import.meta.url), 'utf8');
 
 test('TO JURNALI loads the signers panel and removes the redundant Open button', () => {
-  assert.match(bridge, /to-signers-panel\.js\?v=to-signers3-auto-roles/);
+  assert.match(bridge, /to-signers-panel\.js\?v=to-signers4-approver-language/);
   assert.match(bridge, /toOpenPeriodBtn'\)\?\.remove/);
 });
 
@@ -27,6 +27,7 @@ test('TO signer modal exposes the existing interface language mechanism beside r
   assert.match(panel, /data-to-signers-lang="uz_cyrl">🇺🇿 Ўзбекча \(кирилл\)/);
   assert.match(panel, /const LANG_KEY = 'seg_kip_lang'/);
   assert.match(panel, /parent\?\.setLanguage\?\.\(lang\)/);
+  assert.match(panel, /window\.ToJournalWorkspace\?\.setInterfaceLanguage\?\.\(lang\)/);
 });
 
 test('TO signer positions are translated without modifying signer registry data', () => {

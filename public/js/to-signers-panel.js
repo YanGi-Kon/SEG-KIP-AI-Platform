@@ -130,6 +130,7 @@
     try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
     try { parent?.localStorage?.setItem(LANG_KEY, lang); } catch (_) {}
     try { parent?.setLanguage?.(lang); } catch (_) {}
+    try { window.ToJournalWorkspace?.setInterfaceLanguage?.(lang); } catch (_) {}
     updateLanguageUi();
     closeLanguageMenu();
     render();
@@ -304,6 +305,7 @@
   function open() {
     injectUi();
     state.language = readLanguage();
+    try { window.ToJournalWorkspace?.setInterfaceLanguage?.(state.language); } catch (_) {}
     updateLanguageUi();
     $('toSignersModal')?.classList.add('show');
     void load();

@@ -152,7 +152,7 @@
     if (document.getElementById('toSignersPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toSignersPanelScript';
-    script.src = '/js/to-signers-panel.js?v=to-signers3-auto-roles';
+    script.src = '/js/to-signers-panel.js?v=to-signers4-approver-language';
     script.defer = true;
     document.head.appendChild(script);
   }
