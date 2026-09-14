@@ -68,12 +68,12 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   <div id="toConclusion" class="conclusion">Заключение: оборудование исправно и пригодно к эксплуатации</div>
   <div class="signers-block">
     <div class="signer-row"><div class="signer-role">Ответственный от ОАиМ; Начальник отдела</div><div class="signer-name">Ходжаев С. Х.</div><div class="signer-sign">(Подпись)</div></div>
-    <div class="signer-row"><div class="signer-role">Ответственный от участок КИПиА; Начальник КИПиА</div><div class="signer-name">Куйликов Р. А.</div><div class="signer-sign">(Подпись)</div></div>
+    <div id="toKipChiefSignerRow" class="signer-row"><div class="signer-role">Ответственный от участок КИПиА; Начальник КИПиА<span id="toKipChiefAutoBadge" class="signer-auto-badge"></span></div><div id="toKipChiefName" class="signer-name">Куйликов Р. А.</div><div id="toKipChiefSignature" class="signer-sign">(Подпись)</div></div>
     <div id="toKipMasterSignerRow" class="signer-row"><div class="signer-role">Ответственный за выполнение работ; Мастер КИПиА<span id="toKipMasterAutoBadge" class="signer-auto-badge"></span></div><div id="toKipMasterName" class="signer-name">Фазилов И. Б.</div><div id="toKipMasterSignature" class="signer-sign">(Подпись)</div></div>
-    <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1</div><div class="signer-name">Хошимов Б.</div><div class="signer-sign">(Подпись)</div></div>
-    <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1</div><div class="signer-name">Мазординов Э.</div><div class="signer-sign">(Подпись)</div></div>
-    <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1</div><div class="signer-name">Бакиров У.</div><div class="signer-sign">(Подпись)</div></div>
-    <div class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1</div><div class="signer-name">Щоимкулов Ш.</div><div class="signer-sign">(Подпись)</div></div>
+    <div id="toProductionMaster1SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1<span id="toProductionMaster1AutoBadge" class="signer-auto-badge"></span></div><div id="toProductionMaster1Name" class="signer-name">Хошимов Б.</div><div id="toProductionMaster1Signature" class="signer-sign">(Подпись)</div></div>
+    <div id="toProductionMaster2SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1<span id="toProductionMaster2AutoBadge" class="signer-auto-badge"></span></div><div id="toProductionMaster2Name" class="signer-name">Мазординов Э.</div><div id="toProductionMaster2Signature" class="signer-sign">(Подпись)</div></div>
+    <div id="toPpnMaster1SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1<span id="toPpnMaster1AutoBadge" class="signer-auto-badge"></span></div><div id="toPpnMaster1Name" class="signer-name">Бакиров У.</div><div id="toPpnMaster1Signature" class="signer-sign">(Подпись)</div></div>
+    <div id="toPpnMaster2SignerRow" class="signer-row"><div class="signer-role">Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1<span id="toPpnMaster2AutoBadge" class="signer-auto-badge"></span></div><div id="toPpnMaster2Name" class="signer-name">Щоимкулов Ш.</div><div id="toPpnMaster2Signature" class="signer-sign">(Подпись)</div></div>
   </div>
 </div>
 
@@ -86,14 +86,21 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   const ADMIN_TOKEN_KEY='seg_kip_admin_jwt';
   const MODULE_SHEET_KEY='to_sheet_name';
   const PERIOD_STORAGE_PREFIX='seg_to_period_v1';
-  const DEFAULT_KIP_MASTER='Фазилов И. Б.';
+  const AUTO_SIGNER_SLOTS=[
+    {key:'kip-chief',nameId:'toKipChiefName',signatureId:'toKipChiefSignature',badgeId:'toKipChiefAutoBadge',defaultName:'Куйликов Р. А.'},
+    {key:'kip-master',nameId:'toKipMasterName',signatureId:'toKipMasterSignature',badgeId:'toKipMasterAutoBadge',defaultName:'Фазилов И. Б.'},
+    {key:'production-master',nameId:'toProductionMaster1Name',signatureId:'toProductionMaster1Signature',badgeId:'toProductionMaster1AutoBadge',defaultName:'Хошимов Б.'},
+    {key:'production-master',nameId:'toProductionMaster2Name',signatureId:'toProductionMaster2Signature',badgeId:'toProductionMaster2AutoBadge',defaultName:'Мазординов Э.'},
+    {key:'ppn-master',nameId:'toPpnMaster1Name',signatureId:'toPpnMaster1Signature',badgeId:'toPpnMaster1AutoBadge',defaultName:'Бакиров У.'},
+    {key:'ppn-master',nameId:'toPpnMaster2Name',signatureId:'toPpnMaster2Signature',badgeId:'toPpnMaster2AutoBadge',defaultName:'Щоимкулов Ш.'}
+  ];
   const DEFAULT_PERIOD_YEAR=2026;
   const DEFAULT_PERIOD_MONTH=6;
   const MONTH_NAMES=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
   const state={
     workspaceId:'',workspace:null,workspaceName:'',isAdmin:false,sheetName:'',
     sections:[],totalItems:0,requestVersion:0,signerRequestVersion:0,
-    kipMasterSigner:null,signatureObjectUrl:'',
+    autoSigners:{},signatureObjectUrls:[],
     periodYear:DEFAULT_PERIOD_YEAR,periodMonth:DEFAULT_PERIOD_MONTH,
     period:null,periodItems:[],periods:[],periodRequestVersion:0,periodBusy:false
   };
@@ -480,18 +487,37 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     }
   }
 
-  function normalizeSignerText(value){return String(value||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9]+/giu,' ').trim()}
-  function isKipMasterSigner(row={}){
-    const text=normalizeSignerText(`${row.position||''} ${row.fullName||row.fio||''}`);
-    return (text.includes('кип')&&text.includes('мастер'))||(text.includes('kip')&&text.includes('master'));
+  function normalizeSignerText(value){
+    return String(value||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-яўқғҳ0-9]+/giu,' ').trim()
   }
-  function clearSignatureObjectUrl(){if(state.signatureObjectUrl){try{URL.revokeObjectURL(state.signatureObjectUrl)}catch(_){}state.signatureObjectUrl=''}}
-  function resetKipMaster(){
-    clearSignatureObjectUrl(); state.kipMasterSigner=null;
-    const name=$('toKipMasterName'),sign=$('toKipMasterSignature'),badge=$('toKipMasterAutoBadge');
-    if(name)name.textContent=DEFAULT_KIP_MASTER;
-    if(sign)sign.textContent='(Подпись)';
-    if(badge)badge.textContent='';
+  function signerRoleKey(row={}){
+    const text=normalizeSignerText(row.position||'');
+    const hasKip=text.includes('кип')||text.includes('kip')||text.includes('нўвваа')||text.includes('нувваа');
+    const isChief=text.includes('начальник')||text.includes('бошли');
+    const isMaster=text.includes('мастер')||text.includes('master')||text.includes('устаси');
+    if(hasKip&&isChief)return'kip-chief';
+    if(hasKip&&isMaster)return'kip-master';
+    const production=text.includes('добыч')||text.includes('қазиб')||text.includes('казиб');
+    if(isMaster&&production&&(text.includes('цех 1')||text.includes('цех1')))return'production-master';
+    if(isMaster&&text.includes('ппн')&&(text.includes('ппн 1')||text.includes('ппн1')))return'ppn-master';
+    return'';
+  }
+  function isKipMasterSigner(row={}){return signerRoleKey(row)==='kip-master'}
+  function revokeSignatureObjectUrls(){
+    state.signatureObjectUrls.splice(0).forEach(url=>{try{URL.revokeObjectURL(url)}catch(_){}});
+  }
+  function renderAutoSigner(slot,signer=null,signatureUrl=''){
+    const fio=clean(signer?.fullName||signer?.fio)||slot.defaultName;
+    state.autoSigners[slot.nameId]=signer||null;
+    const name=$(slot.nameId),sign=$(slot.signatureId),badge=$(slot.badgeId);
+    if(name)name.textContent=fio;
+    if(sign)sign.innerHTML=signatureUrl?`<img src="${esc(signatureUrl)}" alt="${esc(fio)} imzosi" title="${esc(fio)}">`:'(Подпись)';
+    if(badge)badge.textContent=signer?'· avtomatik':'';
+  }
+  function resetAutoSigners(){
+    revokeSignatureObjectUrls();
+    state.autoSigners={};
+    AUTO_SIGNER_SLOTS.forEach(slot=>renderAutoSigner(slot));
   }
   async function signatureDisplayUrl(signer,expectedWsId,requestVersion){
     const signatureFileId=clean(signer?.signatureFileId);
@@ -503,33 +529,59 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     const response=await fetch(sourceUrl,{headers:{Authorization:`Bearer ${auth}`},credentials:'include'});
     if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId||!response.ok)return'';
     const blob=await response.blob();
+    if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return'';
     if(blob.type&&!blob.type.toLowerCase().startsWith('image/'))return'';
-    clearSignatureObjectUrl(); state.signatureObjectUrl=URL.createObjectURL(blob); return state.signatureObjectUrl;
+    const objectUrl=URL.createObjectURL(blob);
+    state.signatureObjectUrls.push(objectUrl);
+    return objectUrl;
   }
-  function renderKipMaster(signer,signatureUrl=''){
-    const fio=clean(signer?.fullName||signer?.fio)||DEFAULT_KIP_MASTER;
-    state.kipMasterSigner=signer||null;
-    const name=$('toKipMasterName'),sign=$('toKipMasterSignature'),badge=$('toKipMasterAutoBadge');
-    if(name)name.textContent=fio;
-    if(sign)sign.innerHTML=signatureUrl?`<img src="${esc(signatureUrl)}" alt="${esc(fio)} imzosi" title="${esc(fio)}">`:'(Подпись)';
-    if(badge)badge.textContent=signer?'· avtomatik':'';
+  function assignSignersToSlots(signers=[],slots=[]){
+    const remaining=[...signers];
+    const assigned=slots.map(()=>null);
+    slots.forEach((slot,slotIndex)=>{
+      const fallbackName=normalizeSignerText(slot.defaultName);
+      const signerIndex=remaining.findIndex(row=>normalizeSignerText(row.fullName||row.fio||'')===fallbackName);
+      if(signerIndex>=0)assigned[slotIndex]=remaining.splice(signerIndex,1)[0];
+    });
+    slots.forEach((_,slotIndex)=>{
+      if(!assigned[slotIndex]&&remaining.length)assigned[slotIndex]=remaining.shift();
+    });
+    return assigned;
   }
-  async function loadKipMasterSigner(expectedWsId=state.workspaceId){
-    const requestVersion=++state.signerRequestVersion; resetKipMaster();
-    const auth=token(); if(!expectedWsId||!auth)return null;
+  async function loadAutoSigners(expectedWsId=state.workspaceId){
+    const requestVersion=++state.signerRequestVersion;
+    resetAutoSigners();
+    const auth=token(); if(!expectedWsId||!auth)return[];
     try{
       const response=await fetch(`/api/workspaces/${encodeURIComponent(expectedWsId)}/signers?includeInactive=true`,{headers:{Authorization:`Bearer ${auth}`},credentials:'include'});
-      if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return null;
+      if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return[];
       const data=await response.json().catch(()=>({}));
-      if(!response.ok||data.error)return null;
-      const rows=Array.isArray(data.rows)?data.rows:[];
-      const active=rows.filter(row=>!row.status||normalizeSignerText(row.status)==='active');
-      const signer=active.find(isKipMasterSigner)||null; if(!signer)return null;
-      const signatureUrl=await signatureDisplayUrl(signer,expectedWsId,requestVersion);
-      if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return null;
-      renderKipMaster(signer,signatureUrl); return signer;
-    }catch(_){return null}
+      if(!response.ok||data.error)return[];
+      const active=(Array.isArray(data.rows)?data.rows:[]).filter(row=>!row.status||normalizeSignerText(row.status)==='active');
+      const grouped=new Map();
+      active.forEach(row=>{
+        const key=signerRoleKey(row); if(!key)return;
+        if(!grouped.has(key))grouped.set(key,[]);
+        grouped.get(key).push(row);
+      });
+      const assignments=[];
+      [...new Set(AUTO_SIGNER_SLOTS.map(slot=>slot.key))].forEach(key=>{
+        const slots=AUTO_SIGNER_SLOTS.filter(slot=>slot.key===key);
+        const signers=assignSignersToSlots(grouped.get(key)||[],slots);
+        slots.forEach((slot,index)=>assignments.push({slot,signer:signers[index]||null}));
+      });
+      for(const {slot,signer} of assignments){
+        if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return[];
+        if(!signer)continue;
+        let signatureUrl='';
+        try{signatureUrl=await signatureDisplayUrl(signer,expectedWsId,requestVersion)}catch(_){signatureUrl=''}
+        if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return[];
+        renderAutoSigner(slot,signer,signatureUrl);
+      }
+      return assignments.filter(item=>item.signer).map(item=>item.signer);
+    }catch(_){return[]}
   }
+  function loadKipMasterSigner(expectedWsId=state.workspaceId){return loadAutoSigners(expectedWsId)}
 
   function loadWorkspace(workspace=null,nextId='',isAdmin=false){
     const id=String(nextId||workspace?.id||selectedWorkspaceId()||'').trim();
@@ -537,7 +589,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if(id!==state.workspaceId){
       state.signerRequestVersion+=1;
       state.periodRequestVersion+=1;
-      resetKipMaster(); resetPeriodView();
+      resetAutoSigners(); resetPeriodView();
     }
     state.workspaceId=id; state.workspace=workspace||null;
     state.workspaceName=String(workspace?.name||'').trim();
@@ -618,7 +670,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if(event.data?.type==='SEG_KIP_WORKSPACE_CHANGE'){
       loadWorkspace(event.data.workspace,event.data.workspaceId,event.data.isAdmin);
       void loadData(state.workspaceId);
-      void loadKipMasterSigner(state.workspaceId);
+      void loadAutoSigners(state.workspaceId);
       void loadPeriodIndex(state.workspaceId).then(periods=>{
         const restored=restoreSavedPeriod(state.workspaceId);
         const latest=periods[0];
@@ -641,20 +693,20 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     }
   });
 
-  window.addEventListener('beforeunload',clearSignatureObjectUrl);
+  window.addEventListener('beforeunload',revokeSignatureObjectUrls);
   document.addEventListener('DOMContentLoaded',()=>{
     renderFallback();
     populatePeriodSelectors();
     wirePeriodUi();
     loadWorkspace(null,selectedWorkspaceId(),false);
-    void loadKipMasterSigner(state.workspaceId);
+    void loadAutoSigners(state.workspaceId);
     if(parent&&parent!==window)parent.postMessage({type:'REQUEST_WORKSPACE_INFO'},'*');
   });
 
   window.ToJournalWorkspace={
     state,openSettings,closeSettings,saveSettings,
-    reload:()=>Promise.all([loadData(state.workspaceId),loadKipMasterSigner(state.workspaceId),openSelectedPeriod()]),
-    loadWorkspace,loadKipMasterSigner,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod
+    reload:()=>Promise.all([loadData(state.workspaceId),loadAutoSigners(state.workspaceId),openSelectedPeriod()]),
+    loadWorkspace,loadAutoSigners,loadKipMasterSigner,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod
   };
 })();
 </script>
