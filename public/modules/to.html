@@ -449,6 +449,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if($('toPeriodYear'))$('toPeriodYear').value=String(state.periodYear);
     if($('toPeriodMonth'))$('toPeriodMonth').value=String(state.periodMonth);
     saveSelectedPeriod();
+    if(state.signerRegistry.length)void applySignerSelectionsForCurrentPeriod();
     await openSelectedPeriod();
   }
 
@@ -684,7 +685,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if(id!==state.workspaceId){
       state.signerRequestVersion+=1;
       state.periodRequestVersion+=1;
-      resetAutoSigners(); resetPeriodView();
+      state.signerRegistry=[];
+      resetAutoSigners(); populateAllSignerSelects(); resetPeriodView();
     }
     state.workspaceId=id; state.workspace=workspace||null;
     state.workspaceName=String(workspace?.name||'').trim();
@@ -747,8 +749,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   }
 
   function wirePeriodUi(){
-    $('toPeriodMonth')?.addEventListener('change',()=>{readPeriodSelectors();saveSelectedPeriod();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync')});
-    $('toPeriodYear')?.addEventListener('change',()=>{readPeriodSelectors();saveSelectedPeriod();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync')});
+    $('toPeriodMonth')?.addEventListener('change',()=>{readPeriodSelectors();saveSelectedPeriod();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync');if(state.signerRegistry.length)void applySignerSelectionsForCurrentPeriod()});
+    $('toPeriodYear')?.addEventListener('change',()=>{readPeriodSelectors();saveSelectedPeriod();resetPeriodView();setPeriodStatus(`${selectedPeriodLabel()} · tanlandi`,'sync');if(state.signerRegistry.length)void applySignerSelectionsForCurrentPeriod()});
     $('toOpenPeriodBtn')?.addEventListener('click',()=>void openSelectedPeriod());
     $('toCreatePeriodBtn')?.addEventListener('click',()=>void createSelectedPeriod());
     $('toPrevPeriodBtn')?.addEventListener('click',()=>void navigatePeriod(-1));
@@ -793,6 +795,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     renderFallback();
     populatePeriodSelectors();
     wirePeriodUi();
+    wireSignerSelectors();
     loadWorkspace(null,selectedWorkspaceId(),false);
     void loadAutoSigners(state.workspaceId);
     if(parent&&parent!==window)parent.postMessage({type:'REQUEST_WORKSPACE_INFO'},'*');
@@ -801,7 +804,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   window.ToJournalWorkspace={
     state,openSettings,closeSettings,saveSettings,
     reload:()=>Promise.all([loadData(state.workspaceId),loadAutoSigners(state.workspaceId),openSelectedPeriod()]),
-    loadWorkspace,loadAutoSigners,loadKipMasterSigner,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod
+    loadWorkspace,loadAutoSigners,loadKipMasterSigner,applySignerSelectionsForCurrentPeriod,selectSignerForSlot,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod
   };
 })();
 </script>
