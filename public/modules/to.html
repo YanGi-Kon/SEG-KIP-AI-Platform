@@ -666,7 +666,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if(event.data?.type==='SEG_KIP_WORKSPACE_CHANGE'){
       loadWorkspace(event.data.workspace,event.data.workspaceId,event.data.isAdmin);
       void loadData(state.workspaceId);
-      void loadKipMasterSigner(state.workspaceId);
+      void loadAutoSigners(state.workspaceId);
       void loadPeriodIndex(state.workspaceId).then(periods=>{
         const restored=restoreSavedPeriod(state.workspaceId);
         const latest=periods[0];
@@ -695,7 +695,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     populatePeriodSelectors();
     wirePeriodUi();
     loadWorkspace(null,selectedWorkspaceId(),false);
-    void loadKipMasterSigner(state.workspaceId);
+    void loadAutoSigners(state.workspaceId);
     if(parent&&parent!==window)parent.postMessage({type:'REQUEST_WORKSPACE_INFO'},'*');
   });
 
