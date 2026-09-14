@@ -223,7 +223,21 @@
     document.body.appendChild(modal);
     $('toSignersCloseBtn')?.addEventListener('click', close);
     $('toSignersRefreshBtn')?.addEventListener('click', () => void load());
-    modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
+    $('toSignersLangBtn')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleLanguageMenu();
+    });
+    $('toSignersLangMenu')?.querySelectorAll('[data-to-signers-lang]').forEach((option) => {
+      option.addEventListener('click', (event) => {
+        event.stopPropagation();
+        selectLanguage(option.dataset.toSignersLang);
+      });
+    });
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) close();
+      else if (!event.target.closest?.('.to-signers-lang')) closeLanguageMenu();
+    });
+    updateLanguageUi();
   }
 
   function setStatus(text, tone = '') {
@@ -246,7 +260,7 @@
       const hasSignature = Boolean(clean(row.signatureFileId) || clean(row.signatureUrl));
       return `<tr>
         <td>${index + 1}</td>
-        <td>${esc(row.position || '—')}${master ? '<span class="to-signers-badge">TO · Мастер КИПиА</span>' : ''}</td>
+        <td>${esc(translatePosition(row.position))}${master ? '<span class="to-signers-badge">TO · ' + esc(translatePosition('Мастер КИПиА')) + '</span>' : ''}</td>
         <td>${esc(row.fullName || row.fio || '—')}</td>
         <td>${esc(row.email || row.gmail || '—')}</td>
         <td><span class="to-signers-state ${esc(status)}">${esc(status || 'active')}</span></td>
@@ -287,17 +301,22 @@
 
   function open() {
     injectUi();
+    state.language = readLanguage();
+    updateLanguageUi();
     $('toSignersModal')?.classList.add('show');
     void load();
   }
 
   function close() {
+    closeLanguageMenu();
     $('toSignersModal')?.classList.remove('show');
   }
 
   function init() {
+    state.language = readLanguage();
     injectStyle();
     injectUi();
+    updateLanguageUi();
   }
 
   window.addEventListener('message', (event) => {
@@ -309,5 +328,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 
-  window.ToJournalSigners = { open, close, load, state };
+  window.ToJournalSigners = {
+    open, close, load, state, selectLanguage, translatePosition,
+  };
 })();
