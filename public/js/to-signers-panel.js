@@ -6,7 +6,7 @@
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const LANG_KEY = 'seg_kip_lang';
   const SUPPORTED_LANGS = new Set(['ru', 'uz_cyrl']);
-  const state = { rows: [], loading: false, language: 'ru' };
+  const state = { rows: [], loading: false, saving: false, language: 'ru' };
 
   const POSITION_TRANSLATIONS = [
     { ru: 'Начальник участка', uz_cyrl: 'Участка бошлиғи', aliases: ['начальник участка', 'нач участка', 'нч участка', 'участка бошлиғи'] },
@@ -101,6 +101,12 @@
       button.title = 'Текущий язык: ' + languageLabel();
       button.setAttribute('aria-label', 'Язык интерфейса. ' + languageLabel());
     }
+    const addButton = $('toSignersAddBtn');
+    if (addButton) addButton.textContent = state.language === 'uz_cyrl' ? '+ Қўшиш' : '+ Добавить';
+    const saveButton = $('toSignersAddSaveBtn');
+    if (saveButton) saveButton.textContent = state.language === 'uz_cyrl' ? 'Сақлаш' : 'Сохранить';
+    const cancelButton = $('toSignersAddCancelBtn');
+    if (cancelButton) cancelButton.textContent = state.language === 'uz_cyrl' ? 'Бекор қилиш' : 'Отмена';
     menu?.querySelectorAll('[data-to-signers-lang]').forEach((option) => {
       const selected = option.dataset.toSignersLang === state.language;
       option.classList.toggle('active', selected);
@@ -161,6 +167,15 @@
       .to-signers-lang-option{width:100%;border:0;border-radius:9px;padding:9px 11px;background:transparent;color:#dff7ff;text-align:left;font-size:12px;font-weight:700;cursor:pointer}
       .to-signers-lang-option:hover,.to-signers-lang-option.active{background:rgba(34,211,238,.12);color:#67e8f9}
       .to-signers-lang-option.active::after{content:'✓';float:right;color:#86efac}
+      .to-signers-add-panel{display:none;margin:0 0 12px;padding:14px;border:1px solid rgba(34,211,238,.24);border-radius:14px;background:rgba(5,23,42,.92)}
+      .to-signers-add-panel.show{display:block}
+      .to-signers-add-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+      .to-signers-add-field{display:grid;gap:5px;font-size:11px;color:#a9c8d8}
+      .to-signers-add-field input{width:100%;box-sizing:border-box;border:1px solid rgba(148,163,184,.25);border-radius:9px;background:#091729;color:#eaf7ff;padding:9px 10px;outline:none}
+      .to-signers-add-field input:focus{border-color:rgba(34,211,238,.65);box-shadow:0 0 0 2px rgba(34,211,238,.08)}
+      .to-signers-add-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+      .to-signers-add-message{min-height:16px;margin-top:8px;font-size:11px;color:#fde68a}
+      .to-signers-add-message.bad{color:#fca5a5}.to-signers-add-message.ok{color:#86efac}
       .to-signers-status{font-size:12px;color:#cdeeff}
       .to-signers-status.ok{color:#86efac}.to-signers-status.bad{color:#fca5a5}.to-signers-status.sync{color:#fde68a}
       .to-signers-tablewrap{overflow:auto;border:1px solid rgba(255,255,255,.12);border-radius:14px}
@@ -170,6 +185,7 @@
       .to-signers-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:800;border:1px solid rgba(34,211,238,.28);background:rgba(34,211,238,.08);color:#a5f3fc;margin-left:6px}
       .to-signers-state{font-weight:800}.to-signers-state.active{color:#86efac}.to-signers-state.inactive{color:#fca5a5}
       .to-signers-empty{padding:24px;text-align:center;color:#9fb7c7}
+      @media(max-width:720px){.to-signers-add-grid{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
   }
@@ -206,6 +222,7 @@
         <div class="to-signers-toolbar">
           <div id="toSignersStatus" class="to-signers-status">Ro‘yxat hali yuklanmagan.</div>
           <div class="to-signers-toolbar-actions">
+            <button id="toSignersAddBtn" class="btn" type="button">+ Добавить</button>
             <div class="to-signers-lang">
               <button id="toSignersLangBtn" class="btn" type="button" aria-haspopup="menu" aria-expanded="false">🌐 Язык интерфейса</button>
               <div id="toSignersLangMenu" class="to-signers-lang-menu" role="menu">
@@ -215,6 +232,29 @@
             </div>
             <button id="toSignersRefreshBtn" class="btn" type="button">↻ Yangilash</button>
           </div>
+        </div>
+        <div id="toSignersAddPanel" class="to-signers-add-panel">
+          <form id="toSignersAddForm">
+            <div class="to-signers-add-grid">
+              <label class="to-signers-add-field">Lavozim
+                <input id="toSignerAddPosition" autocomplete="off" required>
+              </label>
+              <label class="to-signers-add-field">F.I.O.
+                <input id="toSignerAddFullName" autocomplete="off" required>
+              </label>
+              <label class="to-signers-add-field">Email
+                <input id="toSignerAddEmail" type="email" autocomplete="off" required>
+              </label>
+              <label class="to-signers-add-field">PNG imzo
+                <input id="toSignerAddSignature" type="file" accept="image/png,.png" required>
+              </label>
+            </div>
+            <div id="toSignersAddMessage" class="to-signers-add-message"></div>
+            <div class="to-signers-add-actions">
+              <button id="toSignersAddCancelBtn" class="btn" type="button">Bekor qilish</button>
+              <button id="toSignersAddSaveBtn" class="btn" type="submit">Saqlash</button>
+            </div>
+          </form>
         </div>
         <div class="to-signers-tablewrap">
           <table class="to-signers-table">
@@ -226,6 +266,9 @@
     document.body.appendChild(modal);
     $('toSignersCloseBtn')?.addEventListener('click', close);
     $('toSignersRefreshBtn')?.addEventListener('click', () => void load());
+    $('toSignersAddBtn')?.addEventListener('click', () => setAddPanelOpen(!$('toSignersAddPanel')?.classList.contains('show')));
+    $('toSignersAddCancelBtn')?.addEventListener('click', () => setAddPanelOpen(false));
+    $('toSignersAddForm')?.addEventListener('submit', (event) => void saveNewSigner(event));
     $('toSignersLangBtn')?.addEventListener('click', (event) => {
       event.stopPropagation();
       toggleLanguageMenu();
@@ -248,6 +291,116 @@
     if (!el) return;
     el.className = `to-signers-status${tone ? ` ${tone}` : ''}`;
     el.textContent = text;
+  }
+
+  function setAddMessage(text = '', tone = '') {
+    const el = $('toSignersAddMessage');
+    if (!el) return;
+    el.className = `to-signers-add-message${tone ? ` ${tone}` : ''}`;
+    el.textContent = text;
+  }
+
+  function resetAddForm() {
+    $('toSignersAddForm')?.reset();
+    setAddMessage('');
+  }
+
+  function setAddPanelOpen(open) {
+    const panel = $('toSignersAddPanel');
+    if (!panel) return;
+    panel.classList.toggle('show', Boolean(open));
+    if (open) {
+      resetAddForm();
+      window.setTimeout(() => $('toSignerAddPosition')?.focus(), 0);
+    } else {
+      setAddMessage('');
+    }
+  }
+
+  async function uploadNewSignerSignature(wsId, auth, file, position, fullName) {
+    const form = new FormData();
+    form.append('signature', file);
+    form.append('position', position);
+    form.append('fullName', fullName);
+    const response = await fetch(`/api/workspaces/${encodeURIComponent(wsId)}/signers/signature`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${auth}`, 'x-workspace-id': wsId },
+      credentials: 'include',
+      body: form,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
+    if (!clean(data.fileId)) throw new Error('PNG imzo saqlanmadi.');
+    return data;
+  }
+
+  async function createNewSigner(wsId, auth, payload) {
+    const response = await fetch(`/api/workspaces/${encodeURIComponent(wsId)}/signers`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${auth}`,
+        'x-workspace-id': wsId,
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
+    return data.signer || null;
+  }
+
+  async function saveNewSigner(event) {
+    event?.preventDefault();
+    if (state.saving) return;
+    const wsId = workspaceId();
+    const auth = token();
+    if (!wsId) { setAddMessage('Workspace tanlanmagan.', 'bad'); return; }
+    if (!auth) { setAddMessage('Workspace sessiyasi topilmadi.', 'bad'); return; }
+
+    const position = clean($('toSignerAddPosition')?.value);
+    const fullName = clean($('toSignerAddFullName')?.value);
+    const email = clean($('toSignerAddEmail')?.value);
+    const file = $('toSignerAddSignature')?.files?.[0] || null;
+    if (!position || !fullName || !email || !file) {
+      setAddMessage('Lavozim, F.I.O., Email va PNG imzo majburiy.', 'bad');
+      return;
+    }
+    if (file.type !== 'image/png' || !/\.png$/i.test(file.name || '')) {
+      setAddMessage('Faqat PNG imzo fayli qabul qilinadi.', 'bad');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setAddMessage('PNG hajmi 2 MB dan oshmasligi kerak.', 'bad');
+      return;
+    }
+
+    state.saving = true;
+    const saveButton = $('toSignersAddSaveBtn');
+    if (saveButton) saveButton.disabled = true;
+    setAddMessage('PNG imzo yuklanmoqda...', '');
+    try {
+      const uploaded = await uploadNewSignerSignature(wsId, auth, file, position, fullName);
+      if (wsId !== workspaceId()) throw new Error('Workspace o‘zgardi. Qayta urinib ko‘ring.');
+      setAddMessage('Imzo saqlandi. Imzo chekuvchi yaratilmoqda...', '');
+      await createNewSigner(wsId, auth, {
+        position,
+        fullName,
+        email,
+        signatureFileId: clean(uploaded.fileId),
+        signatureUrl: clean(uploaded.webViewLink),
+        status: 'active',
+      });
+      setAddMessage('Imzo chekuvchi qo‘shildi.', 'ok');
+      await load();
+      try { await window.ToJournalWorkspace?.loadAutoSigners?.(wsId); } catch (_) {}
+      window.setTimeout(() => setAddPanelOpen(false), 350);
+    } catch (error) {
+      setAddMessage(`Qo‘shish xatosi: ${error.message}`, 'bad');
+    } finally {
+      state.saving = false;
+      if (saveButton) saveButton.disabled = false;
+    }
   }
 
   function render() {
@@ -313,6 +466,7 @@
 
   function close() {
     closeLanguageMenu();
+    setAddPanelOpen(false);
     $('toSignersModal')?.classList.remove('show');
   }
 
@@ -333,6 +487,6 @@
   else init();
 
   window.ToJournalSigners = {
-    open, close, load, state, selectLanguage, translatePosition,
+    open, close, load, state, selectLanguage, translatePosition, saveNewSigner, setAddPanelOpen,
   };
 })();
