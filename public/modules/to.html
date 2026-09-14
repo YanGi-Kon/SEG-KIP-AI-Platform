@@ -86,13 +86,15 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   const ADMIN_TOKEN_KEY='seg_kip_admin_jwt';
   const MODULE_SHEET_KEY='to_sheet_name';
   const PERIOD_STORAGE_PREFIX='seg_to_period_v1';
+  const SIGNER_SELECTION_STORAGE_PREFIX='seg_to_signer_selection_v1';
   const AUTO_SIGNER_SLOTS=[
-    {key:'kip-chief',nameId:'toKipChiefName',signatureId:'toKipChiefSignature',badgeId:'toKipChiefAutoBadge',defaultName:'Куйликов Р. А.'},
-    {key:'kip-master',nameId:'toKipMasterName',signatureId:'toKipMasterSignature',badgeId:'toKipMasterAutoBadge',defaultName:'Фазилов И. Б.'},
-    {key:'production-master',nameId:'toProductionMaster1Name',signatureId:'toProductionMaster1Signature',badgeId:'toProductionMaster1AutoBadge',defaultName:'Хошимов Б.'},
-    {key:'production-master',nameId:'toProductionMaster2Name',signatureId:'toProductionMaster2Signature',badgeId:'toProductionMaster2AutoBadge',defaultName:'Мазординов Э.'},
-    {key:'ppn-master',nameId:'toPpnMaster1Name',signatureId:'toPpnMaster1Signature',badgeId:'toPpnMaster1AutoBadge',defaultName:'Бакиров У.'},
-    {key:'ppn-master',nameId:'toPpnMaster2Name',signatureId:'toPpnMaster2Signature',badgeId:'toPpnMaster2AutoBadge',defaultName:'Щоимкулов Ш.'}
+    {key:'department-chief',nameId:'toDepartmentChiefName',signatureId:'toDepartmentChiefSignature',badgeId:'toDepartmentChiefAutoBadge',preferredName:'Ходжаев С. Х.'},
+    {key:'kip-chief',nameId:'toKipChiefName',signatureId:'toKipChiefSignature',badgeId:'toKipChiefAutoBadge',preferredName:'Куйликов Р. А.'},
+    {key:'kip-master',nameId:'toKipMasterName',signatureId:'toKipMasterSignature',badgeId:'toKipMasterAutoBadge',preferredName:'Фазилов И. Б.'},
+    {key:'production-master',nameId:'toProductionMaster1Name',signatureId:'toProductionMaster1Signature',badgeId:'toProductionMaster1AutoBadge',preferredName:'Хошимов Б.'},
+    {key:'production-master',nameId:'toProductionMaster2Name',signatureId:'toProductionMaster2Signature',badgeId:'toProductionMaster2AutoBadge',preferredName:'Мазординов Э.'},
+    {key:'ppn-master',nameId:'toPpnMaster1Name',signatureId:'toPpnMaster1Signature',badgeId:'toPpnMaster1AutoBadge',preferredName:'Бакиров У.'},
+    {key:'ppn-master',nameId:'toPpnMaster2Name',signatureId:'toPpnMaster2Signature',badgeId:'toPpnMaster2AutoBadge',preferredName:'Щоимкулов Ш.'}
   ];
   const DEFAULT_PERIOD_YEAR=2026;
   const DEFAULT_PERIOD_MONTH=6;
@@ -100,7 +102,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   const state={
     workspaceId:'',workspace:null,workspaceName:'',isAdmin:false,sheetName:'',
     sections:[],totalItems:0,requestVersion:0,signerRequestVersion:0,
-    autoSigners:{},signatureObjectUrls:[],
+    signerRegistry:[],autoSigners:{},signatureObjectUrls:[],
     periodYear:DEFAULT_PERIOD_YEAR,periodMonth:DEFAULT_PERIOD_MONTH,
     period:null,periodItems:[],periods:[],periodRequestVersion:0,periodBusy:false
   };
