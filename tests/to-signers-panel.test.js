@@ -6,7 +6,7 @@ const bridge = fs.readFileSync(new URL('../public/js/to-period-sheet-bridge.js',
 const panel = fs.readFileSync(new URL('../public/js/to-signers-panel.js', import.meta.url), 'utf8');
 
 test('TO JURNALI loads the signers panel and removes the redundant Open button', () => {
-  assert.match(bridge, /to-signers-panel\.js/);
+  assert.match(bridge, /to-signers-panel\.js\?v=to-signers2-interface-language/);
   assert.match(bridge, /toOpenPeriodBtn'\)\?\.remove/);
 });
 
@@ -15,6 +15,27 @@ test('TO JURNALI exposes 5. ИМЗО ЧЕКУВЧИЛАР from the selected Work
   assert.match(panel, /toSignersBtn/);
   assert.match(panel, /toSignersModal/);
   assert.match(panel, /\/api\/workspaces\/\$\{encodeURIComponent\(wsId\)\}\/signers\?includeInactive=true/);
-  assert.match(panel, /TO · Мастер КИПиА/);
+  assert.match(panel, /translatePosition\('Мастер КИПиА'\)/);
   assert.match(panel, /SEG_KIP_WORKSPACE_CHANGE/);
+});
+
+
+test('TO signer modal exposes the existing interface language mechanism beside refresh', () => {
+  assert.match(panel, /id="toSignersLangBtn"/);
+  assert.match(panel, /🌐 Язык интерфейса/);
+  assert.match(panel, /data-to-signers-lang="ru">🇷🇺 Русский/);
+  assert.match(panel, /data-to-signers-lang="uz_cyrl">🇺🇿 Ўзбекча \(кирилл\)/);
+  assert.match(panel, /const LANG_KEY = 'seg_kip_lang'/);
+  assert.match(panel, /parent\?\.setLanguage\?\.\(lang\)/);
+});
+
+test('TO signer positions are translated without modifying signer registry data', () => {
+  assert.match(panel, /function translatePosition\(value, lang = state\.language\)/);
+  assert.match(panel, /ru: 'Начальник участка', uz_cyrl: 'Участка бошлиғи'/);
+  assert.match(panel, /'нч участка'/);
+  assert.match(panel, /ru: 'Участок КИПиА', uz_cyrl: 'НЎВваА участка'/);
+  assert.match(panel, /ru: 'Мастер КИПиА', uz_cyrl: 'НЎВваА устаси'/);
+  assert.match(panel, /ru: 'Слесарь КИПиА', uz_cyrl: 'НЎВваА чилангари'/);
+  assert.match(panel, /esc\(translatePosition\(row\.position\)\)/);
+  assert.doesNotMatch(panel, /fetch\([^\n]+position[^\n]+method:\s*['"](?:PUT|PATCH|POST)/);
 });

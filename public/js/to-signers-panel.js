@@ -4,7 +4,25 @@
   const WORKSPACE_ID_KEY = 'seg_kip_selected_workspace_id';
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
-  const state = { rows: [], loading: false };
+  const LANG_KEY = 'seg_kip_lang';
+  const SUPPORTED_LANGS = new Set(['ru', 'uz_cyrl']);
+  const state = { rows: [], loading: false, language: 'ru' };
+
+  const POSITION_TRANSLATIONS = [
+    { ru: 'Начальник участка', uz_cyrl: 'Участка бошлиғи', aliases: ['начальник участка', 'нач участка', 'нч участка', 'участка бошлиғи'] },
+    { ru: 'Участок КИПиА', uz_cyrl: 'НЎВваА участка', aliases: ['участок кипиа', 'кипиа участка', 'нўвваа участка', 'нувваа участка'] },
+    { ru: 'Начальник участка КИПиА', uz_cyrl: 'НЎВваА участка бошлиғи', aliases: ['начальник участка кипиа', 'нач участка кипиа', 'нч участка кипиа', 'нўвваа участка бошлиғи', 'нувваа участка бошлиги'] },
+    { ru: 'Начальник КИПиА', uz_cyrl: 'НЎВваА бошлиғи', aliases: ['начальник кипиа', 'нач кипиа', 'нўвваа бошлиғи', 'нувваа бошлиги'] },
+    { ru: 'Мастер КИПиА', uz_cyrl: 'НЎВваА устаси', aliases: ['мастер кипиа', 'нўвваа устаси', 'нувваа устаси'] },
+    { ru: 'Слесарь КИПиА', uz_cyrl: 'НЎВваА чилангари', aliases: ['слесарь кипиа', 'нўвваа чилангари', 'нувваа чилангари'] },
+    { ru: 'Инженер КИПиА', uz_cyrl: 'НЎВваА муҳандиси', aliases: ['инженер кипиа', 'нўвваа муҳандиси', 'нувваа мухандиси'] },
+    { ru: 'Начальник отдела', uz_cyrl: 'Бўлим бошлиғи', aliases: ['начальник отдела', 'нач отдела', 'бўлим бошлиғи', 'булим бошлиги'] },
+    { ru: 'Начальник цеха', uz_cyrl: 'Цех бошлиғи', aliases: ['начальник цеха', 'нач цеха', 'цех бошлиғи', 'цех бошлиги'] },
+    { ru: 'Мастер участка', uz_cyrl: 'Участка устаси', aliases: ['мастер участка', 'участка устаси'] },
+    { ru: 'Мастер добычи', uz_cyrl: 'Қазиб чиқариш устаси', aliases: ['мастер добычи', 'қазиб чиқариш устаси', 'казиб чикариш устаси'] },
+    { ru: 'Инженер', uz_cyrl: 'Муҳандис', aliases: ['инженер', 'муҳандис', 'мухандис'] },
+    { ru: 'Слесарь', uz_cyrl: 'Чилангар', aliases: ['слесарь', 'чилангар'] },
+  ];
 
   const $ = (id) => document.getElementById(id);
   const clean = (value) => String(value ?? '').trim();
@@ -39,7 +57,80 @@
   }
 
   function normalize(value) {
-    return String(value || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/giu, ' ').trim();
+    return String(value || '')
+      .toLowerCase()
+      .replace(/ё/g, 'е')
+      .replace(/[^a-zа-яўқғҳ0-9]+/giu, ' ')
+      .trim();
+  }
+
+  function readLanguage() {
+    let value = '';
+    try {
+      value = localStorage.getItem(LANG_KEY)
+        || parentStorage('localStorage', LANG_KEY)
+        || clean(parent?.currentLang);
+    } catch (_) {
+      value = parentStorage('localStorage', LANG_KEY);
+    }
+    return SUPPORTED_LANGS.has(value) ? value : 'ru';
+  }
+
+  function translatePosition(value, lang = state.language) {
+    const raw = clean(value);
+    if (!raw) return '—';
+    const key = normalize(raw);
+    const translation = POSITION_TRANSLATIONS.find((entry) => (
+      normalize(entry.ru) === key
+      || normalize(entry.uz_cyrl) === key
+      || entry.aliases.some((alias) => normalize(alias) === key)
+    ));
+    return clean(translation?.[lang]) || raw;
+  }
+
+  function languageLabel(lang = state.language) {
+    return lang === 'uz_cyrl' ? 'Ўзбекча (кирилл)' : 'Русский';
+  }
+
+  function updateLanguageUi() {
+    const button = $('toSignersLangBtn');
+    const menu = $('toSignersLangMenu');
+    if (button) {
+      button.title = 'Текущий язык: ' + languageLabel();
+      button.setAttribute('aria-label', 'Язык интерфейса. ' + languageLabel());
+    }
+    menu?.querySelectorAll('[data-to-signers-lang]').forEach((option) => {
+      const selected = option.dataset.toSignersLang === state.language;
+      option.classList.toggle('active', selected);
+      option.setAttribute('aria-checked', selected ? 'true' : 'false');
+    });
+  }
+
+  function closeLanguageMenu() {
+    const menu = $('toSignersLangMenu');
+    const button = $('toSignersLangBtn');
+    menu?.classList.remove('show');
+    button?.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleLanguageMenu() {
+    const menu = $('toSignersLangMenu');
+    const button = $('toSignersLangBtn');
+    if (!menu || !button) return;
+    const open = !menu.classList.contains('show');
+    menu.classList.toggle('show', open);
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function selectLanguage(lang) {
+    if (!SUPPORTED_LANGS.has(lang)) return;
+    state.language = lang;
+    try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+    try { parent?.localStorage?.setItem(LANG_KEY, lang); } catch (_) {}
+    try { parent?.setLanguage?.(lang); } catch (_) {}
+    updateLanguageUi();
+    closeLanguageMenu();
+    render();
   }
 
   function isKipMaster(row = {}) {
@@ -60,6 +151,13 @@
       .to-signers-head h2{margin:0;font-size:20px}
       .to-signers-note{margin:0 0 14px;color:#a9c8d8;font-size:12px;line-height:1.45}
       .to-signers-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+      .to-signers-toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+      .to-signers-lang{position:relative}
+      .to-signers-lang-menu{position:absolute;right:0;top:calc(100% + 7px);z-index:4;display:none;min-width:205px;padding:6px;background:#0a1a2d;border:1px solid rgba(34,211,238,.30);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.45)}
+      .to-signers-lang-menu.show{display:grid;gap:4px}
+      .to-signers-lang-option{width:100%;border:0;border-radius:9px;padding:9px 11px;background:transparent;color:#dff7ff;text-align:left;font-size:12px;font-weight:700;cursor:pointer}
+      .to-signers-lang-option:hover,.to-signers-lang-option.active{background:rgba(34,211,238,.12);color:#67e8f9}
+      .to-signers-lang-option.active::after{content:'✓';float:right;color:#86efac}
       .to-signers-status{font-size:12px;color:#cdeeff}
       .to-signers-status.ok{color:#86efac}.to-signers-status.bad{color:#fca5a5}.to-signers-status.sync{color:#fde68a}
       .to-signers-tablewrap{overflow:auto;border:1px solid rgba(255,255,255,.12);border-radius:14px}
@@ -104,7 +202,16 @@
         <p class="to-signers-note">Ro‘yxat tanlangan Workspace ichidagi umumiy imzo chekuvchilar registridan olinadi. AKTLAR JURNALI va TO JURNALI bir xil Workspace manbasidan foydalanadi.</p>
         <div class="to-signers-toolbar">
           <div id="toSignersStatus" class="to-signers-status">Ro‘yxat hali yuklanmagan.</div>
-          <button id="toSignersRefreshBtn" class="btn" type="button">↻ Yangilash</button>
+          <div class="to-signers-toolbar-actions">
+            <div class="to-signers-lang">
+              <button id="toSignersLangBtn" class="btn" type="button" aria-haspopup="menu" aria-expanded="false">🌐 Язык интерфейса</button>
+              <div id="toSignersLangMenu" class="to-signers-lang-menu" role="menu">
+                <button class="to-signers-lang-option" type="button" role="menuitemradio" data-to-signers-lang="ru">🇷🇺 Русский</button>
+                <button class="to-signers-lang-option" type="button" role="menuitemradio" data-to-signers-lang="uz_cyrl">🇺🇿 Ўзбекча (кирилл)</button>
+              </div>
+            </div>
+            <button id="toSignersRefreshBtn" class="btn" type="button">↻ Yangilash</button>
+          </div>
         </div>
         <div class="to-signers-tablewrap">
           <table class="to-signers-table">
@@ -116,7 +223,21 @@
     document.body.appendChild(modal);
     $('toSignersCloseBtn')?.addEventListener('click', close);
     $('toSignersRefreshBtn')?.addEventListener('click', () => void load());
-    modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
+    $('toSignersLangBtn')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleLanguageMenu();
+    });
+    $('toSignersLangMenu')?.querySelectorAll('[data-to-signers-lang]').forEach((option) => {
+      option.addEventListener('click', (event) => {
+        event.stopPropagation();
+        selectLanguage(option.dataset.toSignersLang);
+      });
+    });
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) close();
+      else if (!event.target.closest?.('.to-signers-lang')) closeLanguageMenu();
+    });
+    updateLanguageUi();
   }
 
   function setStatus(text, tone = '') {
@@ -139,7 +260,7 @@
       const hasSignature = Boolean(clean(row.signatureFileId) || clean(row.signatureUrl));
       return `<tr>
         <td>${index + 1}</td>
-        <td>${esc(row.position || '—')}${master ? '<span class="to-signers-badge">TO · Мастер КИПиА</span>' : ''}</td>
+        <td>${esc(translatePosition(row.position))}${master ? '<span class="to-signers-badge">TO · ' + esc(translatePosition('Мастер КИПиА')) + '</span>' : ''}</td>
         <td>${esc(row.fullName || row.fio || '—')}</td>
         <td>${esc(row.email || row.gmail || '—')}</td>
         <td><span class="to-signers-state ${esc(status)}">${esc(status || 'active')}</span></td>
@@ -180,17 +301,22 @@
 
   function open() {
     injectUi();
+    state.language = readLanguage();
+    updateLanguageUi();
     $('toSignersModal')?.classList.add('show');
     void load();
   }
 
   function close() {
+    closeLanguageMenu();
     $('toSignersModal')?.classList.remove('show');
   }
 
   function init() {
+    state.language = readLanguage();
     injectStyle();
     injectUi();
+    updateLanguageUi();
   }
 
   window.addEventListener('message', (event) => {
@@ -202,5 +328,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 
-  window.ToJournalSigners = { open, close, load, state };
+  window.ToJournalSigners = {
+    open, close, load, state, selectLanguage, translatePosition,
+  };
 })();
