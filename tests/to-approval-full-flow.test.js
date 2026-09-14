@@ -84,5 +84,5 @@ test('TO frontend provider qabul qilgan xabarni aniq ko‘rsatadi va cache yangi
   assert.match(ui, /email provider tomonidan qabul qilindi/);
   assert.match(ui, /Gmail inboxga yetib borishi provider va spam filtrlarga bog‘liq/);
   assert.match(bridge, /to-reports2-full-signing/);
-  assert.match(server, /to-period-bridge2-full-signing/);
+  assert.match(server, /to-period-bridge3-auto-signers/);
 });
