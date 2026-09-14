@@ -6,7 +6,7 @@ const bridge = fs.readFileSync(new URL('../public/js/to-period-sheet-bridge.js',
 const panel = fs.readFileSync(new URL('../public/js/to-signers-panel.js', import.meta.url), 'utf8');
 
 test('TO JURNALI loads the signers panel and removes the redundant Open button', () => {
-  assert.match(bridge, /to-signers-panel\.js\?v=to-signers2-interface-language/);
+  assert.match(bridge, /to-signers-panel\\.js\\?v=to-signers3-auto-roles/);
   assert.match(bridge, /toOpenPeriodBtn'\)\?\.remove/);
 });
 
@@ -35,6 +35,8 @@ test('TO signer positions are translated without modifying signer registry data'
   assert.match(panel, /'нч участка'/);
   assert.match(panel, /ru: 'Участок КИПиА', uz_cyrl: 'НЎВваА участка'/);
   assert.match(panel, /ru: 'Мастер КИПиА', uz_cyrl: 'НЎВваА устаси'/);
+  assert.match(panel, /ru: 'Мастер добычи цех-1', uz_cyrl: 'Цех-1 қазиб чиқариш устаси'/);
+  assert.match(panel, /ru: 'Мастер ППН-1', uz_cyrl: 'ППН-1 устаси'/);
   assert.match(panel, /ru: 'Слесарь КИПиА', uz_cyrl: 'НЎВваА чилангари'/);
   assert.match(panel, /esc\(translatePosition\(row\.position\)\)/);
   assert.doesNotMatch(panel, /fetch\([^\n]+position[^\n]+method:\s*['"](?:PUT|PATCH|POST)/);
