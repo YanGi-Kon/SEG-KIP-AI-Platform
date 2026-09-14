@@ -68,3 +68,13 @@ test('TO JURNALI selected approver receives the signature stored in 5. ИМЗО 
   assert.match(html, /signatureDisplayUrl\(signer,expectedWsId,requestVersion\)/);
   assert.match(html, /renderAutoSigner\(slot,signer,signatureUrl,'manual'\)/);
 });
+
+
+test('TO approver dropdowns show only F.I.O. and localize the empty choice', () => {
+  assert.match(html, /const INTERFACE_LANG_KEY='seg_kip_lang'/);
+  assert.match(html, /function signerSelectPlaceholder\(\)/);
+  assert.match(html, /state\.interfaceLanguage==='uz_cyrl'\?'— Танланг —':'— Выберите —'/);
+  assert.match(html, /function setInterfaceLanguage\(lang\)/);
+  assert.ok(html.includes('return `<option value="${esc(id)}">${esc(fio)}</option>`;'));
+  assert.ok(!html.includes('const position=clean(row.position);'));
+});
