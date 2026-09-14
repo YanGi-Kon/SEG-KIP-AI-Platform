@@ -36,7 +36,7 @@ test('TO JURNALI loads the Workspace signer registry once and distributes duplic
   assert.match(html, /\/api\/workspaces\/\$\{encodeURIComponent\(expectedWsId\)\}\/signers\?includeInactive=true/);
   assert.match(html, /function assignSignersToSlots\(signers=\[\],slots=\[\]\)/);
   assert.match(html, /AUTO_SIGNER_SLOTS\.filter\(slot=>slot\.key===key\)/);
-  assert.match(html, /renderAutoSigner\(slot,signer,signatureUrl\)/);
+  assert.match(html, /renderAutoSigner\(slot,signer,signatureUrl,hasSaved\?'manual':'auto'\)/);
   assert.match(html, /signatureObjectUrls:\[\]/);
   assert.match(html, /state\.signatureObjectUrls\.push\(objectUrl\)/);
   assert.match(html, /loadAutoSigners\(state\.workspaceId\)/);
