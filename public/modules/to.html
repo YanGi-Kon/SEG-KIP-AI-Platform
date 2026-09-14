@@ -537,12 +537,16 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   }
   function assignSignersToSlots(signers=[],slots=[]){
     const remaining=[...signers];
-    return slots.map(slot=>{
+    const assigned=slots.map(()=>null);
+    slots.forEach((slot,slotIndex)=>{
       const fallbackName=normalizeSignerText(slot.defaultName);
-      let index=remaining.findIndex(row=>normalizeSignerText(row.fullName||row.fio||'')===fallbackName);
-      if(index<0&&remaining.length)index=0;
-      return index>=0?remaining.splice(index,1)[0]:null;
+      const signerIndex=remaining.findIndex(row=>normalizeSignerText(row.fullName||row.fio||'')===fallbackName);
+      if(signerIndex>=0)assigned[slotIndex]=remaining.splice(signerIndex,1)[0];
     });
+    slots.forEach((_,slotIndex)=>{
+      if(!assigned[slotIndex]&&remaining.length)assigned[slotIndex]=remaining.shift();
+    });
+    return assigned;
   }
   async function loadAutoSigners(expectedWsId=state.workspaceId){
     const requestVersion=++state.signerRequestVersion;
