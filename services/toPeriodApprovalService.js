@@ -63,6 +63,27 @@ function normalizeApproverAssignments(value = []) {
   })).filter((row) => row.signerId || row.fio || row.email || row.position);
 }
 
+function assignedApproversForBundle(bundle) {
+  return normalizeApproverAssignments(bundle?.period?.sourceSnapshot?.assignedApprovers);
+}
+
+function approvalBelongsToAssignments(approval, assignments = []) {
+  if (!assignments.length) return true;
+  const signerId = clean(approval?.signerId);
+  const email = normalizeApproverText(approval?.email || approval?.gmail);
+  return assignments.some((row) => (
+    (row.signerId && signerId && clean(row.signerId) === signerId)
+    || (row.email && email && normalizeApproverText(row.email) === email)
+  ));
+}
+
+function filterApprovalsToAssignments(approvals = [], bundle) {
+  const assignments = assignedApproversForBundle(bundle);
+  return assignments.length
+    ? approvals.filter((row) => approvalBelongsToAssignments(row, assignments))
+    : [...approvals];
+}
+
 export function resolveToPeriodApprovalTargets(bundle, signers = [], inputAssignments = []) {
   const persisted = bundle?.period?.sourceSnapshot?.assignedApprovers;
   const requested = normalizeApproverAssignments(
@@ -421,14 +442,15 @@ export async function getToPeriodReport(workspace, year, month) {
     throw error;
   }
   const docKey = periodKey(year, month);
-  const approvals = (await approvalRows(workspace, docKey)).rows;
+  const assignedApprovers = assignedApproversForBundle(bundle);
+  const approvals = filterApprovalsToAssignments((await approvalRows(workspace, docKey)).rows, bundle);
   return {
     key: docKey,
     label: periodLabel(year, month),
     period: bundle.period,
     items: bundle.items,
     approvals,
-    assignedApprovers: normalizeApproverAssignments(bundle.period?.sourceSnapshot?.assignedApprovers),
+    assignedApprovers,
     a4Html: renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals }),
     a4Css: toA4Styles(),
   };
@@ -567,6 +589,13 @@ async function approvalContext(token, req, { markOpened = false } = {}) {
   if (!workspace || workspace.status === 'archived') throw new Error('Workspace topilmadi');
   const bundle = await getToPeriodBundle(workspace.id, payload.year, payload.month);
   if (!bundle || clean(bundle.period.id) !== clean(payload.periodId)) throw new Error('TO hujjati topilmadi');
+  const assignedApprovers = assignedApproversForBundle(bundle);
+  if (assignedApprovers.length && !approvalBelongsToAssignments({
+    signerId: payload.signerId,
+    email: payload.email,
+  }, assignedApprovers)) {
+    throw new Error('TO tasdiqlash havolasi bekor qilingan yoki tasdiqlovchi hujjatdan olib tashlangan');
+  }
   const docKey = periodKey(payload.year, payload.month);
   const current = await approvalRows(workspace, docKey);
   const approval = current.rows.find((row) => row.id === payload.approvalId
@@ -593,7 +622,10 @@ async function approvalContext(token, req, { markOpened = false } = {}) {
       details: 'module=TO',
     }).catch(() => {});
   }
-  const approvals = current.rows.map((row) => row.id === next.id ? next : row);
+  const approvals = filterApprovalsToAssignments(
+    current.rows.map((row) => row.id === next.id ? next : row),
+    bundle,
+  );
   return { payload, workspace, bundle, approval: next, approvals, config: current.config, docKey };
 }
 
