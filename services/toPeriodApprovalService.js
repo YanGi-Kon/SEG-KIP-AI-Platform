@@ -657,8 +657,22 @@ export async function getToPeriodReport(workspace, year, month) {
     throw error;
   }
   const docKey = periodKey(year, month);
-  const assignedApprovers = assignedApproversForBundle(bundle);
-  const approvals = filterApprovalsToAssignments((await approvalRows(workspace, docKey)).rows, bundle);
+  const registeredSigners = await listWorkspaceSigners(workspace.id, { includeInactive: false });
+  const assignedApprovers = completeToPeriodApproverAssignments(
+    assignedApproversForBundle(bundle),
+    registeredSigners,
+  );
+  const approvalBundle = {
+    ...bundle,
+    period: {
+      ...bundle.period,
+      sourceSnapshot: {
+        ...(bundle.period?.sourceSnapshot || {}),
+        assignedApprovers,
+      },
+    },
+  };
+  const approvals = filterApprovalsToAssignments((await approvalRows(workspace, docKey)).rows, approvalBundle);
   const signerStates = buildToPeriodSignerStates(assignedApprovers, approvals);
   return {
     key: docKey,
@@ -670,6 +684,8 @@ export async function getToPeriodReport(workspace, year, month) {
     signerStates,
     signedApprovers: signerStates.filter((row) => row.signed).length,
     unsignedApprovers: signerStates.filter((row) => !row.signed).length,
+    expectedSignerSlots: TO_SIGNER_SLOT_DEFINITIONS.length,
+    missingSignerSlots: Math.max(0, TO_SIGNER_SLOT_DEFINITIONS.length - assignedApprovers.length),
     a4Html: renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals, assignedApprovers }),
     a4Css: toA4Styles(),
   };
