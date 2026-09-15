@@ -530,13 +530,6 @@ export async function getToPeriodReport(workspace, year, month) {
 }
 
 export async function sendToPeriodForApproval(workspace, year, month, req) {
-  if (!hasHttpEmailProvider()) {
-    const summary = getHttpEmailSummary();
-    const error = new Error(summary.recommendedFix || 'TO hujjatini yuborish uchun HTTP email provider sozlanmagan.');
-    error.code = 'EMAIL_HTTP_NOT_CONFIGURED';
-    error.statusCode = 400;
-    throw error;
-  }
   const bundle = await getToPeriodBundle(workspace.id, year, month);
   if (!bundle) {
     const error = new Error('TO davri topilmadi');
@@ -544,13 +537,44 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
     error.statusCode = 404;
     throw error;
   }
+
   const signers = await listWorkspaceSigners(workspace.id, { includeInactive: false });
   const resolvedTargets = resolveToPeriodApprovalTargets(
     bundle,
     signers,
     req?.body?.assignedApprovers,
   );
-  const targets = resolvedTargets.targets;
+  const allTargets = resolvedTargets.targets;
+  await persistToPeriodApprovalTargets(workspace.id, bundle.period, allTargets);
+
+  const docKey = periodKey(year, month);
+  const label = periodLabel(year, month);
+  const current = await approvalRows(workspace, docKey);
+  const targets = selectUnsignedToPeriodTargets(allTargets, current.rows);
+  const alreadySigned = allTargets.length - targets.length;
+
+  if (!targets.length) {
+    return {
+      key: docKey,
+      label,
+      provider: 'none',
+      deliveryMode: 'none',
+      total: 0,
+      sent: 0,
+      approved: alreadySigned,
+      failed: 0,
+      results: allTargets.map((signer) => ({
+        signer: signer.fullName,
+        email: signer.email,
+        status: 'already-signed',
+      })),
+      signersSource: 'assigned_workspace_signers',
+      targetedApprovers: 0,
+      skippedSigned: alreadySigned,
+      allSigned: true,
+    };
+  }
+
   const invalidRecipients = targets.filter((row) => !isEmail(row.email));
   if (invalidRecipients.length) {
     const error = new Error(`Tasdiqlovchi Gmail manzili noto‘g‘ri: ${invalidRecipients.map((row) => clean(row.fullName) || clean(row.email) || 'tasdiqlovchi').join(', ')}`);
@@ -559,6 +583,15 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
     error.recommendedFix = '5. TO JURNALI uchun umumiy imzolovchilar registrida har bir faol imzolovchining email manzilini to‘liq kiriting.';
     throw error;
   }
+
+  if (!hasHttpEmailProvider()) {
+    const summary = getHttpEmailSummary();
+    const error = new Error(summary.recommendedFix || 'TO hujjatini yuborish uchun HTTP email provider sozlanmagan.');
+    error.code = 'EMAIL_HTTP_NOT_CONFIGURED';
+    error.statusCode = 400;
+    throw error;
+  }
+
   const provider = getHttpEmailSummary();
   if (provider.fromMode === 'missing') {
     const error = new Error('EMAIL_FROM kiritilmagan.');
@@ -577,11 +610,8 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
       throw error;
     }
   }
-  await persistToPeriodApprovalTargets(workspace.id, bundle.period, targets);
-  const docKey = periodKey(year, month);
-  const label = periodLabel(year, month);
+
   const baseUrl = baseUrlFromRequest(req);
-  const current = await approvalRows(workspace, docKey);
   const existingBySigner = new Map(current.rows.map((row) => [clean(row.signerId), row]));
   const results = [];
   for (const signer of targets) {
@@ -638,6 +668,7 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
       }).catch(() => {});
     }
   }
+
   return {
     key: docKey,
     label,
@@ -648,11 +679,13 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
     recommendedFix: provider.recommendedFix || '',
     total: targets.length,
     sent: results.filter((row) => row.status === 'sent').length,
-    approved: 0,
+    approved: alreadySigned,
     failed: results.filter((row) => row.status === 'email-failed').length,
     results,
     signersSource: 'assigned_workspace_signers',
     targetedApprovers: targets.length,
+    skippedSigned: alreadySigned,
+    allSigned: false,
   };
 }
 
