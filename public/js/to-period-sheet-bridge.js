@@ -152,7 +152,7 @@
     if (document.getElementById('toMonthlyAnalysisPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toMonthlyAnalysisPanelScript';
-    script.src = '/js/to-monthly-analysis-panel.js?v=to-analysis1-period';
+    script.src = '/js/to-monthly-analysis-panel.js?v=to-analysis2-create-action';
     script.defer = true;
     document.head.appendChild(script);
   }
