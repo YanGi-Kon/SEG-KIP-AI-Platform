@@ -161,7 +161,7 @@
     if (document.getElementById('toReportsPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toReportsPanelScript';
-    script.src = '/js/to-reports-panel.js?v=to-reports2-full-signing';
+    script.src = '/js/to-reports-panel.js?v=to-reports3-assigned-approvers';
     script.defer = true;
     document.head.appendChild(script);
   }
