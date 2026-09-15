@@ -371,6 +371,9 @@
     if (window.ToJournalWorkspace?.state) {
       window.ToJournalWorkspace.state.periodYear = state.year;
       window.ToJournalWorkspace.state.periodMonth = state.month;
+      window.ToJournalWorkspace.state.sections = Array.isArray(state.source?.sections) ? state.source.sections : [];
+      window.ToJournalWorkspace.state.totalItems = Number(state.source?.totalItems) || 0;
+      window.ToJournalWorkspace.state.sheetName = clean(state.source?.sheetName || sheetName());
     }
   }
 
@@ -381,6 +384,7 @@
     if (action) action.disabled = true;
     try {
       await window.ToJournalWorkspace?.openSelectedPeriod?.({ fallbackToSource: true });
+      await window.ToJournalWorkspace?.applySignerSelectionsForCurrentPeriod?.();
       close();
     } catch (error) {
       setMessage(error.message || 'TO hujjatini ochish xatosi', 'bad');
