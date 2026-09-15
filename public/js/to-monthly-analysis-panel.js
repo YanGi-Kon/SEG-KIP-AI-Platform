@@ -290,7 +290,7 @@
     const action = $('toAnalysisDocumentBtn');
     if (action) {
       action.disabled = !total || state.busy;
-      action.textContent = created ? 'Хужатни очиш' : '＋ Хужат яратиш';
+      action.textContent = 'Хужат яратиш';
     }
     renderRows(source);
   }
