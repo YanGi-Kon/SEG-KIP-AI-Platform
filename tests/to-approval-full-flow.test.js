@@ -8,19 +8,43 @@ const route = fs.readFileSync(new URL('../routes/toPeriodSheetBridge.js', import
 const ui = fs.readFileSync(new URL('../public/js/to-reports-panel.js', import.meta.url), 'utf8');
 const bridge = fs.readFileSync(new URL('../public/js/to-period-sheet-bridge.js', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
+const periodRepo = fs.readFileSync(new URL('../repositories/toPeriodRepository.js', import.meta.url), 'utf8');
+const periodService = fs.readFileSync(new URL('../services/toPeriodService.js', import.meta.url), 'utf8');
+const toRoute = fs.readFileSync(new URL('../routes/to.js', import.meta.url), 'utf8');
+const toModule = fs.readFileSync(new URL('../public/modules/to.html', import.meta.url), 'utf8');
 
-test('TO yangi yuborish raundi barcha faol imzolovchilarni qayta pending holatiga oladi', () => {
-  assert.match(approval, /const targets = \[\.\.\.signers\]/);
+test('TO yangi yuborish raundi faqat hujjatga biriktirilgan imzolovchilarni qayta pending holatiga oladi', () => {
+  assert.match(approval, /resolveToPeriodApprovalTargets/);
+  assert.match(approval, /sourceSnapshot\?\.assignedApprovers/);
+  assert.match(approval, /const targets = resolvedTargets\.targets/);
+  assert.match(approval, /persistToPeriodApprovalTargets/);
   assert.match(approval, /resetExisting: true/);
   assert.match(approval, /approved: 0/);
-  assert.match(smtp, /const targets = \[\.\.\.signers\]/);
+  assert.match(smtp, /resolveToPeriodApprovalTargets/);
+  assert.match(smtp, /const targets = resolvedTargets\.targets/);
+  assert.match(smtp, /persistToPeriodApprovalTargets/);
   assert.match(smtp, /resetExisting: true/);
   assert.match(smtp, /approved: 0/);
+  assert.doesNotMatch(approval, /const targets = \[\.\.\.signers\]/);
+  assert.doesNotMatch(smtp, /const targets = \[\.\.\.signers\]/);
   assert.doesNotMatch(approval, /status: 'already-approved'/);
   assert.doesNotMatch(smtp, /status: 'already-approved'/);
 });
 
-test('TO yangi raunddan oldin barcha email manzillari tekshiriladi', () => {
+test('TO tanlangan approverlar hujjat metadata siga saqlanadi va report shu ro‘yxatni ko‘rsatadi', () => {
+  assert.match(periodRepo, /updateToPeriodApprovalAssignments/);
+  assert.match(periodRepo, /'approvalPolicy', 'all-assigned-v2'/);
+  assert.match(periodRepo, /'assignedApprovers', \$3::jsonb/);
+  assert.match(periodService, /normalizeToAssignedApprovers/);
+  assert.match(periodService, /assignedApprovers: normalizeToAssignedApprovers\(input\.assignedApprovers\)/);
+  assert.match(toRoute, /updateToPeriodApprovalAssignments/);
+  assert.match(toModule, /getSelectedApprovers:selectedApproverAssignments/);
+  assert.match(bridge, /JSON\.stringify\(\{ assignedApprovers \}\)/);
+  assert.match(approval, /assignedApprovers: normalizeApproverAssignments/);
+  assert.match(ui, /approvalRowsHtml\(report\.approvals \|\| \[\], report\.assignedApprovers \|\| \[\]\)/);
+});
+
+test('TO yangi raunddan oldin tanlangan imzolovchilarning email manzillari tekshiriladi', () => {
   assert.match(approval, /const invalidRecipients = targets\.filter/);
   assert.match(approval, /EMAIL_INVALID_RECIPIENT/);
   assert.match(smtp, /const invalidRecipients = targets\.filter/);
@@ -83,6 +107,7 @@ test('TO frontend provider qabul qilgan xabarni aniq ko‘rsatadi va cache yangi
   assert.match(ui, /providerMessageId/);
   assert.match(ui, /email provider tomonidan qabul qilindi/);
   assert.match(ui, /Gmail inboxga yetib borishi provider va spam filtrlarga bog‘liq/);
-  assert.match(bridge, /to-reports2-full-signing/);
-  assert.match(server, /to-period-bridge3-auto-signers/);
+  assert.match(ui, /TO_APPROVERS_NOT_ASSIGNED/);
+  assert.match(bridge, /to-reports3-assigned-approvers/);
+  assert.match(server, /to-period-bridge4-assigned-approvers/);
 });
