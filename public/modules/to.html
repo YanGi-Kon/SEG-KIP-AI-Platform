@@ -420,7 +420,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     try{
       const data=await apiRequest('/api/to/periods',{
         method:'POST',
-        body:{year:state.periodYear,month:state.periodMonth,sheetName:state.sheetName},
+        body:{year:state.periodYear,month:state.periodMonth,sheetName:state.sheetName,assignedApprovers:selectedApproverAssignments()},
         expectedWsId:state.workspaceId
       });
       renderPeriodBundle(data);
@@ -461,7 +461,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     const action=direction==='from'?'sync-from-sheet':'sync-to-sheet';
     try{
       await apiRequest(`/api/to/periods/${state.periodYear}/${state.periodMonth}/${action}`,{
-        method:'POST',body:{},expectedWsId:state.workspaceId
+        method:'POST',body:{assignedApprovers:selectedApproverAssignments()},expectedWsId:state.workspaceId
       });
       await openSelectedPeriod({fallbackToSource:false});
     }catch(error){
@@ -514,8 +514,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if(!ws||!Number.isInteger(y)||!Number.isInteger(m)||m<1||m>12)return'';
     return `${SIGNER_SELECTION_STORAGE_PREFIX}:${ws}:${y}-${String(m).padStart(2,'0')}`;
   }
-  function readSignerSelections(){
-    const key=signerSelectionStorageKey(); if(!key)return{};
+  function readSignerSelections(workspaceId=state.workspaceId,year=state.periodYear,month=state.periodMonth){
+    const key=signerSelectionStorageKey(workspaceId,year,month); if(!key)return{};
     let raw='';
     try{raw=localStorage.getItem(key)||parentStorage('localStorage',key)||''}catch(_){raw=parentStorage('localStorage',key)||''}
     if(!raw)return{};
@@ -620,6 +620,27 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
       slots.forEach((slot,index)=>assigned.set(slot.nameId,signers[index]||null));
     });
     return assigned;
+  }
+  function selectedApproverAssignments(year=state.periodYear,month=state.periodMonth){
+    const saved=readSignerSelections(state.workspaceId,year,month);
+    const automatic=automaticSignerAssignments();
+    return AUTO_SIGNER_SLOTS.map((slot,index)=>{
+      const hasSaved=Object.prototype.hasOwnProperty.call(saved,slot.nameId);
+      const savedId=hasSaved?clean(saved[slot.nameId]):'';
+      const signer=hasSaved
+        ? state.signerRegistry.find(row=>clean(row.id)===savedId)||null
+        : automatic.get(slot.nameId)||null;
+      if(!signer)return null;
+      return {
+        slot:index+1,
+        slotKey:slot.key,
+        signerId:clean(signer.id),
+        fio:clean(signer.fullName||signer.fio),
+        position:clean(signer.position),
+        email:clean(signer.email||signer.gmail),
+        signatureFileId:clean(signer.signatureFileId||signer.signatureUrl)
+      };
+    }).filter(row=>row?.signerId);
   }
   async function applySignerSelectionsForCurrentPeriod(){
     const expectedWsId=state.workspaceId;
@@ -817,7 +838,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   window.ToJournalWorkspace={
     state,openSettings,closeSettings,saveSettings,
     reload:()=>Promise.all([loadData(state.workspaceId),loadAutoSigners(state.workspaceId),openSelectedPeriod()]),
-    loadWorkspace,loadAutoSigners,loadKipMasterSigner,applySignerSelectionsForCurrentPeriod,selectSignerForSlot,setInterfaceLanguage,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod
+    loadWorkspace,loadAutoSigners,loadKipMasterSigner,applySignerSelectionsForCurrentPeriod,selectSignerForSlot,setInterfaceLanguage,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod,
+    getSelectedApprovers:selectedApproverAssignments,getSignerSlotCount:()=>AUTO_SIGNER_SLOTS.length
   };
 })();
 </script>
