@@ -205,9 +205,13 @@
   async function syncCurrentPeriodToSheet() {
     const state = journalState();
     if (!state?.period) return;
+    const assignedApprovers = window.ToJournalWorkspace?.getSelectedApprovers?.(
+      state.periodYear,
+      state.periodMonth,
+    ) || [];
     await requestJson(`/api/to/periods/${state.periodYear}/${state.periodMonth}/sync-to-sheet`, {
       method: 'POST',
-      body: '{}',
+      body: JSON.stringify({ assignedApprovers }),
     });
     if (window.ToJournalWorkspace?.openSelectedPeriod) {
       await window.ToJournalWorkspace.openSelectedPeriod({ fallbackToSource: false });
