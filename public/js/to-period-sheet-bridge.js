@@ -148,6 +148,15 @@
     window.setTimeout(() => void syncSelectedPeriod(), 0);
   }
 
+  function loadMonthlyAnalysisPanel() {
+    if (document.getElementById('toMonthlyAnalysisPanelScript')) return;
+    const script = document.createElement('script');
+    script.id = 'toMonthlyAnalysisPanelScript';
+    script.src = '/js/to-monthly-analysis-panel.js?v=to-analysis1-period';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   function loadSignersPanel() {
     if (document.getElementById('toSignersPanelScript')) return;
     const script = document.createElement('script');
@@ -304,6 +313,7 @@
 
   function init() {
     $('toOpenPeriodBtn')?.remove();
+    loadMonthlyAnalysisPanel();
     loadSignersPanel();
     loadReportsPanel();
     injectDocumentSaveControl();
