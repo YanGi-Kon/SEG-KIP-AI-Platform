@@ -111,5 +111,5 @@ test('TO frontend provider qabul qilgan xabarni aniq ko‘rsatadi va cache yangi
   assert.match(ui, /faqat imzosi yo‘q/);
   assert.match(ui, /unsignedApprovers/);
   assert.match(bridge, /to-reports4-unsigned-only/);
-  assert.match(server, /to-period-bridge7-save-gate/);
+  assert.match(server, /to-period-bridge8-save-only/);
 });
