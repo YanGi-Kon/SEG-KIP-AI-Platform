@@ -184,6 +184,8 @@
       EMAIL_DOMAIN_NOT_VERIFIED: 'Email domen tasdiqlanmagan.',
       EMAIL_PROVIDER_RECIPIENT_NOT_ALLOWED: 'Email provider bu qabul qiluvchiga yuborishga ruxsat bermadi.',
       EMAIL_RATE_LIMITED: 'Email provider vaqtincha rate-limitga tushdi.',
+      TO_APPROVERS_NOT_ASSIGNED: 'Hujjatga tasdiqlovchilar biriktirilmagan.',
+      TO_APPROVERS_NOT_FOUND: 'Hujjatdagi ayrim tasdiqlovchilar faol registrdan topilmadi.',
     };
     return map[code] || clean(data.error) || 'Email yuborilmadi.';
   }
@@ -194,6 +196,7 @@
     if (code === 'EMAIL_AUTH_FAILED') return '3. AKTLAR JURNALI ishlatadigan Gmail App Password / SMTP credentiallarini tekshiring.';
     if (code === 'EMAIL_CONFIG_MISSING' || code === 'EMAIL_HTTP_NOT_CONFIGURED') return 'AKTLAR JURNALI uchun ishlayotgan GMAIL_USER/GMAIL_APP_PASSWORD yoki SMTP_USER/SMTP_PASS sozlamasi TO moduliga ham server environment orqali mavjud bo‘lishi kerak.';
     if (code === 'EMAIL_INVALID_RECIPIENT') return '5. TO JURNALI umumiy imzo chekuvchilar ro‘yxatida Gmail manzilini tekshiring.';
+    if (code === 'TO_APPROVERS_NOT_ASSIGNED' || code === 'TO_APPROVERS_NOT_FOUND') return '5. АКТ ВЫПОЛНЕННЫХ РАБОТ oynasida tasdiqlovchilarni tanlang, Saqlash tugmasini bosing va hisobotni qayta oching.';
     return 'Email provider yoki Gmail/SMTP sozlamasini tekshiring.';
   }
 
@@ -256,11 +259,14 @@
     });
   }
 
-  function approvalRowsHtml(approvals = []) {
-    if (!approvals.length) return '<div style="font-size:12px;color:#9fb7c7">Hujjat hali imzolovchilarga yuborilmagan.</div>';
-    return `<div class="to-reports-approval-list">${approvals.map((row) => {
+  function approvalRowsHtml(approvals = [], assignedApprovers = []) {
+    const rows = approvals.length
+      ? approvals
+      : assignedApprovers.map((row) => ({ ...row, status: 'Юборилмаган' }));
+    if (!rows.length) return '<div style="font-size:12px;color:#fca5a5">Hujjatga tasdiqlovchilar biriktirilmagan. Asosiy TO oynasida tanlab, Saqlash tugmasini bosing.</div>';
+    return `<div class="to-reports-approval-list">${rows.map((row) => {
       const approved = clean(row.status) === 'Тасдиқланди';
-      return `<div class="to-reports-approval-row"><div><b>${esc(row.fio || '—')}</b><div>${esc(row.position || '')}${row.email ? ` · ${esc(row.email)}` : ''}</div></div><div class="to-reports-approval-status ${approved ? 'approved' : 'pending'}">${esc(row.status || 'Кутилмоқда')}</div></div>`;
+      return `<div class="to-reports-approval-row"><div><b>${esc(row.fio || row.fullName || '—')}</b><div>${esc(row.position || '')}${(row.email || row.gmail) ? ` · ${esc(row.email || row.gmail)}` : ''}</div></div><div class="to-reports-approval-status ${approved ? 'approved' : 'pending'}">${esc(row.status || 'Кутилмоқда')}</div></div>`;
     }).join('')}</div>`;
   }
 
@@ -275,7 +281,11 @@
       document.head.appendChild(css);
     }
     css.textContent = report.a4Css || '';
-    host.innerHTML = `<div class="to-reports-a4-host">${report.a4Html || ''}</div><div class="to-reports-bottom"><div style="font-weight:900">${esc(report.label || '')} · imzolash holati</div>${approvalRowsHtml(report.approvals || [])}<div id="toReportsSendDiagnostic" class="to-reports-diagnostic"></div><div class="to-reports-sendbar"><div id="toReportsSendMsg" class="to-reports-sendmsg">Tayyor A4 hujjat imzolovchilarga individual havola bilan yuboriladi.</div><button id="toReportsSendBtn" class="btn primary" type="button">Хужатни юбориш</button></div></div>`;
+    const assignedCount = Array.isArray(report.assignedApprovers) ? report.assignedApprovers.length : 0;
+    const sendHint = assignedCount
+      ? `Tayyor A4 hujjat ${assignedCount} ta tanlangan imzolovchiga individual havola bilan yuboriladi.`
+      : 'Avval asosiy TO oynasida tasdiqlovchilarni tanlab, Saqlash tugmasini bosing.';
+    host.innerHTML = `<div class="to-reports-a4-host">${report.a4Html || ''}</div><div class="to-reports-bottom"><div style="font-weight:900">${esc(report.label || '')} · imzolash holati</div>${approvalRowsHtml(report.approvals || [], report.assignedApprovers || [])}<div id="toReportsSendDiagnostic" class="to-reports-diagnostic"></div><div class="to-reports-sendbar"><div id="toReportsSendMsg" class="to-reports-sendmsg">${esc(sendHint)}</div><button id="toReportsSendBtn" class="btn primary" type="button">Хужатни юбориш</button></div></div>`;
     $('toReportsSendBtn')?.addEventListener('click', () => void sendCurrent());
     if (state.lastSendResult) {
       if (Number(state.lastSendResult.failed || 0) > 0) showSendDiagnostic(state.lastSendResult);
@@ -325,7 +335,19 @@
     const selected = state.selected;
     if (!selected || state.busy) return;
     const label = state.report?.label || `${selected.year}-${selected.month}`;
-    if (!window.confirm(`${label} TO hujjatini Workspace imzo chekuvchilariga yuborishni tasdiqlaysizmi?`)) return;
+    const assignedApprovers = Array.isArray(state.report?.assignedApprovers) ? state.report.assignedApprovers : [];
+    if (!assignedApprovers.length) {
+      const detail = {
+        code: 'TO_APPROVERS_NOT_ASSIGNED',
+        error: 'Hujjatga tasdiqlovchilar biriktirilmagan.',
+        recommendedFix: 'Asosiy TO oynasida tasdiqlovchilarni tanlang, Saqlash tugmasini bosing va hisobotni qayta oching.',
+      };
+      state.lastSendResult = detail;
+      setSendMessage(detail.error, 'bad');
+      showSendDiagnostic(detail);
+      return;
+    }
+    if (!window.confirm(`${label} TO hujjatini tanlangan ${assignedApprovers.length} ta imzolovchiga Gmail orqali yuborishni tasdiqlaysizmi?`)) return;
     state.busy = true;
     state.lastSendResult = null;
     const button = $('toReportsSendBtn');
