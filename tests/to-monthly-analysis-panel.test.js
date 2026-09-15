@@ -11,7 +11,7 @@ test('TO monthly analysis panel is loaded as section 1', () => {
   assert.match(bridge, /to-monthly-analysis-panel\.js\?v=to-analysis1-period/);
   assert.match(panel, /button\.textContent = '1\. Ойлик анализ'/);
   assert.match(panel, /<h2>1\. Ойлик анализ<\/h2>/);
-  assert.match(app, /modules\/to\.html\?v=20260915-monthly-analysis1/);
+  assert.match(app, /modules\/to\.html\?v=20260915-monthly-analysis2-toolbar/);
 });
 
 test('TO monthly analysis reads selected month from ASOSIY VAROQ', () => {
