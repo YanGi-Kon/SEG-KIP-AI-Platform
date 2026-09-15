@@ -609,17 +609,40 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     return assigned;
   }
   function automaticSignerAssignments(){
+    const assigned=new Map();
+    const usedSignerIds=new Set();
+
+    // Avval hujjat shablonidagi F.I.O. bilan aniq mos signer olinadi.
+    // Bu registrdagi lavozim yozilishi biroz farq qilganda signer slotdan tushib qolishini oldini oladi.
+    AUTO_SIGNER_SLOTS.forEach(slot=>{
+      const preferredName=normalizeSignerText(slot.preferredName);
+      const signer=state.signerRegistry.find(row=>{
+        const id=clean(row.id);
+        return id&&!usedSignerIds.has(id)&&normalizeSignerText(row.fullName||row.fio||'')===preferredName;
+      })||null;
+      if(signer){
+        assigned.set(slot.nameId,signer);
+        usedSignerIds.add(clean(signer.id));
+      }
+    });
+
+    // Qolgan slotlar lavozim bo‘yicha to‘ldiriladi.
     const grouped=new Map();
     state.signerRegistry.forEach(row=>{
+      const id=clean(row.id);
+      if(!id||usedSignerIds.has(id))return;
       const key=signerRoleKey(row); if(!key)return;
       if(!grouped.has(key))grouped.set(key,[]);
       grouped.get(key).push(row);
     });
-    const assigned=new Map();
     [...new Set(AUTO_SIGNER_SLOTS.map(slot=>slot.key))].forEach(key=>{
-      const slots=AUTO_SIGNER_SLOTS.filter(slot=>slot.key===key);
+      const slots=AUTO_SIGNER_SLOTS.filter(slot=>slot.key===key&&!assigned.has(slot.nameId));
       const signers=assignSignersToSlots(grouped.get(key)||[],slots);
-      slots.forEach((slot,index)=>assigned.set(slot.nameId,signers[index]||null));
+      slots.forEach((slot,index)=>{
+        const signer=signers[index]||null;
+        assigned.set(slot.nameId,signer);
+        if(signer)usedSignerIds.add(clean(signer.id));
+      });
     });
     return assigned;
   }
