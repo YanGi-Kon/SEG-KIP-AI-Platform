@@ -148,6 +148,15 @@
     window.setTimeout(() => void syncSelectedPeriod(), 0);
   }
 
+  function loadMonthlyAnalysisPanel() {
+    if (document.getElementById('toMonthlyAnalysisPanelScript')) return;
+    const script = document.createElement('script');
+    script.id = 'toMonthlyAnalysisPanelScript';
+    script.src = '/js/to-monthly-analysis-panel.js?v=to-analysis3-save-gate';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   function loadSignersPanel() {
     if (document.getElementById('toSignersPanelScript')) return;
     const script = document.createElement('script');
@@ -161,7 +170,7 @@
     if (document.getElementById('toReportsPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toReportsPanelScript';
-    script.src = '/js/to-reports-panel.js?v=to-reports2-full-signing';
+    script.src = '/js/to-reports-panel.js?v=to-reports5-complete-signers';
     script.defer = true;
     document.head.appendChild(script);
   }
@@ -205,9 +214,14 @@
   async function syncCurrentPeriodToSheet() {
     const state = journalState();
     if (!state?.period) return;
+    const assignedApprovers = window.ToJournalWorkspace?.getSelectedApprovers?.(
+      state.periodYear,
+      state.periodMonth,
+    ) || [];
+    const payload = assignedApprovers.length ? { assignedApprovers } : {};
     await requestJson(`/api/to/periods/${state.periodYear}/${state.periodMonth}/sync-to-sheet`, {
       method: 'POST',
-      body: '{}',
+      body: JSON.stringify(payload),
     });
     if (window.ToJournalWorkspace?.openSelectedPeriod) {
       await window.ToJournalWorkspace.openSelectedPeriod({ fallbackToSource: false });
@@ -299,6 +313,8 @@
 
   function init() {
     $('toOpenPeriodBtn')?.remove();
+    $('toCreatePeriodBtn')?.remove();
+    loadMonthlyAnalysisPanel();
     loadSignersPanel();
     loadReportsPanel();
     injectDocumentSaveControl();

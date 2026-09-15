@@ -73,6 +73,19 @@ export function deriveToDocumentDate(rows, year, month, requestedDate = '') {
   return `${period.year}-${String(period.month).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
 }
 
+export function normalizeToAssignedApprovers(value = []) {
+  if (!Array.isArray(value)) return [];
+  return value.map((row, index) => ({
+    slot: Number(row?.slot) || index + 1,
+    slotKey: String(row?.slotKey || row?.key || '').trim(),
+    signerId: String(row?.signerId || row?.id || '').trim(),
+    fio: String(row?.fio || row?.fullName || '').trim(),
+    position: String(row?.position || '').trim(),
+    email: String(row?.email || row?.gmail || '').trim(),
+    signatureFileId: String(row?.signatureFileId || row?.signatureUrl || '').trim(),
+  })).filter((row) => row.signerId || row.fio || row.email || row.position);
+}
+
 export function buildToPeriodItems(parsed = {}) {
   const items = [];
   for (const section of parsed.sections || []) {
@@ -116,6 +129,8 @@ export async function createToPeriodFromParsed(input = {}) {
       headerRowNumber: input.parsed?.headerRowNumber || null,
       totalItems: input.parsed?.totalItems || items.length,
       sections: input.parsed?.sections || [],
+      approvalPolicy: 'all-assigned-v2',
+      assignedApprovers: normalizeToAssignedApprovers(input.assignedApprovers),
     },
     items,
     createdBy: input.createdBy || null,

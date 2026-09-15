@@ -8,19 +8,53 @@ const route = fs.readFileSync(new URL('../routes/toPeriodSheetBridge.js', import
 const ui = fs.readFileSync(new URL('../public/js/to-reports-panel.js', import.meta.url), 'utf8');
 const bridge = fs.readFileSync(new URL('../public/js/to-period-sheet-bridge.js', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
+const periodRepo = fs.readFileSync(new URL('../repositories/toPeriodRepository.js', import.meta.url), 'utf8');
+const periodService = fs.readFileSync(new URL('../services/toPeriodService.js', import.meta.url), 'utf8');
+const toRoute = fs.readFileSync(new URL('../routes/to.js', import.meta.url), 'utf8');
+const toModule = fs.readFileSync(new URL('../public/modules/to.html', import.meta.url), 'utf8');
 
-test('TO yangi yuborish raundi barcha faol imzolovchilarni qayta pending holatiga oladi', () => {
-  assert.match(approval, /const targets = \[\.\.\.signers\]/);
-  assert.match(approval, /resetExisting: true/);
-  assert.match(approval, /approved: 0/);
-  assert.match(smtp, /const targets = \[\.\.\.signers\]/);
-  assert.match(smtp, /resetExisting: true/);
-  assert.match(smtp, /approved: 0/);
-  assert.doesNotMatch(approval, /status: 'already-approved'/);
-  assert.doesNotMatch(smtp, /status: 'already-approved'/);
+test('TO yuborish faqat imzosi yo‘q hujjat approverlariga ishlaydi', () => {
+  assert.match(approval, /resolveToPeriodApprovalTargets/);
+  assert.match(approval, /selectUnsignedToPeriodTargets/);
+  assert.match(approval, /const allTargets = resolvedTargets\.targets/);
+  assert.match(approval, /const targets = selectUnsignedToPeriodTargets\(allTargets, current\.rows\)/);
+  assert.match(approval, /const alreadySigned = allTargets\.length - targets\.length/);
+  assert.match(approval, /status: 'already-signed'/);
+  assert.match(approval, /skippedSigned: alreadySigned/);
+  assert.match(smtp, /selectUnsignedToPeriodTargets/);
+  assert.match(smtp, /const allTargets = resolvedTargets\.targets/);
+  assert.match(smtp, /const targets = selectUnsignedToPeriodTargets\(allTargets, approvalState\.rows\)/);
+  assert.match(smtp, /status: 'already-signed'/);
+  assert.doesNotMatch(approval, /const targets = \[\.\.\.signers\]/);
+  assert.doesNotMatch(smtp, /const targets = \[\.\.\.signers\]/);
+});
+test('TO tanlangan approverlar hujjat metadata siga saqlanadi va report shu ro‘yxatni ko‘rsatadi', () => {
+  assert.match(periodRepo, /updateToPeriodApprovalAssignments/);
+  assert.match(periodRepo, /'approvalPolicy', 'all-assigned-v2'/);
+  assert.match(periodRepo, /'assignedApprovers', \$3::jsonb/);
+  assert.match(periodService, /normalizeToAssignedApprovers/);
+  assert.match(periodService, /assignedApprovers: normalizeToAssignedApprovers\(input\.assignedApprovers\)/);
+  assert.match(toRoute, /updateToPeriodApprovalAssignments/);
+  assert.match(toModule, /getSelectedApprovers:selectedApproverAssignments/);
+  assert.match(bridge, /const payload = assignedApprovers\.length \? \{ assignedApprovers \} : \{\}/);
+  assert.match(approval, /completeToPeriodApproverAssignments/);
+  assert.match(approval, /registeredSigners = await listWorkspaceSigners/);
+  assert.match(approval, /assignedApproversForBundle\(bundle\)/);
+  assert.match(ui, /approvalRowsHtml\(report\.approvals \|\| \[\], report\.assignedApprovers \|\| \[\], report\.signerStates \|\| \[\]\)/);
 });
 
-test('TO yangi raunddan oldin barcha email manzillari tekshiriladi', () => {
+test('TO yetishmayotgan signer slotlarini F.I.O. bo‘yicha aktiv registrdan to‘ldiradi', () => {
+  assert.match(approval, /TO_SIGNER_SLOT_DEFINITIONS/);
+  assert.match(approval, /preferredName: 'Мазординов Э\.'/);
+  assert.match(approval, /preferredName: 'Хошимов Б\.'/);
+  assert.match(approval, /preferredName: 'Куйликов Р\. А\.'/);
+  assert.match(approval, /normalizeSignerLookupText/);
+  assert.match(approval, /signerRoleKey/);
+  assert.match(approval, /missingSignerSlots/);
+  assert.match(toModule, /Avval hujjat shablonidagi F\.I\.O\. bilan aniq mos signer olinadi\./);
+});
+
+test('TO yangi raunddan oldin tanlangan imzolovchilarning email manzillari tekshiriladi', () => {
   assert.match(approval, /const invalidRecipients = targets\.filter/);
   assert.match(approval, /EMAIL_INVALID_RECIPIENT/);
   assert.match(smtp, /const invalidRecipients = targets\.filter/);
@@ -38,6 +72,8 @@ test('TO eski approval link yangi yuborishdan keyin qat’iy bekor qilinadi', ()
   assert.match(approval, /row\.signerId === payload\.signerId/);
   assert.match(approval, /clean\(row\.email\)\.toLowerCase\(\) === clean\(payload\.email\)\.toLowerCase\(\)/);
   assert.match(approval, /approval\.tokenHash !== sha256\(token\)/);
+  assert.match(approval, /approvalBelongsToAssignments/);
+  assert.match(approval, /tasdiqlovchi hujjatdan olib tashlangan/);
   assert.match(approval, /bekor qilingan yoki yangilangan/);
   assert.doesNotMatch(approval, /approval\.status !== 'Тасдиқланди'/);
 });
@@ -52,15 +88,26 @@ test('TO public approval status har bir imzolovchi tokeniga alohida bog‘langan
   assert.match(approval, /Ushbu havola:/);
 });
 
-test('TO A4 faqat tasdiqlangan imzolovchi uchun elektron imzo rasmini chiqaradi', () => {
-  assert.match(approval, /createSignatureImageToken/);
-  assert.match(approval, /extractSignatureFileId/);
+test('TO report A4 aynan yaratilgan hujjat tuzilmasini saqlaydi va avtomatik imzolarni ko‘rsatadi', () => {
+  assert.match(approval, /buildToPeriodSignerStates/);
+  assert.match(approval, /automaticSignature/);
+  assert.match(approval, /row\.signed && fileId/);
   assert.match(approval, /\/api\/signature\/render\//);
-  assert.match(approval, /const approved = clean\(row\.status\) === 'Тасдиқланди'/);
-  assert.match(approval, /approved && fileId/);
-  assert.match(approval, /to-a4-signature-image/);
+  assert.match(approval, /TO_SIGNER_ROLE_LABELS/);
+  assert.match(approval, /to-a4-header-text/);
+  assert.match(approval, /to-a4-title-text/);
+  assert.match(approval, /to-a4-signature-list/);
+  assert.match(approval, /to-a4-journal-table/);
+  assert.match(approval, /to-a4-signers-block/);
+  assert.match(approval, /to-a4-signer-row/);
+  assert.match(approval, /@page\{size:A4 portrait/);
+  assert.doesNotMatch(approval, /to-a4-workspace/);
+  assert.match(approval, /unsignedApprovers: signerStates\.filter\(\(row\) => !row\.signed\)\.length/);
+  assert.match(toModule, /Приложение № 2 к Регламенту проведения технического обслуживания/);
+  assert.match(toModule, /class="signature-list"/);
+  assert.match(toModule, /class="journal-table"/);
+  assert.match(toModule, /class="signers-block"/);
 });
-
 test('TO HTTP va SMTP email yuborish provider message ID va audit izini saqlaydi', () => {
   assert.match(approval, /providerMessageId/);
   assert.match(approval, /action: 'DOCUMENT_SENT'/);
@@ -81,8 +128,12 @@ test('TO approval open va approve hodisalari auditga yoziladi', () => {
 test('TO frontend provider qabul qilgan xabarni aniq ko‘rsatadi va cache yangilanadi', () => {
   assert.match(ui, /function showDeliveryTrace/);
   assert.match(ui, /providerMessageId/);
-  assert.match(ui, /email provider tomonidan qabul qilindi/);
+  assert.match(ui, /email provider qabul qildi/);
   assert.match(ui, /Gmail inboxga yetib borishi provider va spam filtrlarga bog‘liq/);
-  assert.match(bridge, /to-reports2-full-signing/);
-  assert.match(server, /to-period-bridge3-auto-signers/);
+  assert.match(ui, /TO_APPROVERS_NOT_ASSIGNED/);
+  assert.match(ui, /faqat avtomatik\/tasdiqlangan imzosi yo‘q/);
+  assert.match(ui, /JSON\.stringify\(\{ assignedApprovers \}\)/);
+  assert.match(ui, /unsignedApprovers/);
+  assert.match(bridge, /to-reports5-complete-signers/);
+  assert.match(server, /to-period-bridge9-complete-signers/);
 });

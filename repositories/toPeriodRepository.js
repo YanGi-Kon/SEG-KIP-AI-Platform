@@ -220,6 +220,23 @@ export async function updateToPeriodSheetState(workspaceId, periodId, input = {}
   return mapPeriod(result.rows[0]);
 }
 
+export async function updateToPeriodApprovalAssignments(workspaceId, periodId, assignedApprovers = []) {
+  const normalized = Array.isArray(assignedApprovers) ? assignedApprovers : [];
+  const result = await query(
+    `UPDATE to_periods
+     SET source_snapshot = COALESCE(source_snapshot, '{}'::jsonb)
+       || jsonb_build_object(
+         'approvalPolicy', 'all-assigned-v2',
+         'assignedApprovers', $3::jsonb
+       ),
+         updated_at = NOW()
+     WHERE workspace_id = $1::uuid AND id = $2::uuid
+     RETURNING ${PERIOD_COLUMNS}`,
+    [workspaceId, periodId, JSON.stringify(normalized)],
+  );
+  return mapPeriod(result.rows[0]);
+}
+
 export async function updateToPeriodItem(workspaceId, periodId, itemId, input = {}) {
   const result = await query(
     `UPDATE to_period_items AS i

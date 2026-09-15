@@ -2,13 +2,14 @@ import express from 'express';
 import { listSheets, readSheetRows, validateServiceAccount } from '../services/googleSheetsService.js';
 import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
 import { requireAccessToken } from '../middleware/auth.js';
-import { updateToPeriodSheetState } from '../repositories/toPeriodRepository.js';
+import { updateToPeriodApprovalAssignments, updateToPeriodSheetState } from '../repositories/toPeriodRepository.js';
 import {
   applyToPeriodSheetParsed,
   createToPeriodFromParsed,
   deriveToDocumentDate,
   getToPeriod,
   listToPeriodSummaries,
+  normalizeToAssignedApprovers,
   normalizeToPeriod,
   patchToPeriodItem,
 } from '../services/toPeriodService.js';
@@ -350,7 +351,15 @@ router.post('/periods', requireToWrite, async (req, res) => {
 
     let result;
     if (existing) {
-      result = { created: false, period: existing.period, items: existing.items };
+      let period = existing.period;
+      if (Array.isArray(req.body?.assignedApprovers)) {
+        period = await updateToPeriodApprovalAssignments(
+          req.workspace.id,
+          existing.period.id,
+          normalizeToAssignedApprovers(req.body.assignedApprovers),
+        ) || existing.period;
+      }
+      result = { created: false, period, items: existing.items };
     } else {
       const sheets = await listSheets(config);
       const sourceSheetName = resolveExistingSheetName(sheets, config.sheetName);
@@ -366,6 +375,7 @@ router.post('/periods', requireToWrite, async (req, res) => {
         sourceSheetName,
         conclusion: req.body?.conclusion,
         parsed,
+        assignedApprovers: normalizeToAssignedApprovers(req.body?.assignedApprovers),
         createdBy: req.auth?.userId || null,
       });
     }
@@ -502,6 +512,13 @@ router.post('/periods/:year/:month/sync-to-sheet', requireToWrite, async (req, r
       syncError: '',
       touchSyncTime: true,
     });
+    if (Array.isArray(req.body?.assignedApprovers)) {
+      await updateToPeriodApprovalAssignments(
+        req.workspace.id,
+        bundle.period.id,
+        normalizeToAssignedApprovers(req.body.assignedApprovers),
+      );
+    }
 
     return res.json({ ok: true, sheetName, ensured, sync });
   } catch (error) {

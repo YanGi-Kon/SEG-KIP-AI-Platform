@@ -32,6 +32,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
 <div class="top-bar">
   <div class="top-actions">
     <button class="btn" onclick="parent.postMessage({type:'SEG_CLOSE_MODULE'}, '*')">← Menyuga qaytish</button>
+    <button id="toMonthlyAnalysisBtn" class="btn workspace-operator-only" type="button" onclick="window.ToMonthlyAnalysis?.open()">1. Ойлик анализ</button>
     <button id="toSettingsBtn" class="btn primary workspace-admin-only" type="button" onclick="ToJournalWorkspace.openSettings()">⚙ Созламалар</button>
   </div>
   <div class="workspace-source">
@@ -420,7 +421,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     try{
       const data=await apiRequest('/api/to/periods',{
         method:'POST',
-        body:{year:state.periodYear,month:state.periodMonth,sheetName:state.sheetName},
+        body:{year:state.periodYear,month:state.periodMonth,sheetName:state.sheetName,assignedApprovers:selectedApproverAssignments()},
         expectedWsId:state.workspaceId
       });
       renderPeriodBundle(data);
@@ -460,8 +461,9 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     setPeriodStatus(`${selectedPeriodLabel()} · Sheets sinxronlanmoqda...`,'sync');
     const action=direction==='from'?'sync-from-sheet':'sync-to-sheet';
     try{
+      const assignedApprovers=selectedApproverAssignments();
       await apiRequest(`/api/to/periods/${state.periodYear}/${state.periodMonth}/${action}`,{
-        method:'POST',body:{},expectedWsId:state.workspaceId
+        method:'POST',body:assignedApprovers.length?{assignedApprovers}:{},expectedWsId:state.workspaceId
       });
       await openSelectedPeriod({fallbackToSource:false});
     }catch(error){
@@ -514,8 +516,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if(!ws||!Number.isInteger(y)||!Number.isInteger(m)||m<1||m>12)return'';
     return `${SIGNER_SELECTION_STORAGE_PREFIX}:${ws}:${y}-${String(m).padStart(2,'0')}`;
   }
-  function readSignerSelections(){
-    const key=signerSelectionStorageKey(); if(!key)return{};
+  function readSignerSelections(workspaceId=state.workspaceId,year=state.periodYear,month=state.periodMonth){
+    const key=signerSelectionStorageKey(workspaceId,year,month); if(!key)return{};
     let raw='';
     try{raw=localStorage.getItem(key)||parentStorage('localStorage',key)||''}catch(_){raw=parentStorage('localStorage',key)||''}
     if(!raw)return{};
@@ -607,19 +609,63 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     return assigned;
   }
   function automaticSignerAssignments(){
+    const assigned=new Map();
+    const usedSignerIds=new Set();
+
+    // Avval hujjat shablonidagi F.I.O. bilan aniq mos signer olinadi.
+    // Bu registrdagi lavozim yozilishi biroz farq qilganda signer slotdan tushib qolishini oldini oladi.
+    AUTO_SIGNER_SLOTS.forEach(slot=>{
+      const preferredName=normalizeSignerText(slot.preferredName);
+      const signer=state.signerRegistry.find(row=>{
+        const id=clean(row.id);
+        return id&&!usedSignerIds.has(id)&&normalizeSignerText(row.fullName||row.fio||'')===preferredName;
+      })||null;
+      if(signer){
+        assigned.set(slot.nameId,signer);
+        usedSignerIds.add(clean(signer.id));
+      }
+    });
+
+    // Qolgan slotlar lavozim bo‘yicha to‘ldiriladi.
     const grouped=new Map();
     state.signerRegistry.forEach(row=>{
+      const id=clean(row.id);
+      if(!id||usedSignerIds.has(id))return;
       const key=signerRoleKey(row); if(!key)return;
       if(!grouped.has(key))grouped.set(key,[]);
       grouped.get(key).push(row);
     });
-    const assigned=new Map();
     [...new Set(AUTO_SIGNER_SLOTS.map(slot=>slot.key))].forEach(key=>{
-      const slots=AUTO_SIGNER_SLOTS.filter(slot=>slot.key===key);
+      const slots=AUTO_SIGNER_SLOTS.filter(slot=>slot.key===key&&!assigned.has(slot.nameId));
       const signers=assignSignersToSlots(grouped.get(key)||[],slots);
-      slots.forEach((slot,index)=>assigned.set(slot.nameId,signers[index]||null));
+      slots.forEach((slot,index)=>{
+        const signer=signers[index]||null;
+        assigned.set(slot.nameId,signer);
+        if(signer)usedSignerIds.add(clean(signer.id));
+      });
     });
     return assigned;
+  }
+  function selectedApproverAssignments(year=state.periodYear,month=state.periodMonth){
+    const saved=readSignerSelections(state.workspaceId,year,month);
+    const automatic=automaticSignerAssignments();
+    return AUTO_SIGNER_SLOTS.map((slot,index)=>{
+      const hasSaved=Object.prototype.hasOwnProperty.call(saved,slot.nameId);
+      const savedId=hasSaved?clean(saved[slot.nameId]):'';
+      const signer=hasSaved
+        ? state.signerRegistry.find(row=>clean(row.id)===savedId)||null
+        : automatic.get(slot.nameId)||null;
+      if(!signer)return null;
+      return {
+        slot:index+1,
+        slotKey:slot.key,
+        signerId:clean(signer.id),
+        fio:clean(signer.fullName||signer.fio),
+        position:clean(signer.position),
+        email:clean(signer.email||signer.gmail),
+        signatureFileId:clean(signer.signatureFileId||signer.signatureUrl)
+      };
+    }).filter(row=>row?.signerId);
   }
   async function applySignerSelectionsForCurrentPeriod(){
     const expectedWsId=state.workspaceId;
@@ -817,7 +863,8 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   window.ToJournalWorkspace={
     state,openSettings,closeSettings,saveSettings,
     reload:()=>Promise.all([loadData(state.workspaceId),loadAutoSigners(state.workspaceId),openSelectedPeriod()]),
-    loadWorkspace,loadAutoSigners,loadKipMasterSigner,applySignerSelectionsForCurrentPeriod,selectSignerForSlot,setInterfaceLanguage,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod
+    loadWorkspace,loadAutoSigners,loadKipMasterSigner,applySignerSelectionsForCurrentPeriod,selectSignerForSlot,setInterfaceLanguage,loadPeriodIndex,openSelectedPeriod,createSelectedPeriod,navigatePeriod,syncPeriod,
+    getSelectedApprovers:selectedApproverAssignments,getSignerSlotCount:()=>AUTO_SIGNER_SLOTS.length
   };
 })();
 </script>
