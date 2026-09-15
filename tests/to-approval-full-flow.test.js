@@ -105,7 +105,7 @@ test('TO approval open va approve hodisalari auditga yoziladi', () => {
 test('TO frontend provider qabul qilgan xabarni aniq ko‘rsatadi va cache yangilanadi', () => {
   assert.match(ui, /function showDeliveryTrace/);
   assert.match(ui, /providerMessageId/);
-  assert.match(ui, /email provider tomonidan qabul qilindi/);
+  assert.match(ui, /email provider qabul qildi/);
   assert.match(ui, /Gmail inboxga yetib borishi provider va spam filtrlarga bog‘liq/);
   assert.match(ui, /TO_APPROVERS_NOT_ASSIGNED/);
   assert.match(ui, /faqat imzosi yo‘q/);
