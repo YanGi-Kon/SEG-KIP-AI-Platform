@@ -66,6 +66,93 @@ function normalizeApproverAssignments(value = []) {
 function assignedApproversForBundle(bundle) {
   return normalizeApproverAssignments(bundle?.period?.sourceSnapshot?.assignedApprovers);
 }
+function normalizeSignerLookupText(value) {
+  return clean(value).toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-яўқғҳ0-9]+/giu, ' ').trim();
+}
+
+const TO_SIGNER_SLOT_DEFINITIONS = [
+  { slot: 1, slotKey: 'department-chief', preferredName: 'Ходжаев С. Х.' },
+  { slot: 2, slotKey: 'kip-chief', preferredName: 'Куйликов Р. А.' },
+  { slot: 3, slotKey: 'kip-master', preferredName: 'Фазилов И. Б.' },
+  { slot: 4, slotKey: 'production-master', preferredName: 'Хошимов Б.' },
+  { slot: 5, slotKey: 'production-master', preferredName: 'Мазординов Э.' },
+  { slot: 6, slotKey: 'ppn-master', preferredName: 'Бакиров У.' },
+  { slot: 7, slotKey: 'ppn-master', preferredName: 'Щоимкулов Ш.' },
+];
+
+function signerRoleKey(row = {}) {
+  const text = normalizeSignerLookupText(row.position || '');
+  if (text.includes('начальник отдела') || text.includes('нач отдела') || text.includes('бўлим бошли') || text.includes('булим бошли')) return 'department-chief';
+  const hasKip = text.includes('кип') || text.includes('kip') || text.includes('нўвваа') || text.includes('нувваа');
+  const isChief = text.includes('начальник') || text.includes('бошли');
+  const isMaster = text.includes('мастер') || text.includes('master') || text.includes('устаси');
+  if (hasKip && isChief) return 'kip-chief';
+  if (hasKip && isMaster) return 'kip-master';
+  const production = text.includes('добыч') || text.includes('қазиб') || text.includes('казиб');
+  if (isMaster && production && (text.includes('цех 1') || text.includes('цех1'))) return 'production-master';
+  if (isMaster && text.includes('ппн') && (text.includes('ппн 1') || text.includes('ппн1'))) return 'ppn-master';
+  return '';
+}
+
+function signerMatchesAssignment(signer, assignment) {
+  const signerId = clean(assignment?.signerId);
+  const email = normalizeApproverText(assignment?.email);
+  const fio = normalizeSignerLookupText(assignment?.fio);
+  return Boolean(
+    (signerId && clean(signer?.id) === signerId)
+    || (email && normalizeApproverText(signer?.email || signer?.gmail) === email)
+    || (fio && normalizeSignerLookupText(signer?.fullName || signer?.fio) === fio)
+  );
+}
+
+function completeToPeriodApproverAssignments(assignments = [], signers = []) {
+  const current = normalizeApproverAssignments(assignments);
+  const active = Array.isArray(signers) ? signers : [];
+  const result = [];
+  const used = new Set();
+
+  for (const def of TO_SIGNER_SLOT_DEFINITIONS) {
+    const existing = current.find((row, index) => (Number(row.slot) || index + 1) === def.slot) || null;
+    let signer = existing
+      ? active.find((row) => signerMatchesAssignment(row, existing) && !used.has(clean(row.id))) || null
+      : null;
+
+    if (!signer) {
+      const preferred = normalizeSignerLookupText(def.preferredName);
+      signer = active.find((row) => {
+        const id = clean(row.id);
+        return id && !used.has(id) && normalizeSignerLookupText(row.fullName || row.fio) === preferred;
+      }) || null;
+    }
+
+    if (!signer) {
+      signer = active.find((row) => {
+        const id = clean(row.id);
+        return id && !used.has(id) && signerRoleKey(row) === def.slotKey;
+      }) || null;
+    }
+
+    if (!signer && existing) {
+      result.push({ ...existing, slot: def.slot, slotKey: def.slotKey });
+      continue;
+    }
+    if (!signer) continue;
+
+    const id = clean(signer.id);
+    if (id) used.add(id);
+    result.push({
+      slot: def.slot,
+      slotKey: def.slotKey,
+      signerId: id,
+      fio: clean(signer.fullName || signer.fio || existing?.fio),
+      position: clean(signer.position || existing?.position),
+      email: clean(signer.email || signer.gmail || existing?.email),
+      signatureFileId: clean(existing?.signatureFileId || signer.signatureFileId || signer.signatureUrl),
+    });
+  }
+  return result;
+}
+
 
 function approvalBelongsToAssignments(approval, assignments = []) {
   if (!assignments.length) return true;
