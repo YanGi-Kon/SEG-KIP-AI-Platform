@@ -209,9 +209,10 @@
       state.periodYear,
       state.periodMonth,
     ) || [];
+    const payload = assignedApprovers.length ? { assignedApprovers } : {};
     await requestJson(`/api/to/periods/${state.periodYear}/${state.periodMonth}/sync-to-sheet`, {
       method: 'POST',
-      body: JSON.stringify({ assignedApprovers }),
+      body: JSON.stringify(payload),
     });
     if (window.ToJournalWorkspace?.openSelectedPeriod) {
       await window.ToJournalWorkspace.openSelectedPeriod({ fallbackToSource: false });
