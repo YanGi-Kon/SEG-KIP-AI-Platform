@@ -380,11 +380,7 @@
     const action = $('toAnalysisDocumentBtn');
     if (action) action.disabled = true;
     try {
-      if (state.period?.period) {
-        await window.ToJournalWorkspace?.openSelectedPeriod?.({ fallbackToSource: false });
-      } else {
-        await window.ToJournalWorkspace?.createSelectedPeriod?.();
-      }
+      await window.ToJournalWorkspace?.openSelectedPeriod?.({ fallbackToSource: true });
       close();
     } catch (error) {
       setMessage(error.message || 'TO hujjatini ochish xatosi', 'bad');
