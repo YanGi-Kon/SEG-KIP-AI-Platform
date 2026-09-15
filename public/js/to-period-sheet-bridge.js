@@ -313,6 +313,7 @@
 
   function init() {
     $('toOpenPeriodBtn')?.remove();
+    $('toCreatePeriodBtn')?.remove();
     loadMonthlyAnalysisPanel();
     loadSignersPanel();
     loadReportsPanel();
