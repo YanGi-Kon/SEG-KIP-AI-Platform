@@ -259,14 +259,16 @@
     });
   }
 
-  function approvalRowsHtml(approvals = [], assignedApprovers = []) {
-    const rows = approvals.length
-      ? approvals
-      : assignedApprovers.map((row) => ({ ...row, status: 'Юборилмаган' }));
+  function approvalRowsHtml(approvals = [], assignedApprovers = [], signerStates = []) {
+    const rows = signerStates.length
+      ? signerStates
+      : approvals.length
+        ? approvals
+        : assignedApprovers.map((row) => ({ ...row, status: row.signatureFileId ? 'Автоматик имзо' : 'Юборилмаган', signed: Boolean(row.signatureFileId) }));
     if (!rows.length) return '<div style="font-size:12px;color:#fca5a5">Hujjatga tasdiqlovchilar biriktirilmagan. Asosiy TO oynasida tanlab, Saqlash tugmasini bosing.</div>';
     return `<div class="to-reports-approval-list">${rows.map((row) => {
-      const approved = clean(row.status) === 'Тасдиқланди';
-      return `<div class="to-reports-approval-row"><div><b>${esc(row.fio || row.fullName || '—')}</b><div>${esc(row.position || '')}${(row.email || row.gmail) ? ` · ${esc(row.email || row.gmail)}` : ''}</div></div><div class="to-reports-approval-status ${approved ? 'approved' : 'pending'}">${esc(row.status || 'Кутилмоқда')}</div></div>`;
+      const signed = Boolean(row.signed) || clean(row.status) === 'Тасдиқланди' || clean(row.status) === 'Автоматик имзо';
+      return `<div class="to-reports-approval-row"><div><b>${esc(row.fio || row.fullName || '—')}</b><div>${esc(row.position || '')}${(row.email || row.gmail) ? ` · ${esc(row.email || row.gmail)}` : ''}</div></div><div class="to-reports-approval-status ${signed ? 'approved' : 'pending'}">${esc(row.status || 'Юборилмаган')}</div></div>`;
     }).join('')}</div>`;
   }
 
@@ -282,10 +284,15 @@
     }
     css.textContent = report.a4Css || '';
     const assignedCount = Array.isArray(report.assignedApprovers) ? report.assignedApprovers.length : 0;
-    const sendHint = assignedCount
-      ? `Tayyor A4 hujjat ${assignedCount} ta tanlangan imzolovchiga individual havola bilan yuboriladi.`
-      : 'Avval asosiy TO oynasida tasdiqlovchilarni tanlab, Saqlash tugmasini bosing.';
-    host.innerHTML = `<div class="to-reports-a4-host">${report.a4Html || ''}</div><div class="to-reports-bottom"><div style="font-weight:900">${esc(report.label || '')} · imzolash holati</div>${approvalRowsHtml(report.approvals || [], report.assignedApprovers || [])}<div id="toReportsSendDiagnostic" class="to-reports-diagnostic"></div><div class="to-reports-sendbar"><div id="toReportsSendMsg" class="to-reports-sendmsg">${esc(sendHint)}</div><button id="toReportsSendBtn" class="btn primary" type="button">Хужатни юбориш</button></div></div>`;
+    const unsignedCount = Number.isFinite(Number(report.unsignedApprovers))
+      ? Number(report.unsignedApprovers)
+      : assignedCount;
+    const sendHint = !assignedCount
+      ? 'Avval asosiy TO oynasida tasdiqlovchilarni tanlab, Saqlash tugmasini bosing.'
+      : unsignedCount > 0
+        ? `Хужатни юбориш faqat imzosi yo‘q ${unsignedCount} ta imzolovchiga xabar yuboradi.`
+        : 'Barcha biriktirilgan imzolovchilarning imzolari mavjud. Yuboriladigan xabar yo‘q.';
+    host.innerHTML = `<div class="to-reports-a4-host">${report.a4Html || ''}</div><div class="to-reports-bottom"><div style="font-weight:900">${esc(report.label || '')} · imzolash holati</div>${approvalRowsHtml(report.approvals || [], report.assignedApprovers || [], report.signerStates || [])}<div id="toReportsSendDiagnostic" class="to-reports-diagnostic"></div><div class="to-reports-sendbar"><div id="toReportsSendMsg" class="to-reports-sendmsg">${esc(sendHint)}</div><button id="toReportsSendBtn" class="btn primary" type="button" ${unsignedCount > 0 ? '' : 'disabled'}>Хужатни юбориш</button></div></div>`;
     $('toReportsSendBtn')?.addEventListener('click', () => void sendCurrent());
     if (state.lastSendResult) {
       if (Number(state.lastSendResult.failed || 0) > 0) showSendDiagnostic(state.lastSendResult);
@@ -336,6 +343,9 @@
     if (!selected || state.busy) return;
     const label = state.report?.label || `${selected.year}-${selected.month}`;
     const assignedApprovers = Array.isArray(state.report?.assignedApprovers) ? state.report.assignedApprovers : [];
+    const unsignedCount = Number.isFinite(Number(state.report?.unsignedApprovers))
+      ? Number(state.report.unsignedApprovers)
+      : assignedApprovers.length;
     if (!assignedApprovers.length) {
       const detail = {
         code: 'TO_APPROVERS_NOT_ASSIGNED',
@@ -347,7 +357,11 @@
       showSendDiagnostic(detail);
       return;
     }
-    if (!window.confirm(`${label} TO hujjatini tanlangan ${assignedApprovers.length} ta imzolovchiga Gmail orqali yuborishni tasdiqlaysizmi?`)) return;
+    if (unsignedCount <= 0) {
+      setSendMessage('Barcha imzolovchilarning imzolari mavjud. Xabar yuborilmadi.', 'ok');
+      return;
+    }
+    if (!window.confirm(`${label} TO hujjatini faqat imzosi yo‘q ${unsignedCount} ta imzolovchiga Gmail orqali yuborishni tasdiqlaysizmi?`)) return;
     state.busy = true;
     state.lastSendResult = null;
     const button = $('toReportsSendBtn');
@@ -361,8 +375,11 @@
       const total = Number.isFinite(Number(result.total)) ? Number(result.total) : sent + failed;
       const provider = clean(result.deliveryMode || result.provider);
       state.lastSendResult = result;
-      const providerText = provider ? ` · ${provider.toUpperCase()}` : '';
-      const summary = `${sent}/${total} ta email provider tomonidan qabul qilindi${failed ? ` · ${failed} ta xatolik` : ''}${providerText}.`;
+      const providerText = provider && provider !== 'none' ? ` · ${provider.toUpperCase()}` : '';
+      const skippedSigned = Number(result.skippedSigned || 0);
+      const summary = result.allSigned
+        ? `Barcha ${skippedSigned} ta imzolovchining imzosi mavjud. Xabar yuborilmadi.`
+        : `${sent}/${total} ta imzosi yo‘q imzolovchiga email provider qabul qildi${skippedSigned ? ` · ${skippedSigned} ta imzosi mavjud, o‘tkazib yuborildi` : ''}${failed ? ` · ${failed} ta xatolik` : ''}${providerText}.`;
       setSendMessage(summary, failed ? 'sync' : 'ok');
       const refreshed = await api(`/reports/${selected.year}/${selected.month}`);
       state.report = refreshed;
