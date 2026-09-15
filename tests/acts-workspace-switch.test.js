@@ -12,7 +12,7 @@ test('Aktlar arxivi Workspace almashtirilganda saqlashsiz yangilanadi', () => {
   assert.match(source, /STALE_WORKSPACE_RESPONSE/);
   assert.match(source, /e\.data\.workspaceId/);
   assert.match(source, /window\.ActsUI=\{state,[^}]*loadReports/);
-  assert.match(app, /\['journal','acts','faults','to','replacement'\]\.includes\(activeModuleName\)/);
+  assert.match(app, /\['journal','acts','faults','to'\]\.includes\(activeModuleName\)/);
 });
 
 test('A4 hujjatdagi imzo PNG doimiy o‘lchamda ko‘rinishi kerak', () => {
