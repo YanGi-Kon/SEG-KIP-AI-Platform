@@ -11,7 +11,11 @@ import { sendSafeEmail, verifySafeEmailTransport } from './emailDiagnosticsServi
 import { hasHttpEmailProvider } from './httpEmailService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
 import { getToPeriodBundle } from '../repositories/toPeriodRepository.js';
-import { sendToPeriodForApproval as sendToPeriodViaHttp } from './toPeriodApprovalService.js';
+import {
+  persistToPeriodApprovalTargets,
+  resolveToPeriodApprovalTargets,
+  sendToPeriodForApproval as sendToPeriodViaHttp,
+} from './toPeriodApprovalService.js';
 
 const APPROVALS_SHEET = 'ҲУЖЖАТ_ТАСДИҚЛАШ';
 const APPROVAL_HEADERS = ['ID', 'ActNo', 'SignerID', 'Lavozimi', 'FIO', 'Gmail', 'Status', 'ApprovalLink', 'TokenHash', 'CreatedAt', 'OpenedAt', 'ApprovedAt', 'IP', 'UserAgent', 'SignatureFileId'];
@@ -171,10 +175,12 @@ async function sendViaSmtp(workspace, year, month, req) {
   if (!bundle) throw makeError('TO_PERIOD_NOT_FOUND', 'TO davri topilmadi', '', 404);
 
   const signers = await listWorkspaceSigners(workspace.id, { includeInactive: false });
-  const targets = [...signers];
-  if (!targets.length) {
-    throw makeError('TO_SIGNERS_NOT_FOUND', 'Bu Workspace uchun faol imzo chekuvchi topilmadi');
-  }
+  const resolvedTargets = resolveToPeriodApprovalTargets(
+    bundle,
+    signers,
+    req?.body?.assignedApprovers,
+  );
+  const targets = resolvedTargets.targets;
   const invalidRecipients = targets.filter((row) => !isEmail(row.email));
   if (invalidRecipients.length) {
     throw makeError(
@@ -184,6 +190,7 @@ async function sendViaSmtp(workspace, year, month, req) {
     );
   }
 
+  await persistToPeriodApprovalTargets(workspace.id, bundle.period, targets);
   const docKey = periodKey(year, month);
   const label = periodLabel(year, month);
   const baseUrl = baseUrlFromRequest(req);
@@ -280,6 +287,8 @@ async function sendViaSmtp(workspace, year, month, req) {
     approved: 0,
     failed: results.filter((row) => row.status === 'email-failed').length,
     results,
+    signersSource: 'assigned_workspace_signers',
+    targetedApprovers: targets.length,
   };
 }
 
