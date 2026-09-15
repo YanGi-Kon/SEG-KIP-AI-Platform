@@ -377,7 +377,7 @@ function sectionRows(items = []) {
   return sections;
 }
 
-export function renderToPeriodA4(bundle, { workspaceName = '', approvals = [] } = {}) {
+export function renderToPeriodA4(bundle, { workspaceName = '', approvals = [], assignedApprovers = [] } = {}) {
   const period = bundle?.period || {};
   const items = Array.isArray(bundle?.items) ? bundle.items : [];
   const sections = sectionRows(items);
@@ -393,14 +393,18 @@ export function renderToPeriodA4(bundle, { workspaceName = '', approvals = [] } 
       bodyRows.push(`<tr><td>${sequence}</td><td>${esc(item.serialNo)}</td><td>${esc(item.equipmentName)}</td><td>${esc(item.positionNo)}</td><td>${esc(item.quantity)}</td><td>${esc(item.technicalState)}</td><td>${esc(item.workType)}</td><td>${esc(item.note)}</td></tr>`);
     }
   }
-  const approvalRows = approvals.length
-    ? `<div class="to-a4-approvals"><div class="to-a4-approval-title">Электрон имзо чекувчилар</div>${approvals.map((row) => {
+  const signerRows = approvals.length
+    ? approvals
+    : normalizeApproverAssignments(assignedApprovers).map((row) => ({ ...row, status: 'Юборилмаган' }));
+  const approvalRows = signerRows.length
+    ? `<div class="to-a4-approvals"><div class="to-a4-approval-title">Электрон имзо чекувчилар</div>${signerRows.map((row) => {
       const approved = clean(row.status) === 'Тасдиқланди';
       const fileId = clean(row.signatureFileId);
+      const pendingLabel = clean(row.status) === 'Юборилмаган' ? 'Юборилмаган' : 'Кутилмоқда';
       const signature = approved && fileId
         ? `<img class="to-a4-signature-image" src="/api/signature/render/${createSignatureImageToken(fileId)}" alt="Имзо">`
-        : `<span class="to-a4-signature-placeholder">${approved ? 'Имзо файли йўқ' : 'Кутилмоқда'}</span>`;
-      return `<div class="to-a4-approval-row"><span class="to-a4-approval-position">${esc(row.position || '')}</span><b class="to-a4-approval-name">${esc(row.fio || '')}</b><span class="to-a4-approval-signature">${signature}</span><span class="to-a4-approval-status">${esc(row.status || 'Кутилмоқда')}${row.approvedAt ? `<small>${esc(row.approvedAt)}</small>` : ''}</span></div>`;
+        : `<span class="to-a4-signature-placeholder">${approved ? 'Имзо файли йўқ' : pendingLabel}</span>`;
+      return `<div class="to-a4-approval-row"><span class="to-a4-approval-position">${esc(row.position || '')}</span><b class="to-a4-approval-name">${esc(row.fio || row.fullName || '')}</b><span class="to-a4-approval-signature">${signature}</span><span class="to-a4-approval-status">${esc(row.status || 'Кутилмоқда')}${row.approvedAt ? `<small>${esc(row.approvedAt)}</small>` : ''}</span></div>`;
     }).join('')}</div>`
     : '';
   return `<article class="to-a4-document">
@@ -451,7 +455,7 @@ export async function getToPeriodReport(workspace, year, month) {
     items: bundle.items,
     approvals,
     assignedApprovers,
-    a4Html: renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals }),
+    a4Html: renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals, assignedApprovers }),
     a4Css: toA4Styles(),
   };
 }
