@@ -170,7 +170,7 @@
     if (document.getElementById('toReportsPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toReportsPanelScript';
-    script.src = '/js/to-reports-panel.js?v=to-reports4-unsigned-only';
+    script.src = '/js/to-reports-panel.js?v=to-reports5-complete-signers';
     script.defer = true;
     document.head.appendChild(script);
   }
