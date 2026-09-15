@@ -84,6 +84,74 @@ function filterApprovalsToAssignments(approvals = [], bundle) {
     : [...approvals];
 }
 
+function approvalForAssignment(assignment, approvals = []) {
+  const signerId = clean(assignment?.signerId || assignment?.id);
+  const email = normalizeApproverText(assignment?.email || assignment?.gmail);
+  const fio = normalizeApproverText(assignment?.fio || assignment?.fullName);
+  return approvals.find((row) => signerId && clean(row?.signerId) === signerId)
+    || approvals.find((row) => email && normalizeApproverText(row?.email || row?.gmail) === email)
+    || approvals.find((row) => fio && normalizeApproverText(row?.fio || row?.fullName) === fio)
+    || null;
+}
+
+export function buildToPeriodSignerStates(assignments = [], approvals = []) {
+  const normalized = normalizeApproverAssignments(assignments);
+  if (!normalized.length) {
+    return (approvals || []).map((row, index) => {
+      const approved = clean(row?.status) === 'Тасдиқланди';
+      return {
+        ...row,
+        slot: Number(row?.slot) || index + 1,
+        automaticSignature: false,
+        signed: approved,
+        signaturePresent: approved && Boolean(clean(row?.signatureFileId)),
+      };
+    });
+  }
+
+  return normalized.map((assignment, index) => {
+    const approval = approvalForAssignment(assignment, approvals);
+    const approved = clean(approval?.status) === 'Тасдиқланди';
+    const automaticFileId = clean(assignment.signatureFileId);
+    const approvalFileId = clean(approval?.signatureFileId);
+    const automaticSignature = Boolean(automaticFileId) && !approved;
+    const signed = approved || Boolean(automaticFileId);
+    const status = approved
+      ? 'Тасдиқланди'
+      : automaticSignature
+        ? 'Автоматик имзо'
+        : clean(approval?.status) || 'Юборилмаган';
+    return {
+      ...assignment,
+      ...(approval || {}),
+      slot: Number(assignment.slot) || index + 1,
+      signerId: clean(assignment.signerId || approval?.signerId),
+      fio: clean(assignment.fio || approval?.fio),
+      position: clean(assignment.position || approval?.position),
+      email: clean(assignment.email || approval?.email || approval?.gmail),
+      signatureFileId: approvalFileId || automaticFileId,
+      status,
+      automaticSignature,
+      signed,
+      signaturePresent: Boolean(approvalFileId || automaticFileId),
+    };
+  });
+}
+
+export function selectUnsignedToPeriodTargets(targets = [], approvals = []) {
+  return (targets || []).filter((signer, index) => {
+    const assignment = {
+      slot: Number(signer?.slot) || index + 1,
+      signerId: clean(signer?.id || signer?.signerId),
+      fio: clean(signer?.fullName || signer?.fio),
+      position: clean(signer?.position),
+      email: clean(signer?.email || signer?.gmail),
+      signatureFileId: clean(signer?.signatureFileId || signer?.signatureUrl),
+    };
+    return !buildToPeriodSignerStates([assignment], approvals)[0]?.signed;
+  });
+}
+
 export function resolveToPeriodApprovalTargets(bundle, signers = [], inputAssignments = []) {
   const persisted = bundle?.period?.sourceSnapshot?.assignedApprovers;
   const requested = normalizeApproverAssignments(
@@ -393,18 +461,15 @@ export function renderToPeriodA4(bundle, { workspaceName = '', approvals = [], a
       bodyRows.push(`<tr><td>${sequence}</td><td>${esc(item.serialNo)}</td><td>${esc(item.equipmentName)}</td><td>${esc(item.positionNo)}</td><td>${esc(item.quantity)}</td><td>${esc(item.technicalState)}</td><td>${esc(item.workType)}</td><td>${esc(item.note)}</td></tr>`);
     }
   }
-  const signerRows = approvals.length
-    ? approvals
-    : normalizeApproverAssignments(assignedApprovers).map((row) => ({ ...row, status: 'Юборилмаган' }));
+  const signerRows = buildToPeriodSignerStates(assignedApprovers, approvals);
   const approvalRows = signerRows.length
     ? `<div class="to-a4-approvals"><div class="to-a4-approval-title">Электрон имзо чекувчилар</div>${signerRows.map((row) => {
       const approved = clean(row.status) === 'Тасдиқланди';
       const fileId = clean(row.signatureFileId);
-      const pendingLabel = clean(row.status) === 'Юборилмаган' ? 'Юборилмаган' : 'Кутилмоқда';
-      const signature = approved && fileId
+      const signature = row.signed && fileId
         ? `<img class="to-a4-signature-image" src="/api/signature/render/${createSignatureImageToken(fileId)}" alt="Имзо">`
-        : `<span class="to-a4-signature-placeholder">${approved ? 'Имзо файли йўқ' : pendingLabel}</span>`;
-      return `<div class="to-a4-approval-row"><span class="to-a4-approval-position">${esc(row.position || '')}</span><b class="to-a4-approval-name">${esc(row.fio || row.fullName || '')}</b><span class="to-a4-approval-signature">${signature}</span><span class="to-a4-approval-status">${esc(row.status || 'Кутилмоқда')}${row.approvedAt ? `<small>${esc(row.approvedAt)}</small>` : ''}</span></div>`;
+        : `<span class="to-a4-signature-placeholder">${approved ? 'Имзо файли йўқ' : clean(row.status) || 'Юборилмаган'}</span>`;
+      return `<div class="to-a4-approval-row"><span class="to-a4-approval-position">${esc(row.position || '')}</span><b class="to-a4-approval-name">${esc(row.fio || row.fullName || '')}</b><span class="to-a4-approval-signature">${signature}</span><span class="to-a4-approval-status">${esc(row.status || 'Юборилмаган')}${row.approvedAt ? `<small>${esc(row.approvedAt)}</small>` : ''}</span></div>`;
     }).join('')}</div>`
     : '';
   return `<article class="to-a4-document">
@@ -448,6 +513,7 @@ export async function getToPeriodReport(workspace, year, month) {
   const docKey = periodKey(year, month);
   const assignedApprovers = assignedApproversForBundle(bundle);
   const approvals = filterApprovalsToAssignments((await approvalRows(workspace, docKey)).rows, bundle);
+  const signerStates = buildToPeriodSignerStates(assignedApprovers, approvals);
   return {
     key: docKey,
     label: periodLabel(year, month),
@@ -455,6 +521,9 @@ export async function getToPeriodReport(workspace, year, month) {
     items: bundle.items,
     approvals,
     assignedApprovers,
+    signerStates,
+    signedApprovers: signerStates.filter((row) => row.signed).length,
+    unsignedApprovers: signerStates.filter((row) => !row.signed).length,
     a4Html: renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals, assignedApprovers }),
     a4Css: toA4Styles(),
   };
