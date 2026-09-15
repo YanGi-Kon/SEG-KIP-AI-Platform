@@ -460,8 +460,9 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     setPeriodStatus(`${selectedPeriodLabel()} · Sheets sinxronlanmoqda...`,'sync');
     const action=direction==='from'?'sync-from-sheet':'sync-to-sheet';
     try{
+      const assignedApprovers=selectedApproverAssignments();
       await apiRequest(`/api/to/periods/${state.periodYear}/${state.periodMonth}/${action}`,{
-        method:'POST',body:{assignedApprovers:selectedApproverAssignments()},expectedWsId:state.workspaceId
+        method:'POST',body:assignedApprovers.length?{assignedApprovers}:{},expectedWsId:state.workspaceId
       });
       await openSelectedPeriod({fallbackToSource:false});
     }catch(error){
