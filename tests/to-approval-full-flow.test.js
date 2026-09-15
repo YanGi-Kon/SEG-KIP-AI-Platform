@@ -39,7 +39,7 @@ test('TO tanlangan approverlar hujjat metadata siga saqlanadi va report shu ro�
   assert.match(periodService, /assignedApprovers: normalizeToAssignedApprovers\(input\.assignedApprovers\)/);
   assert.match(toRoute, /updateToPeriodApprovalAssignments/);
   assert.match(toModule, /getSelectedApprovers:selectedApproverAssignments/);
-  assert.match(bridge, /JSON\.stringify\(\{ assignedApprovers \}\)/);
+  assert.match(bridge, /const payload = assignedApprovers\.length \? \{ assignedApprovers \} : \{\}/);
   assert.match(approval, /assignedApprovers: normalizeApproverAssignments/);
   assert.match(ui, /approvalRowsHtml\(report\.approvals \|\| \[\], report\.assignedApprovers \|\| \[\]\)/);
 });
@@ -62,6 +62,8 @@ test('TO eski approval link yangi yuborishdan keyin qat’iy bekor qilinadi', ()
   assert.match(approval, /row\.signerId === payload\.signerId/);
   assert.match(approval, /clean\(row\.email\)\.toLowerCase\(\) === clean\(payload\.email\)\.toLowerCase\(\)/);
   assert.match(approval, /approval\.tokenHash !== sha256\(token\)/);
+  assert.match(approval, /approvalBelongsToAssignments/);
+  assert.match(approval, /tasdiqlovchi hujjatdan olib tashlangan/);
   assert.match(approval, /bekor qilingan yoki yangilangan/);
   assert.doesNotMatch(approval, /approval\.status !== 'Тасдиқланди'/);
 });
@@ -82,6 +84,8 @@ test('TO A4 faqat tasdiqlangan imzolovchi uchun elektron imzo rasmini chiqaradi'
   assert.match(approval, /\/api\/signature\/render\//);
   assert.match(approval, /const approved = clean\(row\.status\) === 'Тасдиқланди'/);
   assert.match(approval, /approved && fileId/);
+  assert.match(approval, /assignedApprovers = \[\]/);
+  assert.match(approval, /status: 'Юборилмаган'/);
   assert.match(approval, /to-a4-signature-image/);
 });
 
