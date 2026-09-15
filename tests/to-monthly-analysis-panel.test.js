@@ -5,8 +5,12 @@ import fs from 'node:fs';
 const panel = fs.readFileSync(new URL('../public/js/to-monthly-analysis-panel.js', import.meta.url), 'utf8');
 const bridge = fs.readFileSync(new URL('../public/js/to-period-sheet-bridge.js', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+const toModule = fs.readFileSync(new URL('../public/modules/to.html', import.meta.url), 'utf8');
 
 test('TO monthly analysis panel is loaded as section 1', () => {
+  assert.match(toModule, /id="toMonthlyAnalysisBtn"/);
+  assert.match(toModule, />1\. Ойлик анализ<\/button>/);
+  assert.ok(toModule.indexOf('toMonthlyAnalysisBtn') < toModule.indexOf('toSettingsBtn'));
   assert.match(bridge, /loadMonthlyAnalysisPanel/);
   assert.match(bridge, /to-monthly-analysis-panel\.js\?v=to-analysis1-period/);
   assert.match(panel, /button\.textContent = '1\. Ойлик анализ'/);
