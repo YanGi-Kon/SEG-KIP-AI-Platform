@@ -55,6 +55,7 @@ test('TO monthly analysis opens a draft and does not create a report before Save
 
 test('TO Save is the operation that creates the monthly period and refreshes Reports', () => {
   assert.match(bridge, /async function saveCurrentDocument/);
+  assert.match(bridge, /\$\('toCreatePeriodBtn'\)\?\.remove\(\)/);
   assert.match(bridge, /if \(!state\.period\)/);
   assert.match(bridge, /createSelectedPeriod/);
   assert.match(bridge, /refreshReportsAfterSave/);
