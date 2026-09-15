@@ -446,6 +446,32 @@ function sectionRows(items = []) {
   return sections;
 }
 
+const TO_SIGNER_ROLE_LABELS = [
+  'Ответственный от ОАиМ; Начальник отдела',
+  'Ответственный от участок КИПиА; Начальник КИПиА',
+  'Ответственный за выполнение работ; Мастер КИПиА',
+  'Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1',
+  'Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1',
+  'Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1',
+  'Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1',
+];
+
+function toSignerRowsHtml(assignedApprovers = [], approvals = []) {
+  const signerStates = buildToPeriodSignerStates(assignedApprovers, approvals);
+  return TO_SIGNER_ROLE_LABELS.map((role, index) => {
+    const row = signerStates.find((item) => Number(item.slot) === index + 1) || signerStates[index] || {};
+    const fileId = clean(row.signatureFileId);
+    const signature = row.signed && fileId
+      ? `<img src="/api/signature/render/${createSignatureImageToken(fileId)}" alt="${esc(row.fio || row.fullName || '')} imzosi">`
+      : '(Подпись)';
+    return `<div class="to-a4-signer-row">
+      <div class="to-a4-signer-role">${esc(role)}</div>
+      <div class="to-a4-signer-name">${esc(row.fio || row.fullName || '')}</div>
+      <div class="to-a4-signer-sign">${signature}</div>
+    </div>`;
+  }).join('');
+}
+
 export function renderToPeriodA4(bundle, { workspaceName = '', approvals = [], assignedApprovers = [] } = {}) {
   const period = bundle?.period || {};
   const items = Array.isArray(bundle?.items) ? bundle.items : [];
@@ -455,37 +481,65 @@ export function renderToPeriodA4(bundle, { workspaceName = '', approvals = [], a
   const monthName = MONTHS[Number(period.month)] || '';
   const bodyRows = [];
   let sequence = 0;
+
   for (const section of sections) {
-    bodyRows.push(`<tr class="to-group"><td colspan="8">${esc(section.name)}</td></tr>`);
+    bodyRows.push(`<tr><td colspan="8" class="to-a4-group-header">${esc(section.name)}</td></tr>`);
     for (const item of section.items) {
       sequence += 1;
-      bodyRows.push(`<tr><td>${sequence}</td><td>${esc(item.serialNo)}</td><td>${esc(item.equipmentName)}</td><td>${esc(item.positionNo)}</td><td>${esc(item.quantity)}</td><td>${esc(item.technicalState)}</td><td>${esc(item.workType)}</td><td>${esc(item.note)}</td></tr>`);
+      const number = clean(item.no) || String(sequence);
+      bodyRows.push(`<tr>
+        <td>${esc(number)}</td>
+        <td>${esc(item.serialNo)}</td>
+        <td>${esc(item.equipmentName)}</td>
+        <td>${esc(item.positionNo)}</td>
+        <td>${esc(item.quantity)}</td>
+        <td>${esc(item.technicalState)}</td>
+        <td>${esc(item.workType)}</td>
+        <td>${esc(item.note)}</td>
+      </tr>`);
     }
   }
-  const signerRows = buildToPeriodSignerStates(assignedApprovers, approvals);
-  const approvalRows = signerRows.length
-    ? `<div class="to-a4-approvals"><div class="to-a4-approval-title">Электрон имзо чекувчилар</div>${signerRows.map((row) => {
-      const approved = clean(row.status) === 'Тасдиқланди';
-      const fileId = clean(row.signatureFileId);
-      const signature = row.signed && fileId
-        ? `<img class="to-a4-signature-image" src="/api/signature/render/${createSignatureImageToken(fileId)}" alt="Имзо">`
-        : `<span class="to-a4-signature-placeholder">${approved ? 'Имзо файли йўқ' : clean(row.status) || 'Юборилмаган'}</span>`;
-      return `<div class="to-a4-approval-row"><span class="to-a4-approval-position">${esc(row.position || '')}</span><b class="to-a4-approval-name">${esc(row.fio || row.fullName || '')}</b><span class="to-a4-approval-signature">${signature}</span><span class="to-a4-approval-status">${esc(row.status || 'Юборилмаган')}${row.approvedAt ? `<small>${esc(row.approvedAt)}</small>` : ''}</span></div>`;
-    }).join('')}</div>`
-    : '';
+
+  const signerRows = toSignerRowsHtml(assignedApprovers, approvals);
   return `<article class="to-a4-document">
-    <div class="to-a4-regulation">Приложение № 2 к Регламенту проведения технического обслуживания<br>контрольно-измерительных приборов, средств и систем автоматизации<br>на объектах СП ООО «SANEG»<br>«${esc(day)}» ${esc(monthName)} ${esc(period.year)}г. ТПП «Андижан»</div>
-    <div class="to-a4-title">АКТ<br>проведения работ по ТО-1<br>приборов и средств автоматизации ТПП «Андижан» ЦДНГ №1</div>
-    <div class="to-a4-workspace">${workspaceName ? `Workspace: ${esc(workspaceName)}` : ''}</div>
-    <div class="to-a4-preamble">Мы, нижеподписавшиеся, составили настоящий акт о том, что согласно ежегодному графику проведения технического обслуживания СИ, КИПиА и в соответствии с Регламентом по проведению технического обслуживания контрольно-измерительных приборов, средств и систем автоматизации на объектах СП ООО «SANEG», выполнены следующие виды работ:</div>
-    <table class="to-a4-table"><colgroup><col style="width:6%"><col style="width:11%"><col style="width:20%"><col style="width:8%"><col style="width:10%"><col style="width:17%"><col style="width:13%"><col style="width:15%"></colgroup><thead><tr><th>№</th><th>Зав. №</th><th>Наименование оборудования</th><th>Поз.</th><th>кол-во, шт.</th><th>Техническое состояние</th><th>Вид работ</th><th>Примечание</th></tr></thead><tbody>${bodyRows.join('')}</tbody></table>
+    <div class="to-a4-header-text">Приложение № 2 к Регламенту проведения технического обслуживания<br>контрольно-измерительных приборов, средств и систем автоматизации<br>на объектах СП ООО «SANEG»<br>«${esc(day)}» ${esc(monthName)} ${esc(period.year)}г. ТПП «Андижан»</div>
+    <div class="to-a4-title-text">АКТ<br>проведения работ по ТО-1<br>приборов и средств автоматизации ТПП «Андижан» ЦДНГ №1</div>
+    <div class="to-a4-preamble">Мы, нижеподписавшиеся:<br>
+      <div class="to-a4-signature-list">представители ОАиМ ТПП «Андижан» Ходжаев С. Х.<br>представители участок КИПиА Куйликов Р. А.<br>представители участок КИПиА Фазилов И. Б.<br>представители ЦДНГ №1 Хошимов Б., Мазординов Э.<br>представители ППН №1 Бакиров У., Щоимкулов Ш.</div>
+      составили настоящий акт о том, что согласно ежегодному графику проведения технического обслуживания СИ, КИПиА и в соответствии с Регламентом по проведению технического обслуживания контрольно-измерительных приборов, средств и систем автоматизации на объектах СП ООО «SANEG», выполнены следующие виды работ:
+    </div>
+    <table class="to-a4-journal-table">
+      <colgroup><col style="width:6%"><col style="width:11%"><col style="width:20%"><col style="width:8%"><col style="width:10%"><col style="width:17%"><col style="width:13%"><col style="width:15%"></colgroup>
+      <thead><tr><th>№</th><th>Зав. №</th><th>Наименование оборудования</th><th>Поз.</th><th>кол-во, шт.</th><th>Техническое состояние</th><th>Вид работ</th><th>Примечание</th></tr></thead>
+      <tbody>${bodyRows.join('')}</tbody>
+    </table>
     <div class="to-a4-conclusion">${esc(period.conclusion || 'Заключение: оборудование исправно и пригодно к эксплуатации')}</div>
-    ${approvalRows}
+    <div class="to-a4-signers-block">${signerRows}</div>
   </article>`;
 }
 
 export function toA4Styles() {
-  return `.to-a4-document{width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:14mm 16mm 16mm;box-sizing:border-box;font:14px/1.35 "Times New Roman",serif}.to-a4-regulation{text-align:right;font-size:12px;margin-bottom:9mm}.to-a4-title{text-align:center;font-size:18px;font-weight:700;line-height:1.25;margin-bottom:7mm}.to-a4-workspace{text-align:right;font-size:11px;margin-bottom:4mm;color:#475569}.to-a4-preamble{text-align:justify;margin-bottom:5mm}.to-a4-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px}.to-a4-table th,.to-a4-table td{border:1px solid #111;padding:4px;text-align:center;vertical-align:middle;word-break:break-word}.to-a4-table th{background:#f3f4f6;font-weight:700}.to-a4-table .to-group td{text-align:left;font-weight:700;background:#e5e7eb}.to-a4-conclusion{margin-top:7mm;font-weight:700}.to-a4-approvals{margin-top:8mm;display:grid;gap:7px}.to-a4-approval-title{font-weight:700;margin-bottom:3px}.to-a4-approval-row{display:grid;grid-template-columns:1fr 1fr 150px 120px;gap:10px;border-bottom:1px solid #111;padding:5px 0;align-items:center}.to-a4-approval-signature{min-height:54px;display:grid;place-items:center}.to-a4-signature-image{max-width:140px;max-height:52px;object-fit:contain}.to-a4-signature-placeholder{font-size:11px;color:#64748b}.to-a4-approval-status{text-align:right}.to-a4-approval-status small{display:block;font-size:9px;color:#64748b;margin-top:2px}@media(max-width:900px){.to-a4-document{width:100%;min-height:0;padding:24px 18px}.to-a4-table{font-size:10px}.to-a4-approval-row{grid-template-columns:1fr 1fr}.to-a4-approval-status{text-align:left}}`;
+  return `
+    .to-a4-document{width:210mm;min-height:297mm;margin:0 auto;background:#fdfdfd;color:#000;padding:10.6mm 15.9mm;box-sizing:border-box;font-family:"Times New Roman",Times,serif;font-size:16px;line-height:1.5}
+    .to-a4-header-text{text-align:right;font-size:15px;margin-bottom:30px}
+    .to-a4-title-text{text-align:center;font-size:18px;font-weight:bold;margin:30px 0}
+    .to-a4-preamble{font-size:16px;margin-bottom:20px;text-align:justify}
+    .to-a4-signature-list{margin:10px 0 20px;padding-left:0}
+    .to-a4-journal-table{width:100%;border-collapse:collapse;margin-bottom:30px;font-size:14px;table-layout:fixed}
+    .to-a4-journal-table th,.to-a4-journal-table td{border:1px solid #000;padding:6px;text-align:center;vertical-align:middle;word-break:break-word}
+    .to-a4-journal-table th{font-weight:bold;background:#f0f0f0}
+    .to-a4-journal-table .to-a4-group-header{text-align:left;font-weight:bold;background:#e8e8e8;padding-left:10px}
+    .to-a4-conclusion{margin:20px 0 30px;font-size:16px;font-weight:bold}
+    .to-a4-signers-block{display:grid;gap:20px;font-size:16px}
+    .to-a4-signer-row{display:flex;justify-content:space-between;align-items:flex-end;min-height:34px}
+    .to-a4-signer-role{width:45%}
+    .to-a4-signer-name{width:25%;text-align:left}
+    .to-a4-signer-sign{width:25%;border-bottom:1px solid #000;text-align:center;padding-bottom:2px;min-height:30px;display:flex;align-items:flex-end;justify-content:center}
+    .to-a4-signer-sign img{display:block;max-width:150px;max-height:52px;object-fit:contain}
+    @page{size:A4 portrait;margin:0}
+    @media print{html,body{margin:0;padding:0;background:#fff}.to-a4-document{box-shadow:none;page-break-after:auto}}
+    @media(max-width:900px){.to-a4-document{width:100%;min-height:0;padding:24px 18px;overflow:auto}}
+  `;
 }
 
 function publicApprovalPage({ bundle, workspace, approval, approvals = [], token }) {
