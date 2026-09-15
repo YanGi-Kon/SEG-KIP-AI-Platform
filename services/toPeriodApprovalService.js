@@ -187,6 +187,7 @@ export function resolveToPeriodApprovalTargets(bundle, signers = [], inputAssign
       ...signer,
       slot: item.slot,
       slotKey: item.slotKey,
+      signatureFileId: clean(item.signatureFileId || signer.signatureFileId || signer.signatureUrl),
     });
   }
 
@@ -489,7 +490,11 @@ export function toA4Styles() {
 
 function publicApprovalPage({ bundle, workspace, approval, approvals = [], token }) {
   const approved = approval.status === 'Тасдиқланди';
-  const a4 = renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals });
+  const a4 = renderToPeriodA4(bundle, {
+    workspaceName: workspace.name,
+    approvals,
+    assignedApprovers: assignedApproversForBundle(bundle),
+  });
   const expected = {
     approvalId: clean(approval.id),
     signerId: clean(approval.signerId),
