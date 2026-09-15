@@ -14,6 +14,7 @@ import { getToPeriodBundle } from '../repositories/toPeriodRepository.js';
 import {
   persistToPeriodApprovalTargets,
   resolveToPeriodApprovalTargets,
+  selectUnsignedToPeriodTargets,
   sendToPeriodForApproval as sendToPeriodViaHttp,
 } from './toPeriodApprovalService.js';
 
@@ -162,15 +163,6 @@ async function saveApproval(current, existing, input, { resetExisting = false } 
 }
 
 async function sendViaSmtp(workspace, year, month, req) {
-  const transport = await verifySafeEmailTransport();
-  if (!transport?.ok) {
-    throw makeError(
-      transport?.code || 'EMAIL_CONFIG_MISSING',
-      transport?.error || 'Email yuborish sozlanmagan.',
-      transport?.recommendedFix || 'GMAIL_USER/GMAIL_APP_PASSWORD yoki SMTP_USER/SMTP_PASS ni sozlang.',
-    );
-  }
-
   const bundle = await getToPeriodBundle(workspace.id, year, month);
   if (!bundle) throw makeError('TO_PERIOD_NOT_FOUND', 'TO davri topilmadi', '', 404);
 
@@ -180,7 +172,37 @@ async function sendViaSmtp(workspace, year, month, req) {
     signers,
     req?.body?.assignedApprovers,
   );
-  const targets = resolvedTargets.targets;
+  const allTargets = resolvedTargets.targets;
+  await persistToPeriodApprovalTargets(workspace.id, bundle.period, allTargets);
+
+  const docKey = periodKey(year, month);
+  const label = periodLabel(year, month);
+  const approvalState = await approvalRows(workspace, docKey);
+  const targets = selectUnsignedToPeriodTargets(allTargets, approvalState.rows);
+  const alreadySigned = allTargets.length - targets.length;
+
+  if (!targets.length) {
+    return {
+      key: docKey,
+      label,
+      provider: 'none',
+      deliveryMode: 'none',
+      total: 0,
+      sent: 0,
+      approved: alreadySigned,
+      failed: 0,
+      results: allTargets.map((signer) => ({
+        signer: signer.fullName,
+        email: signer.email,
+        status: 'already-signed',
+      })),
+      signersSource: 'assigned_workspace_signers',
+      targetedApprovers: 0,
+      skippedSigned: alreadySigned,
+      allSigned: true,
+    };
+  }
+
   const invalidRecipients = targets.filter((row) => !isEmail(row.email));
   if (invalidRecipients.length) {
     throw makeError(
@@ -190,11 +212,16 @@ async function sendViaSmtp(workspace, year, month, req) {
     );
   }
 
-  await persistToPeriodApprovalTargets(workspace.id, bundle.period, targets);
-  const docKey = periodKey(year, month);
-  const label = periodLabel(year, month);
+  const transport = await verifySafeEmailTransport();
+  if (!transport?.ok) {
+    throw makeError(
+      transport?.code || 'EMAIL_CONFIG_MISSING',
+      transport?.error || 'Email yuborish sozlanmagan.',
+      transport?.recommendedFix || 'GMAIL_USER/GMAIL_APP_PASSWORD yoki SMTP_USER/SMTP_PASS ni sozlang.',
+    );
+  }
+
   const baseUrl = baseUrlFromRequest(req);
-  const approvalState = await approvalRows(workspace, docKey);
   const existingBySigner = new Map(approvalState.rows.map((row) => [clean(row.signerId), row]));
   const results = [];
 
@@ -284,11 +311,13 @@ async function sendViaSmtp(workspace, year, month, req) {
     deliveryMode: 'smtp',
     total: targets.length,
     sent: results.filter((row) => row.status === 'sent').length,
-    approved: 0,
+    approved: alreadySigned,
     failed: results.filter((row) => row.status === 'email-failed').length,
     results,
     signersSource: 'assigned_workspace_signers',
     targetedApprovers: targets.length,
+    skippedSigned: alreadySigned,
+    allSigned: false,
   };
 }
 
