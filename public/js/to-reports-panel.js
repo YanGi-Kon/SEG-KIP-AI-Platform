@@ -287,11 +287,14 @@
     const unsignedCount = Number.isFinite(Number(report.unsignedApprovers))
       ? Number(report.unsignedApprovers)
       : assignedCount;
+    const missingSlots = Number(report.missingSignerSlots || 0);
     const sendHint = !assignedCount
       ? 'Avval asosiy TO oynasida tasdiqlovchilarni tanlab, Saqlash tugmasini bosing.'
       : unsignedCount > 0
-        ? `Хужатни юбориш faqat imzosi yo‘q ${unsignedCount} ta imzolovchiga xabar yuboradi.`
-        : 'Barcha biriktirilgan imzolovchilarning imzolari mavjud. Yuboriladigan xabar yo‘q.';
+        ? `Хужатни юбориш faqat avtomatik/tasdiqlangan imzosi yo‘q ${unsignedCount} ta imzolovchiga xabar yuboradi.`
+        : missingSlots > 0
+          ? `${missingSlots} ta imzolovchi sloti registrdan topilmadi. 5. ИМЗО ЧЕКУВЧИЛАР registrini tekshiring.`
+          : 'Barcha biriktirilgan imzolovchilarning imzolari mavjud. Yuboriladigan xabar yo‘q.';
     host.innerHTML = `<div class="to-reports-a4-host">${report.a4Html || ''}</div><div class="to-reports-bottom"><div style="font-weight:900">${esc(report.label || '')} · imzolash holati</div>${approvalRowsHtml(report.approvals || [], report.assignedApprovers || [], report.signerStates || [])}<div id="toReportsSendDiagnostic" class="to-reports-diagnostic"></div><div class="to-reports-sendbar"><div id="toReportsSendMsg" class="to-reports-sendmsg">${esc(sendHint)}</div><button id="toReportsSendBtn" class="btn primary" type="button" ${unsignedCount > 0 ? '' : 'disabled'}>Хужатни юбориш</button></div></div>`;
     $('toReportsSendBtn')?.addEventListener('click', () => void sendCurrent());
     if (state.lastSendResult) {
@@ -369,7 +372,10 @@
     showSendDiagnostic(null);
     setSendMessage('Hujjat imzolovchilarga yuborilmoqda...', 'sync');
     try {
-      const result = await api(`/reports/${selected.year}/${selected.month}/send`, { method: 'POST', body: '{}' });
+      const result = await api(`/reports/${selected.year}/${selected.month}/send`, {
+        method: 'POST',
+        body: JSON.stringify({ assignedApprovers }),
+      });
       const failed = Number(result.failed || 0);
       const sent = Number(result.sent || 0);
       const total = Number.isFinite(Number(result.total)) ? Number(result.total) : sent + failed;
