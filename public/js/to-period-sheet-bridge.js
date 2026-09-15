@@ -152,7 +152,7 @@
     if (document.getElementById('toMonthlyAnalysisPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toMonthlyAnalysisPanelScript';
-    script.src = '/js/to-monthly-analysis-panel.js?v=to-analysis2-create-action';
+    script.src = '/js/to-monthly-analysis-panel.js?v=to-analysis3-save-gate';
     script.defer = true;
     document.head.appendChild(script);
   }
@@ -170,7 +170,7 @@
     if (document.getElementById('toReportsPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toReportsPanelScript';
-    script.src = '/js/to-reports-panel.js?v=to-reports3-assigned-approvers';
+    script.src = '/js/to-reports-panel.js?v=to-reports4-unsigned-only';
     script.defer = true;
     document.head.appendChild(script);
   }
