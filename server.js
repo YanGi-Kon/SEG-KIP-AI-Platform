@@ -153,7 +153,7 @@ app.get("/", (_req, res, next) => {
 app.get("/modules/to.html", (_req, res, next) => {
   try {
     const html = readFileSync(toHtmlPath, "utf8");
-    const bridgeScript = '<script id="toPeriodSheetBridgeScript" src="/js/to-period-sheet-bridge.js?v=to-period-bridge6-create-action"></script>';
+    const bridgeScript = '<script id="toPeriodSheetBridgeScript" src="/js/to-period-sheet-bridge.js?v=to-period-bridge7-save-gate"></script>';
     const safeHtml = html.includes("toPeriodSheetBridgeScript")
       ? html
       : html.replace("</body>", `${bridgeScript}\n</body>`);
