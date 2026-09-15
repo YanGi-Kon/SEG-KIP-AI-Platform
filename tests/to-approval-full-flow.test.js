@@ -75,15 +75,25 @@ test('TO public approval status har bir imzolovchi tokeniga alohida bog‘langan
   assert.match(approval, /Ushbu havola:/);
 });
 
-test('TO A4 avtomatik PNG imzolarni saqlangan hujjatda ko‘rsatadi', () => {
+test('TO report A4 aynan yaratilgan hujjat tuzilmasini saqlaydi va avtomatik imzolarni ko‘rsatadi', () => {
   assert.match(approval, /buildToPeriodSignerStates/);
   assert.match(approval, /automaticSignature/);
-  assert.match(approval, /status = approved/);
-  assert.match(approval, /'Автоматик имзо'/);
   assert.match(approval, /row\.signed && fileId/);
   assert.match(approval, /\/api\/signature\/render\//);
-  assert.match(approval, /to-a4-signature-image/);
+  assert.match(approval, /TO_SIGNER_ROLE_LABELS/);
+  assert.match(approval, /to-a4-header-text/);
+  assert.match(approval, /to-a4-title-text/);
+  assert.match(approval, /to-a4-signature-list/);
+  assert.match(approval, /to-a4-journal-table/);
+  assert.match(approval, /to-a4-signers-block/);
+  assert.match(approval, /to-a4-signer-row/);
+  assert.match(approval, /@page\{size:A4 portrait/);
+  assert.doesNotMatch(approval, /to-a4-workspace/);
   assert.match(approval, /unsignedApprovers: signerStates\.filter\(\(row\) => !row\.signed\)\.length/);
+  assert.match(toModule, /Приложение № 2 к Регламенту проведения технического обслуживания/);
+  assert.match(toModule, /class="signature-list"/);
+  assert.match(toModule, /class="journal-table"/);
+  assert.match(toModule, /class="signers-block"/);
 });
 test('TO HTTP va SMTP email yuborish provider message ID va audit izini saqlaydi', () => {
   assert.match(approval, /providerMessageId/);
