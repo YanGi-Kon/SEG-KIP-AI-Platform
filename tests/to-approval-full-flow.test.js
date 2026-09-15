@@ -13,24 +13,21 @@ const periodService = fs.readFileSync(new URL('../services/toPeriodService.js', 
 const toRoute = fs.readFileSync(new URL('../routes/to.js', import.meta.url), 'utf8');
 const toModule = fs.readFileSync(new URL('../public/modules/to.html', import.meta.url), 'utf8');
 
-test('TO yangi yuborish raundi faqat hujjatga biriktirilgan imzolovchilarni qayta pending holatiga oladi', () => {
+test('TO yuborish faqat imzosi yo‘q hujjat approverlariga ishlaydi', () => {
   assert.match(approval, /resolveToPeriodApprovalTargets/);
-  assert.match(approval, /sourceSnapshot\?\.assignedApprovers/);
-  assert.match(approval, /const targets = resolvedTargets\.targets/);
-  assert.match(approval, /persistToPeriodApprovalTargets/);
-  assert.match(approval, /resetExisting: true/);
-  assert.match(approval, /approved: 0/);
-  assert.match(smtp, /resolveToPeriodApprovalTargets/);
-  assert.match(smtp, /const targets = resolvedTargets\.targets/);
-  assert.match(smtp, /persistToPeriodApprovalTargets/);
-  assert.match(smtp, /resetExisting: true/);
-  assert.match(smtp, /approved: 0/);
+  assert.match(approval, /selectUnsignedToPeriodTargets/);
+  assert.match(approval, /const allTargets = resolvedTargets\.targets/);
+  assert.match(approval, /const targets = selectUnsignedToPeriodTargets\(allTargets, current\.rows\)/);
+  assert.match(approval, /const alreadySigned = allTargets\.length - targets\.length/);
+  assert.match(approval, /status: 'already-signed'/);
+  assert.match(approval, /skippedSigned: alreadySigned/);
+  assert.match(smtp, /selectUnsignedToPeriodTargets/);
+  assert.match(smtp, /const allTargets = resolvedTargets\.targets/);
+  assert.match(smtp, /const targets = selectUnsignedToPeriodTargets\(allTargets, approvalState\.rows\)/);
+  assert.match(smtp, /status: 'already-signed'/);
   assert.doesNotMatch(approval, /const targets = \[\.\.\.signers\]/);
   assert.doesNotMatch(smtp, /const targets = \[\.\.\.signers\]/);
-  assert.doesNotMatch(approval, /status: 'already-approved'/);
-  assert.doesNotMatch(smtp, /status: 'already-approved'/);
 });
-
 test('TO tanlangan approverlar hujjat metadata siga saqlanadi va report shu ro‘yxatni ko‘rsatadi', () => {
   assert.match(periodRepo, /updateToPeriodApprovalAssignments/);
   assert.match(periodRepo, /'approvalPolicy', 'all-assigned-v2'/);
@@ -41,7 +38,7 @@ test('TO tanlangan approverlar hujjat metadata siga saqlanadi va report shu ro�
   assert.match(toModule, /getSelectedApprovers:selectedApproverAssignments/);
   assert.match(bridge, /const payload = assignedApprovers\.length \? \{ assignedApprovers \} : \{\}/);
   assert.match(approval, /const assignedApprovers = assignedApproversForBundle\(bundle\)/);
-  assert.match(ui, /approvalRowsHtml\(report\.approvals \|\| \[\], report\.assignedApprovers \|\| \[\]\)/);
+  assert.match(ui, /approvalRowsHtml\(report\.approvals \|\| \[\], report\.assignedApprovers \|\| \[\], report\.signerStates \|\| \[\]\)/);
 });
 
 test('TO yangi raunddan oldin tanlangan imzolovchilarning email manzillari tekshiriladi', () => {
@@ -78,17 +75,16 @@ test('TO public approval status har bir imzolovchi tokeniga alohida bog‘langan
   assert.match(approval, /Ushbu havola:/);
 });
 
-test('TO A4 faqat tasdiqlangan imzolovchi uchun elektron imzo rasmini chiqaradi', () => {
-  assert.match(approval, /createSignatureImageToken/);
-  assert.match(approval, /extractSignatureFileId/);
+test('TO A4 avtomatik PNG imzolarni saqlangan hujjatda ko‘rsatadi', () => {
+  assert.match(approval, /buildToPeriodSignerStates/);
+  assert.match(approval, /automaticSignature/);
+  assert.match(approval, /status = approved/);
+  assert.match(approval, /'Автоматик имзо'/);
+  assert.match(approval, /row\.signed && fileId/);
   assert.match(approval, /\/api\/signature\/render\//);
-  assert.match(approval, /const approved = clean\(row\.status\) === 'Тасдиқланди'/);
-  assert.match(approval, /approved && fileId/);
-  assert.match(approval, /assignedApprovers = \[\]/);
-  assert.match(approval, /status: 'Юборилмаган'/);
   assert.match(approval, /to-a4-signature-image/);
+  assert.match(approval, /unsignedApprovers: signerStates\.filter\(\(row\) => !row\.signed\)\.length/);
 });
-
 test('TO HTTP va SMTP email yuborish provider message ID va audit izini saqlaydi', () => {
   assert.match(approval, /providerMessageId/);
   assert.match(approval, /action: 'DOCUMENT_SENT'/);
@@ -112,6 +108,8 @@ test('TO frontend provider qabul qilgan xabarni aniq ko‘rsatadi va cache yangi
   assert.match(ui, /email provider tomonidan qabul qilindi/);
   assert.match(ui, /Gmail inboxga yetib borishi provider va spam filtrlarga bog‘liq/);
   assert.match(ui, /TO_APPROVERS_NOT_ASSIGNED/);
-  assert.match(bridge, /to-reports3-assigned-approvers/);
-  assert.match(server, /to-period-bridge5-monthly-analysis/);
+  assert.match(ui, /faqat imzosi yo‘q/);
+  assert.match(ui, /unsignedApprovers/);
+  assert.match(bridge, /to-reports4-unsigned-only/);
+  assert.match(server, /to-period-bridge7-save-gate/);
 });
