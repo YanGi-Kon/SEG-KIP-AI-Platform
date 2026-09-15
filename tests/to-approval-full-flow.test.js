@@ -40,7 +40,7 @@ test('TO tanlangan approverlar hujjat metadata siga saqlanadi va report shu roâ€
   assert.match(toRoute, /updateToPeriodApprovalAssignments/);
   assert.match(toModule, /getSelectedApprovers:selectedApproverAssignments/);
   assert.match(bridge, /const payload = assignedApprovers\.length \? \{ assignedApprovers \} : \{\}/);
-  assert.match(approval, /assignedApprovers: normalizeApproverAssignments/);
+  assert.match(approval, /const assignedApprovers = assignedApproversForBundle\(bundle\)/);
   assert.match(ui, /approvalRowsHtml\(report\.approvals \|\| \[\], report\.assignedApprovers \|\| \[\]\)/);
 });
 
