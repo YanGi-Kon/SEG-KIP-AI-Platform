@@ -10,7 +10,7 @@ import { appendAudit } from './signatureApprovalService.js';
 import { getHttpEmailSummary, hasHttpEmailProvider, sendHttpEmail } from './httpEmailService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
 import { findWorkspaceById } from '../repositories/workspaceRepository.js';
-import { getToPeriodBundle, listToPeriods } from '../repositories/toPeriodRepository.js';
+import { getToPeriodBundle, listToPeriods, updateToPeriodApprovalAssignments } from '../repositories/toPeriodRepository.js';
 
 const APPROVALS_SHEET = 'ҲУЖЖАТ_ТАСДИҚЛАШ';
 const APPROVAL_HEADERS = ['ID', 'ActNo', 'SignerID', 'Lavozimi', 'FIO', 'Gmail', 'Status', 'ApprovalLink', 'TokenHash', 'CreatedAt', 'OpenedAt', 'ApprovedAt', 'IP', 'UserAgent', 'SignatureFileId'];
@@ -36,6 +36,99 @@ function sha256(value) {
 
 function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean(value));
+}
+
+function normalizeApproverText(value) {
+  return clean(value).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function makeApproverError(code, message, recommendedFix = '') {
+  const error = new Error(message);
+  error.code = code;
+  error.statusCode = 400;
+  error.recommendedFix = recommendedFix;
+  return error;
+}
+
+function normalizeApproverAssignments(value = []) {
+  if (!Array.isArray(value)) return [];
+  return value.map((row, index) => ({
+    slot: Number(row?.slot) || index + 1,
+    slotKey: clean(row?.slotKey || row?.key),
+    signerId: clean(row?.signerId || row?.id),
+    fio: clean(row?.fio || row?.fullName),
+    position: clean(row?.position),
+    email: clean(row?.email || row?.gmail),
+    signatureFileId: clean(row?.signatureFileId || row?.signatureUrl),
+  })).filter((row) => row.signerId || row.fio || row.email || row.position);
+}
+
+export function resolveToPeriodApprovalTargets(bundle, signers = [], inputAssignments = []) {
+  const persisted = bundle?.period?.sourceSnapshot?.assignedApprovers;
+  const requested = normalizeApproverAssignments(
+    Array.isArray(inputAssignments) && inputAssignments.length ? inputAssignments : persisted,
+  );
+  if (!requested.length) {
+    throw makeApproverError(
+      'TO_APPROVERS_NOT_ASSIGNED',
+      'TO hujjatiga tasdiqlovchilar biriktirilmagan. Hujjat oynasida imzolovchilarni tanlab Saqlash tugmasini bosing.',
+      '5. АКТ ВЫПОЛНЕННЫХ РАБОТ oynasida tasdiqlovchilarni tanlang va hujjatni qayta saqlang.',
+    );
+  }
+
+  const resolved = [];
+  const used = new Set();
+  for (const item of requested) {
+    const signerId = clean(item.signerId);
+    const email = normalizeApproverText(item.email);
+    const fio = normalizeApproverText(item.fio);
+    const position = normalizeApproverText(item.position);
+    const signer = signers.find((row) => signerId && clean(row.id) === signerId)
+      || signers.find((row) => email && normalizeApproverText(row.email) === email)
+      || signers.find((row) => fio && position
+        && normalizeApproverText(row.fullName || row.fio) === fio
+        && normalizeApproverText(row.position) === position)
+      || signers.find((row) => fio && normalizeApproverText(row.fullName || row.fio) === fio)
+      || null;
+    if (!signer) continue;
+    const key = clean(signer.id) || normalizeApproverText(signer.email);
+    if (!key || used.has(key)) continue;
+    used.add(key);
+    resolved.push({
+      ...signer,
+      slot: item.slot,
+      slotKey: item.slotKey,
+    });
+  }
+
+  if (resolved.length !== requested.length) {
+    const resolvedSlots = new Set(resolved.map((row) => Number(row.slot)));
+    const missing = requested
+      .filter((row) => !resolvedSlots.has(Number(row.slot)))
+      .map((row) => `#${row.slot} ${row.fio || row.email || row.position || 'tasdiqlovchi'}`)
+      .join(', ');
+    throw makeApproverError(
+      'TO_APPROVERS_NOT_FOUND',
+      `Hujjatdagi barcha tasdiqlovchilar faol registrdan topilmadi: ${missing || `${resolved.length}/${requested.length}`}`,
+      '5. ИМЗО ЧЕКУВЧИЛАР registrini tekshiring va hujjatdagi tasdiqlovchilarni qayta tanlab Saqlash tugmasini bosing.',
+    );
+  }
+
+  return { requested, targets: resolved };
+}
+
+export async function persistToPeriodApprovalTargets(workspaceId, period, targets = []) {
+  if (!period?.id) return period || null;
+  const assignedApprovers = targets.map((signer, index) => ({
+    slot: Number(signer.slot) || index + 1,
+    slotKey: clean(signer.slotKey),
+    signerId: clean(signer.id),
+    fio: clean(signer.fullName || signer.fio),
+    position: clean(signer.position),
+    email: clean(signer.email || signer.gmail),
+    signatureFileId: clean(signer.signatureFileId || signer.signatureUrl),
+  }));
+  return updateToPeriodApprovalAssignments(workspaceId, period.id, assignedApprovers);
 }
 
 function approvalSecret() {
@@ -335,6 +428,7 @@ export async function getToPeriodReport(workspace, year, month) {
     period: bundle.period,
     items: bundle.items,
     approvals,
+    assignedApprovers: normalizeApproverAssignments(bundle.period?.sourceSnapshot?.assignedApprovers),
     a4Html: renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals }),
     a4Css: toA4Styles(),
   };
@@ -356,13 +450,12 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
     throw error;
   }
   const signers = await listWorkspaceSigners(workspace.id, { includeInactive: false });
-  const targets = [...signers];
-  if (!targets.length) {
-    const error = new Error('Bu Workspace uchun faol imzo chekuvchi topilmadi');
-    error.code = 'TO_SIGNERS_NOT_FOUND';
-    error.statusCode = 400;
-    throw error;
-  }
+  const resolvedTargets = resolveToPeriodApprovalTargets(
+    bundle,
+    signers,
+    req?.body?.assignedApprovers,
+  );
+  const targets = resolvedTargets.targets;
   const invalidRecipients = targets.filter((row) => !isEmail(row.email));
   if (invalidRecipients.length) {
     const error = new Error(`Tasdiqlovchi Gmail manzili noto‘g‘ri: ${invalidRecipients.map((row) => clean(row.fullName) || clean(row.email) || 'tasdiqlovchi').join(', ')}`);
@@ -389,6 +482,7 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
       throw error;
     }
   }
+  await persistToPeriodApprovalTargets(workspace.id, bundle.period, targets);
   const docKey = periodKey(year, month);
   const label = periodLabel(year, month);
   const baseUrl = baseUrlFromRequest(req);
@@ -462,6 +556,8 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
     approved: 0,
     failed: results.filter((row) => row.status === 'email-failed').length,
     results,
+    signersSource: 'assigned_workspace_signers',
+    targetedApprovers: targets.length,
   };
 }
 
