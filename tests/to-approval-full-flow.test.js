@@ -113,5 +113,5 @@ test('TO frontend provider qabul qilgan xabarni aniq ko‘rsatadi va cache yangi
   assert.match(ui, /Gmail inboxga yetib borishi provider va spam filtrlarga bog‘liq/);
   assert.match(ui, /TO_APPROVERS_NOT_ASSIGNED/);
   assert.match(bridge, /to-reports3-assigned-approvers/);
-  assert.match(server, /to-period-bridge4-assigned-approvers/);
+  assert.match(server, /to-period-bridge5-monthly-analysis/);
 });
