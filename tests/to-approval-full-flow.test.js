@@ -37,8 +37,21 @@ test('TO tanlangan approverlar hujjat metadata siga saqlanadi va report shu ro�
   assert.match(toRoute, /updateToPeriodApprovalAssignments/);
   assert.match(toModule, /getSelectedApprovers:selectedApproverAssignments/);
   assert.match(bridge, /const payload = assignedApprovers\.length \? \{ assignedApprovers \} : \{\}/);
-  assert.match(approval, /const assignedApprovers = assignedApproversForBundle\(bundle\)/);
+  assert.match(approval, /completeToPeriodApproverAssignments/);
+  assert.match(approval, /registeredSigners = await listWorkspaceSigners/);
+  assert.match(approval, /assignedApproversForBundle\(bundle\)/);
   assert.match(ui, /approvalRowsHtml\(report\.approvals \|\| \[\], report\.assignedApprovers \|\| \[\], report\.signerStates \|\| \[\]\)/);
+});
+
+test('TO yetishmayotgan signer slotlarini F.I.O. bo‘yicha aktiv registrdan to‘ldiradi', () => {
+  assert.match(approval, /TO_SIGNER_SLOT_DEFINITIONS/);
+  assert.match(approval, /preferredName: 'Мазординов Э\.'/);
+  assert.match(approval, /preferredName: 'Хошимов Б\.'/);
+  assert.match(approval, /preferredName: 'Куйликов Р\. А\.'/);
+  assert.match(approval, /normalizeSignerLookupText/);
+  assert.match(approval, /signerRoleKey/);
+  assert.match(approval, /missingSignerSlots/);
+  assert.match(toModule, /Avval hujjat shablonidagi F\.I\.O\. bilan aniq mos signer olinadi\./);
 });
 
 test('TO yangi raunddan oldin tanlangan imzolovchilarning email manzillari tekshiriladi', () => {
@@ -118,8 +131,9 @@ test('TO frontend provider qabul qilgan xabarni aniq ko‘rsatadi va cache yangi
   assert.match(ui, /email provider qabul qildi/);
   assert.match(ui, /Gmail inboxga yetib borishi provider va spam filtrlarga bog‘liq/);
   assert.match(ui, /TO_APPROVERS_NOT_ASSIGNED/);
-  assert.match(ui, /faqat imzosi yo‘q/);
+  assert.match(ui, /faqat avtomatik\/tasdiqlangan imzosi yo‘q/);
+  assert.match(ui, /JSON\.stringify\(\{ assignedApprovers \}\)/);
   assert.match(ui, /unsignedApprovers/);
-  assert.match(bridge, /to-reports4-unsigned-only/);
-  assert.match(server, /to-period-bridge8-save-only/);
+  assert.match(bridge, /to-reports5-complete-signers/);
+  assert.match(server, /to-period-bridge9-complete-signers/);
 });
