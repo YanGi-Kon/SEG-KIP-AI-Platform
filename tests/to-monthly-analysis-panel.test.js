@@ -12,10 +12,10 @@ test('TO monthly analysis panel is loaded as section 1', () => {
   assert.match(toModule, />1\. Ойлик анализ<\/button>/);
   assert.ok(toModule.indexOf('toMonthlyAnalysisBtn') < toModule.indexOf('toSettingsBtn'));
   assert.match(bridge, /loadMonthlyAnalysisPanel/);
-  assert.match(bridge, /to-monthly-analysis-panel\.js\?v=to-analysis2-create-action/);
+  assert.match(bridge, /to-monthly-analysis-panel\.js\?v=to-analysis3-save-gate/);
   assert.match(panel, /button\.textContent = '1\. Ойлик анализ'/);
   assert.match(panel, /<h2>1\. Ойлик анализ<\/h2>/);
-  assert.match(app, /modules\/to\.html\?v=20260915-monthly-analysis3-create-action/);
+  assert.match(app, /modules\/to\.html\?v=20260915-monthly-analysis4-save-gate/);
 });
 
 test('TO monthly analysis reads selected month from ASOSIY VAROQ', () => {
@@ -43,12 +43,22 @@ test('TO monthly analysis adapts Acts flow to one monthly TO document', () => {
   assert.doesNotMatch(panel, /action\.textContent = created \? 'Хужатни очиш'/);
 });
 
-test('TO monthly analysis can open existing period or create a missing period', () => {
-  assert.match(panel, /openSelectedPeriod/);
-  assert.match(panel, /createSelectedPeriod/);
-  assert.match(panel, /applyPeriodToMainView/);
+test('TO monthly analysis opens a draft and does not create a report before Save', () => {
+  assert.match(panel, /openSelectedPeriod\?\.\(\{ fallbackToSource: true \}\)/);
+  assert.doesNotMatch(panel, /createSelectedPeriod\?\.\(/);
+  assert.match(panel, /state\.sections = Array\.isArray\(state\.source\?\.sections\)/);
+  assert.match(panel, /state\.totalItems = Number\(state\.source\?\.totalItems\)/);
+  assert.match(panel, /applySignerSelectionsForCurrentPeriod/);
   assert.match(panel, /state\.periodYear = state\.year/);
   assert.match(panel, /state\.periodMonth = state\.month/);
+});
+
+test('TO Save is the operation that creates the monthly period and refreshes Reports', () => {
+  assert.match(bridge, /async function saveCurrentDocument/);
+  assert.match(bridge, /if \(!state\.period\)/);
+  assert.match(bridge, /createSelectedPeriod/);
+  assert.match(bridge, /refreshReportsAfterSave/);
+  assert.match(bridge, /3\. Хисоботлар га сақланди/);
 });
 
 test('TO monthly analysis table uses TO source row fields', () => {
