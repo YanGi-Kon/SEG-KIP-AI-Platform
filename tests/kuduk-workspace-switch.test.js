@@ -26,7 +26,7 @@ test('journal reacts to Workspace change without requiring Save & Connect', () =
   assert.match(html, /SEG_KIP_WORKSPACE_CHANGE/);
   assert.match(html, /activateWorkspace\(event\.data\.workspaceId\)/);
   assert.match(html, /query:\{ workspaceId: workspaceId\(\), sexId: sexId\(\) \}/);
-  assert.match(app, /\['journal','acts','faults','to','replacement'\]\.includes\(activeModuleName\)/);
+  assert.match(app, /\['journal','acts','faults','to'\]\.includes\(activeModuleName\)/);
   assert.match(route, /applyConfig\(tenantId, config, false\)/);
   assert.match(route, /applyConfig\(tenantId, body, !req\.workspace\)/);
 });

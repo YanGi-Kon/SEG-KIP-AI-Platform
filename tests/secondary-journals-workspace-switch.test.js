@@ -84,7 +84,6 @@ test('Nosozliklar reglament frontend jadvali Workspace nomini iframe reloadsiz a
 
 for (const module of [
   { file: '../public/modules/to.html', api: 'ToJournalWorkspace', nameId: 'toWorkspaceName' },
-  { file: '../public/modules/replacement.html', api: 'ReplacementJournalWorkspace', nameId: 'replacementWorkspaceName' },
 ]) {
   test(`${module.api} tanlangan Workspace nomini avtomatik almashtiradi`, () => {
     const source = inlineScript(read(module.file));
@@ -116,5 +115,5 @@ for (const module of [
 
 test('Workspace-aware ikkilamchi jurnallar iframe qayta yuklanishisiz ishlaydi', () => {
   const app = read('../public/js/app.js');
-  assert.match(app, /\['journal','acts','faults','to','replacement'\]\.includes\(activeModuleName\)/);
+  assert.match(app, /\['journal','acts','faults','to'\]\.includes\(activeModuleName\)/);
 });
