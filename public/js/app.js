@@ -4,7 +4,6 @@ const MODULES = {
   acts: 'modules/acts.html?v=20260901-email-approval-signatures-4',
   faults: 'modules/faults.html?v=20260912-month-year1',
   to: 'modules/to.html?v=20260914-approver-language2',
-  replacement: 'modules/replacement.html',
   openai: 'modules/openai.html',
   users: 'modules/users.html',
   settings: 'modules/settings.html',
@@ -200,7 +199,7 @@ function openModulePage(moduleName, title) {
   const frame = isJournal ? journalFrame : (isFaults ? faultsFrame : genericFrame);
   if (frame && frame.getAttribute('src') !== src) frame.src = src;
   if (page) page.classList.add('active');
-  const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'АКТ ВЫПОЛНЕННЫХ РАБОТ', replacement:'АЛМАШИШ ЖУРНАЛИ', users:'ПОЛЬЗОВАТЕЛИ', roles:'РОЛИ', settings:'НАСТРОЙКИ' };
+  const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'АКТ ВЫПОЛНЕННЫХ РАБОТ', users:'ПОЛЬЗОВАТЕЛИ', roles:'РОЛИ', settings:'НАСТРОЙКИ' };
   setActiveMenu(menuLabels[moduleName] || 'ЖУРНАЛ УЧЕТА');
   setTopbar(title || 'SEG KIP AI Platform — Модул', 'Модул алоҳида HTML файлдан юкланади');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -588,7 +587,7 @@ window.addEventListener('seg-kip:workspace-change', (e) => {
   }
   
   const genericPage = document.getElementById('genericModulePage');
-  if (genericPage?.classList.contains('active') && !['journal','acts','faults','to','replacement'].includes(activeModuleName)) {
+  if (genericPage?.classList.contains('active') && !['journal','acts','faults','to'].includes(activeModuleName)) {
     const frame = document.getElementById('genericModuleFrame');
     if (frame && frame.src) {
       const currentSrc = frame.src;
