@@ -11,12 +11,14 @@ import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess
 import { parseToSheetRows } from './to.js';
 import {
   approveToPeriod,
+  clearToPeriodApprovals,
   getToPeriodApprovalStatus,
   getToPeriodReport,
   listToReportFolders,
   openToPeriodApproval,
 } from '../services/toPeriodApprovalService.js';
 import { sendToPeriodForApprovalWithFallback } from '../services/toPeriodEmailDeliveryService.js';
+import { deleteToPeriod } from '../services/toPeriodService.js';
 
 const router = express.Router();
 
@@ -216,6 +218,27 @@ router.get('/reports/:year/:month', async (req, res) => {
       ok: false,
       error: error?.message || 'TO hisobotini yuklash xatosi',
       code: error?.code || 'TO_REPORT_READ_FAILED',
+    });
+  }
+});
+
+router.delete('/reports/:year/:month', requireToCreate, async (req, res) => {
+  try {
+    const { year, month } = normalizePeriod(req.params.year, req.params.month);
+    const deleted = await deleteToPeriod(req.workspace.id, year, month);
+    const approvals = await clearToPeriodApprovals(req.workspace, year, month)
+      .catch((error) => ({ cleared: 0, warning: error?.message || 'Tasdiqlash qatorlarini tozalash amalga oshmadi' }));
+    return res.json({
+      ok: true,
+      deleted,
+      approvalsCleared: Number(approvals?.cleared || 0),
+      warning: approvals?.warning || '',
+    });
+  } catch (error) {
+    return res.status(Number(error?.statusCode) || 400).json({
+      ok: false,
+      error: error?.message || 'TO hisobotini o‘chirish xatosi',
+      code: error?.code || 'TO_REPORT_DELETE_FAILED',
     });
   }
 });
