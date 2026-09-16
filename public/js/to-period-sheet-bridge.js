@@ -161,7 +161,7 @@
     if (document.getElementById('toFinalDocumentsPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toFinalDocumentsPanelScript';
-    script.src = '/js/to-final-documents-panel.js?v=to-final1-drive';
+    script.src = '/js/to-final-documents-panel.js?v=to-final2-export';
     script.defer = true;
     document.head.appendChild(script);
   }
@@ -170,7 +170,7 @@
     if (document.getElementById('toSignersPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toSignersPanelScript';
-    script.src = '/js/to-signers-panel.js?v=to-signers5-add';
+    script.src = '/js/to-signers-panel.js?v=to-signers6-final-order';
     script.defer = true;
     document.head.appendChild(script);
   }
@@ -179,7 +179,7 @@
     if (document.getElementById('toReportsPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toReportsPanelScript';
-    script.src = '/js/to-reports-panel.js?v=to-reports6-folder-actions';
+    script.src = '/js/to-reports-panel.js?v=to-reports7-final-pdf';
     script.defer = true;
     document.head.appendChild(script);
   }
