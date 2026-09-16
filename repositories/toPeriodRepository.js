@@ -250,6 +250,22 @@ export async function updateToPeriodApprovalAssignments(workspaceId, periodId, a
   return mapPeriod(result.rows[0]);
 }
 
+export async function updateToPeriodFinalPdfState(workspaceId, periodId, finalPdf = {}, { complete = false } = {}) {
+  const normalized = finalPdf && typeof finalPdf === 'object' ? finalPdf : {};
+  const result = await query(
+    `UPDATE to_periods
+     SET source_snapshot = COALESCE(source_snapshot, '{}'::jsonb)
+       || jsonb_build_object('finalPdf', $3::jsonb),
+         status = CASE WHEN $4::boolean THEN 'completed' ELSE status END,
+         completed_at = CASE WHEN $4::boolean THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+         updated_at = NOW()
+     WHERE workspace_id = $1::uuid AND id = $2::uuid
+     RETURNING ${PERIOD_COLUMNS}`,
+    [workspaceId, periodId, JSON.stringify(normalized), Boolean(complete)],
+  );
+  return mapPeriod(result.rows[0]);
+}
+
 export async function updateToPeriodItem(workspaceId, periodId, itemId, input = {}) {
   const result = await query(
     `UPDATE to_period_items AS i
