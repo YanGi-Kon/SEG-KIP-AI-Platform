@@ -110,9 +110,14 @@
       .to-reports-content{display:grid;grid-template-columns:300px minmax(0,1fr);gap:0;min-height:0;flex:1}
       .to-reports-folders{overflow:auto;padding:14px;border-right:1px solid rgba(255,255,255,.09);background:rgba(2,13,25,.5)}
       .to-reports-year{margin:10px 0 7px;color:#a5f3fc;font-weight:900;font-size:13px}
-      .to-reports-folder{width:100%;display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;text-align:left;margin:0 0 8px;padding:11px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:#eaf7ff;border-radius:13px;cursor:pointer}
+      .to-reports-folder{width:100%;display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;margin:0 0 8px;padding:11px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:#eaf7ff;border-radius:13px;cursor:pointer;box-sizing:border-box}
       .to-reports-folder:hover,.to-reports-folder.active{border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.10)}
-      .to-reports-folder-icon{font-size:26px}.to-reports-folder-name{font-weight:900}.to-reports-folder-meta{font-size:10px;color:#9fb7c7;margin-top:3px}.to-reports-folder-state{font-size:10px;color:#fde68a}
+      .to-reports-folder:focus-visible{outline:2px solid #22d3ee;outline-offset:2px}
+      .to-reports-folder-icon{font-size:26px}.to-reports-folder-name{font-weight:900}.to-reports-folder-meta{font-size:10px;color:#9fb7c7;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.to-reports-folder-state{font-size:10px;color:#fde68a}
+      .to-reports-folder-actions{display:flex;align-items:center;gap:5px}
+      .to-reports-folder-action{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.06);color:#eaf7ff;cursor:pointer;font-size:14px;line-height:1;padding:0}
+      .to-reports-folder-action:hover{border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.13)}
+      .to-reports-folder-action.delete:hover{border-color:rgba(248,113,113,.65);background:rgba(127,29,29,.34);color:#fecaca}
       .to-reports-preview{overflow:auto;padding:18px;background:#101827}.to-reports-empty{min-height:100%;display:grid;place-items:center;color:#9fb7c7;text-align:center;padding:40px}
       .to-reports-a4-host{overflow:auto}.to-reports-a4-host .to-a4-document{box-shadow:0 18px 52px rgba(0,0,0,.34)}
       .to-reports-bottom{width:210mm;max-width:100%;margin:14px auto 30px;padding:14px;border:1px solid rgba(34,211,238,.30);border-radius:14px;background:#071427;color:#eaf7ff}
@@ -251,11 +256,32 @@
       <div class="to-reports-year">${year}</div>
       ${periods.sort((a, b) => Number(b.month) - Number(a.month)).map((period) => {
         const active = state.selected && Number(state.selected.year) === Number(period.year) && Number(state.selected.month) === Number(period.month);
-        return `<button class="to-reports-folder${active ? ' active' : ''}" type="button" data-report-year="${esc(period.year)}" data-report-month="${esc(period.month)}"><span class="to-reports-folder-icon">📁</span><span><span class="to-reports-folder-name">${esc(folderLabel(period))}</span><span class="to-reports-folder-meta">${esc(period.monthlySheetName || period.sourceSheetName || 'TO hujjati')}</span></span><span class="to-reports-folder-state">${esc(period.status || 'draft')}</span></button>`;
+        return `<div class="to-reports-folder${active ? ' active' : ''}" role="button" tabindex="0" data-report-year="${esc(period.year)}" data-report-month="${esc(period.month)}"><span class="to-reports-folder-icon">📁</span><span><span class="to-reports-folder-name">${esc(folderLabel(period))}</span><span class="to-reports-folder-meta">${esc(period.monthlySheetName || period.sourceSheetName || 'TO hujjati')}</span></span><span class="to-reports-folder-actions"><button class="to-reports-folder-action edit" type="button" data-report-edit="${esc(period.year)}-${esc(period.month)}" title="Таҳрирлаш" aria-label="${esc(folderLabel(period))} hujjatini tahrirlash">✏️</button><button class="to-reports-folder-action delete" type="button" data-report-delete="${esc(period.year)}-${esc(period.month)}" title="Ўчириш" aria-label="${esc(folderLabel(period))} hujjatini o‘chirish">🗑️</button></span></div>`;
       }).join('')}
     `).join('');
-    host.querySelectorAll('[data-report-year][data-report-month]').forEach((button) => {
-      button.addEventListener('click', () => void openFolder(Number(button.dataset.reportYear), Number(button.dataset.reportMonth)));
+    host.querySelectorAll('.to-reports-folder[data-report-year][data-report-month]').forEach((row) => {
+      const openCurrent = () => void openFolder(Number(row.dataset.reportYear), Number(row.dataset.reportMonth));
+      row.addEventListener('click', openCurrent);
+      row.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openCurrent();
+        }
+      });
+    });
+    host.querySelectorAll('[data-report-edit]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const [year, month] = clean(button.dataset.reportEdit).split('-').map(Number);
+        void editFolder(year, month);
+      });
+    });
+    host.querySelectorAll('[data-report-delete]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const [year, month] = clean(button.dataset.reportDelete).split('-').map(Number);
+        void deleteFolder(year, month);
+      });
     });
   }
 
@@ -323,6 +349,61 @@
       $('toReportsFolders').innerHTML = `<div class="to-reports-empty">${esc(error.message)}</div>`;
     } finally {
       state.busy = false;
+    }
+  }
+
+  async function editFolder(year, month) {
+    const y = Number(year);
+    const m = Number(month);
+    if (!Number.isInteger(y) || !Number.isInteger(m)) return;
+    const workspace = window.ToJournalWorkspace;
+    if (!workspace?.state || typeof workspace.openSelectedPeriod !== 'function') {
+      window.alert('TO hujjatini tahrirlash oynasi topilmadi.');
+      return;
+    }
+
+    const yearSelect = $('toPeriodYear');
+    const monthSelect = $('toPeriodMonth');
+    if (yearSelect && !Array.from(yearSelect.options).some((option) => Number(option.value) === y)) {
+      const option = document.createElement('option');
+      option.value = String(y);
+      option.textContent = String(y);
+      yearSelect.appendChild(option);
+    }
+    if (yearSelect) yearSelect.value = String(y);
+    if (monthSelect) monthSelect.value = String(m);
+    workspace.state.periodYear = y;
+    workspace.state.periodMonth = m;
+
+    close();
+    await workspace.openSelectedPeriod({ fallbackToSource: false });
+    await workspace.applySignerSelectionsForCurrentPeriod?.();
+  }
+
+  async function deleteFolder(year, month) {
+    const y = Number(year);
+    const m = Number(month);
+    const period = state.periods.find((row) => Number(row.year) === y && Number(row.month) === m);
+    const label = period ? folderLabel(period) : `${MONTHS[m] || m} ${y}`;
+    if (!window.confirm(`${label} TO hujjatini o‘chirishni tasdiqlaysizmi? Bu amal hujjat va uning imzolash holatini o‘chiradi.`)) return;
+
+    try {
+      const result = await api(`/reports/${y}/${m}`, { method: 'DELETE' });
+      if (state.selected && Number(state.selected.year) === y && Number(state.selected.month) === m) {
+        state.selected = null;
+        state.report = null;
+        state.lastSendResult = null;
+        $('toReportsPreview').innerHTML = '<div class="to-reports-empty">Hujjat o‘chirildi. Kerakli oy papkasini tanlang.</div>';
+      }
+      await loadFolders();
+
+      const workspace = window.ToJournalWorkspace;
+      if (workspace?.state && Number(workspace.state.periodYear) === y && Number(workspace.state.periodMonth) === m) {
+        await workspace.openSelectedPeriod?.({ fallbackToSource: true });
+      }
+      if (clean(result?.warning)) window.alert(`Hujjat o‘chirildi. Eslatma: ${result.warning}`);
+    } catch (error) {
+      window.alert(error.message || 'TO hujjatini o‘chirish xatosi');
     }
   }
 
@@ -435,5 +516,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 
-  window.ToJournalReports = { open, close, loadFolders, openFolder, sendCurrent, showSendDiagnostic, showDeliveryTrace, state };
+  window.ToJournalReports = { open, close, loadFolders, openFolder, editFolder, deleteFolder, sendCurrent, showSendDiagnostic, showDeliveryTrace, state };
 })();
