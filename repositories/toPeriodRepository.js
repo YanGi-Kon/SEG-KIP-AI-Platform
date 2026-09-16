@@ -108,6 +108,19 @@ export async function getToPeriodByKey(workspaceId, year, month, client = null) 
   return mapPeriod(result.rows[0]);
 }
 
+export async function deleteToPeriodByKey(workspaceId, year, month) {
+  const result = await query(
+    `DELETE FROM to_periods
+     WHERE workspace_id = $1::uuid
+       AND period_year = $2::smallint
+       AND period_month = $3::smallint
+       AND status = 'draft'
+     RETURNING ${PERIOD_COLUMNS}`,
+    [workspaceId, Number(year), Number(month)],
+  );
+  return mapPeriod(result.rows[0]);
+}
+
 export async function getToPeriodById(workspaceId, periodId, client = null) {
   const result = await executor(client).query(
     `SELECT ${PERIOD_COLUMNS}
