@@ -7,6 +7,7 @@ import {
   failFinalPdfExport,
 } from '../repositories/outboxRepository.js';
 import { finalizeApprovedActExport } from './finalPdfExportService.js';
+import { finalizeApprovedToPeriodExport } from './toPeriodFinalPdfExportService.js';
 
 const PERMANENT_ERRORS = new Set([
   'APPROVAL_WORKSPACE_CONTEXT_REQUIRED',
@@ -39,6 +40,8 @@ const PERMANENT_ERRORS = new Set([
   'WORKSPACE_ENCRYPTION_KEY_REQUIRED',
   'WORKSPACE_SECRET_INVALID',
   'WORKSPACE_SECRET_DECRYPT_FAILED',
+  'TO_PERIOD_NOT_FOUND',
+  'TO_FINAL_PDF_NOT_READY',
 ]);
 
 let timer = null;
@@ -51,7 +54,9 @@ export function isRetryableFinalPdfError(error) {
 async function processClaimedFinalPdfExport(job) {
   if (!job) return null;
   try {
-    const result = await finalizeApprovedActExport(job.payload);
+    const result = String(job.payload?.module || '').toUpperCase() === 'TO'
+      ? await finalizeApprovedToPeriodExport(job.payload)
+      : await finalizeApprovedActExport(job.payload);
     if (result?.status === 'EXPORTED') {
       return completeFinalPdfExport(job.id, result);
     }
