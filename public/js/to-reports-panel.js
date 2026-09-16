@@ -191,6 +191,7 @@
       EMAIL_RATE_LIMITED: 'Email provider vaqtincha rate-limitga tushdi.',
       TO_APPROVERS_NOT_ASSIGNED: 'Hujjatga tasdiqlovchilar biriktirilmagan.',
       TO_APPROVERS_NOT_FOUND: 'Hujjatdagi ayrim tasdiqlovchilar faol registrdan topilmadi.',
+      FINAL_DOCUMENTS_FOLDER_ID_REQUIRED: 'Yakuniy PDF uchun Google Drive papkasi sozlanmagan.',
     };
     return map[code] || clean(data.error) || 'Email yuborilmadi.';
   }
@@ -202,6 +203,7 @@
     if (code === 'EMAIL_CONFIG_MISSING' || code === 'EMAIL_HTTP_NOT_CONFIGURED') return 'AKTLAR JURNALI uchun ishlayotgan GMAIL_USER/GMAIL_APP_PASSWORD yoki SMTP_USER/SMTP_PASS sozlamasi TO moduliga ham server environment orqali mavjud bo‘lishi kerak.';
     if (code === 'EMAIL_INVALID_RECIPIENT') return '5. TO JURNALI umumiy imzo chekuvchilar ro‘yxatida Gmail manzilini tekshiring.';
     if (code === 'TO_APPROVERS_NOT_ASSIGNED' || code === 'TO_APPROVERS_NOT_FOUND') return '5. АКТ ВЫПОЛНЕННЫХ РАБОТ oynasida tasdiqlovchilarni tanlang, Saqlash tugmasini bosing va hisobotni qayta oching.';
+    if (code === 'FINAL_DOCUMENTS_FOLDER_ID_REQUIRED') return '6. ЯКУНИЙ ҲУЖЖАТЛАР bo‘limida Google Drive papka URL yoki ID ni kiriting va Текшириш tugmasini bosing.';
     return 'Email provider yoki Gmail/SMTP sozlamasini tekshiring.';
   }
 
@@ -256,7 +258,11 @@
       <div class="to-reports-year">${year}</div>
       ${periods.sort((a, b) => Number(b.month) - Number(a.month)).map((period) => {
         const active = state.selected && Number(state.selected.year) === Number(period.year) && Number(state.selected.month) === Number(period.month);
-        return `<div class="to-reports-folder${active ? ' active' : ''}" role="button" tabindex="0" data-report-year="${esc(period.year)}" data-report-month="${esc(period.month)}"><span class="to-reports-folder-icon">📁</span><span><span class="to-reports-folder-name">${esc(folderLabel(period))}</span><span class="to-reports-folder-meta">${esc(period.monthlySheetName || period.sourceSheetName || 'TO hujjati')}</span></span><span class="to-reports-folder-actions"><button class="to-reports-folder-action edit" type="button" data-report-edit="${esc(period.year)}-${esc(period.month)}" title="Таҳрирлаш" aria-label="${esc(folderLabel(period))} hujjatini tahrirlash">✏️</button><button class="to-reports-folder-action delete" type="button" data-report-delete="${esc(period.year)}-${esc(period.month)}" title="Ўчириш" aria-label="${esc(folderLabel(period))} hujjatini o‘chirish">🗑️</button></span></div>`;
+        const isDraft = clean(period.status || 'draft') === 'draft';
+        const actionsHtml = isDraft
+          ? `<span class="to-reports-folder-actions"><button class="to-reports-folder-action edit" type="button" data-report-edit="${esc(period.year)}-${esc(period.month)}" title="Таҳрирлаш" aria-label="${esc(folderLabel(period))} hujjatini tahrirlash">✏️</button><button class="to-reports-folder-action delete" type="button" data-report-delete="${esc(period.year)}-${esc(period.month)}" title="Ўчириш" aria-label="${esc(folderLabel(period))} hujjatini o‘chirish">🗑️</button></span>`
+          : `<span class="to-reports-folder-state">final</span>`;
+        return `<div class="to-reports-folder${active ? ' active' : ''}" role="button" tabindex="0" data-report-year="${esc(period.year)}" data-report-month="${esc(period.month)}"><span class="to-reports-folder-icon">📁</span><span><span class="to-reports-folder-name">${esc(folderLabel(period))}</span><span class="to-reports-folder-meta">${esc(period.monthlySheetName || period.sourceSheetName || 'TO hujjati')}</span></span>${actionsHtml}</div>`;
       }).join('')}
     `).join('');
     host.querySelectorAll('.to-reports-folder[data-report-year][data-report-month]').forEach((row) => {
@@ -309,6 +315,14 @@
       document.head.appendChild(css);
     }
     css.textContent = report.a4Css || '';
+    const finalPdf = report.finalPdf && typeof report.finalPdf === 'object' ? report.finalPdf : {};
+    const finalPdfStatus = clean(finalPdf.status);
+    const finalPdfHtml = finalPdfStatus === 'EXPORTED' && clean(finalPdf.url)
+      ? `<div class="to-reports-diagnostic show ok"><div class="to-reports-diagnostic-title">✅ Якуний A4 PDF Drive'га сақланган</div><div class="to-reports-delivery-row"><a href="${esc(finalPdf.url)}" target="_blank" rel="noopener noreferrer" style="color:#a5f3fc;font-weight:800">Якуний PDF ни очиш</a>${finalPdf.approvedAt ? ` · ${esc(finalPdf.approvedAt)}` : ''}</div></div>`
+      : finalPdfStatus === 'EXPORT_FAILED'
+        ? `<div class="to-reports-diagnostic show"><div class="to-reports-diagnostic-title">Yakuniy PDF export xatosi</div><div>${esc(finalPdf.errorMessage || finalPdf.errorCode || 'Export bajarilmadi')}</div></div>`
+        : '';
+
     const assignedCount = Array.isArray(report.assignedApprovers) ? report.assignedApprovers.length : 0;
     const unsignedCount = Number.isFinite(Number(report.unsignedApprovers))
       ? Number(report.unsignedApprovers)
@@ -321,7 +335,7 @@
         : missingSlots > 0
           ? `${missingSlots} ta imzolovchi sloti registrdan topilmadi. 5. ИМЗО ЧЕКУВЧИЛАР registrini tekshiring.`
           : 'Barcha biriktirilgan imzolovchilarning imzolari mavjud. Yuboriladigan xabar yo‘q.';
-    host.innerHTML = `<div class="to-reports-a4-host">${report.a4Html || ''}</div><div class="to-reports-bottom"><div style="font-weight:900">${esc(report.label || '')} · imzolash holati</div>${approvalRowsHtml(report.approvals || [], report.assignedApprovers || [], report.signerStates || [])}<div id="toReportsSendDiagnostic" class="to-reports-diagnostic"></div><div class="to-reports-sendbar"><div id="toReportsSendMsg" class="to-reports-sendmsg">${esc(sendHint)}</div><button id="toReportsSendBtn" class="btn primary" type="button" ${unsignedCount > 0 ? '' : 'disabled'}>Хужатни юбориш</button></div></div>`;
+    host.innerHTML = `<div class="to-reports-a4-host">${report.a4Html || ''}</div><div class="to-reports-bottom"><div style="font-weight:900">${esc(report.label || '')} · imzolash holati</div>${approvalRowsHtml(report.approvals || [], report.assignedApprovers || [], report.signerStates || [])}${finalPdfHtml}<div id="toReportsSendDiagnostic" class="to-reports-diagnostic"></div><div class="to-reports-sendbar"><div id="toReportsSendMsg" class="to-reports-sendmsg">${esc(sendHint)}</div><button id="toReportsSendBtn" class="btn primary" type="button" ${unsignedCount > 0 ? '' : 'disabled'}>Хужатни юбориш</button></div></div>`;
     $('toReportsSendBtn')?.addEventListener('click', () => void sendCurrent());
     if (state.lastSendResult) {
       if (Number(state.lastSendResult.failed || 0) > 0) showSendDiagnostic(state.lastSendResult);
