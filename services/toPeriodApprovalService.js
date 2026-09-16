@@ -10,7 +10,7 @@ import { appendAudit } from './signatureApprovalService.js';
 import { getHttpEmailSummary, hasHttpEmailProvider, sendHttpEmail } from './httpEmailService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
 import { findWorkspaceById } from '../repositories/workspaceRepository.js';
-import { getToPeriodBundle, listToPeriods } from '../repositories/toPeriodRepository.js';
+import { getToPeriodBundle, listToPeriods, updateToPeriodApprovalAssignments } from '../repositories/toPeriodRepository.js';
 
 const APPROVALS_SHEET = 'ҲУЖЖАТ_ТАСДИҚЛАШ';
 const APPROVAL_HEADERS = ['ID', 'ActNo', 'SignerID', 'Lavozimi', 'FIO', 'Gmail', 'Status', 'ApprovalLink', 'TokenHash', 'CreatedAt', 'OpenedAt', 'ApprovedAt', 'IP', 'UserAgent', 'SignatureFileId'];
@@ -36,6 +36,276 @@ function sha256(value) {
 
 function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean(value));
+}
+
+function normalizeApproverText(value) {
+  return clean(value).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function makeApproverError(code, message, recommendedFix = '') {
+  const error = new Error(message);
+  error.code = code;
+  error.statusCode = 400;
+  error.recommendedFix = recommendedFix;
+  return error;
+}
+
+function normalizeApproverAssignments(value = []) {
+  if (!Array.isArray(value)) return [];
+  return value.map((row, index) => ({
+    slot: Number(row?.slot) || index + 1,
+    slotKey: clean(row?.slotKey || row?.key),
+    signerId: clean(row?.signerId || row?.id),
+    fio: clean(row?.fio || row?.fullName),
+    position: clean(row?.position),
+    email: clean(row?.email || row?.gmail),
+    signatureFileId: clean(row?.signatureFileId || row?.signatureUrl),
+  })).filter((row) => row.signerId || row.fio || row.email || row.position);
+}
+
+function assignedApproversForBundle(bundle) {
+  return normalizeApproverAssignments(bundle?.period?.sourceSnapshot?.assignedApprovers);
+}
+function normalizeSignerLookupText(value) {
+  return clean(value).toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-яўқғҳ0-9]+/giu, ' ').trim();
+}
+
+const TO_SIGNER_SLOT_DEFINITIONS = [
+  { slot: 1, slotKey: 'department-chief', preferredName: 'Ходжаев С. Х.' },
+  { slot: 2, slotKey: 'kip-chief', preferredName: 'Куйликов Р. А.' },
+  { slot: 3, slotKey: 'kip-master', preferredName: 'Фазилов И. Б.' },
+  { slot: 4, slotKey: 'production-master', preferredName: 'Хошимов Б.' },
+  { slot: 5, slotKey: 'production-master', preferredName: 'Мазординов Э.' },
+  { slot: 6, slotKey: 'ppn-master', preferredName: 'Бакиров У.' },
+  { slot: 7, slotKey: 'ppn-master', preferredName: 'Щоимкулов Ш.' },
+];
+
+function signerRoleKey(row = {}) {
+  const text = normalizeSignerLookupText(row.position || '');
+  if (text.includes('начальник отдела') || text.includes('нач отдела') || text.includes('бўлим бошли') || text.includes('булим бошли')) return 'department-chief';
+  const hasKip = text.includes('кип') || text.includes('kip') || text.includes('нўвваа') || text.includes('нувваа');
+  const isChief = text.includes('начальник') || text.includes('бошли');
+  const isMaster = text.includes('мастер') || text.includes('master') || text.includes('устаси');
+  if (hasKip && isChief) return 'kip-chief';
+  if (hasKip && isMaster) return 'kip-master';
+  const production = text.includes('добыч') || text.includes('қазиб') || text.includes('казиб');
+  if (isMaster && production && (text.includes('цех 1') || text.includes('цех1'))) return 'production-master';
+  if (isMaster && text.includes('ппн') && (text.includes('ппн 1') || text.includes('ппн1'))) return 'ppn-master';
+  return '';
+}
+
+function signerMatchesAssignment(signer, assignment) {
+  const signerId = clean(assignment?.signerId);
+  const email = normalizeApproverText(assignment?.email);
+  const fio = normalizeSignerLookupText(assignment?.fio);
+  return Boolean(
+    (signerId && clean(signer?.id) === signerId)
+    || (email && normalizeApproverText(signer?.email || signer?.gmail) === email)
+    || (fio && normalizeSignerLookupText(signer?.fullName || signer?.fio) === fio)
+  );
+}
+
+function completeToPeriodApproverAssignments(assignments = [], signers = []) {
+  const current = normalizeApproverAssignments(assignments);
+  const active = Array.isArray(signers) ? signers : [];
+  const result = [];
+  const used = new Set();
+
+  for (const def of TO_SIGNER_SLOT_DEFINITIONS) {
+    const existing = current.find((row, index) => (Number(row.slot) || index + 1) === def.slot) || null;
+    let signer = existing
+      ? active.find((row) => signerMatchesAssignment(row, existing) && !used.has(clean(row.id))) || null
+      : null;
+
+    if (!signer) {
+      const preferred = normalizeSignerLookupText(def.preferredName);
+      signer = active.find((row) => {
+        const id = clean(row.id);
+        return id && !used.has(id) && normalizeSignerLookupText(row.fullName || row.fio) === preferred;
+      }) || null;
+    }
+
+    if (!signer) {
+      signer = active.find((row) => {
+        const id = clean(row.id);
+        return id && !used.has(id) && signerRoleKey(row) === def.slotKey;
+      }) || null;
+    }
+
+    if (!signer && existing) {
+      result.push({ ...existing, slot: def.slot, slotKey: def.slotKey });
+      continue;
+    }
+    if (!signer) continue;
+
+    const id = clean(signer.id);
+    if (id) used.add(id);
+    result.push({
+      slot: def.slot,
+      slotKey: def.slotKey,
+      signerId: id,
+      fio: clean(signer.fullName || signer.fio || existing?.fio),
+      position: clean(signer.position || existing?.position),
+      email: clean(signer.email || signer.gmail || existing?.email),
+      signatureFileId: clean(existing?.signatureFileId || signer.signatureFileId || signer.signatureUrl),
+    });
+  }
+  return result;
+}
+
+
+function approvalBelongsToAssignments(approval, assignments = []) {
+  if (!assignments.length) return true;
+  const signerId = clean(approval?.signerId);
+  const email = normalizeApproverText(approval?.email || approval?.gmail);
+  return assignments.some((row) => (
+    (row.signerId && signerId && clean(row.signerId) === signerId)
+    || (row.email && email && normalizeApproverText(row.email) === email)
+  ));
+}
+
+function filterApprovalsToAssignments(approvals = [], bundle) {
+  const assignments = assignedApproversForBundle(bundle);
+  return assignments.length
+    ? approvals.filter((row) => approvalBelongsToAssignments(row, assignments))
+    : [...approvals];
+}
+
+function approvalForAssignment(assignment, approvals = []) {
+  const signerId = clean(assignment?.signerId || assignment?.id);
+  const email = normalizeApproverText(assignment?.email || assignment?.gmail);
+  const fio = normalizeApproverText(assignment?.fio || assignment?.fullName);
+  return approvals.find((row) => signerId && clean(row?.signerId) === signerId)
+    || approvals.find((row) => email && normalizeApproverText(row?.email || row?.gmail) === email)
+    || approvals.find((row) => fio && normalizeApproverText(row?.fio || row?.fullName) === fio)
+    || null;
+}
+
+export function buildToPeriodSignerStates(assignments = [], approvals = []) {
+  const normalized = normalizeApproverAssignments(assignments);
+  if (!normalized.length) {
+    return (approvals || []).map((row, index) => {
+      const approved = clean(row?.status) === 'Тасдиқланди';
+      return {
+        ...row,
+        slot: Number(row?.slot) || index + 1,
+        automaticSignature: false,
+        signed: approved,
+        signaturePresent: approved && Boolean(clean(row?.signatureFileId)),
+      };
+    });
+  }
+
+  return normalized.map((assignment, index) => {
+    const approval = approvalForAssignment(assignment, approvals);
+    const approved = clean(approval?.status) === 'Тасдиқланди';
+    const automaticFileId = clean(assignment.signatureFileId);
+    const approvalFileId = clean(approval?.signatureFileId);
+    const automaticSignature = Boolean(automaticFileId) && !approved;
+    const signed = approved || Boolean(automaticFileId);
+    const status = approved
+      ? 'Тасдиқланди'
+      : automaticSignature
+        ? 'Автоматик имзо'
+        : clean(approval?.status) || 'Юборилмаган';
+    return {
+      ...assignment,
+      ...(approval || {}),
+      slot: Number(assignment.slot) || index + 1,
+      signerId: clean(assignment.signerId || approval?.signerId),
+      fio: clean(assignment.fio || approval?.fio),
+      position: clean(assignment.position || approval?.position),
+      email: clean(assignment.email || approval?.email || approval?.gmail),
+      signatureFileId: approvalFileId || automaticFileId,
+      status,
+      automaticSignature,
+      signed,
+      signaturePresent: Boolean(approvalFileId || automaticFileId),
+    };
+  });
+}
+
+export function selectUnsignedToPeriodTargets(targets = [], approvals = []) {
+  return (targets || []).filter((signer, index) => {
+    const assignment = {
+      slot: Number(signer?.slot) || index + 1,
+      signerId: clean(signer?.id || signer?.signerId),
+      fio: clean(signer?.fullName || signer?.fio),
+      position: clean(signer?.position),
+      email: clean(signer?.email || signer?.gmail),
+      signatureFileId: clean(signer?.signatureFileId || signer?.signatureUrl),
+    };
+    return !buildToPeriodSignerStates([assignment], approvals)[0]?.signed;
+  });
+}
+
+export function resolveToPeriodApprovalTargets(bundle, signers = [], inputAssignments = []) {
+  const persisted = bundle?.period?.sourceSnapshot?.assignedApprovers;
+  const requested = normalizeApproverAssignments(
+    Array.isArray(inputAssignments) && inputAssignments.length ? inputAssignments : persisted,
+  );
+  if (!requested.length) {
+    throw makeApproverError(
+      'TO_APPROVERS_NOT_ASSIGNED',
+      'TO hujjatiga tasdiqlovchilar biriktirilmagan. Hujjat oynasida imzolovchilarni tanlab Saqlash tugmasini bosing.',
+      '5. АКТ ВЫПОЛНЕННЫХ РАБОТ oynasida tasdiqlovchilarni tanlang va hujjatni qayta saqlang.',
+    );
+  }
+
+  const resolved = [];
+  const used = new Set();
+  for (const item of requested) {
+    const signerId = clean(item.signerId);
+    const email = normalizeApproverText(item.email);
+    const fio = normalizeApproverText(item.fio);
+    const position = normalizeApproverText(item.position);
+    const signer = signers.find((row) => signerId && clean(row.id) === signerId)
+      || signers.find((row) => email && normalizeApproverText(row.email) === email)
+      || signers.find((row) => fio && position
+        && normalizeApproverText(row.fullName || row.fio) === fio
+        && normalizeApproverText(row.position) === position)
+      || signers.find((row) => fio && normalizeApproverText(row.fullName || row.fio) === fio)
+      || null;
+    if (!signer) continue;
+    const key = clean(signer.id) || normalizeApproverText(signer.email);
+    if (!key || used.has(key)) continue;
+    used.add(key);
+    resolved.push({
+      ...signer,
+      slot: item.slot,
+      slotKey: item.slotKey,
+      signatureFileId: clean(item.signatureFileId || signer.signatureFileId || signer.signatureUrl),
+    });
+  }
+
+  if (resolved.length !== requested.length) {
+    const resolvedSlots = new Set(resolved.map((row) => Number(row.slot)));
+    const missing = requested
+      .filter((row) => !resolvedSlots.has(Number(row.slot)))
+      .map((row) => `#${row.slot} ${row.fio || row.email || row.position || 'tasdiqlovchi'}`)
+      .join(', ');
+    throw makeApproverError(
+      'TO_APPROVERS_NOT_FOUND',
+      `Hujjatdagi barcha tasdiqlovchilar faol registrdan topilmadi: ${missing || `${resolved.length}/${requested.length}`}`,
+      '5. ИМЗО ЧЕКУВЧИЛАР registrini tekshiring va hujjatdagi tasdiqlovchilarni qayta tanlab Saqlash tugmasini bosing.',
+    );
+  }
+
+  return { requested, targets: resolved };
+}
+
+export async function persistToPeriodApprovalTargets(workspaceId, period, targets = []) {
+  if (!period?.id) return period || null;
+  const assignedApprovers = targets.map((signer, index) => ({
+    slot: Number(signer.slot) || index + 1,
+    slotKey: clean(signer.slotKey),
+    signerId: clean(signer.id),
+    fio: clean(signer.fullName || signer.fio),
+    position: clean(signer.position),
+    email: clean(signer.email || signer.gmail),
+    signatureFileId: clean(signer.signatureFileId || signer.signatureUrl),
+  }));
+  return updateToPeriodApprovalAssignments(workspaceId, period.id, assignedApprovers);
 }
 
 function approvalSecret() {
@@ -263,7 +533,33 @@ function sectionRows(items = []) {
   return sections;
 }
 
-export function renderToPeriodA4(bundle, { workspaceName = '', approvals = [] } = {}) {
+const TO_SIGNER_ROLE_LABELS = [
+  'Ответственный от ОАиМ; Начальник отдела',
+  'Ответственный от участок КИПиА; Начальник КИПиА',
+  'Ответственный за выполнение работ; Мастер КИПиА',
+  'Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1',
+  'Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер добычи цех-1',
+  'Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1',
+  'Ответственный за исправное состояние и безопасную эксплуатацию оборудования; Мастер ППН-1',
+];
+
+function toSignerRowsHtml(assignedApprovers = [], approvals = []) {
+  const signerStates = buildToPeriodSignerStates(assignedApprovers, approvals);
+  return TO_SIGNER_ROLE_LABELS.map((role, index) => {
+    const row = signerStates.find((item) => Number(item.slot) === index + 1) || signerStates[index] || {};
+    const fileId = clean(row.signatureFileId);
+    const signature = row.signed && fileId
+      ? `<img src="/api/signature/render/${createSignatureImageToken(fileId)}" alt="${esc(row.fio || row.fullName || '')} imzosi">`
+      : '(Подпись)';
+    return `<div class="to-a4-signer-row">
+      <div class="to-a4-signer-role">${esc(role)}</div>
+      <div class="to-a4-signer-name">${esc(row.fio || row.fullName || '')}</div>
+      <div class="to-a4-signer-sign">${signature}</div>
+    </div>`;
+  }).join('');
+}
+
+export function renderToPeriodA4(bundle, { workspaceName = '', approvals = [], assignedApprovers = [] } = {}) {
   const period = bundle?.period || {};
   const items = Array.isArray(bundle?.items) ? bundle.items : [];
   const sections = sectionRows(items);
@@ -272,41 +568,74 @@ export function renderToPeriodA4(bundle, { workspaceName = '', approvals = [] } 
   const monthName = MONTHS[Number(period.month)] || '';
   const bodyRows = [];
   let sequence = 0;
+
   for (const section of sections) {
-    bodyRows.push(`<tr class="to-group"><td colspan="8">${esc(section.name)}</td></tr>`);
+    bodyRows.push(`<tr><td colspan="8" class="to-a4-group-header">${esc(section.name)}</td></tr>`);
     for (const item of section.items) {
       sequence += 1;
-      bodyRows.push(`<tr><td>${sequence}</td><td>${esc(item.serialNo)}</td><td>${esc(item.equipmentName)}</td><td>${esc(item.positionNo)}</td><td>${esc(item.quantity)}</td><td>${esc(item.technicalState)}</td><td>${esc(item.workType)}</td><td>${esc(item.note)}</td></tr>`);
+      const number = clean(item.no) || String(sequence);
+      bodyRows.push(`<tr>
+        <td>${esc(number)}</td>
+        <td>${esc(item.serialNo)}</td>
+        <td>${esc(item.equipmentName)}</td>
+        <td>${esc(item.positionNo)}</td>
+        <td>${esc(item.quantity)}</td>
+        <td>${esc(item.technicalState)}</td>
+        <td>${esc(item.workType)}</td>
+        <td>${esc(item.note)}</td>
+      </tr>`);
     }
   }
-  const approvalRows = approvals.length
-    ? `<div class="to-a4-approvals"><div class="to-a4-approval-title">Электрон имзо чекувчилар</div>${approvals.map((row) => {
-      const approved = clean(row.status) === 'Тасдиқланди';
-      const fileId = clean(row.signatureFileId);
-      const signature = approved && fileId
-        ? `<img class="to-a4-signature-image" src="/api/signature/render/${createSignatureImageToken(fileId)}" alt="Имзо">`
-        : `<span class="to-a4-signature-placeholder">${approved ? 'Имзо файли йўқ' : 'Кутилмоқда'}</span>`;
-      return `<div class="to-a4-approval-row"><span class="to-a4-approval-position">${esc(row.position || '')}</span><b class="to-a4-approval-name">${esc(row.fio || '')}</b><span class="to-a4-approval-signature">${signature}</span><span class="to-a4-approval-status">${esc(row.status || 'Кутилмоқда')}${row.approvedAt ? `<small>${esc(row.approvedAt)}</small>` : ''}</span></div>`;
-    }).join('')}</div>`
-    : '';
+
+  const signerRows = toSignerRowsHtml(assignedApprovers, approvals);
   return `<article class="to-a4-document">
-    <div class="to-a4-regulation">Приложение № 2 к Регламенту проведения технического обслуживания<br>контрольно-измерительных приборов, средств и систем автоматизации<br>на объектах СП ООО «SANEG»<br>«${esc(day)}» ${esc(monthName)} ${esc(period.year)}г. ТПП «Андижан»</div>
-    <div class="to-a4-title">АКТ<br>проведения работ по ТО-1<br>приборов и средств автоматизации ТПП «Андижан» ЦДНГ №1</div>
-    <div class="to-a4-workspace">${workspaceName ? `Workspace: ${esc(workspaceName)}` : ''}</div>
-    <div class="to-a4-preamble">Мы, нижеподписавшиеся, составили настоящий акт о том, что согласно ежегодному графику проведения технического обслуживания СИ, КИПиА и в соответствии с Регламентом по проведению технического обслуживания контрольно-измерительных приборов, средств и систем автоматизации на объектах СП ООО «SANEG», выполнены следующие виды работ:</div>
-    <table class="to-a4-table"><colgroup><col style="width:6%"><col style="width:11%"><col style="width:20%"><col style="width:8%"><col style="width:10%"><col style="width:17%"><col style="width:13%"><col style="width:15%"></colgroup><thead><tr><th>№</th><th>Зав. №</th><th>Наименование оборудования</th><th>Поз.</th><th>кол-во, шт.</th><th>Техническое состояние</th><th>Вид работ</th><th>Примечание</th></tr></thead><tbody>${bodyRows.join('')}</tbody></table>
+    <div class="to-a4-header-text">Приложение № 2 к Регламенту проведения технического обслуживания<br>контрольно-измерительных приборов, средств и систем автоматизации<br>на объектах СП ООО «SANEG»<br>«${esc(day)}» ${esc(monthName)} ${esc(period.year)}г. ТПП «Андижан»</div>
+    <div class="to-a4-title-text">АКТ<br>проведения работ по ТО-1<br>приборов и средств автоматизации ТПП «Андижан» ЦДНГ №1</div>
+    <div class="to-a4-preamble">Мы, нижеподписавшиеся:<br>
+      <div class="to-a4-signature-list">представители ОАиМ ТПП «Андижан» Ходжаев С. Х.<br>представители участок КИПиА Куйликов Р. А.<br>представители участок КИПиА Фазилов И. Б.<br>представители ЦДНГ №1 Хошимов Б., Мазординов Э.<br>представители ППН №1 Бакиров У., Щоимкулов Ш.</div>
+      составили настоящий акт о том, что согласно ежегодному графику проведения технического обслуживания СИ, КИПиА и в соответствии с Регламентом по проведению технического обслуживания контрольно-измерительных приборов, средств и систем автоматизации на объектах СП ООО «SANEG», выполнены следующие виды работ:
+    </div>
+    <table class="to-a4-journal-table">
+      <colgroup><col style="width:6%"><col style="width:11%"><col style="width:20%"><col style="width:8%"><col style="width:10%"><col style="width:17%"><col style="width:13%"><col style="width:15%"></colgroup>
+      <thead><tr><th>№</th><th>Зав. №</th><th>Наименование оборудования</th><th>Поз.</th><th>кол-во, шт.</th><th>Техническое состояние</th><th>Вид работ</th><th>Примечание</th></tr></thead>
+      <tbody>${bodyRows.join('')}</tbody>
+    </table>
     <div class="to-a4-conclusion">${esc(period.conclusion || 'Заключение: оборудование исправно и пригодно к эксплуатации')}</div>
-    ${approvalRows}
+    <div class="to-a4-signers-block">${signerRows}</div>
   </article>`;
 }
 
 export function toA4Styles() {
-  return `.to-a4-document{width:210mm;min-height:297mm;margin:0 auto;background:#fff;color:#111;padding:14mm 16mm 16mm;box-sizing:border-box;font:14px/1.35 "Times New Roman",serif}.to-a4-regulation{text-align:right;font-size:12px;margin-bottom:9mm}.to-a4-title{text-align:center;font-size:18px;font-weight:700;line-height:1.25;margin-bottom:7mm}.to-a4-workspace{text-align:right;font-size:11px;margin-bottom:4mm;color:#475569}.to-a4-preamble{text-align:justify;margin-bottom:5mm}.to-a4-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px}.to-a4-table th,.to-a4-table td{border:1px solid #111;padding:4px;text-align:center;vertical-align:middle;word-break:break-word}.to-a4-table th{background:#f3f4f6;font-weight:700}.to-a4-table .to-group td{text-align:left;font-weight:700;background:#e5e7eb}.to-a4-conclusion{margin-top:7mm;font-weight:700}.to-a4-approvals{margin-top:8mm;display:grid;gap:7px}.to-a4-approval-title{font-weight:700;margin-bottom:3px}.to-a4-approval-row{display:grid;grid-template-columns:1fr 1fr 150px 120px;gap:10px;border-bottom:1px solid #111;padding:5px 0;align-items:center}.to-a4-approval-signature{min-height:54px;display:grid;place-items:center}.to-a4-signature-image{max-width:140px;max-height:52px;object-fit:contain}.to-a4-signature-placeholder{font-size:11px;color:#64748b}.to-a4-approval-status{text-align:right}.to-a4-approval-status small{display:block;font-size:9px;color:#64748b;margin-top:2px}@media(max-width:900px){.to-a4-document{width:100%;min-height:0;padding:24px 18px}.to-a4-table{font-size:10px}.to-a4-approval-row{grid-template-columns:1fr 1fr}.to-a4-approval-status{text-align:left}}`;
+  return `
+    .to-a4-document{width:210mm;min-height:297mm;margin:0 auto;background:#fdfdfd;color:#000;padding:10.6mm 15.9mm;box-sizing:border-box;font-family:"Times New Roman",Times,serif;font-size:16px;line-height:1.5}
+    .to-a4-header-text{text-align:right;font-size:15px;margin-bottom:30px}
+    .to-a4-title-text{text-align:center;font-size:18px;font-weight:bold;margin:30px 0}
+    .to-a4-preamble{font-size:16px;margin-bottom:20px;text-align:justify}
+    .to-a4-signature-list{margin:10px 0 20px;padding-left:0}
+    .to-a4-journal-table{width:100%;border-collapse:collapse;margin-bottom:30px;font-size:14px;table-layout:fixed}
+    .to-a4-journal-table th,.to-a4-journal-table td{border:1px solid #000;padding:6px;text-align:center;vertical-align:middle;word-break:break-word}
+    .to-a4-journal-table th{font-weight:bold;background:#f0f0f0}
+    .to-a4-journal-table .to-a4-group-header{text-align:left;font-weight:bold;background:#e8e8e8;padding-left:10px}
+    .to-a4-conclusion{margin:20px 0 30px;font-size:16px;font-weight:bold}
+    .to-a4-signers-block{display:grid;gap:20px;font-size:16px}
+    .to-a4-signer-row{display:flex;justify-content:space-between;align-items:flex-end;min-height:34px}
+    .to-a4-signer-role{width:45%}
+    .to-a4-signer-name{width:25%;text-align:left}
+    .to-a4-signer-sign{width:25%;border-bottom:1px solid #000;text-align:center;padding-bottom:2px;min-height:30px;display:flex;align-items:flex-end;justify-content:center}
+    .to-a4-signer-sign img{display:block;max-width:150px;max-height:52px;object-fit:contain}
+    @page{size:A4 portrait;margin:0}
+    @media print{html,body{margin:0;padding:0;background:#fff}.to-a4-document{box-shadow:none;page-break-after:auto}}
+    @media(max-width:900px){.to-a4-document{width:100%;min-height:0;padding:24px 18px;overflow:auto}}
+  `;
 }
 
 function publicApprovalPage({ bundle, workspace, approval, approvals = [], token }) {
   const approved = approval.status === 'Тасдиқланди';
-  const a4 = renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals });
+  const a4 = renderToPeriodA4(bundle, {
+    workspaceName: workspace.name,
+    approvals,
+    assignedApprovers: assignedApproversForBundle(bundle),
+  });
   const expected = {
     approvalId: clean(approval.id),
     signerId: clean(approval.signerId),
@@ -328,26 +657,41 @@ export async function getToPeriodReport(workspace, year, month) {
     throw error;
   }
   const docKey = periodKey(year, month);
-  const approvals = (await approvalRows(workspace, docKey)).rows;
+  const registeredSigners = await listWorkspaceSigners(workspace.id, { includeInactive: false });
+  const assignedApprovers = completeToPeriodApproverAssignments(
+    assignedApproversForBundle(bundle),
+    registeredSigners,
+  );
+  const approvalBundle = {
+    ...bundle,
+    period: {
+      ...bundle.period,
+      sourceSnapshot: {
+        ...(bundle.period?.sourceSnapshot || {}),
+        assignedApprovers,
+      },
+    },
+  };
+  const approvals = filterApprovalsToAssignments((await approvalRows(workspace, docKey)).rows, approvalBundle);
+  const signerStates = buildToPeriodSignerStates(assignedApprovers, approvals);
   return {
     key: docKey,
     label: periodLabel(year, month),
     period: bundle.period,
     items: bundle.items,
     approvals,
-    a4Html: renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals }),
+    assignedApprovers,
+    signerStates,
+    signedApprovers: signerStates.filter((row) => row.signed).length,
+    unsignedApprovers: signerStates.filter((row) => !row.signed).length,
+    expectedSignerSlots: TO_SIGNER_SLOT_DEFINITIONS.length,
+    missingSignerSlots: Math.max(0, TO_SIGNER_SLOT_DEFINITIONS.length - assignedApprovers.length),
+    a4Html: renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals, assignedApprovers }),
     a4Css: toA4Styles(),
   };
 }
 
 export async function sendToPeriodForApproval(workspace, year, month, req) {
-  if (!hasHttpEmailProvider()) {
-    const summary = getHttpEmailSummary();
-    const error = new Error(summary.recommendedFix || 'TO hujjatini yuborish uchun HTTP email provider sozlanmagan.');
-    error.code = 'EMAIL_HTTP_NOT_CONFIGURED';
-    error.statusCode = 400;
-    throw error;
-  }
   const bundle = await getToPeriodBundle(workspace.id, year, month);
   if (!bundle) {
     const error = new Error('TO davri topilmadi');
@@ -355,14 +699,44 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
     error.statusCode = 404;
     throw error;
   }
+
   const signers = await listWorkspaceSigners(workspace.id, { includeInactive: false });
-  const targets = [...signers];
+  const resolvedTargets = resolveToPeriodApprovalTargets(
+    bundle,
+    signers,
+    req?.body?.assignedApprovers,
+  );
+  const allTargets = resolvedTargets.targets;
+  await persistToPeriodApprovalTargets(workspace.id, bundle.period, allTargets);
+
+  const docKey = periodKey(year, month);
+  const label = periodLabel(year, month);
+  const current = await approvalRows(workspace, docKey);
+  const targets = selectUnsignedToPeriodTargets(allTargets, current.rows);
+  const alreadySigned = allTargets.length - targets.length;
+
   if (!targets.length) {
-    const error = new Error('Bu Workspace uchun faol imzo chekuvchi topilmadi');
-    error.code = 'TO_SIGNERS_NOT_FOUND';
-    error.statusCode = 400;
-    throw error;
+    return {
+      key: docKey,
+      label,
+      provider: 'none',
+      deliveryMode: 'none',
+      total: 0,
+      sent: 0,
+      approved: alreadySigned,
+      failed: 0,
+      results: allTargets.map((signer) => ({
+        signer: signer.fullName,
+        email: signer.email,
+        status: 'already-signed',
+      })),
+      signersSource: 'assigned_workspace_signers',
+      targetedApprovers: 0,
+      skippedSigned: alreadySigned,
+      allSigned: true,
+    };
   }
+
   const invalidRecipients = targets.filter((row) => !isEmail(row.email));
   if (invalidRecipients.length) {
     const error = new Error(`Tasdiqlovchi Gmail manzili noto‘g‘ri: ${invalidRecipients.map((row) => clean(row.fullName) || clean(row.email) || 'tasdiqlovchi').join(', ')}`);
@@ -371,6 +745,15 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
     error.recommendedFix = '5. TO JURNALI uchun umumiy imzolovchilar registrida har bir faol imzolovchining email manzilini to‘liq kiriting.';
     throw error;
   }
+
+  if (!hasHttpEmailProvider()) {
+    const summary = getHttpEmailSummary();
+    const error = new Error(summary.recommendedFix || 'TO hujjatini yuborish uchun HTTP email provider sozlanmagan.');
+    error.code = 'EMAIL_HTTP_NOT_CONFIGURED';
+    error.statusCode = 400;
+    throw error;
+  }
+
   const provider = getHttpEmailSummary();
   if (provider.fromMode === 'missing') {
     const error = new Error('EMAIL_FROM kiritilmagan.');
@@ -389,10 +772,8 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
       throw error;
     }
   }
-  const docKey = periodKey(year, month);
-  const label = periodLabel(year, month);
+
   const baseUrl = baseUrlFromRequest(req);
-  const current = await approvalRows(workspace, docKey);
   const existingBySigner = new Map(current.rows.map((row) => [clean(row.signerId), row]));
   const results = [];
   for (const signer of targets) {
@@ -449,6 +830,7 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
       }).catch(() => {});
     }
   }
+
   return {
     key: docKey,
     label,
@@ -459,9 +841,13 @@ export async function sendToPeriodForApproval(workspace, year, month, req) {
     recommendedFix: provider.recommendedFix || '',
     total: targets.length,
     sent: results.filter((row) => row.status === 'sent').length,
-    approved: 0,
+    approved: alreadySigned,
     failed: results.filter((row) => row.status === 'email-failed').length,
     results,
+    signersSource: 'assigned_workspace_signers',
+    targetedApprovers: targets.length,
+    skippedSigned: alreadySigned,
+    allSigned: false,
   };
 }
 
@@ -471,6 +857,13 @@ async function approvalContext(token, req, { markOpened = false } = {}) {
   if (!workspace || workspace.status === 'archived') throw new Error('Workspace topilmadi');
   const bundle = await getToPeriodBundle(workspace.id, payload.year, payload.month);
   if (!bundle || clean(bundle.period.id) !== clean(payload.periodId)) throw new Error('TO hujjati topilmadi');
+  const assignedApprovers = assignedApproversForBundle(bundle);
+  if (assignedApprovers.length && !approvalBelongsToAssignments({
+    signerId: payload.signerId,
+    email: payload.email,
+  }, assignedApprovers)) {
+    throw new Error('TO tasdiqlash havolasi bekor qilingan yoki tasdiqlovchi hujjatdan olib tashlangan');
+  }
   const docKey = periodKey(payload.year, payload.month);
   const current = await approvalRows(workspace, docKey);
   const approval = current.rows.find((row) => row.id === payload.approvalId
@@ -497,7 +890,10 @@ async function approvalContext(token, req, { markOpened = false } = {}) {
       details: 'module=TO',
     }).catch(() => {});
   }
-  const approvals = current.rows.map((row) => row.id === next.id ? next : row);
+  const approvals = filterApprovalsToAssignments(
+    current.rows.map((row) => row.id === next.id ? next : row),
+    bundle,
+  );
   return { payload, workspace, bundle, approval: next, approvals, config: current.config, docKey };
 }
 
