@@ -21,11 +21,20 @@ import { sendToPeriodForApprovalWithFallback } from '../services/toPeriodEmailDe
 import { deleteToPeriod } from '../services/toPeriodService.js';
 import { isDatabaseConfigured } from '../db/pool.js';
 import { enqueueToFinalPdfExport } from '../repositories/outboxRepository.js';
+import { findWorkspaceById } from '../repositories/workspaceRepository.js';
 import { processFinalPdfExportById } from '../services/finalPdfExportWorker.js';
 
 const router = express.Router();
 
-async function queueToFinalPdfIfReady(workspace, year, month) {
+async function queueToFinalPdfIfReady(workspaceInput, year, month) {
+  const workspaceId = clean(workspaceInput?.id);
+  const workspace = workspaceId ? await findWorkspaceById(workspaceId) : null;
+  if (!workspace) {
+    const error = new Error('TO final PDF uchun Workspace topilmadi.');
+    error.code = 'WORKSPACE_NOT_FOUND';
+    error.statusCode = 404;
+    throw error;
+  }
   const report = await getToPeriodReport(workspace, year, month);
   const missingSignerSlots = Number(report.missingSignerSlots || 0);
   const unsignedApprovers = Number(report.unsignedApprovers || 0);
