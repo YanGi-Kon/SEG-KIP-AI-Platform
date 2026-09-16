@@ -48,6 +48,14 @@ async function queueToFinalPdfIfReady(workspaceInput, year, month) {
     };
   }
 
+  if (!clean(workspace.finalDocumentsFolderId)) {
+    return {
+      status: 'FINAL_FOLDER_REQUIRED',
+      code: 'FINAL_DOCUMENTS_FOLDER_ID_REQUIRED',
+      error: '6. ЯКУНИЙ ҲУЖЖАТЛАР bo‘limida Google Drive papkasini sozlang.',
+    };
+  }
+
   if (!isDatabaseConfigured()) {
     return {
       status: 'FAILED_PERMANENT',
