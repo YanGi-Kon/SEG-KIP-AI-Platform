@@ -171,6 +171,28 @@
     return `/api/workspaces/${encodeURIComponent(id)}/documents`;
   }
 
+  async function tryFinalizeCurrentPeriod() {
+    const state = window.ToJournalWorkspace?.state;
+    const year = Number(state?.periodYear);
+    const month = Number(state?.periodMonth);
+    if (!Number.isInteger(year) || !Number.isInteger(month)) return null;
+    try {
+      const data = await api(
+        `/api/to-period-bridge/reports/${year}/${month}/finalize`,
+        { method: 'POST', body: '{}' },
+      );
+      const finalState = data.finalPdfExport || {};
+      if (finalState.status === 'EXPORTED') {
+        setStatus('✅ Joriy TO davri yakuniy A4 PDF sifatida Drive\'ga saqlandi.', 'ok');
+      } else if (finalState.status === 'WAITING_SIGNATURES') {
+        setDiag(`Final PDF hali kutilmoqda: ${Number(finalState.unsignedApprovers || 0)} ta imzo va ${Number(finalState.missingSignerSlots || 0)} ta signer slot yetishmaydi.`);
+      }
+      return finalState;
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function save() {
     const value = clean($('toFinalFolderInput')?.value);
     if (!value) return setStatus('Yakuniy hujjatlar uchun Drive papka URL yoki ID kiriting.', 'bad');
@@ -185,6 +207,7 @@
       if (workspace) workspace.finalDocumentsFolderId = clean(data.finalDocumentsFolderId || data.workspace?.finalDocumentsFolderId);
       syncFromWorkspace();
       setStatus('✅ Yakuniy hujjatlar Drive papkasi saqlandi.', 'ok');
+      await tryFinalizeCurrentPeriod();
     } catch (error) {
       setStatus(error.message, 'bad');
     }
@@ -201,6 +224,7 @@
       lastDiagnostic = data.result || data;
       setStatus(`✅ Final PDF papka tayyor: ${clean(lastDiagnostic.folderName || lastDiagnostic.folderId || 'ХУЖАТЛАР')}`, 'ok');
       setDiag(lastDiagnostic.serviceAccountEmail ? `Service account: ${lastDiagnostic.serviceAccountEmail}` : '');
+      await tryFinalizeCurrentPeriod();
     } catch (error) {
       const data = error?.data || {};
       setStatus(error.message, 'bad');
