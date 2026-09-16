@@ -228,7 +228,7 @@ export async function renderHtmlToA4Pdf(html, options = {}) {
     await page.emulateMediaType('print');
     await page.setContent(String(html || ''), { waitUntil: 'networkidle0', timeout: timeoutMs });
     await waitForDocumentAssets(page, timeoutMs);
-    await fitSingleA4Page(page);
+    if (!options.allowMultiPage) await fitSingleA4Page(page);
     const value = await page.pdf({
       format: 'A4',
       landscape: false,
@@ -239,7 +239,7 @@ export async function renderHtmlToA4Pdf(html, options = {}) {
     });
     const buffer = assertPdfBuffer(Buffer.from(value));
     const inspection = await inspectPdfBuffer(buffer);
-    if (inspection.pageCount !== 1) {
+    if (!options.allowMultiPage && inspection.pageCount !== 1) {
       throw rendererError(
         `Yakuniy PDF ${inspection.pageCount} sahifali bo\u2018lib qoldi.`,
         'FINAL_PDF_PAGE_COUNT_INVALID',
