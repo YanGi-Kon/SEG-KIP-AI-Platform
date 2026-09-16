@@ -699,6 +699,7 @@ export async function getToPeriodReport(workspace, year, month) {
     unsignedApprovers: signerStates.filter((row) => !row.signed).length,
     expectedSignerSlots: TO_SIGNER_SLOT_DEFINITIONS.length,
     missingSignerSlots: Math.max(0, TO_SIGNER_SLOT_DEFINITIONS.length - assignedApprovers.length),
+    finalPdf: bundle.period?.sourceSnapshot?.finalPdf || {},
     a4Html: renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals, assignedApprovers }),
     a4Css: toA4Styles(),
   };
@@ -935,7 +936,14 @@ export async function getToPeriodApprovalStatus(token) {
 export async function approveToPeriod(token, req) {
   const context = await approvalContext(token, req);
   if (context.approval.status === 'Тасдиқланди') {
-    return { status: 'Тасдиқланди', alreadyApproved: true, approval: context.approval };
+    return {
+      status: 'Тасдиқланди',
+      alreadyApproved: true,
+      approval: context.approval,
+      workspaceId: context.workspace.id,
+      year: Number(context.payload.year),
+      month: Number(context.payload.month),
+    };
   }
   const approval = await updateApprovalRow(context.workspace, context.approval, {
     status: 'Тасдиқланди',
@@ -954,5 +962,12 @@ export async function approveToPeriod(token, req) {
     userAgent: req?.get?.('user-agent') || '',
     details: 'module=TO',
   }).catch(() => {});
-  return { status: 'Тасдиқланди', alreadyApproved: false, approval };
+  return {
+    status: 'Тасдиқланди',
+    alreadyApproved: false,
+    approval,
+    workspaceId: context.workspace.id,
+    year: Number(context.payload.year),
+    month: Number(context.payload.month),
+  };
 }
