@@ -8,6 +8,7 @@ const app = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'ut
 const toModule = fs.readFileSync(new URL('../public/modules/to.html', import.meta.url), 'utf8');
 
 test('TO monthly analysis panel is loaded as section 1', () => {
+  assert.match(panel, /function init\(\)[\s\S]*window\.setTimeout\(\(\) => open\(\), 0\)/);
   assert.match(toModule, /id="toMonthlyAnalysisBtn"/);
   assert.match(toModule, />1\. Ойлик анализ<\/button>/);
   assert.ok(toModule.indexOf('toMonthlyAnalysisBtn') < toModule.indexOf('toSettingsBtn'));
