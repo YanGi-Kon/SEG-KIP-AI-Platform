@@ -47,9 +47,20 @@ export async function enqueueToFinalPdfExport({ workspaceId, year, month }, clie
      ) VALUES ($1, 'final_pdf_export', $2, $3::jsonb, 'pending', 6)
      ON CONFLICT (idempotency_key) DO UPDATE
        SET payload = CASE
-         WHEN outbox_jobs.status = 'completed' THEN outbox_jobs.payload
-         ELSE EXCLUDED.payload
-       END
+             WHEN outbox_jobs.status = 'completed' THEN outbox_jobs.payload
+             ELSE EXCLUDED.payload
+           END,
+           status = CASE
+             WHEN outbox_jobs.status = 'completed' THEN 'completed'
+             WHEN outbox_jobs.status = 'processing' THEN 'processing'
+             ELSE 'pending'
+           END,
+           next_attempt_at = CASE
+             WHEN outbox_jobs.status IN ('completed', 'processing') THEN outbox_jobs.next_attempt_at
+             ELSE NOW()
+           END,
+           last_error = CASE WHEN outbox_jobs.status = 'completed' THEN outbox_jobs.last_error ELSE NULL END,
+           last_error_code = CASE WHEN outbox_jobs.status = 'completed' THEN outbox_jobs.last_error_code ELSE NULL END
      RETURNING *`,
     [
       workspaceId,
