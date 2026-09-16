@@ -448,6 +448,19 @@ async function approvalRows(workspace, docKey) {
   return { config, sheets, spreadsheetId, rows };
 }
 
+export async function clearToPeriodApprovals(workspace, year, month) {
+  const docKey = periodKey(year, month);
+  const current = await approvalRows(workspace, docKey);
+  if (!current.rows.length) return { cleared: 0 };
+  await current.sheets.spreadsheets.values.batchClear({
+    spreadsheetId: current.spreadsheetId,
+    requestBody: {
+      ranges: current.rows.map((row) => `${q(APPROVALS_SHEET)}!A${row.rowNumber}:O${row.rowNumber}`),
+    },
+  });
+  return { cleared: current.rows.length };
+}
+
 async function upsertApproval(workspace, input, { resetExisting = false } = {}) {
   const current = await approvalRows(workspace, input.docKey);
   const existing = current.rows.find((row) => row.signerId === input.signerId);
