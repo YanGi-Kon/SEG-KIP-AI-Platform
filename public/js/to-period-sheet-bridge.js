@@ -157,6 +157,15 @@
     document.head.appendChild(script);
   }
 
+  function loadFinalDocumentsPanel() {
+    if (document.getElementById('toFinalDocumentsPanelScript')) return;
+    const script = document.createElement('script');
+    script.id = 'toFinalDocumentsPanelScript';
+    script.src = '/js/to-final-documents-panel.js?v=to-final1-drive';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   function loadSignersPanel() {
     if (document.getElementById('toSignersPanelScript')) return;
     const script = document.createElement('script');
@@ -238,6 +247,18 @@
     }
   }
 
+  async function finalizeCurrentPeriodIfReady(state) {
+    if (!state?.period) return null;
+    try {
+      return await requestJson(
+        `/api/to-period-bridge/reports/${state.periodYear}/${state.periodMonth}/finalize`,
+        { method: 'POST', body: '{}' },
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function saveCurrentDocument() {
     const state = journalState();
     const button = $('toDocumentSaveBtn');
@@ -264,6 +285,7 @@
       }
 
       await refreshReportsAfterSave(state);
+      await finalizeCurrentPeriodIfReady(state);
       if (button) button.textContent = '✓ Сақланди';
       setStatus(`${periodLabel(state.periodYear, state.periodMonth)} · 3. Хисоботлар га сақланди`, 'ok');
       window.setTimeout(() => {
@@ -317,6 +339,7 @@
     loadMonthlyAnalysisPanel();
     loadSignersPanel();
     loadReportsPanel();
+    loadFinalDocumentsPanel();
     injectDocumentSaveControl();
 
     $('toPeriodMonth')?.addEventListener('change', scheduleSync);
