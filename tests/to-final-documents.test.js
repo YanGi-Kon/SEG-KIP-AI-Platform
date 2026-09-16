@@ -23,8 +23,9 @@ test('TO toolbar contains 6. ЯКУНИЙ ҲУЖЖАТЛАР and loads its panel
 });
 
 test('TO final documents panel reuses workspace final Drive folder mechanism', () => {
-  assert.match(panel, /\/documents\/final-folder/);
-  assert.match(panel, /\/documents\/final-folder\/test/);
+  assert.match(panel, /return `\/api\/workspaces\/\$\{encodeURIComponent\(id\)\}\/documents`/);
+  assert.match(panel, /`\$\{rootPath\(\)\}\/final-folder`/);
+  assert.match(panel, /`\$\{rootPath\(\)\}\/final-folder\/test`/);
   assert.match(panel, /finalDocumentsFolderId/);
   assert.match(panel, /ХУЖАТЛАР/);
   assert.match(panel, /tryFinalizeCurrentPeriod/);
