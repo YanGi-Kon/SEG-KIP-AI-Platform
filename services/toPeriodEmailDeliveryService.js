@@ -9,6 +9,7 @@ import { resolveWorkspaceGoogleConfig } from './workspaceGoogleService.js';
 import { appendAudit } from './signatureApprovalService.js';
 import { sendSafeEmail, verifySafeEmailTransport } from './emailDiagnosticsService.js';
 import { hasHttpEmailProvider } from './httpEmailService.js';
+import { testWorkspaceFinalDocumentsFolder } from './workspaceDriveFolderService.js';
 import { listWorkspaceSigners } from '../repositories/workspaceSignerRepository.js';
 import { getToPeriodBundle } from '../repositories/toPeriodRepository.js';
 import {
@@ -322,6 +323,7 @@ async function sendViaSmtp(workspace, year, month, req) {
 }
 
 export async function sendToPeriodForApprovalWithFallback(workspace, year, month, req) {
+  await testWorkspaceFinalDocumentsFolder(workspace, { writeTest: false });
   if (hasHttpEmailProvider()) {
     return sendToPeriodViaHttp(workspace, year, month, req);
   }

@@ -200,8 +200,10 @@
         button.type = 'button';
         button.textContent = '5. ИМЗО ЧЕКУВЧИЛАР';
         button.addEventListener('click', open);
+        const finalDocuments = $('toFinalDocumentsBtn');
         const settings = $('toSettingsBtn');
-        if (settings && settings.parentElement === actions) actions.insertBefore(button, settings);
+        if (finalDocuments && finalDocuments.parentElement === actions) actions.insertBefore(button, finalDocuments);
+        else if (settings && settings.parentElement === actions) actions.insertBefore(button, settings);
         else actions.appendChild(button);
       }
     }

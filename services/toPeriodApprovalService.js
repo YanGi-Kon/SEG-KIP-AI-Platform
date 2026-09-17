@@ -448,6 +448,19 @@ async function approvalRows(workspace, docKey) {
   return { config, sheets, spreadsheetId, rows };
 }
 
+export async function clearToPeriodApprovals(workspace, year, month) {
+  const docKey = periodKey(year, month);
+  const current = await approvalRows(workspace, docKey);
+  if (!current.rows.length) return { cleared: 0 };
+  await current.sheets.spreadsheets.values.batchClear({
+    spreadsheetId: current.spreadsheetId,
+    requestBody: {
+      ranges: current.rows.map((row) => `${q(APPROVALS_SHEET)}!A${row.rowNumber}:O${row.rowNumber}`),
+    },
+  });
+  return { cleared: current.rows.length };
+}
+
 async function upsertApproval(workspace, input, { resetExisting = false } = {}) {
   const current = await approvalRows(workspace, input.docKey);
   const existing = current.rows.find((row) => row.signerId === input.signerId);
@@ -686,6 +699,7 @@ export async function getToPeriodReport(workspace, year, month) {
     unsignedApprovers: signerStates.filter((row) => !row.signed).length,
     expectedSignerSlots: TO_SIGNER_SLOT_DEFINITIONS.length,
     missingSignerSlots: Math.max(0, TO_SIGNER_SLOT_DEFINITIONS.length - assignedApprovers.length),
+    finalPdf: bundle.period?.sourceSnapshot?.finalPdf || {},
     a4Html: renderToPeriodA4(bundle, { workspaceName: workspace.name, approvals, assignedApprovers }),
     a4Css: toA4Styles(),
   };
@@ -922,7 +936,14 @@ export async function getToPeriodApprovalStatus(token) {
 export async function approveToPeriod(token, req) {
   const context = await approvalContext(token, req);
   if (context.approval.status === 'Тасдиқланди') {
-    return { status: 'Тасдиқланди', alreadyApproved: true, approval: context.approval };
+    return {
+      status: 'Тасдиқланди',
+      alreadyApproved: true,
+      approval: context.approval,
+      workspaceId: context.workspace.id,
+      year: Number(context.payload.year),
+      month: Number(context.payload.month),
+    };
   }
   const approval = await updateApprovalRow(context.workspace, context.approval, {
     status: 'Тасдиқланди',
@@ -941,5 +962,12 @@ export async function approveToPeriod(token, req) {
     userAgent: req?.get?.('user-agent') || '',
     details: 'module=TO',
   }).catch(() => {});
-  return { status: 'Тасдиқланди', alreadyApproved: false, approval };
+  return {
+    status: 'Тасдиқланди',
+    alreadyApproved: false,
+    approval,
+    workspaceId: context.workspace.id,
+    year: Number(context.payload.year),
+    month: Number(context.payload.month),
+  };
 }

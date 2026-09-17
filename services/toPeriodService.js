@@ -1,5 +1,6 @@
 import {
   createToPeriodRecord,
+  deleteToPeriodByKey,
   getToPeriodBundle,
   listToPeriods,
   replaceToPeriodEditableFields,
@@ -145,6 +146,31 @@ export async function listToPeriodSummaries(workspaceId, year = null) {
 export async function getToPeriod(workspaceId, year, month) {
   const period = normalizeToPeriod(year, month);
   return getToPeriodBundle(workspaceId, period.year, period.month);
+}
+
+export async function deleteToPeriod(workspaceId, year, month) {
+  const periodKey = normalizeToPeriod(year, month);
+  const bundle = await getToPeriodBundle(workspaceId, periodKey.year, periodKey.month);
+  if (!bundle) {
+    const error = new Error('TO davri topilmadi');
+    error.code = 'TO_PERIOD_NOT_FOUND';
+    error.statusCode = 404;
+    throw error;
+  }
+  if (bundle.period.status !== 'draft') {
+    const error = new Error('Faqat draft holatdagi TO hujjatini o‘chirish mumkin');
+    error.code = 'TO_PERIOD_DELETE_LOCKED';
+    error.statusCode = 409;
+    throw error;
+  }
+  const deleted = await deleteToPeriodByKey(workspaceId, periodKey.year, periodKey.month);
+  if (!deleted) {
+    const error = new Error('TO hujjatini o‘chirib bo‘lmadi');
+    error.code = 'TO_PERIOD_DELETE_FAILED';
+    error.statusCode = 409;
+    throw error;
+  }
+  return deleted;
 }
 
 export async function patchToPeriodItem(workspaceId, year, month, itemId, patch = {}) {

@@ -11,14 +11,85 @@ import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess
 import { parseToSheetRows } from './to.js';
 import {
   approveToPeriod,
+  clearToPeriodApprovals,
   getToPeriodApprovalStatus,
   getToPeriodReport,
   listToReportFolders,
   openToPeriodApproval,
 } from '../services/toPeriodApprovalService.js';
 import { sendToPeriodForApprovalWithFallback } from '../services/toPeriodEmailDeliveryService.js';
+import { deleteToPeriod } from '../services/toPeriodService.js';
+import { isDatabaseConfigured } from '../db/pool.js';
+import { enqueueToFinalPdfExport } from '../repositories/outboxRepository.js';
+import { findWorkspaceById } from '../repositories/workspaceRepository.js';
+import { processFinalPdfExportById } from '../services/finalPdfExportWorker.js';
 
 const router = express.Router();
+
+async function queueToFinalPdfIfReady(workspaceInput, year, month) {
+  const workspaceId = clean(workspaceInput?.id);
+  const workspace = workspaceId ? await findWorkspaceById(workspaceId) : null;
+  if (!workspace) {
+    const error = new Error('TO final PDF uchun Workspace topilmadi.');
+    error.code = 'WORKSPACE_NOT_FOUND';
+    error.statusCode = 404;
+    throw error;
+  }
+  const report = await getToPeriodReport(workspace, year, month);
+  const missingSignerSlots = Number(report.missingSignerSlots || 0);
+  const unsignedApprovers = Number(report.unsignedApprovers || 0);
+
+  if (missingSignerSlots > 0 || unsignedApprovers > 0) {
+    return {
+      status: 'WAITING_SIGNATURES',
+      missingSignerSlots,
+      unsignedApprovers,
+      signedApprovers: Number(report.signedApprovers || 0),
+    };
+  }
+
+  if (!clean(workspace.finalDocumentsFolderId)) {
+    return {
+      status: 'FINAL_FOLDER_REQUIRED',
+      code: 'FINAL_DOCUMENTS_FOLDER_ID_REQUIRED',
+      error: '6. ЯКУНИЙ ҲУЖЖАТЛАР bo‘limida Google Drive papkasini sozlang.',
+    };
+  }
+
+  if (!isDatabaseConfigured()) {
+    return {
+      status: 'FAILED_PERMANENT',
+      code: 'FINAL_PDF_OUTBOX_DATABASE_REQUIRED',
+      error: 'Final PDF outbox uchun DATABASE_URL talab qilinadi.',
+    };
+  }
+
+  try {
+    const job = await enqueueToFinalPdfExport({
+      workspaceId: workspace.id,
+      year,
+      month,
+    });
+    const processed = job.status === 'completed'
+      ? job
+      : await processFinalPdfExportById(job.id, `to-approval-${process.pid}`);
+    const completed = processed?.status === 'completed' || job.status === 'completed';
+    return {
+      status: completed ? 'EXPORTED' : (processed?.status || 'PENDING'),
+      jobId: job.id,
+      idempotencyKey: job.idempotencyKey,
+      result: processed?.result || job.result || {},
+      error: processed?.lastError || '',
+      errorCode: processed?.lastErrorCode || '',
+    };
+  } catch (error) {
+    return {
+      status: 'FAILED_RETRYABLE',
+      code: error?.code || 'TO_FINAL_PDF_QUEUE_FAILED',
+      error: error?.message || 'TO final PDF export navbatiga qo‘shilmadi.',
+    };
+  }
+}
 
 const RU_MONTHS = [
   '', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -220,6 +291,27 @@ router.get('/reports/:year/:month', async (req, res) => {
   }
 });
 
+router.delete('/reports/:year/:month', requireToCreate, async (req, res) => {
+  try {
+    const { year, month } = normalizePeriod(req.params.year, req.params.month);
+    const deleted = await deleteToPeriod(req.workspace.id, year, month);
+    const approvals = await clearToPeriodApprovals(req.workspace, year, month)
+      .catch((error) => ({ cleared: 0, warning: error?.message || 'Tasdiqlash qatorlarini tozalash amalga oshmadi' }));
+    return res.json({
+      ok: true,
+      deleted,
+      approvalsCleared: Number(approvals?.cleared || 0),
+      warning: approvals?.warning || '',
+    });
+  } catch (error) {
+    return res.status(Number(error?.statusCode) || 400).json({
+      ok: false,
+      error: error?.message || 'TO hisobotini o‘chirish xatosi',
+      code: error?.code || 'TO_REPORT_DELETE_FAILED',
+    });
+  }
+});
+
 router.post('/reports/:year/:month/send', requireToSend, async (req, res) => {
   try {
     const { year, month } = normalizePeriod(req.params.year, req.params.month);
@@ -231,6 +323,20 @@ router.post('/reports/:year/:month/send', requireToSend, async (req, res) => {
       error: error?.message || 'TO hujjatini imzolovchilarga yuborish xatosi',
       code: error?.code || 'TO_REPORT_SEND_FAILED',
       recommendedFix: error?.recommendedFix || '',
+    });
+  }
+});
+
+router.post('/reports/:year/:month/finalize', requireToCreate, async (req, res) => {
+  try {
+    const { year, month } = normalizePeriod(req.params.year, req.params.month);
+    const finalPdfExport = await queueToFinalPdfIfReady(req.workspace, year, month);
+    return res.json({ ok: true, finalPdfExport });
+  } catch (error) {
+    return res.status(Number(error?.statusCode) || 400).json({
+      ok: false,
+      error: error?.message || 'TO yakuniy PDF yaratish xatosi',
+      code: error?.code || 'TO_FINAL_PDF_FAILED',
     });
   }
 });
@@ -260,7 +366,15 @@ router.get('/approve/:token', async (req, res) => {
 router.post('/approve', async (req, res) => {
   try {
     const result = await approveToPeriod(req.body?.token, req);
-    return res.json({ ok: true, ...result });
+    let finalPdfExport = null;
+    if (result?.status === 'Тасдиқланди' && result?.workspaceId && result?.year && result?.month) {
+      finalPdfExport = await queueToFinalPdfIfReady(
+        { ...req.workspace, id: result.workspaceId },
+        result.year,
+        result.month,
+      );
+    }
+    return res.json({ ok: true, ...result, finalPdfExport });
   } catch (error) {
     return res.status(400).json({
       ok: false,

@@ -406,6 +406,7 @@
   function init() {
     injectStyle();
     injectUi();
+    window.setTimeout(() => open(), 0);
   }
 
   window.addEventListener('message', (event) => {

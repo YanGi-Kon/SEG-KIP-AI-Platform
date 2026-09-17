@@ -108,6 +108,19 @@ export async function getToPeriodByKey(workspaceId, year, month, client = null) 
   return mapPeriod(result.rows[0]);
 }
 
+export async function deleteToPeriodByKey(workspaceId, year, month) {
+  const result = await query(
+    `DELETE FROM to_periods
+     WHERE workspace_id = $1::uuid
+       AND period_year = $2::smallint
+       AND period_month = $3::smallint
+       AND status = 'draft'
+     RETURNING ${PERIOD_COLUMNS}`,
+    [workspaceId, Number(year), Number(month)],
+  );
+  return mapPeriod(result.rows[0]);
+}
+
 export async function getToPeriodById(workspaceId, periodId, client = null) {
   const result = await executor(client).query(
     `SELECT ${PERIOD_COLUMNS}
@@ -233,6 +246,22 @@ export async function updateToPeriodApprovalAssignments(workspaceId, periodId, a
      WHERE workspace_id = $1::uuid AND id = $2::uuid
      RETURNING ${PERIOD_COLUMNS}`,
     [workspaceId, periodId, JSON.stringify(normalized)],
+  );
+  return mapPeriod(result.rows[0]);
+}
+
+export async function updateToPeriodFinalPdfState(workspaceId, periodId, finalPdf = {}, { complete = false } = {}) {
+  const normalized = finalPdf && typeof finalPdf === 'object' ? finalPdf : {};
+  const result = await query(
+    `UPDATE to_periods
+     SET source_snapshot = COALESCE(source_snapshot, '{}'::jsonb)
+       || jsonb_build_object('finalPdf', $3::jsonb),
+         status = CASE WHEN $4::boolean THEN 'completed' ELSE status END,
+         completed_at = CASE WHEN $4::boolean THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+         updated_at = NOW()
+     WHERE workspace_id = $1::uuid AND id = $2::uuid
+     RETURNING ${PERIOD_COLUMNS}`,
+    [workspaceId, periodId, JSON.stringify(normalized), Boolean(complete)],
   );
   return mapPeriod(result.rows[0]);
 }
