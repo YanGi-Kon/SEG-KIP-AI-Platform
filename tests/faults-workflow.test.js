@@ -10,6 +10,7 @@ const service = fs.readFileSync(new URL('../services/faultReportService.js', imp
 const route = fs.readFileSync(new URL('../routes/faults.js', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
 const migrate = fs.readFileSync(new URL('../db/migrate.js', import.meta.url), 'utf8');
+const app = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
 
 test('FAULTS toolbar mirrors TO workflow sections', () => {
   for (const id of [
@@ -42,6 +43,16 @@ test('FAULTS workflow script is syntactically valid and exposes all panels', () 
     assert.match(workflow, new RegExp(id));
   }
   assert.match(workflow, /window\.FaultsWorkflow/);
+});
+
+test('FAULTS opens monthly analysis automatically on every module entry', () => {
+  assert.match(workflow, /function autoOpenMonthlyAnalysis\(\)/);
+  assert.match(workflow, /window\.setTimeout\(autoOpenMonthlyAnalysis, 120\)/);
+  assert.match(workflow, /event\.data\?\.type === 'SEG_KIP_FAULTS_OPEN'/);
+  assert.match(workflow, /window\.setTimeout\(autoOpenMonthlyAnalysis, 0\)/);
+  assert.match(app, /postMessage\(\{ type: 'SEG_KIP_FAULTS_OPEN' \}, '\*'\)/);
+  assert.match(app, /const isFaults = moduleName === 'faults'/);
+  assert.match(app, /faults: 'modules\/faults\.html\?v=20260924-workflow5-auto-analysis'/);
 });
 
 test('FAULTS monthly analysis creates a dedicated document blank', () => {
