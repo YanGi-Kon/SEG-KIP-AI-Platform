@@ -6,7 +6,7 @@
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const MODULE_SHEET_KEY = 'faults_sheet_name';
   const MONTHS = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-  const uiState = { analysisYear: 0, analysisMonth: 0, analysisRows: [], reports: [], signers: [], busy: false };
+  const uiState = { analysisYear: 0, analysisMonth: 0, analysisRows: [], reports: [], signers: [], documentDraft: null, busy: false };
 
   const $ = (id) => document.getElementById(id);
   const clean = (value) => String(value ?? '').trim();
@@ -123,6 +123,14 @@
       .faults-wf-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.faults-wf-form label{display:grid;gap:5px;font-size:11px;color:#b9d6e4}.faults-wf-form input{width:100%}
       .faults-signer-preview{display:flex;align-items:center;gap:8px}.faults-signer-preview img{width:92px;height:42px;object-fit:contain;background:#fff;border-radius:5px}
       .faults-final-link{display:inline-block;margin-top:7px;color:#67e8f9;font-weight:800;text-decoration:none}
+      .faults-document-shell{width:min(1480px,100%);height:min(95vh,980px)}
+      .faults-document-body{padding:14px;overflow:auto;background:#dbe4ea}
+      .faults-document-paper{width:min(1380px,100%);min-height:760px;margin:0 auto;background:#fff;color:#111;padding:18px 20px;box-shadow:0 8px 30px rgba(0,0,0,.24)}
+      .faults-document-draft-note{margin:0 0 12px;padding:8px 10px;border:1px dashed #9ca3af;background:#f8fafc;color:#475569;font-size:11px;text-align:center}
+      .faults-document-title{text-align:center;margin:0 0 4px;font-size:20px}.faults-document-meta{text-align:center;margin:0 0 14px;font-size:12px;color:#334155}
+      .faults-document-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}.faults-document-table th,.faults-document-table td{border:1px solid #111;padding:5px;vertical-align:middle;word-break:break-word}
+      .faults-document-table th{text-align:center;background:#f1f5f9;font-size:9px}.faults-document-table .pre{white-space:pre-wrap}.faults-document-signer{text-align:center}
+      .faults-document-footer{display:flex;justify-content:flex-end;margin-top:14px;font-size:11px}.faults-document-footer-card{min-width:320px;border-top:1px solid #111;padding-top:7px}
       @media(max-width:820px){.faults-wf-kpis{grid-template-columns:repeat(2,1fr)}.faults-reports-grid{grid-template-columns:1fr}.faults-report-folders{max-height:220px;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.faults-wf-form{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
@@ -138,7 +146,7 @@
           <div class="faults-wf-period"><button id="faultsAnalysisPrev" class="btn" type="button">←</button><select id="faultsAnalysisMonth"></select><select id="faultsAnalysisYear"></select><button id="faultsAnalysisNext" class="btn" type="button">→</button><span id="faultsMonthlyStatus" class="faults-wf-status sync">Davr tanlanmoqda...</span></div>
           <div class="faults-wf-kpis"><div class="faults-wf-kpi"><small>АКТ yozuvlari</small><b id="faultsKpiTotal">0</b></div><div class="faults-wf-kpi"><small>Yakunlangan ACT</small><b id="faultsKpiCompleted">0</b></div><div class="faults-wf-kpi"><small>Nosozliklar</small><b id="faultsKpiFaults">0</b></div><div class="faults-wf-kpi"><small>ASOSIY VAROQ</small><b id="faultsKpiSheet" style="font-size:13px">—</b></div></div>
           <div class="faults-wf-tablewrap"><table class="faults-wf-table"><thead><tr><th>№</th><th>Сана</th><th>Ускуна</th><th>Поз.</th><th>Завод №</th><th>Ўлчаш чегараси</th><th>Жой</th><th>Ҳолат</th></tr></thead><tbody id="faultsMonthlyRows"></tbody></table></div>
-          <div class="faults-wf-actions" style="justify-content:flex-end;margin-top:12px"><button id="faultsOpenMonthlyBtn" class="btn primary" type="button">Хужатни очиш</button></div>
+          <div class="faults-wf-actions" style="justify-content:flex-end;margin-top:12px"><button id="faultsOpenMonthlyBtn" class="btn primary" type="button">Хужат яратиш</button></div>
         </div>
       </div></div>
 
@@ -163,13 +171,18 @@
       <div id="faultsSettingsModal" class="faults-wf-modal"><div class="faults-wf-shell small">
         <div class="faults-wf-head"><h2>⚙ Созламалар</h2><button id="faultsSettingsClose" class="btn" type="button">✕</button></div>
         <div class="faults-wf-body"><div class="faults-wf-card"><label style="display:grid;gap:6px;font-size:11px;color:#b9d6e4">ASOSIY VAROQ<input id="faultsSettingsSheet" class="faults-wf-input" list="faultsSettingsSheets" placeholder="Masalan: АКТ хисоботлари"></label><datalist id="faultsSettingsSheets"></datalist><div class="faults-wf-actions" style="justify-content:flex-end;margin-top:10px"><button id="faultsSettingsRefresh" class="btn" type="button">↻ Varaq ro‘yxati</button><button id="faultsSettingsSave" class="btn primary workspace-admin-only" type="button">Сақлаш</button></div><div id="faultsSettingsStatus" class="faults-wf-status sync" style="margin-top:9px">Workspace manbasi ishlatiladi.</div></div></div>
+      </div></div>
+
+      <div id="faultsDocumentModal" class="faults-wf-modal"><div class="faults-wf-shell faults-document-shell">
+        <div class="faults-wf-head"><h2>ЖУРНАЛ НЕИСПРАВНОСТЕЙ — Хужат</h2><div class="faults-wf-head-actions"><button id="faultsDocumentSave" class="btn primary workspace-operator-only" type="button">💾 Сақлаш</button><button id="faultsDocumentClose" class="btn" type="button">✕</button></div></div>
+        <div class="faults-document-body"><div id="faultsDocumentPaper" class="faults-document-paper"><div class="faults-wf-empty">Хужат яратилмаган.</div></div></div>
       </div></div>`;
     while (host.firstChild) document.body.appendChild(host.firstChild);
 
     const closers = [
       ['faultsMonthlyClose', 'faultsMonthlyModal'], ['faultsReportsClose', 'faultsReportsModal'],
       ['faultsSignersClose', 'faultsSignersModal'], ['faultsFinalClose', 'faultsFinalModal'],
-      ['faultsSettingsClose', 'faultsSettingsModal'],
+      ['faultsSettingsClose', 'faultsSettingsModal'], ['faultsDocumentClose', 'faultsDocumentModal'],
     ];
     closers.forEach(([buttonId, modalId]) => $(buttonId)?.addEventListener('click', () => $(modalId)?.classList.remove('show')));
     document.querySelectorAll('.faults-wf-modal').forEach((modal) => modal.addEventListener('click', (event) => {
@@ -181,7 +194,7 @@
     $('faultsAnalysisNext')?.addEventListener('click', () => void navigateAnalysis(1));
     $('faultsAnalysisMonth')?.addEventListener('change', () => void readAndLoadAnalysis());
     $('faultsAnalysisYear')?.addEventListener('change', () => void readAndLoadAnalysis());
-    $('faultsOpenMonthlyBtn')?.addEventListener('click', () => void openAnalysisInJournal());
+    $('faultsOpenMonthlyBtn')?.addEventListener('click', () => void createMonthlyDocument());
     $('faultsReportsRefresh')?.addEventListener('click', () => void loadReports());
     $('faultsSignersRefresh')?.addEventListener('click', () => void loadSigners());
     $('faultsSignerAddToggle')?.addEventListener('click', () => {
@@ -195,6 +208,7 @@
     $('faultsFinalExport')?.addEventListener('click', () => void finalizeCurrentReport());
     $('faultsSettingsRefresh')?.addEventListener('click', () => void loadSheetNames());
     $('faultsSettingsSave')?.addEventListener('click', () => void saveSettings());
+    $('faultsDocumentSave')?.addEventListener('click', () => void saveCurrentReport());
   }
 
   function fillAnalysisSelectors() {
@@ -266,9 +280,84 @@
     await loadMonthlyAnalysis();
   }
 
-  async function openAnalysisInJournal() {
-    await window.FaultsJournalFrontend?.setPeriodAndReload?.(uiState.analysisYear, uiState.analysisMonth);
-    $('faultsMonthlyModal')?.classList.remove('show');
+  function documentFailureText(row = {}) {
+    return [
+      clean(row.serialNo) ? `Завод рақами: ${clean(row.serialNo)}` : '',
+      clean(row.measureRange) ? `Ўлчаш чегараси: ${clean(row.measureRange)}` : '',
+      clean(row.reasonText || row.failureText) ? `Рад этиш сабаби: ${clean(row.reasonText || row.failureText)}` : '',
+    ].filter(Boolean).join('\n');
+  }
+
+  function documentEquipmentText(row = {}) {
+    return [
+      clean(row.deviceName || row.device),
+      clean(row.place),
+      clean(row.positionNo) ? `поз. №${clean(row.positionNo)}` : '',
+    ].filter(Boolean).join(', ');
+  }
+
+  function buildDocumentDraftRows() {
+    const state = mainState();
+    return (Array.isArray(state.reports) ? state.reports : []).map(normalizeCurrentRow);
+  }
+
+  function renderDocumentDraft() {
+    const host = $('faultsDocumentPaper');
+    const draft = uiState.documentDraft;
+    if (!host || !draft) return;
+    const signer = draft.signer || {};
+    const rows = Array.isArray(draft.rows) ? draft.rows : [];
+    const body = rows.map((row, index) => `<tr>
+      <td>${esc(row.actNo || index + 1)}</td>
+      <td>${esc([row.date, row.time].filter(Boolean).join(' '))}</td>
+      <td>${esc(documentEquipmentText(row))}</td>
+      <td class="pre">${esc(documentFailureText(row))}</td>
+      <td class="pre">${esc(row.actionText)}</td>
+      <td>${esc([row.actionDate, row.actionTime].filter(Boolean).join(' '))}</td>
+      <td class="faults-document-signer">${esc(signer.fio || '')}</td>
+    </tr>`).join('');
+    host.innerHTML = `
+      <div class="faults-document-draft-note">Vaqtinchalik blank. Siz rasmiy blankni yuklaganingizdan keyin aynan shu hujjat mexanizmiga uning dizayni va rekvizitlari joylashtiriladi.</div>
+      <h1 class="faults-document-title">ЖУРНАЛ НЕИСПРАВНОСТЕЙ</h1>
+      <p class="faults-document-meta">${esc(currentWorkspace()?.name || '')} · ${esc(periodLabel(draft.year, draft.month))}</p>
+      <table class="faults-document-table">
+        <thead><tr>
+          <th style="width:7%">№ п/п</th>
+          <th style="width:12%">Дата, время возникновения неисправности</th>
+          <th style="width:15%">Наименование оборудования</th>
+          <th style="width:23%">Краткое описание неисправности</th>
+          <th style="width:22%">Принятые меры по ликвидации неисправности</th>
+          <th style="width:10%">Дата устранения неисправности</th>
+          <th style="width:11%">Подпись ответств. за устранение</th>
+        </tr></thead>
+        <tbody>${body || '<tr><td colspan="7">Tanlangan oy uchun ma’lumot topilmadi.</td></tr>'}</tbody>
+      </table>
+      <div class="faults-document-footer"><div class="faults-document-footer-card"><b>Ответственный:</b> ${esc(signer.position || '')}<br><b>F.I.O.:</b> ${esc(signer.fio || '')}</div></div>`;
+  }
+
+  async function createMonthlyDocument() {
+    const button = $('faultsOpenMonthlyBtn');
+    if (button) { button.disabled = true; button.textContent = '⏳ Яратилмоқда...'; }
+    try {
+      await window.FaultsJournalFrontend?.setPeriodAndReload?.(uiState.analysisYear, uiState.analysisMonth);
+      const rows = buildDocumentDraftRows();
+      if (!rows.length) throw new Error('Tanlangan oy uchun hujjat yaratishga ma’lumot topilmadi.');
+      uiState.documentDraft = {
+        year: uiState.analysisYear,
+        month: uiState.analysisMonth,
+        rows,
+        signer: currentSignerSnapshot(),
+        template: 'faults-placeholder-v1',
+      };
+      renderDocumentDraft();
+      $('faultsMonthlyModal')?.classList.remove('show');
+      $('faultsDocumentModal')?.classList.add('show');
+    } catch (error) {
+      const status = $('faultsMonthlyStatus');
+      if (status) { status.textContent = error.message; status.className = 'faults-wf-status bad'; }
+    } finally {
+      if (button) { button.disabled = false; button.textContent = 'Хужат яратиш'; }
+    }
   }
 
   function openMonthlyAnalysis() {
@@ -678,6 +767,8 @@
     openFinalDocuments,
     openSettings,
     saveCurrentReport,
+    createMonthlyDocument,
+    renderDocumentDraft,
     loadReports,
     syncWorkspace,
   };
