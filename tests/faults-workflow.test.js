@@ -9,6 +9,7 @@ const repository = fs.readFileSync(new URL('../repositories/faultReportRepositor
 const service = fs.readFileSync(new URL('../services/faultReportService.js', import.meta.url), 'utf8');
 const route = fs.readFileSync(new URL('../routes/faults.js', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
+const migrate = fs.readFileSync(new URL('../db/migrate.js', import.meta.url), 'utf8');
 
 test('FAULTS toolbar mirrors TO workflow sections', () => {
   for (const id of [
@@ -77,6 +78,10 @@ test('FAULTS official blank preserves Appendix 3 A4 landscape geometry', () => {
   assert.match(service, /for \(let index = 0; index < sourceRows\.length; index \+= 15\)/);
   assert.match(service, /@page\{size:A4 landscape;margin:0\}/);
   assert.match(service, /font-family:"Times New Roman",Times,serif/);
+});
+
+test('database migration CLI loads local .env before reading DATABASE_URL', () => {
+  assert.match(migrate, /^import 'dotenv\/config';/);
 });
 
 test('FAULTS API explains when the new report table migration is missing', () => {
