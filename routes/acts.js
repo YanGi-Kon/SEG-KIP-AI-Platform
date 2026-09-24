@@ -330,7 +330,7 @@ router.post('/create', async (req, res) => {
 router.post('/reports/daily', async (req, res) => {
   try {
     const config = resolveActsConfig(req);
-    const rows = await getDailyReports(config);
+    const rows = await getDailyReports({ ...config, throwOnError: true });
     res.json({ rows });
   } catch (err) {
     res.status(400).json({ error: err.message, rows: [] });
