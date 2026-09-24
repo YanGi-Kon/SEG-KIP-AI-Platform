@@ -105,7 +105,7 @@ async function nextDisplayStartRow({ spreadsheetUrl, serviceAccount }) {
   }
 }
 
-export async function getDailyReports({ spreadsheetUrl, serviceAccount }) {
+export async function getDailyReports({ spreadsheetUrl, serviceAccount, throwOnError = false }) {
   try {
     await ensureRegistrySheet({ spreadsheetUrl, serviceAccount });
     const rows = await readSheetRows({ spreadsheetUrl, serviceAccount, sheetName: REGISTRY_SHEET_NAME, range: `A:${colLetter(REGISTRY_HEADERS.length)}` });
@@ -127,7 +127,8 @@ export async function getDailyReports({ spreadsheetUrl, serviceAccount }) {
       a4Json: r[13] || '',
       rowNumber: idx + 2
     }));
-  } catch (_) {
+  } catch (error) {
+    if (throwOnError) throw error;
     return [];
   }
 }

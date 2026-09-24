@@ -27,7 +27,7 @@ test('faults module renders the seven-column reglament journal frontend', () => 
   assert.match(html, /Подпись ответств\. за устранение неисправности\./);
   assert.match(html, /type="datetime-local"/);
   assert.match(html, /type="date"/);
-  assert.match(html, /Faqat frontend/);
+  assert.match(html, /Workspace bilan bog‘langan/);
 });
 
 test('faults frontend links the first column to Acts reports without local journal persistence', () => {
@@ -37,6 +37,8 @@ test('faults frontend links the first column to Acts reports without local journ
   assert.match(scriptMatch[1], /function createBlankRows/);
   assert.match(scriptMatch[1], /function loadActReportNumbers/);
   assert.match(scriptMatch[1], /\/api\/acts\/reports\/daily/);
+  assert.match(scriptMatch[1], /\/api\/acts\/monthly-analysis/);
+  assert.match(scriptMatch[1], /function mergePeriodRows/);
   assert.match(scriptMatch[1], /report\?\.actNo/);
   assert.match(scriptMatch[1], /report\?\.date/);
   assert.match(scriptMatch[1], /function toDateInputValue/);
@@ -59,7 +61,7 @@ test('faults frontend links the first column to Acts reports without local journ
 
 test('faults journal keeps a dedicated persistent iframe across menu navigation', () => {
   assert.match(indexSource, /id="faultsModuleFrame"/);
-  assert.match(indexSource, /js\/app\.js\?v=20260912-faults-persistent-frame1/);
+  assert.match(indexSource, /js\/app\.js\?v=20260924-faults-auto-analysis1/);
   assert.match(indexSource, /css\/style\.css\?v=5/);
   assert.match(styleSource, /#faultsModuleFrame\{/);
   assert.match(styleSource, /#faultsModuleFrame\[hidden\]/);
@@ -197,12 +199,15 @@ test('faults frontend puts linked Acts report fields into their journal columns'
   });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(requests.length, 3);
+  assert.equal(requests.length, 4);
   const reportRequest=requests.find(({url})=>url==='/api/acts/reports/daily');
+  const monthlyRequest=requests.find(({url})=>url==='/api/acts/monthly-analysis');
   const signerRequest=requests.find(({url})=>url.endsWith('/signers?includeInactive=true'));
   const signatureRequest=requests.find(({url})=>url.endsWith('/signers/signature/11111111-1111-4111-8111-111111111111'));
   assert.equal(reportRequest.options.headers['x-workspace-id'], 'workspace-a');
   assert.deepEqual(JSON.parse(reportRequest.options.body), { sheetName: 'ASOSIY' });
+  assert.ok(monthlyRequest, 'faults must load the selected period from ACT monthly analysis');
+  assert.deepEqual(JSON.parse(monthlyRequest.options.body), { sheetName: 'ASOSIY', year: 2026, month: 7 });
   assert.equal(signerRequest.options.headers.Authorization,'Bearer workspace-token');
   assert.equal(signatureRequest.options.headers.Authorization,'Bearer workspace-token');
   assert.equal(rowsBody.children.length, 22);
@@ -219,7 +224,7 @@ test('faults frontend puts linked Acts report fields into their journal columns'
   assert.match(rowsBody.children[0].innerHTML, /alt="Ali Valiyev imzosi"/);
   assert.doesNotMatch(rowsBody.children[0].innerHTML, />1<\/td>/);
   assert.match(elements.get('faultsStatus').textContent, /BOG.*LANGAN/);
-  assert.equal(elements.get('faultsStatusSub').textContent, '1 ta dalolatnoma raqami yuklandi');
+  assert.equal(elements.get('faultsStatusSub').textContent, '1 ta AKT yozuvi yuklandi · 1 ta dalolatnoma yakunlangan');
 });
 
 test('faults loads ACTS daily reports even when acts_sheet_name is not configured', async () => {

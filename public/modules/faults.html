@@ -52,7 +52,11 @@ button,input,textarea{font:inherit}
   border-bottom:1px solid var(--line);
   background:rgba(4,22,39,.78);
 }
-.toolbar-main{display:flex;align-items:center;gap:12px;min-width:0}
+.toolbar-main{display:flex;align-items:center;gap:12px;min-width:0;flex:1;flex-wrap:wrap}
+.faults-action-menu{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.faults-action-menu .btn{padding:9px 12px;font-size:12px}
+.faults-save-report{background:#0f766e;border-color:rgba(45,212,191,.45)}
+.faults-save-report:disabled{opacity:.55;cursor:not-allowed}
 .btn{
   flex:0 0 auto;
   border:1px solid rgba(148,163,184,.22);
@@ -177,6 +181,8 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
   .status-card{margin-top:12px;min-width:0}
   .journal-toolbar{align-items:flex-start;flex-direction:column}
   .toolbar-main{width:100%}
+  .faults-action-menu{width:100%}
+  .faults-action-menu .btn{flex:1 1 auto}
   .toolbar-badges{justify-content:flex-start;padding-left:0}
   .faults-period-bar,.faults-period-controls{width:100%}
   .faults-period-select{flex:1}
@@ -194,8 +200,8 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     </div>
     <div class="status-card" aria-live="polite">
       <small>Tizim holati</small>
-      <strong id="faultsStatus">FRONTEND MAKETI</strong>
-      <small id="faultsStatusSub">Ma’lumotlar hozircha saqlanmaydi</small>
+      <strong id="faultsStatus">YUKLANMOQDA</strong>
+      <small id="faultsStatusSub">ACT ma’lumotlari sinxronlanadi</small>
       <small id="faultsWorkspaceName">Workspace aniqlanmoqda...</small>
     </div>
   </header>
@@ -203,16 +209,23 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
   <section class="journal-panel" aria-labelledby="journalTitle">
     <div class="journal-toolbar">
       <div class="toolbar-main">
-        <button class="btn" type="button" id="faultsBack">← Menyuga qaytish</button>
+        <div class="faults-action-menu" aria-label="Nosozliklar jurnali bo‘limlari">
+          <button class="btn" type="button" id="faultsBack">← Menyuga qaytish</button>
+          <button class="btn workspace-operator-only" type="button" id="faultsMonthlyAnalysisBtn" onclick="window.FaultsWorkflow?.openMonthlyAnalysis()">1. Ойлик анализ</button>
+          <button class="btn" type="button" id="faultsReportsBtn" onclick="window.FaultsWorkflow?.openReports()">3. Хисоботлар</button>
+          <button class="btn" type="button" id="faultsSignersBtn" onclick="window.FaultsWorkflow?.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
+          <button class="btn" type="button" id="faultsFinalDocumentsBtn" onclick="window.FaultsWorkflow?.openFinalDocuments()">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
+          <button class="btn primary workspace-admin-only" type="button" id="faultsSettingsBtn" onclick="window.FaultsWorkflow?.openSettings()">⚙ Созламалар</button>
+        </div>
         <div class="toolbar-copy">
           <h2 id="journalTitle">Nosozliklarni qayd etish reglament jurnali</h2>
-          <p>Kataklarga ma’lumot kiriting. Jadval reglament.docx shabloni asosida tayyorlangan.</p>
+          <p>Tanlangan oy ACT ma’lumotlari bilan sinxronlanadi; ko‘rilgan choralar va bartaraf etish sanasini to‘ldirib saqlang.</p>
         </div>
       </div>
       <div class="toolbar-badges" aria-label="Jadval xususiyatlari">
         <span class="badge">7 ta ustun</span>
         <span id="faultsPeriodBadge" class="badge">0 ta dalolatnoma</span>
-        <span class="badge warning">Faqat frontend</span>
+        <span class="badge warning">Workspace bilan bog‘langan</span>
       </div>
     </div>
 
@@ -223,7 +236,10 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
         <select id="faultsPeriodYear" class="faults-period-select year" aria-label="Yil"></select>
         <button id="faultsNextPeriodBtn" class="btn" type="button" title="Keyingi oy">→</button>
       </div>
-      <span id="faultsPeriodStatus" class="faults-period-status">Davr yuklanmoqda...</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button id="faultsSaveReportBtn" class="btn faults-save-report workspace-operator-only" type="button" onclick="window.FaultsWorkflow?.saveCurrentReport()">💾 Сақлаш</button>
+        <span id="faultsPeriodStatus" class="faults-period-status">Davr yuklanmoqda...</span>
+      </div>
     </div>
 
     <div class="table-scroller" tabindex="0" aria-label="Nosozliklar jurnali jadvali">
@@ -246,7 +262,7 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
 
     <div class="journal-note" role="note">
       <span aria-hidden="true">ℹ️</span>
-      <span><strong>Eslatma:</strong> bu bosqichda forma faqat vizual va interaktiv frontend maketidir; sahifa yopilsa, kiritilgan ma’lumotlar saqlanmaydi.</span>
+      <span><strong>Eslatma:</strong> 5- va 6-ustundagi kiritmalar <b>Сақлаш</b> tugmasi orqali 3. Хисоботлар bo‘limiga saqlanadi. Yakuniy PDF 6. ЯКУНИЙ ҲУЖЖАТЛАР orqali Drive'ga chiqariladi.</span>
     </div>
   </section>
 </main>
@@ -257,12 +273,13 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
   const WORKSPACE_ID_KEY='seg_kip_selected_workspace_id';
   const WORKSPACE_TOKEN_KEY='seg_kip_workspace_access_token';
   const ADMIN_TOKEN_KEY='seg_kip_admin_jwt';
+  const MODULE_SHEET_KEY='faults_sheet_name';
   const PERIOD_STORAGE_PREFIX='seg_faults_period_v1';
   const MONTH_NAMES=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
   const RU_MONTH_NUMBERS=new Map([['январь',1],['января',1],['февраль',2],['февраля',2],['март',3],['марта',3],['апрель',4],['апреля',4],['май',5],['мая',5],['июнь',6],['июня',6],['июль',7],['июля',7],['август',8],['августа',8],['сентябрь',9],['сентября',9],['октябрь',10],['октября',10],['ноябрь',11],['ноября',11],['декабрь',12],['декабря',12]]);
   const GRID_ROWS=22;
   const now=new Date();
-  const state={workspaceId:'',workspaceName:'',workspace:null,allReports:[],reports:[],responsibleSigner:null,signatureObjectUrls:[],requestVersion:0,periodYear:now.getFullYear(),periodMonth:now.getMonth()+1};
+  const state={workspaceId:'',workspaceName:'',workspace:null,sheetName:'',allReports:[],reports:[],responsibleSigner:null,signatureObjectUrls:[],requestVersion:0,periodYear:now.getFullYear(),periodMonth:now.getMonth()+1};
   const $=(id)=>document.getElementById(id);
 
   function parentStorage(store,key){try{return parent?.[store]?.getItem(key)||''}catch(_){return''}}
@@ -346,11 +363,8 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     }
     return latest;
   }
-  function applyPeriodFilter(){
-    state.reports=state.allReports.filter(report=>{
-      const period=reportPeriod(report);
-      return period&&period.year===Number(state.periodYear)&&period.month===Number(state.periodMonth);
-    });
+  function renderCurrentPeriodRows(rows=[]){
+    state.reports=Array.isArray(rows)?rows:[];
     renderRows(state.reports);
     const status=$('faultsPeriodStatus');
     if(status){
@@ -359,20 +373,29 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     }
     const badge=$('faultsPeriodBadge');if(badge)badge.textContent=`${state.reports.length} ta dalolatnoma`;
   }
+  function applyPeriodFilter(){
+    renderCurrentPeriodRows(state.allReports.filter(report=>{
+      const period=reportPeriod(report);
+      return period&&period.year===Number(state.periodYear)&&period.month===Number(state.periodMonth);
+    }));
+  }
   function readPeriodControls(){
     const year=Number($('faultsPeriodYear')?.value||state.periodYear),month=Number($('faultsPeriodMonth')?.value||state.periodMonth);
     if(Number.isInteger(year)&&year>=2000&&year<=2100)state.periodYear=year;
     if(Number.isInteger(month)&&month>=1&&month<=12)state.periodMonth=month;
   }
+  function reloadSelectedPeriod(){
+    return loadActReportNumbers(state.workspaceId,state.workspace);
+  }
   function changePeriod(){
-    readPeriodControls();saveSelectedPeriod();applyPeriodFilter();
+    readPeriodControls();saveSelectedPeriod();void reloadSelectedPeriod();
   }
   function navigatePeriod(delta){
     readPeriodControls();
     const absolute=state.periodYear*12+(state.periodMonth-1)+Number(delta||0);
     state.periodYear=Math.floor(absolute/12);
     state.periodMonth=((absolute%12)+12)%12+1;
-    updatePeriodControls();saveSelectedPeriod();applyPeriodFilter();
+    updatePeriodControls();saveSelectedPeriod();void reloadSelectedPeriod();
   }
   function esc(value){return String(value??'').replace(/[&<>"']/g,(char)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
   function normalizeSignerText(value){return String(value||'').toLowerCase().replace(/\s+/g,' ').trim()}
@@ -464,13 +487,21 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
         :String(signer.signatureUrl||'').trim();
       const signatureUrl=await loadSignatureDisplayUrl(sourceUrl,expectedWorkspaceId);
       if(requestVersion!==state.requestVersion||expectedWorkspaceId!==state.workspaceId)return null;
-      return {fio:String(signer.fullName||signer.fio||'').trim(),position:String(signer.position||'').trim(),signatureUrl};
+      return {
+        id:String(signer.id||'').trim(),
+        fio:String(signer.fullName||signer.fio||'').trim(),
+        fullName:String(signer.fullName||signer.fio||'').trim(),
+        position:String(signer.position||'').trim(),
+        email:String(signer.email||signer.gmail||'').trim(),
+        signatureFileId:String(signer.signatureFileId||'').trim(),
+        signatureUrl
+      };
     }catch(_){return null}
   }
   function equipmentDisplayValue(report){
     const act=reportActData(report);
     const workPlace=String(act.workPlace||report?.workPlace||'').trim();
-    const equipment=String(workPlace.split(',')[0]||act.deviceName||report?.device||'').trim();
+    const equipment=String(workPlace.split(',')[0]||act.deviceName||report?.deviceName||report?.device||'').trim();
     const parsedPlace=workPlace.match(/,\s*([^,]+),\s*поз\.?\s*№/iu)?.[1]||'';
     const place=String(act.place||report?.place||parsedPlace).trim();
     const parsedPosition=workPlace.match(/поз\.?\s*№\s*([^,\s]+)/iu)?.[1]||'';
@@ -482,9 +513,11 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     const workPlace=String(act.workPlace||report?.workPlace||'').trim();
     const parts=workPlace.split(',').map(p=>p.trim());
     const serialPart=parts.find(p=>p.match(/завод рақами/i));
-    const serialNo=serialPart?.replace(/завод рақами\s+/i,'').trim()||'';
+    const parsedSerial=serialPart?.replace(/завод рақами\s+/i,'').trim()||'';
+    const serialNo=String(act.serialNo||report?.serialNo||report?.serial||parsedSerial).trim();
     const measurePart=parts.find(p=>p.match(/Ўлчаш чегараси/i));
-    const measureRange=measurePart?.replace(/Ўлчаш чегараси\s+/i,'').trim()||'';
+    const parsedRange=measurePart?.replace(/Ўлчаш чегараси\s+/i,'').trim()||'';
+    const measureRange=String(act.measureRange||report?.measureRange||parsedRange).trim();
     const reasonText=String(act.reasonText||report?.reasonText||'').trim();
     const result=[];
     if(serialNo)result.push(`Завод рақами: ${serialNo}`);
@@ -505,6 +538,43 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     }
     return dateValue;
   }
+  function sourceKeyValue(report){return String(report?.sourceKey||'').trim()}
+  function actNumberValue(report){return String(report?.actNo||'').trim()}
+  function mergePeriodRows(monthlyRows=[],dailyRows=[]){
+    const dailyForPeriod=(Array.isArray(dailyRows)?dailyRows:[]).filter(report=>{
+      const period=reportPeriod(report);
+      return period&&period.year===Number(state.periodYear)&&period.month===Number(state.periodMonth);
+    });
+    const dailyBySourceKey=new Map();
+    const dailyByActNo=new Map();
+    dailyForPeriod.forEach(report=>{
+      const sourceKey=sourceKeyValue(report),actNo=actNumberValue(report);
+      if(sourceKey&&!dailyBySourceKey.has(sourceKey))dailyBySourceKey.set(sourceKey,report);
+      if(actNo&&!dailyByActNo.has(actNo))dailyByActNo.set(actNo,report);
+    });
+    const used=new Set();
+    const merged=(Array.isArray(monthlyRows)?monthlyRows:[]).map(source=>{
+      const sourceKey=sourceKeyValue(source),actNo=actNumberValue(source);
+      const completed=(sourceKey&&dailyBySourceKey.get(sourceKey))||(actNo&&dailyByActNo.get(actNo))||null;
+      if(!completed)return source;
+      used.add(completed);
+      const act=reportActData(completed);
+      return {
+        ...source,
+        ...completed,
+        sourceKey:sourceKey||sourceKeyValue(completed),
+        actNo:actNumberValue(completed)||actNo,
+        date:String(completed.date||act.date||source.date||'').trim(),
+        deviceName:String(source.deviceName||act.deviceName||completed.deviceName||completed.device||'').trim(),
+        serialNo:String(source.serialNo||act.serialNo||completed.serialNo||completed.serial||'').trim(),
+        measureRange:String(source.measureRange||act.measureRange||completed.measureRange||'').trim(),
+        place:String(source.place||act.place||completed.place||'').trim(),
+        positionNo:String(source.positionNo||act.positionNo||completed.positionNo||'').trim(),
+      };
+    });
+    dailyForPeriod.forEach(report=>{if(!used.has(report))merged.push(report)});
+    return merged;
+  }
   function setIntegrationStatus(title,detail){
     const status=$('faultsStatus');
     const statusSub=$('faultsStatusSub');
@@ -518,6 +588,7 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     restoreSavedPeriod(nextId);
     state.workspaceName=String(workspace?.name||state.workspaceId||'Workspace tanlanmagan');
     state.workspace=workspace||null;
+    state.sheetName=String(workspace?.moduleSettings?.[MODULE_SHEET_KEY]||workspace?.moduleSettings?.acts_sheet_name||'').trim();
     const workspaceName=$('faultsWorkspaceName');
     if(workspaceName)workspaceName.textContent=state.workspaceName;
   }
@@ -542,8 +613,8 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
       <td><input class="cell-control linked-control" type="date" value="${actDate}" readonly aria-label="${rowNumber}-qator: AKTLAR JURNALI hisobotidagi Sana maydoni"></td>
       <td><textarea class="cell-control linked-control equipment-display" rows="3" readonly aria-label="${rowNumber}-qator: uskuna nomi, o'rnatilgan joyi va pozitsiya raqami" placeholder="—">${equipment}</textarea></td>
       <td><textarea class="cell-control linked-control failure-description" rows="3" readonly aria-label="${rowNumber}-qator: zavod raqami va o'lchash chegarasi" placeholder="—">${failureDesc}</textarea></td>
-      <td><textarea class="cell-control" rows="2" aria-label="${rowNumber}-qator: ko‘rilgan choralar" placeholder="Ko‘rilgan choralarni yozing">${actionText}</textarea></td>
-      <td><input class="cell-control" type="datetime-local" value="${resolutionDate}" aria-label="${rowNumber}-qator: bartaraf etilgan sana"></td>
+      <td><textarea class="cell-control faults-action-text" rows="2" aria-label="${rowNumber}-qator: ko‘rilgan choralar" placeholder="Ko‘rilgan choralarni yozing">${actionText}</textarea></td>
+      <td><input class="cell-control faults-resolution-date" type="datetime-local" value="${resolutionDate}" aria-label="${rowNumber}-qator: bartaraf etilgan sana"></td>
       <td>${responsibleSignatureMarkup(rowNumber,report)}</td>`;
   }
 
@@ -555,8 +626,11 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     const count=Math.max(GRID_ROWS,reports.length);
     for(let index=1;index<=count;index+=1){
       const row=document.createElement('tr');
+      const report=reports[index-1]||null;
       row.dataset.row=String(index);
-      row.innerHTML=rowMarkup(index,reports[index-1]||null);
+      row.dataset.sourceKey=String(report?.sourceKey||'');
+      row.dataset.actNo=String(report?.actNo||'');
+      row.innerHTML=rowMarkup(index,report);
       fragment.appendChild(row);
     }
     body.appendChild(fragment);
@@ -566,36 +640,47 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
 
   async function loadActReportNumbers(expectedWorkspaceId=state.workspaceId,workspace=state.workspace){
     const requestVersion=++state.requestVersion;
-    const sheetName=String(workspace?.moduleSettings?.acts_sheet_name||'').trim();
+    const sheetName=String(state.sheetName||workspace?.moduleSettings?.[MODULE_SHEET_KEY]||workspace?.moduleSettings?.acts_sheet_name||'').trim();
     revokeSignatureObjectUrls();
     state.responsibleSigner=null;
     if(!expectedWorkspaceId){
       state.allReports=[];state.reports=[];
-      applyPeriodFilter();
+      renderCurrentPeriodRows([]);
       setIntegrationStatus('HISOBOT KUTILMOQDA','Workspace tanlanmagan');
       return [];
     }
 
-    setIntegrationStatus('YUKLANMOQDA','AKTLAR JURNALI → Хисоботлар bilan bog‘lanmoqda');
+    setIntegrationStatus('YUKLANMOQDA',`${selectedPeriodLabel()} → АКТ ma’lumotlari yuklanmoqda`);
     try{
       const responsibleSignerPromise=loadResponsibleSigner(expectedWorkspaceId,requestVersion);
       const headers={'Content-Type':'application/json','x-workspace-id':expectedWorkspaceId};
       const token=sessionValue(WORKSPACE_TOKEN_KEY)||sessionValue(ADMIN_TOKEN_KEY);
       if(token)headers.Authorization=`Bearer ${token}`;
-      const response=await fetch('/api/acts/reports/daily',{
-        method:'POST',
-        headers,
-        credentials:'include',
-        body:JSON.stringify({sheetName})
-      });
-      const data=await response.json().catch(()=>({}));
+
+      const requestRows=async(url,payload)=>{
+        const response=await fetch(url,{
+          method:'POST',
+          headers,
+          credentials:'include',
+          body:JSON.stringify(payload)
+        });
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok||data.error)throw new Error(data.error||`${url} yuklanmadi`);
+        return Array.isArray(data.rows)?data.rows:[];
+      };
+
+      let dailyRows=[];
+      let dailyError=null;
+      try{
+        dailyRows=await requestRows('/api/acts/reports/daily',{sheetName});
+      }catch(error){
+        dailyError=error;
+      }
       if(requestVersion!==state.requestVersion||expectedWorkspaceId!==state.workspaceId)return [];
-      if(!response.ok||data.error)throw new Error(data.error||'Хисоботлар yuklanmadi');
-      state.responsibleSigner=await responsibleSignerPromise;
-      if(requestVersion!==state.requestVersion||expectedWorkspaceId!==state.workspaceId)return [];
-      state.allReports=Array.isArray(data.rows)?data.rows:[];
-      if(!readSavedPeriod(expectedWorkspaceId)){
-        const latest=latestReportPeriod(state.allReports);
+
+      const hasSavedPeriod=Boolean(readSavedPeriod(expectedWorkspaceId));
+      if(!hasSavedPeriod&&dailyRows.length){
+        const latest=latestReportPeriod(dailyRows);
         if(latest){
           state.periodYear=latest.year;
           state.periodMonth=latest.month;
@@ -603,14 +688,50 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
           saveSelectedPeriod();
         }
       }
-      applyPeriodFilter();
-      const linkedCount=state.reports.filter((row)=>String(row?.actNo||'').trim()).length;
-      setIntegrationStatus('BOG‘LANGAN',`${linkedCount} ta dalolatnoma raqami yuklandi`);
+
+      let monthlyRows=null;
+      let monthlyError=null;
+      if(sheetName){
+        try{
+          monthlyRows=await requestRows('/api/acts/monthly-analysis',{
+            sheetName,
+            year:state.periodYear,
+            month:state.periodMonth
+          });
+        }catch(error){
+          monthlyError=error;
+        }
+      }
+      if(requestVersion!==state.requestVersion||expectedWorkspaceId!==state.workspaceId)return [];
+
+      state.responsibleSigner=await responsibleSignerPromise;
+      if(requestVersion!==state.requestVersion||expectedWorkspaceId!==state.workspaceId)return [];
+
+      state.allReports=dailyRows;
+      if(Array.isArray(monthlyRows)){
+        renderCurrentPeriodRows(mergePeriodRows(monthlyRows,dailyRows));
+      }else{
+        applyPeriodFilter();
+      }
+
+      const completedCount=state.reports.filter(row=>actNumberValue(row)).length;
+      if(monthlyError&&dailyError){
+        throw new Error(`Oylik ACT: ${monthlyError.message}; Reestr: ${dailyError.message}`);
+      }
+      if(monthlyError){
+        setIntegrationStatus('QISMAN BOG‘LANGAN',`${state.reports.length} ta dalolatnoma · oylik ACT manbasi xatosi: ${monthlyError.message}`);
+      }else if(dailyError){
+        setIntegrationStatus('QISMAN BOG‘LANGAN',`${state.reports.length} ta AKT yozuvi · reestr xatosi: ${dailyError.message}`);
+      }else if(Array.isArray(monthlyRows)){
+        setIntegrationStatus('BOG‘LANGAN',`${state.reports.length} ta AKT yozuvi yuklandi · ${completedCount} ta dalolatnoma yakunlangan`);
+      }else{
+        setIntegrationStatus('BOG‘LANGAN',`${completedCount} ta dalolatnoma raqami yuklandi`);
+      }
       return state.reports;
     }catch(error){
       if(requestVersion!==state.requestVersion||expectedWorkspaceId!==state.workspaceId)return [];
       state.allReports=[];state.reports=[];
-      applyPeriodFilter();
+      renderCurrentPeriodRows([]);
       setIntegrationStatus('ULANISH XATOSI',error.message||'Хисоботлар yuklanmadi');
       return [];
     }
@@ -635,10 +756,19 @@ textarea.cell-control.equipment-display,textarea.cell-control.failure-descriptio
     if(parent&&parent!==window)parent.postMessage({type:'REQUEST_WORKSPACE_INFO'},'*');
   }
 
-  window.FaultsJournalWorkspace={state,loadWorkspace};
-  window.FaultsJournalFrontend={rowCount:GRID_ROWS,createBlankRows,renderRows,loadActReportNumbers,applyPeriodFilter,navigatePeriod};
+  async function setPeriodAndReload(year,month){
+    const nextYear=Number(year),nextMonth=Number(month);
+    if(Number.isInteger(nextYear)&&nextYear>=2000&&nextYear<=2100)state.periodYear=nextYear;
+    if(Number.isInteger(nextMonth)&&nextMonth>=1&&nextMonth<=12)state.periodMonth=nextMonth;
+    updatePeriodControls();saveSelectedPeriod();
+    return loadActReportNumbers(state.workspaceId,state.workspace);
+  }
+
+  window.FaultsJournalWorkspace={state,loadWorkspace,loadActReportNumbers,setPeriodAndReload,selectedPeriodLabel};
+  window.FaultsJournalFrontend={rowCount:GRID_ROWS,createBlankRows,renderRows,loadActReportNumbers,applyPeriodFilter,navigatePeriod,setPeriodAndReload,selectedPeriodLabel};
   window.addEventListener('DOMContentLoaded',boot,{once:true});
 })();
 </script>
+<script id="faultsWorkflowScript" src="/js/faults-workflow.js?v=faults-workflow5-auto-analysis"></script>
 </body>
 </html>

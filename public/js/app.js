@@ -2,7 +2,7 @@
 const MODULES = {
   journal: 'modules/hisobot-journal.html?v=20260912-hide-source1',
   acts: 'modules/acts.html?v=20260901-email-approval-signatures-4',
-  faults: 'modules/faults.html?v=20260912-month-year1',
+  faults: 'modules/faults.html?v=20260924-workflow5-auto-analysis',
   to: 'modules/to.html?v=20260916-final-documents1',
   openai: 'modules/openai.html',
   users: 'modules/users.html',
@@ -197,7 +197,17 @@ function openModulePage(moduleName, title) {
   if (faultsFrame) faultsFrame.hidden = !isFaults;
   if (genericFrame) genericFrame.hidden = isJournal || isFaults;
   const frame = isJournal ? journalFrame : (isFaults ? faultsFrame : genericFrame);
-  if (frame && frame.getAttribute('src') !== src) frame.src = src;
+  const frameNeedsLoad = Boolean(frame && frame.getAttribute('src') !== src);
+  if (frameNeedsLoad) {
+    if (isFaults) {
+      frame.addEventListener('load', () => {
+        frame.contentWindow?.postMessage({ type: 'SEG_KIP_FAULTS_OPEN' }, '*');
+      }, { once: true });
+    }
+    frame.src = src;
+  } else if (isFaults && frame?.contentWindow) {
+    frame.contentWindow.postMessage({ type: 'SEG_KIP_FAULTS_OPEN' }, '*');
+  }
   if (page) page.classList.add('active');
   const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'АКТ ВЫПОЛНЕННЫХ РАБОТ', users:'ПОЛЬЗОВАТЕЛИ', roles:'РОЛИ', settings:'НАСТРОЙКИ' };
   setActiveMenu(menuLabels[moduleName] || 'ЖУРНАЛ УЧЕТА');

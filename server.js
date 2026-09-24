@@ -15,6 +15,7 @@ import baseRouter from "./routes/base.js";
 import workbookRouter from "./routes/workbook.js";
 import menuRouter from "./routes/menu.js";
 import actsRouter from "./routes/acts.js";
+import faultsRouter from "./routes/faults.js";
 import toRouter from "./routes/to.js";
 import toPeriodSheetBridgeRouter from "./routes/toPeriodSheetBridge.js";
 import hisobotPeriodRouter from "./routes/hisobotPeriod.js";
@@ -193,6 +194,7 @@ app.use("/api/base", baseRouter);
 app.use("/api/workbook", workbookRouter);
 app.use("/api/menu", menuRouter);
 app.use("/api/acts", actsRouter);
+app.use("/api/faults", faultsRouter);
 app.use("/api/to-period-bridge", toPeriodSheetBridgeRouter);
 app.use("/api/hisobot-period", hisobotPeriodRouter);
 app.use("/api/to", toRouter);
@@ -236,12 +238,16 @@ app.use((error, req, res, next) => {
 initKudukRealtime(io);
 
 async function startServer() {
-  if (isDatabaseConfigured() && String(process.env.DB_AUTO_MIGRATE ?? "true") !== "false") {
-    const report = await runMigrations();
-    if (report.applied.length) {
-      console.log(`[database] migrations applied: ${report.applied.join(", ")}`);
+  if (isDatabaseConfigured()) {
+    if (String(process.env.DB_AUTO_MIGRATE ?? "true") !== "false") {
+      const report = await runMigrations();
+      if (report.applied.length) {
+        console.log(`[database] migrations applied: ${report.applied.join(", ")}`);
+      } else {
+        console.log("[database] migrations up to date");
+      }
     } else {
-      console.log("[database] migrations up to date");
+      console.warn("[database] DB_AUTO_MIGRATE=false. New schema migrations are not applied automatically. Run: npm run db:migrate");
     }
   }
 
