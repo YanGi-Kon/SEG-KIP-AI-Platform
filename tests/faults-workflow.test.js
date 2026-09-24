@@ -49,10 +49,27 @@ test('FAULTS monthly analysis creates a dedicated document blank', () => {
   assert.match(workflow, /id="faultsDocumentModal"/);
   assert.match(workflow, /function createMonthlyDocument\(\)/);
   assert.match(workflow, /function renderDocumentDraft\(\)/);
-  assert.match(workflow, /template: 'faults-placeholder-v1'/);
-  assert.match(workflow, /Vaqtinchalik blank/);
-  assert.match(workflow, /ЖУРНАЛ НЕИСПРАВНОСТЕЙ/);
+  assert.match(workflow, /template: 'reglament-appendix-3-v1'/);
+  assert.match(workflow, /Приложение № 3 к/);
+  assert.match(workflow, /Регламенту/);
+  assert.match(workflow, /ФОРМА/);
+  assert.match(workflow, /Журнал учета отказов и неисправностей оборудования автоматики/);
+  assert.match(workflow, /КИПиА ЦДНГ №… ТПП «,,,»/);
   assert.match(workflow, /faultsDocumentSave/);
+});
+
+test('FAULTS official blank preserves Appendix 3 A4 landscape geometry', () => {
+  assert.match(workflow, /width:297mm/);
+  assert.match(workflow, /min-height:210mm/);
+  assert.match(workflow, /padding:13\.79mm 10\.94mm 8\.10mm 4\.94mm/);
+  for (const width of ['6.17%', '10.71%', '9.56%', '31.26%', '21.52%', '9.38%', '11.42%']) {
+    assert.match(workflow, new RegExp(width.replace('.', '\\.')));
+    assert.match(service, new RegExp(width.replace('.', '\\.')));
+  }
+  assert.match(workflow, /while \(rows\.length < 15\) rows\.push\(\{\}\)/);
+  assert.match(service, /for \(let index = 0; index < sourceRows\.length; index \+= 15\)/);
+  assert.match(service, /@page\{size:A4 landscape;margin:0\}/);
+  assert.match(service, /font-family:"Times New Roman",Times,serif/);
 });
 
 test('FAULTS reports persist one monthly snapshot per workspace', () => {
