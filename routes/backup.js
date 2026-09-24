@@ -1,7 +1,13 @@
 import { Router } from 'express';
 import { requireAccessToken as requireAuth } from '../middleware/auth.js';
 import { query } from '../db/pool.js';
-import { backupState, triggerManualBackup } from '../services/backupService.js';
+import {
+  backupState,
+  getBackupSchedulerStatus,
+  normalizeBackupScheduleTimes,
+  reloadBackupSchedules,
+  triggerManualBackup,
+} from '../services/backupService.js';
 
 const router = Router();
 
@@ -106,7 +112,10 @@ router.get('/schedule', requireAuth, requireSuperAdmin, async (req, res) => {
     if (result.rows.length > 0) {
       schedule = result.rows[0].setting_value;
     }
-    res.json(schedule);
+    const times = schedule && Array.isArray(schedule.times)
+      ? normalizeBackupScheduleTimes(schedule.times)
+      : ["00:00", "12:00"];
+    res.json({ times, runtime: getBackupSchedulerStatus() });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -119,23 +128,29 @@ router.post('/schedule', requireAuth, requireSuperAdmin, async (req, res) => {
     if (!Array.isArray(times)) {
       return res.status(400).json({ error: 'times must be an array' });
     }
-    
-    // Ensure all times are valid HH:mm strings
-    const validTimes = times.filter(t => /^([01]\d|2[0-3]):([0-5]\d)$/.test(t));
-    const schedule = { times: validTimes };
+
+    const schedule = { times: normalizeBackupScheduleTimes(times) };
 
     await query(
       'INSERT INTO platform_settings (setting_key, setting_value) VALUES ($1, $2) ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2, updated_at = CURRENT_TIMESTAMP',
       ['backup_schedule', JSON.stringify(schedule)]
     );
 
-    // Dynamic import to avoid circular dependencies if any, though we can just import it at the top.
-    const { reloadBackupSchedules } = await import('../services/backupService.js');
-    await reloadBackupSchedules();
+    // An explicit super-admin schedule save must make the timer usable in this process,
+    // even in local/dev where the startup worker feature flag may be disabled.
+    const runtime = await reloadBackupSchedules({ ensureRuntime: true });
 
-    res.json({ message: 'Backup schedule updated successfully', schedule });
+    res.json({
+      message: 'Backup schedule updated successfully',
+      schedule,
+      runtime,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error?.code === 'TELEGRAM_BACKUP_NOT_CONFIGURED' ? 400 : 500).json({
+      error: error.message,
+      code: error?.code || 'BACKUP_SCHEDULE_UPDATE_FAILED',
+      runtime: getBackupSchedulerStatus(),
+    });
   }
 });
 
