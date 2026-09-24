@@ -841,10 +841,17 @@
     fillAnalysisSelectors();
   }
 
+  function autoOpenMonthlyAnalysis() {
+    const modal = $('faultsMonthlyModal');
+    if (!modal || modal.classList.contains('show')) return;
+    openMonthlyAnalysis();
+  }
+
   function init() {
     injectStyle();
     injectUi();
     syncWorkspace();
+    window.setTimeout(autoOpenMonthlyAnalysis, 120);
   }
 
   window.addEventListener('message', (event) => {
@@ -853,6 +860,9 @@
       uiState.signers = [];
       window.setTimeout(syncWorkspace, 0);
     }
+    if (event.data?.type === 'SEG_KIP_FAULTS_OPEN') {
+      window.setTimeout(autoOpenMonthlyAnalysis, 0);
+    }
   });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
@@ -860,6 +870,7 @@
 
   window.FaultsWorkflow = {
     openMonthlyAnalysis,
+    autoOpenMonthlyAnalysis,
     openReports,
     openSigners,
     openFinalDocuments,
