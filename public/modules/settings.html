@@ -197,12 +197,14 @@
     <!-- Backup Schedule -->
     <div style="margin-top:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;">
       <div style="font-weight:600; margin-bottom:8px; font-size:14px;">⏱️ <span data-i18n="Таймер бекапов">Таймер бекапов (Vaqtlar)</span></div>
-      <div id="backupScheduleList" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; font-size:14px;">
-        <!-- Filled by JS -->
+      <div style="font-size:12px; color:#64748b; margin-bottom:8px;">O‘rnatilgan vaqtlar:</div>
+      <div id="backupScheduleList" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; font-size:14px;">
+        <span style="color:#94a3b8;">Yuklanmoqda...</span>
       </div>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <input type="time" id="newBackupTime" style="padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; font-family:inherit;">
-        <button class="btn-backup" onclick="addBackupTime()" style="background:#475569; padding:8px 16px; font-size:13px; color:#fff; border:none;">Qo'shish</button>
+      <div id="backupScheduleStatus" style="font-size:12px; color:#64748b; margin-bottom:12px;"></div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input type="time" id="newBackupTime" step="60" aria-label="Yangi backup vaqti" style="padding:6px 10px; border-radius:6px; border:1px solid #cbd5e1; font-family:inherit;">
+        <button class="btn-backup" id="addBackupTimeBtn" type="button" onclick="addBackupTime()" style="background:#475569; padding:8px 16px; font-size:13px; color:#fff; border:none;">＋ Qo‘shish</button>
       </div>
     </div>
   </div>
@@ -250,7 +252,15 @@ async function doLogout() {
 
 // --- Profile functions ---
 function getToken() {
-  try { return parent?.sessionStorage?.getItem('seg_kip_workspace_access_token') || ''; } catch(_) { return ''; }
+  try {
+    return sessionStorage.getItem('seg_kip_workspace_access_token')
+      || parent?.sessionStorage?.getItem('seg_kip_workspace_access_token')
+      || sessionStorage.getItem('seg_kip_admin_jwt')
+      || parent?.sessionStorage?.getItem('seg_kip_admin_jwt')
+      || '';
+  } catch(_) {
+    return '';
+  }
 }
 
 async function loadProfile() {
@@ -272,7 +282,10 @@ async function loadProfile() {
   }
   
   if (document.body.getAttribute('data-platform-role') === 'super_admin') {
-    fetchTelegramBackupStatus();
+    await Promise.all([
+      fetchTelegramBackupStatus(),
+      fetchBackupSchedule()
+    ]);
   }
 }
 
@@ -457,19 +470,51 @@ async function triggerTelegramBackup(type) {
 
 // --- Backup Schedule Functions ---
 let backupTimes = [];
+let backupScheduleSaving = false;
+
+function setBackupScheduleStatus(message = '', tone = 'normal') {
+  const el = document.getElementById('backupScheduleStatus');
+  if (!el) return;
+  el.textContent = message;
+  el.style.color = tone === 'error' ? '#ef4444' : tone === 'success' ? '#059669' : '#64748b';
+}
+
+function normalizeBackupTimes(times) {
+  return Array.from(new Set(
+    (Array.isArray(times) ? times : [])
+      .map(t => String(t || '').trim())
+      .filter(t => /^([01]\d|2[0-3]):([0-5]\d)$/.test(t))
+  )).sort();
+}
 
 async function fetchBackupSchedule() {
+  const container = document.getElementById('backupScheduleList');
+  if (container) container.innerHTML = '<span style="color:#94a3b8;">Yuklanmoqda...</span>';
+  setBackupScheduleStatus('Jadval serverdan olinmoqda...');
+
   try {
     const res = await fetch('/api/backup/schedule', {
       headers: { 'Authorization': 'Bearer ' + getToken() },
       credentials: 'include'
     });
-    if (!res.ok) throw new Error('Failed to fetch schedule');
-    const data = await res.json();
-    backupTimes = data.times || [];
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Backup jadvalini olib bo‘lmadi');
+
+    backupTimes = normalizeBackupTimes(data.times);
     renderBackupTimes();
+    setBackupScheduleStatus(
+      backupTimes.length
+        ? `${backupTimes.length} ta vaqt o‘rnatilgan.`
+        : 'Avtomatik backup vaqti o‘rnatilmagan.',
+      'success'
+    );
   } catch(e) {
-    console.error(e);
+    console.error('[BackupSchedule] load failed:', e);
+    backupTimes = [];
+    if (container) {
+      container.innerHTML = '<span style="color:#ef4444;">Jadvalni yuklab bo‘lmadi.</span>';
+    }
+    setBackupScheduleStatus(e.message || 'Backup jadvalini olishda xatolik', 'error');
   }
 }
 
@@ -477,80 +522,106 @@ function renderBackupTimes() {
   const container = document.getElementById('backupScheduleList');
   if (!container) return;
   container.innerHTML = '';
-  
-  if (backupTimes.length === 0) {
-    container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Taymer o\'rnatilmagan</span>';
+
+  const sortedTimes = normalizeBackupTimes(backupTimes);
+  backupTimes = sortedTimes;
+
+  if (sortedTimes.length === 0) {
+    container.innerHTML = '<span style="color:#94a3b8; font-style:italic;">Taymer o‘rnatilmagan</span>';
     return;
   }
-  
-  backupTimes.sort().forEach((t, index) => {
+
+  sortedTimes.forEach((time) => {
     const tag = document.createElement('div');
-    tag.style.cssText = 'background:#e2e8f0; padding:4px 10px; border-radius:12px; display:flex; align-items:center; gap:6px;';
-    tag.innerHTML = `
-      <span style="font-weight:600; color:#334155;">${t}</span>
-      <span style="cursor:pointer; color:#ef4444; font-weight:bold; font-size:16px; line-height:1;" onclick="removeBackupTime(${index})">×</span>
-    `;
+    tag.style.cssText = 'background:#e2e8f0; padding:5px 7px 5px 10px; border-radius:12px; display:flex; align-items:center; gap:7px; border:1px solid #cbd5e1;';
+    const label = document.createElement('span');
+    label.style.cssText = 'font-weight:700; color:#334155; min-width:42px;';
+    label.textContent = time;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.title = `${time} vaqtini o‘chirish`;
+    removeBtn.setAttribute('aria-label', `${time} vaqtini o‘chirish`);
+    removeBtn.style.cssText = 'width:24px;height:24px;border:0;border-radius:7px;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:13px;display:grid;place-items:center;padding:0;';
+    removeBtn.textContent = '🗑️';
+    removeBtn.addEventListener('click', () => void removeBackupTime(time));
+
+    tag.append(label, removeBtn);
     container.appendChild(tag);
   });
 }
 
 async function addBackupTime() {
+  if (backupScheduleSaving) return;
   const input = document.getElementById('newBackupTime');
-  const time = input.value;
-  if (!time) return alert("Iltimos, vaqtni tanlang!");
-  
-  if (backupTimes.includes(time)) {
-    return alert("Bu vaqt allaqachon qo'shilgan.");
+  const time = String(input?.value || '').trim();
+  if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(time)) {
+    return alert('Iltimos, vaqtni HH:MM formatida tanlang.');
   }
-  
-  backupTimes.push(time);
-  input.value = '';
-  renderBackupTimes();
-  await saveBackupSchedule();
+  if (backupTimes.includes(time)) {
+    return alert('Bu vaqt allaqachon o‘rnatilgan.');
+  }
+
+  const saved = await saveBackupSchedule([...backupTimes, time]);
+  if (saved && input) input.value = '';
 }
 
-async function removeBackupTime(index) {
-  backupTimes.splice(index, 1);
-  renderBackupTimes();
-  await saveBackupSchedule();
+async function removeBackupTime(time) {
+  if (backupScheduleSaving) return;
+  const normalized = String(time || '').trim();
+  if (!backupTimes.includes(normalized)) return;
+  if (!confirm(`${normalized} backup vaqtini o‘chirasizmi?`)) return;
+
+  await saveBackupSchedule(backupTimes.filter(t => t !== normalized));
 }
 
-async function saveBackupSchedule() {
+async function saveBackupSchedule(nextTimes) {
+  if (backupScheduleSaving) return false;
+  backupScheduleSaving = true;
+  const addBtn = document.getElementById('addBackupTimeBtn');
+  if (addBtn) addBtn.disabled = true;
+  setBackupScheduleStatus('Jadval saqlanmoqda...');
+
   try {
+    const requestedTimes = normalizeBackupTimes(nextTimes);
     const res = await fetch('/api/backup/schedule', {
       method: 'POST',
-      headers: { 
+      headers: {
         'Authorization': 'Bearer ' + getToken(),
-        'Content-Type': 'application/json' 
+        'Content-Type': 'application/json'
       },
       credentials: 'include',
-      body: JSON.stringify({ times: backupTimes })
+      body: JSON.stringify({ times: requestedTimes })
     });
-    
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Saqlashda xatolik');
-    }
-    
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Saqlashda xatolik');
+
+    backupTimes = normalizeBackupTimes(data.schedule?.times || requestedTimes);
+    renderBackupTimes();
+    setBackupScheduleStatus(
+      backupTimes.length
+        ? `Saqlandi: ${backupTimes.join(', ')}`
+        : 'Barcha avtomatik backup vaqtlari o‘chirildi.',
+      'success'
+    );
+
     const toast = document.getElementById('saveToast');
-    const span = toast.querySelector('span');
-    if (span) span.textContent = "Taymer saqlandi!";
+    const span = toast?.querySelector('span');
+    if (span) span.textContent = 'Taymer saqlandi!';
     showToast();
+    return true;
   } catch(e) {
     alert('Xato: ' + e.message);
-    await fetchBackupSchedule(); // revert
+    setBackupScheduleStatus(e.message || 'Saqlashda xatolik', 'error');
+    await fetchBackupSchedule();
+    return false;
+  } finally {
+    backupScheduleSaving = false;
+    if (addBtn) addBtn.disabled = false;
   }
 }
 
-// Call on load
-document.addEventListener('DOMContentLoaded', () => {
-  // Existing calls ...
-  setTimeout(() => {
-    if (document.getElementById('telegramBackupCard')?.style.display !== 'none') {
-      fetchBackupSchedule();
-    }
-  }, 500);
-});
 </script>
 </body>
 </html>
