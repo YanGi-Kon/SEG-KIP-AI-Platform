@@ -43,8 +43,58 @@ export async function sendTelegramMessage(message) {
 }
 
 
+function getBackupTimeZone() {
+  const configured = String(getConfig().timeZone || 'Asia/Tashkent').trim() || 'Asia/Tashkent';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: configured }).format(new Date());
+    return configured;
+  } catch (_) {
+    console.warn(`[BackupWorker] Invalid APP_TIME_ZONE "${configured}", falling back to Asia/Tashkent.`);
+    return 'Asia/Tashkent';
+  }
+}
+
 function getTashkentTime() {
-  return new Date().toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent' }) + ' (UTC+5)';
+  const timeZone = getBackupTimeZone();
+  return new Date().toLocaleString('ru-RU', { timeZone }) + ` (${timeZone})`;
+}
+
+function ensureBackupRuntime() {
+  const config = getConfig();
+  if (!config.telegram.botToken || !config.telegram.backupChatId) {
+    const error = new Error('Telegram Bot is not fully configured (check TELEGRAM_BOT_TOKEN and TELEGRAM_BACKUP_CHAT_ID).');
+    error.code = 'TELEGRAM_BACKUP_NOT_CONFIGURED';
+    throw error;
+  }
+
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  }
+
+  if (!bot) {
+    bot = new TelegramBot(config.telegram.botToken, { polling: false });
+    console.log('[BackupWorker] Initialized Telegram Bot.');
+  }
+}
+
+export function normalizeBackupScheduleTimes(values) {
+  return Array.from(new Set(
+    (Array.isArray(values) ? values : [])
+      .map((value) => String(value || '').trim())
+      .filter((value) => /^([01]\d|2[0-3]):([0-5]\d)$/.test(value)),
+  )).sort();
+}
+
+export function getBackupSchedulerStatus() {
+  const config = getConfig();
+  return {
+    startupEnabled: Boolean(config.features.backupWorkerEnabled),
+    botReady: Boolean(bot),
+    active: Boolean(bot) && activeCronJobs.length > 0,
+    scheduledJobs: activeCronJobs.length,
+    scheduledTimes: Math.floor(activeCronJobs.length / 2),
+    timeZone: getBackupTimeZone(),
+  };
 }
 
 export async function initBackupWorker() {
@@ -53,28 +103,25 @@ export async function initBackupWorker() {
     return;
   }
 
-  if (!getConfig().telegram.botToken || !getConfig().telegram.backupChatId) {
-    console.error('[BackupWorker] TELEGRAM_BOT_TOKEN and TELEGRAM_BACKUP_CHAT_ID must be set when BACKUP_WORKER_ENABLED is true.');
+  try {
+    ensureBackupRuntime();
+  } catch (error) {
+    console.error(`[BackupWorker] ${error.message}`);
     return;
   }
 
-  // Ensure backup directory exists
-  if (!fs.existsSync(BACKUP_DIR)) {
-    fs.mkdirSync(BACKUP_DIR, { recursive: true });
-  }
-
-  bot = new TelegramBot(getConfig().telegram.botToken, { polling: false });
-  console.log('[BackupWorker] Initialized Telegram Bot.');
-
-  await reloadBackupSchedules();
+  await reloadBackupSchedules({ ensureRuntime: false });
 }
 
-export async function reloadBackupSchedules() {
+export async function reloadBackupSchedules({ ensureRuntime = true } = {}) {
   // Stop existing cron jobs
   activeCronJobs.forEach(job => job.stop());
   activeCronJobs = [];
 
-  let schedule = { times: ["00:00", "12:00"] };
+  if (ensureRuntime) ensureBackupRuntime();
+
+  const fallbackSchedule = { times: ["00:00", "12:00"] };
+  let schedule = fallbackSchedule;
   try {
     const res = await query('SELECT setting_value FROM platform_settings WHERE setting_key = $1', ['backup_schedule']);
     if (res.rows.length > 0) {
@@ -84,48 +131,40 @@ export async function reloadBackupSchedules() {
     console.error('[BackupWorker] Failed to load backup_schedule from DB, using defaults.', err.message);
   }
 
-  // Validate loaded schedule
-  if (!schedule || !Array.isArray(schedule.times) || schedule.times.length === 0) {
-     schedule = { times: ["00:00", "12:00"] };
-  }
+  // Empty array is intentional: it means all automatic backup times are disabled.
+  const times = schedule && Array.isArray(schedule.times)
+    ? normalizeBackupScheduleTimes(schedule.times)
+    : fallbackSchedule.times;
+  const timeZone = getBackupTimeZone();
 
-  const times = schedule.times;
   times.forEach(t => {
     const [hour, minute] = t.split(':');
-    if (hour == null || minute == null) return;
-    
-    // Convert to standard cron syntax: "minute hour * * *"
-    const cronStr = `${parseInt(minute)} ${parseInt(hour)} * * *`;
-    
+    const cronStr = `${Number(minute)} ${Number(hour)} * * *`;
+    const cronOptions = { timezone: timeZone };
+
     // DB Backup Job
     const dbJob = cron.schedule(cronStr, async () => {
-      console.log(`[BackupWorker] Starting scheduled database backup for ${t}...`);
+      console.log(`[BackupWorker] Starting scheduled database backup for ${t} (${timeZone})...`);
       await performDatabaseBackup();
-    });
+    }, cronOptions);
     activeCronJobs.push(dbJob);
 
     // Sheets Backup Job
     const sheetsJob = cron.schedule(cronStr, async () => {
-      console.log(`[BackupWorker] Starting scheduled Google Sheets backup for ${t}...`);
+      console.log(`[BackupWorker] Starting scheduled Google Sheets backup for ${t} (${timeZone})...`);
       await performGoogleSheetsBackup();
-    });
+    }, cronOptions);
     activeCronJobs.push(sheetsJob);
   });
 
-  console.log(`[BackupWorker] Backup schedules registered for times: ${times.join(', ')}`);
+  console.log(
+    `[BackupWorker] Backup schedules registered for times: ${times.length ? times.join(', ') : '(none)'}; timezone: ${timeZone}; jobs: ${activeCronJobs.length}`,
+  );
+  return getBackupSchedulerStatus();
 }
 
 export async function triggerManualBackup(type) {
-  if (!getConfig().telegram.botToken || !getConfig().telegram.backupChatId) {
-    throw new Error('Telegram Bot is not fully configured (check TELEGRAM_BOT_TOKEN and TELEGRAM_BACKUP_CHAT_ID).');
-  }
-  
-  if (!bot) {
-    bot = new TelegramBot(getConfig().telegram.botToken, { polling: false });
-    if (!fs.existsSync(BACKUP_DIR)) {
-      fs.mkdirSync(BACKUP_DIR, { recursive: true });
-    }
-  }
+  ensureBackupRuntime();
 
   if (type === 'db') {
     return performDatabaseBackup();
