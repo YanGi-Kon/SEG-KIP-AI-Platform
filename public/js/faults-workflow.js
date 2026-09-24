@@ -123,14 +123,20 @@
       .faults-wf-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.faults-wf-form label{display:grid;gap:5px;font-size:11px;color:#b9d6e4}.faults-wf-form input{width:100%}
       .faults-signer-preview{display:flex;align-items:center;gap:8px}.faults-signer-preview img{width:92px;height:42px;object-fit:contain;background:#fff;border-radius:5px}
       .faults-final-link{display:inline-block;margin-top:7px;color:#67e8f9;font-weight:800;text-decoration:none}
-      .faults-document-shell{width:min(1480px,100%);height:min(95vh,980px)}
+      .faults-document-shell{width:min(1540px,100%);height:min(96vh,1040px)}
       .faults-document-body{padding:14px;overflow:auto;background:#dbe4ea}
-      .faults-document-paper{width:min(1380px,100%);min-height:760px;margin:0 auto;background:#fff;color:#111;padding:18px 20px;box-shadow:0 8px 30px rgba(0,0,0,.24)}
-      .faults-document-draft-note{margin:0 0 12px;padding:8px 10px;border:1px dashed #9ca3af;background:#f8fafc;color:#475569;font-size:11px;text-align:center}
-      .faults-document-title{text-align:center;margin:0 0 4px;font-size:20px}.faults-document-meta{text-align:center;margin:0 0 14px;font-size:12px;color:#334155}
-      .faults-document-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10px}.faults-document-table th,.faults-document-table td{border:1px solid #111;padding:5px;vertical-align:middle;word-break:break-word}
-      .faults-document-table th{text-align:center;background:#f1f5f9;font-size:9px}.faults-document-table .pre{white-space:pre-wrap}.faults-document-signer{text-align:center}
-      .faults-document-footer{display:flex;justify-content:flex-end;margin-top:14px;font-size:11px}.faults-document-footer-card{min-width:320px;border-top:1px solid #111;padding-top:7px}
+      .faults-document-paper{width:297mm;min-height:210mm;margin:0 auto;background:#fff;color:#111;padding:13.79mm 10.94mm 8.10mm 4.94mm;box-shadow:0 8px 30px rgba(0,0,0,.24);font-family:"Times New Roman",Times,serif;box-sizing:border-box}
+      .faults-document-appendix{width:76mm;margin-left:auto;text-align:center;font-size:12pt;line-height:1.12}
+      .faults-document-form{margin-top:10mm;border-bottom:.3mm solid #000;text-align:center;font-size:14pt;font-weight:700;line-height:1.1;padding-bottom:.3mm}
+      .faults-document-title{width:176mm;margin:6mm auto 0;text-align:center;font-size:14pt;font-weight:700;line-height:1.15}
+      .faults-document-year{text-align:center;font-size:12pt;margin:1.5mm 0 4.2mm}
+      .faults-document-year-line{display:inline-block;width:11mm;border-bottom:.3mm solid #000;transform:translateY(-1mm)}
+      .faults-document-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10pt}
+      .faults-document-table th,.faults-document-table td{border:.25mm solid #000;padding:.7mm 1mm;vertical-align:middle;word-break:normal;overflow-wrap:anywhere;font-weight:400}
+      .faults-document-table th{height:12.17mm;text-align:center;line-height:1.05}
+      .faults-document-table tbody td{height:5.96mm;line-height:1.05}
+      .faults-document-table .pre{white-space:pre-wrap}.faults-document-signer{text-align:center}
+      .faults-document-signer img{max-width:28mm;max-height:5mm;object-fit:contain;display:block;margin:auto}
       @media(max-width:820px){.faults-wf-kpis{grid-template-columns:repeat(2,1fr)}.faults-reports-grid{grid-template-columns:1fr}.faults-report-folders{max-height:220px;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.faults-wf-form{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
@@ -306,33 +312,47 @@
     const draft = uiState.documentDraft;
     if (!host || !draft) return;
     const signer = draft.signer || {};
-    const rows = Array.isArray(draft.rows) ? draft.rows : [];
-    const body = rows.map((row, index) => `<tr>
-      <td>${esc(row.actNo || index + 1)}</td>
-      <td>${esc([row.date, row.time].filter(Boolean).join(' '))}</td>
-      <td>${esc(documentEquipmentText(row))}</td>
-      <td class="pre">${esc(documentFailureText(row))}</td>
-      <td class="pre">${esc(row.actionText)}</td>
-      <td>${esc([row.actionDate, row.actionTime].filter(Boolean).join(' '))}</td>
-      <td class="faults-document-signer">${esc(signer.fio || '')}</td>
-    </tr>`).join('');
+    const sourceRows = Array.isArray(draft.rows) ? draft.rows : [];
+    const rows = sourceRows.slice();
+    while (rows.length < 15) rows.push({});
+    const body = rows.map((row, index) => {
+      const hasData = Boolean(
+        clean(row.sourceKey) || clean(row.actNo) || clean(row.date)
+        || clean(row.deviceName) || clean(row.actionText) || clean(row.reasonText),
+      );
+      const signature = hasData && clean(signer.signatureUrl)
+        ? `<img src="${esc(signer.signatureUrl)}" alt="${esc(signer.fio || 'Imzo')}">`
+        : (hasData ? esc(signer.fio || '') : '');
+      return `<tr>
+        <td>${hasData ? index + 1 : ''}</td>
+        <td>${hasData ? esc([row.date, row.time].filter(Boolean).join(' ')) : ''}</td>
+        <td>${hasData ? esc(documentEquipmentText(row)) : ''}</td>
+        <td class="pre">${hasData ? esc(documentFailureText(row)) : ''}</td>
+        <td class="pre">${hasData ? esc(row.actionText) : ''}</td>
+        <td>${hasData ? esc([row.actionDate, row.actionTime].filter(Boolean).join(' ')) : ''}</td>
+        <td class="faults-document-signer">${signature}</td>
+      </tr>`;
+    }).join('');
     host.innerHTML = `
-      <div class="faults-document-draft-note">Vaqtinchalik blank. Siz rasmiy blankni yuklaganingizdan keyin aynan shu hujjat mexanizmiga uning dizayni va rekvizitlari joylashtiriladi.</div>
-      <h1 class="faults-document-title">ЖУРНАЛ НЕИСПРАВНОСТЕЙ</h1>
-      <p class="faults-document-meta">${esc(currentWorkspace()?.name || '')} · ${esc(periodLabel(draft.year, draft.month))}</p>
+      <div class="faults-document-appendix"><b>Приложение № 3 к</b><br><b>Регламенту</b> проведения технического<br>обслуживания контрольно-<br>измерительных приборов, средств и<br>систем автоматизации<br>на объектах ИП ООО «SEG»</div>
+      <div class="faults-document-form">ФОРМА</div>
+      <div class="faults-document-title">Журнал учета отказов и неисправностей оборудования автоматики и<br>КИПиА ЦДНГ №… ТПП «,,,»</div>
+      <div class="faults-document-year">на <span class="faults-document-year-line"></span> ${esc(draft.year)} г.</div>
       <table class="faults-document-table">
+        <colgroup>
+          <col style="width:6.17%"><col style="width:10.71%"><col style="width:9.56%"><col style="width:31.26%"><col style="width:21.52%"><col style="width:9.38%"><col style="width:11.42%">
+        </colgroup>
         <thead><tr>
-          <th style="width:7%">№ п/п</th>
-          <th style="width:12%">Дата, время возникновения неисправности</th>
-          <th style="width:15%">Наименование оборудования</th>
-          <th style="width:23%">Краткое описание неисправности</th>
-          <th style="width:22%">Принятые меры по ликвидации неисправности</th>
-          <th style="width:10%">Дата устранения неисправности</th>
-          <th style="width:11%">Подпись ответств. за устранение</th>
+          <th>№<br>п/п</th>
+          <th>Дата, время<br>возникновения<br>неисправности</th>
+          <th>Наименование<br>оборудования</th>
+          <th>Краткое описание неисправности</th>
+          <th>Принятые меры по ликвидации<br>неисправности</th>
+          <th>Дата<br>устранения<br>неисправности</th>
+          <th>Подпись ответств.<br>за устранение<br>неисправности.</th>
         </tr></thead>
-        <tbody>${body || '<tr><td colspan="7">Tanlangan oy uchun ma’lumot topilmadi.</td></tr>'}</tbody>
-      </table>
-      <div class="faults-document-footer"><div class="faults-document-footer-card"><b>Ответственный:</b> ${esc(signer.position || '')}<br><b>F.I.O.:</b> ${esc(signer.fio || '')}</div></div>`;
+        <tbody>${body}</tbody>
+      </table>`;
   }
 
   async function createMonthlyDocument() {
@@ -347,7 +367,7 @@
         month: uiState.analysisMonth,
         rows,
         signer: currentSignerSnapshot(),
-        template: 'faults-placeholder-v1',
+        template: 'reglament-appendix-3-v1',
       };
       renderDocumentDraft();
       $('faultsMonthlyModal')?.classList.remove('show');
@@ -410,6 +430,7 @@
       position: clean(signer.position),
       email: clean(signer.email || signer.gmail),
       signatureFileId: clean(signer.signatureFileId),
+      signatureUrl: clean(signer.signatureUrl),
     };
   }
 
