@@ -180,7 +180,7 @@
       </div></div>
 
       <div id="faultsDocumentModal" class="faults-wf-modal"><div class="faults-wf-shell faults-document-shell">
-        <div class="faults-wf-head"><h2>ЖУРНАЛ НЕИСПРАВНОСТЕЙ — Хужат</h2><div class="faults-wf-head-actions"><button id="faultsDocumentSave" class="btn primary workspace-operator-only" type="button">💾 Сақлаш</button><button id="faultsDocumentClose" class="btn" type="button">✕</button></div></div>
+        <div class="faults-wf-head"><h2>ЖУРНАЛ НЕИСПРАВНОСТЕЙ — Хужат</h2><div class="faults-wf-head-actions"><span id="faultsDocumentStatus" class="faults-wf-status"></span><button id="faultsDocumentSave" class="btn primary workspace-operator-only" type="button">💾 Сақлаш</button><button id="faultsDocumentClose" class="btn" type="button">✕</button></div></div>
         <div class="faults-document-body"><div id="faultsDocumentPaper" class="faults-document-paper"><div class="faults-wf-empty">Хужат яратилмаган.</div></div></div>
       </div></div>`;
     while (host.firstChild) document.body.appendChild(host.firstChild);
@@ -214,7 +214,7 @@
     $('faultsFinalExport')?.addEventListener('click', () => void finalizeCurrentReport());
     $('faultsSettingsRefresh')?.addEventListener('click', () => void loadSheetNames());
     $('faultsSettingsSave')?.addEventListener('click', () => void saveSettings());
-    $('faultsDocumentSave')?.addEventListener('click', () => void saveCurrentReport());
+    $('faultsDocumentSave')?.addEventListener('click', () => void saveDocumentDraft());
   }
 
   function fillAnalysisSelectors() {
@@ -370,6 +370,11 @@
         template: 'reglament-appendix-3-v1',
       };
       renderDocumentDraft();
+      const documentStatus = $('faultsDocumentStatus');
+      if (documentStatus) {
+        documentStatus.textContent = `${periodLabel(uiState.analysisYear, uiState.analysisMonth)} · saqlanmagan`;
+        documentStatus.className = 'faults-wf-status sync';
+      }
       $('faultsMonthlyModal')?.classList.remove('show');
       $('faultsDocumentModal')?.classList.add('show');
     } catch (error) {
@@ -432,6 +437,78 @@
       signatureFileId: clean(signer.signatureFileId),
       signatureUrl: clean(signer.signatureUrl),
     };
+  }
+
+  async function saveDocumentDraft() {
+    if (uiState.busy) return;
+    const draft = uiState.documentDraft;
+    const button = $('faultsDocumentSave');
+    const status = $('faultsDocumentStatus');
+    if (!draft || !Number.isInteger(Number(draft.year)) || !Number.isInteger(Number(draft.month))) {
+      if (status) {
+        status.textContent = 'Avval Хужат яратиш orqali blank yarating.';
+        status.className = 'faults-wf-status bad';
+      }
+      return;
+    }
+    const rows = Array.isArray(draft.rows) ? draft.rows : [];
+    if (!rows.length) {
+      if (status) {
+        status.textContent = 'Saqlanadigan hujjat qatorlari yo‘q.';
+        status.className = 'faults-wf-status bad';
+      }
+      return;
+    }
+
+    uiState.busy = true;
+    if (button) {
+      button.disabled = true;
+      button.textContent = '⏳ Сақланмоқда...';
+    }
+    if (status) {
+      status.textContent = `${periodLabel(draft.year, draft.month)} · saqlanmoqda...`;
+      status.className = 'faults-wf-status sync';
+    }
+
+    try {
+      const data = await api(`/api/faults/reports/${draft.year}/${draft.month}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          sourceSheetName: sheetName(),
+          rows,
+          signer: draft.signer || currentSignerSnapshot(),
+        }),
+      });
+      uiState.documentDraft = {
+        ...draft,
+        savedReportId: clean(data.report?.id),
+        savedAt: clean(data.report?.updatedAt) || new Date().toISOString(),
+      };
+      await loadReports({ quiet: true });
+      const pageStatus = $('faultsStatusSub');
+      if (pageStatus) {
+        pageStatus.textContent = `${periodLabel(draft.year, draft.month)} · 3. Хисоботлар га сақланди`;
+      }
+      if (status) {
+        status.textContent = '✓ 3. Хисоботлар га сақланди';
+        status.className = 'faults-wf-status ok';
+      }
+      if (button) button.textContent = '✓ Сақланди';
+    } catch (error) {
+      if (status) {
+        status.textContent = error.message;
+        status.className = 'faults-wf-status bad';
+      }
+      if (button) button.textContent = '💾 Сақлаш';
+    } finally {
+      uiState.busy = false;
+      if (button) {
+        button.disabled = false;
+        window.setTimeout(() => {
+          if (button && button.textContent === '✓ Сақланди') button.textContent = '💾 Сақлаш';
+        }, 1600);
+      }
+    }
   }
 
   async function saveCurrentReport() {
@@ -788,6 +865,7 @@
     openFinalDocuments,
     openSettings,
     saveCurrentReport,
+    saveDocumentDraft,
     createMonthlyDocument,
     renderDocumentDraft,
     loadReports,
