@@ -173,7 +173,7 @@ export async function buildFaultReportHtml(report = {}, workspace = {}) {
       || clean(row.deviceName) || clean(row.actionText) || clean(row.reasonText),
     );
     return `<tr>
-      <td>${hasData ? index + 1 : ''}</td>
+      <td>${hasData ? esc(row.actNo) : ''}</td>
       <td>${hasData ? esc([row.date, row.time].filter(Boolean).join(' ')) : ''}</td>
       <td>${hasData ? esc(equipment) : ''}</td>
       <td class="pre">${hasData ? esc(failure) : ''}</td>
