@@ -487,6 +487,13 @@ function normalizeBackupTimes(times) {
   )).sort();
 }
 
+function backupRuntimeLabel(runtime, count) {
+  const zone = String(runtime?.timeZone || 'Asia/Tashkent');
+  const active = Boolean(runtime?.active);
+  if (count === 0) return `Vaqt zonasi: ${zone}. Avtomatik jadval o‘chirilgan.`;
+  return `Vaqt zonasi: ${zone}. Worker: ${active ? 'FAOL' : 'FAOL EMAS'}.`;
+}
+
 async function fetchBackupSchedule() {
   const container = document.getElementById('backupScheduleList');
   if (container) container.innerHTML = '<span style="color:#94a3b8;">Yuklanmoqda...</span>';
@@ -502,11 +509,12 @@ async function fetchBackupSchedule() {
 
     backupTimes = normalizeBackupTimes(data.times);
     renderBackupTimes();
+    const runtime = data.runtime || {};
     setBackupScheduleStatus(
       backupTimes.length
-        ? `${backupTimes.length} ta vaqt o‘rnatilgan.`
-        : 'Avtomatik backup vaqti o‘rnatilmagan.',
-      'success'
+        ? `${backupTimes.length} ta vaqt o‘rnatilgan. ${backupRuntimeLabel(runtime, backupTimes.length)}`
+        : backupRuntimeLabel(runtime, 0),
+      backupTimes.length && !runtime.active ? 'error' : 'success'
     );
   } catch(e) {
     console.error('[BackupSchedule] load failed:', e);
@@ -599,11 +607,12 @@ async function saveBackupSchedule(nextTimes) {
 
     backupTimes = normalizeBackupTimes(data.schedule?.times || requestedTimes);
     renderBackupTimes();
+    const runtime = data.runtime || {};
     setBackupScheduleStatus(
       backupTimes.length
-        ? `Saqlandi: ${backupTimes.join(', ')}`
-        : 'Barcha avtomatik backup vaqtlari o‘chirildi.',
-      'success'
+        ? `Saqlandi: ${backupTimes.join(', ')}. ${backupRuntimeLabel(runtime, backupTimes.length)}`
+        : backupRuntimeLabel(runtime, 0),
+      backupTimes.length && !runtime.active ? 'error' : 'success'
     );
 
     const toast = document.getElementById('saveToast');
