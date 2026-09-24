@@ -238,12 +238,16 @@ app.use((error, req, res, next) => {
 initKudukRealtime(io);
 
 async function startServer() {
-  if (isDatabaseConfigured() && String(process.env.DB_AUTO_MIGRATE ?? "true") !== "false") {
-    const report = await runMigrations();
-    if (report.applied.length) {
-      console.log(`[database] migrations applied: ${report.applied.join(", ")}`);
+  if (isDatabaseConfigured()) {
+    if (String(process.env.DB_AUTO_MIGRATE ?? "true") !== "false") {
+      const report = await runMigrations();
+      if (report.applied.length) {
+        console.log(`[database] migrations applied: ${report.applied.join(", ")}`);
+      } else {
+        console.log("[database] migrations up to date");
+      }
     } else {
-      console.log("[database] migrations up to date");
+      console.warn("[database] DB_AUTO_MIGRATE=false. New schema migrations are not applied automatically. Run: npm run db:migrate");
     }
   }
 
