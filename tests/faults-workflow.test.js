@@ -27,7 +27,7 @@ test('FAULTS toolbar mirrors TO workflow sections', () => {
   assert.match(html, /5\. ИМЗО ЧЕКУВЧИЛАР/);
   assert.match(html, /6\. ЯКУНИЙ ҲУЖЖАТЛАР/);
   assert.match(html, /⚙ Созламалар/);
-  assert.match(html, /faults-workflow\.js\?v=faults-workflow4-document-save/);
+  assert.match(html, /faults-workflow\.js\?v=faults-workflow5-auto-analysis/);
 });
 
 test('FAULTS workflow script is syntactically valid and exposes all panels', () => {
