@@ -149,52 +149,89 @@ async function signerImageDataUri(signer = {}) {
 export async function buildFaultReportHtml(report = {}, workspace = {}) {
   const signer = normalizeSigner(report.signer);
   const signatureDataUri = await signerImageDataUri(signer);
-  const period = `${MONTHS[Number(report.month)] || report.month} ${report.year}`;
-  const rows = Array.isArray(report.rows) ? report.rows : [];
-  const rowHtml = rows.map((row, index) => {
-    const equipment = [clean(row.deviceName), clean(row.place), clean(row.positionNo) ? `поз. №${clean(row.positionNo)}` : ''].filter(Boolean).join(', ');
+  const sourceRows = Array.isArray(report.rows) ? report.rows : [];
+  const chunks = [];
+  if (!sourceRows.length) chunks.push([]);
+  for (let index = 0; index < sourceRows.length; index += 15) {
+    chunks.push(sourceRows.slice(index, index + 15));
+  }
+
+  function rowMarkup(row = {}, index = 0) {
+    const equipment = [
+      clean(row.deviceName),
+      clean(row.place),
+      clean(row.positionNo) ? `поз. №${clean(row.positionNo)}` : '',
+    ].filter(Boolean).join(', ');
     const failure = [
       clean(row.serialNo) ? `Завод рақами: ${clean(row.serialNo)}` : '',
       clean(row.measureRange) ? `Ўлчаш чегараси: ${clean(row.measureRange)}` : '',
       clean(row.reasonText || row.failureText) ? `Рад этиш сабаби: ${clean(row.reasonText || row.failureText)}` : '',
     ].filter(Boolean).join('\n');
     const resolved = [clean(row.actionDate), clean(row.actionTime)].filter(Boolean).join(' ');
+    const hasData = Boolean(
+      clean(row.sourceKey) || clean(row.actNo) || clean(row.date)
+      || clean(row.deviceName) || clean(row.actionText) || clean(row.reasonText),
+    );
     return `<tr>
-      <td>${esc(row.actNo || index + 1)}</td>
-      <td>${esc([row.date, row.time].filter(Boolean).join(' '))}</td>
-      <td>${esc(equipment)}</td>
-      <td class="pre">${esc(failure)}</td>
-      <td class="pre">${esc(row.actionText)}</td>
-      <td>${esc(resolved)}</td>
-      <td class="signature-cell">${signatureDataUri ? `<img src="${signatureDataUri}" alt="${esc(signer.fio || 'Imzo')}">` : esc(signer.fio || '')}</td>
+      <td>${hasData ? index + 1 : ''}</td>
+      <td>${hasData ? esc([row.date, row.time].filter(Boolean).join(' ')) : ''}</td>
+      <td>${hasData ? esc(equipment) : ''}</td>
+      <td class="pre">${hasData ? esc(failure) : ''}</td>
+      <td class="pre">${hasData ? esc(row.actionText) : ''}</td>
+      <td>${hasData ? esc(resolved) : ''}</td>
+      <td class="signature-cell">${hasData && signatureDataUri ? `<img src="${signatureDataUri}" alt="${esc(signer.fio || 'Imzo')}">` : (hasData ? esc(signer.fio || '') : '')}</td>
     </tr>`;
-  }).join('');
+  }
+
+  function pageMarkup(pageRows, pageIndex) {
+    const rows = pageRows.slice();
+    while (rows.length < 15) rows.push({});
+    const rowOffset = pageIndex * 15;
+    return `<section class="page">
+      <div class="appendix"><b>Приложение № 3 к</b><br><b>Регламенту</b> проведения технического<br>обслуживания контрольно-<br>измерительных приборов, средств и<br>систем автоматизации<br>на объектах ИП ООО «SEG»</div>
+      <div class="form-label">ФОРМА</div>
+      <div class="journal-title">Журнал учета отказов и неисправностей оборудования автоматики и<br>КИПиА ЦДНГ №… ТПП «,,,»</div>
+      <div class="journal-year">на <span class="year-line"></span> ${esc(report.year)} г.</div>
+      <table>
+        <colgroup>
+          <col style="width:6.17%"><col style="width:10.71%"><col style="width:9.56%"><col style="width:31.26%"><col style="width:21.52%"><col style="width:9.38%"><col style="width:11.42%">
+        </colgroup>
+        <thead><tr>
+          <th>№<br>п/п</th>
+          <th>Дата, время<br>возникновения<br>неисправности</th>
+          <th>Наименование<br>оборудования</th>
+          <th>Краткое описание неисправности</th>
+          <th>Принятые меры по ликвидации<br>неисправности</th>
+          <th>Дата<br>устранения<br>неисправности</th>
+          <th>Подпись ответств.<br>за устранение<br>неисправности.</th>
+        </tr></thead>
+        <tbody>${rows.map((row, index) => rowMarkup(row, rowOffset + index)).join('')}</tbody>
+      </table>
+    </section>`;
+  }
 
   return `<!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><style>
-@page{size:A4 landscape;margin:10mm}
-*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#111;margin:0;font-size:9px}
-h1{text-align:center;font-size:16px;margin:0 0 4mm}.meta{text-align:center;font-size:10px;margin-bottom:4mm}
-table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #222;padding:4px;vertical-align:middle;word-break:break-word}
-th{text-align:center;font-size:8px;background:#eef5f7}.pre{white-space:pre-wrap}.signature-cell{text-align:center}
-.signature-cell img{max-width:31mm;max-height:14mm;object-fit:contain}
-.footer{margin-top:5mm;font-size:9px}.footer b{font-size:10px}
+@page{size:A4 landscape;margin:0}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#fff;color:#000}
+body{font-family:"Times New Roman",Times,serif}
+.page{width:297mm;height:210mm;padding:13.79mm 10.94mm 8.10mm 4.94mm;page-break-after:always;overflow:hidden}
+.page:last-child{page-break-after:auto}
+.appendix{width:76mm;margin-left:auto;text-align:center;font-size:12pt;line-height:1.12}
+.form-label{margin-top:10mm;border-bottom:.3mm solid #000;text-align:center;font-size:14pt;font-weight:700;line-height:1.1;padding-bottom:.3mm}
+.journal-title{width:176mm;margin:6mm auto 0;text-align:center;font-size:14pt;font-weight:700;line-height:1.15}
+.journal-year{text-align:center;font-size:12pt;margin:1.5mm 0 4.2mm}
+.year-line{display:inline-block;width:11mm;border-bottom:.3mm solid #000;transform:translateY(-1mm)}
+table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10pt}
+th,td{border:.25mm solid #000;padding:.7mm 1mm;vertical-align:middle;word-break:normal;overflow-wrap:anywhere;font-weight:400}
+th{height:12.17mm;text-align:center;line-height:1.05}
+tbody td{height:5.96mm;line-height:1.05}
+.pre{white-space:pre-wrap}
+.signature-cell{text-align:center}
+.signature-cell img{max-width:28mm;max-height:5mm;object-fit:contain;display:block;margin:auto}
 </style></head><body>
-<h1>ЖУРНАЛ НЕИСПРАВНОСТЕЙ</h1>
-<div class="meta">${esc(workspace.name || '')} · ${esc(period)}</div>
-<table>
-<thead><tr>
-<th style="width:7%">№ п/п</th>
-<th style="width:12%">Дата, время возникновения неисправности</th>
-<th style="width:15%">Наименование оборудования</th>
-<th style="width:23%">Краткое описание неисправности</th>
-<th style="width:22%">Принятые меры по ликвидации неисправности</th>
-<th style="width:10%">Дата устранения неисправности</th>
-<th style="width:11%">Подпись ответств. за устранение</th>
-</tr></thead>
-<tbody>${rowHtml || '<tr><td colspan="7">Ma’lumot mavjud emas.</td></tr>'}</tbody>
-</table>
-<div class="footer"><b>Ответственный:</b> ${esc(signer.position)} · ${esc(signer.fio)}</div>
+${chunks.map((rows, index) => pageMarkup(rows, index)).join('')}
 </body></html>`;
 }
 
