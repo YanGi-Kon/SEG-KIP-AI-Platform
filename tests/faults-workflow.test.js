@@ -92,6 +92,18 @@ test('FAULTS reports persist one monthly snapshot per workspace', () => {
   assert.match(server, /app\.use\("\/api\/faults", faultsRouter\)/);
 });
 
+test('FAULTS generated document Save persists the document snapshot to 3. Хисоботлар', () => {
+  assert.match(workflow, /faultsDocumentSave/);
+  assert.match(workflow, /addEventListener\('click', \(\) => void saveDocumentDraft\(\)\)/);
+  assert.match(workflow, /async function saveDocumentDraft\(\)/);
+  assert.match(workflow, /const draft = uiState\.documentDraft/);
+  assert.match(workflow, /\/api\/faults\/reports\/\$\{draft\.year\}\/\$\{draft\.month\}/);
+  assert.match(workflow, /rows,/);
+  assert.match(workflow, /signer: draft\.signer \|\| currentSignerSnapshot\(\)/);
+  assert.match(workflow, /3\. Хисоботлар га сақланди/);
+  assert.match(workflow, /savedReportId/);
+});
+
 test('FAULTS save captures editable journal fields into reports', () => {
   assert.match(workflow, /faults-action-text/);
   assert.match(workflow, /faults-resolution-date/);
