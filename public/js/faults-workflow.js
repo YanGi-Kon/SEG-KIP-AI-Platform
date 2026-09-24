@@ -324,7 +324,7 @@
         ? `<img src="${esc(signer.signatureUrl)}" alt="${esc(signer.fio || 'Imzo')}">`
         : (hasData ? esc(signer.fio || '') : '');
       return `<tr>
-        <td>${hasData ? index + 1 : ''}</td>
+        <td>${hasData ? esc(row.actNo) : ''}</td>
         <td>${hasData ? esc([row.date, row.time].filter(Boolean).join(' ')) : ''}</td>
         <td>${hasData ? esc(documentEquipmentText(row)) : ''}</td>
         <td class="pre">${hasData ? esc(documentFailureText(row)) : ''}</td>
