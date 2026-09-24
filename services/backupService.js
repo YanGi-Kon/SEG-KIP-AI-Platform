@@ -114,11 +114,11 @@ export async function initBackupWorker() {
 }
 
 export async function reloadBackupSchedules({ ensureRuntime = true } = {}) {
-  // Stop existing cron jobs
+  if (ensureRuntime) ensureBackupRuntime();
+
+  // Stop existing cron jobs only after runtime validation succeeds.
   activeCronJobs.forEach(job => job.stop());
   activeCronJobs = [];
-
-  if (ensureRuntime) ensureBackupRuntime();
 
   const fallbackSchedule = { times: ["00:00", "12:00"] };
   let schedule = fallbackSchedule;
