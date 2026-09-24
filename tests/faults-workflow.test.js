@@ -58,6 +58,13 @@ test('FAULTS monthly analysis creates a dedicated document blank', () => {
   assert.match(workflow, /faultsDocumentSave/);
 });
 
+test('FAULTS official blank preserves existing ACT number transfer logic', () => {
+  assert.match(workflow, /<td>\$\{hasData \? esc\(row\.actNo\) : ''\}<\/td>/);
+  assert.match(service, /<td>\$\{hasData \? esc\(row\.actNo\) : ''\}<\/td>/);
+  assert.doesNotMatch(workflow, /<td>\$\{hasData \? index \+ 1 : ''\}<\/td>/);
+  assert.doesNotMatch(service, /<td>\$\{hasData \? index \+ 1 : ''\}<\/td>/);
+});
+
 test('FAULTS official blank preserves Appendix 3 A4 landscape geometry', () => {
   assert.match(workflow, /width:297mm/);
   assert.match(workflow, /min-height:210mm/);
