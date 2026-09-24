@@ -79,6 +79,14 @@ test('FAULTS official blank preserves Appendix 3 A4 landscape geometry', () => {
   assert.match(service, /font-family:"Times New Roman",Times,serif/);
 });
 
+test('FAULTS API explains when the new report table migration is missing', () => {
+  assert.match(route, /FAULT_REPORTS_MIGRATION_REQUIRED/);
+  assert.match(route, /fault_reports jadvali hali yaratilmagan/);
+  assert.match(route, /npm run db:migrate/);
+  assert.match(server, /DB_AUTO_MIGRATE=false/);
+  assert.match(server, /Run: npm run db:migrate/);
+});
+
 test('FAULTS reports persist one monthly snapshot per workspace', () => {
   assert.match(migration, /CREATE TABLE IF NOT EXISTS fault_reports/);
   assert.match(migration, /UNIQUE \(workspace_id, period_year, period_month\)/);
