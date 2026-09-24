@@ -6,7 +6,7 @@ const MODULES = {
   to: 'modules/to.html?v=20260916-final-documents1',
   openai: 'modules/openai.html',
   users: 'modules/users.html',
-  settings: 'modules/settings.html',
+  settings: 'modules/settings.html?v=20260924-backup-schedule3-runtime',
   kuduk: 'modules/kuduk.html'
 };
 
