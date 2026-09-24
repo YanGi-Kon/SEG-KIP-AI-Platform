@@ -26,7 +26,7 @@ test('FAULTS toolbar mirrors TO workflow sections', () => {
   assert.match(html, /5\. ИМЗО ЧЕКУВЧИЛАР/);
   assert.match(html, /6\. ЯКУНИЙ ҲУЖЖАТЛАР/);
   assert.match(html, /⚙ Созламалар/);
-  assert.match(html, /faults-workflow\.js\?v=faults-workflow1/);
+  assert.match(html, /faults-workflow\.js\?v=faults-workflow2-document/);
 });
 
 test('FAULTS workflow script is syntactically valid and exposes all panels', () => {
@@ -41,6 +41,18 @@ test('FAULTS workflow script is syntactically valid and exposes all panels', () 
     assert.match(workflow, new RegExp(id));
   }
   assert.match(workflow, /window\.FaultsWorkflow/);
+});
+
+test('FAULTS monthly analysis creates a dedicated document blank', () => {
+  assert.match(workflow, /Хужат яратиш/);
+  assert.doesNotMatch(workflow, /Хужатни очиш/);
+  assert.match(workflow, /id="faultsDocumentModal"/);
+  assert.match(workflow, /function createMonthlyDocument\(\)/);
+  assert.match(workflow, /function renderDocumentDraft\(\)/);
+  assert.match(workflow, /template: 'faults-placeholder-v1'/);
+  assert.match(workflow, /Vaqtinchalik blank/);
+  assert.match(workflow, /ЖУРНАЛ НЕИСПРАВНОСТЕЙ/);
+  assert.match(workflow, /faultsDocumentSave/);
 });
 
 test('FAULTS reports persist one monthly snapshot per workspace', () => {
