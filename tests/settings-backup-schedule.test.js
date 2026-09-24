@@ -44,5 +44,5 @@ test('Super admin profile load fetches backup status and schedule together', () 
 });
 
 test('Settings module cache is refreshed', () => {
-  assert.match(app, /settings: 'modules\/settings\.html\?v=20260924-backup-schedule2'/);
+  assert.match(app, /settings: 'modules\/settings\.html\?v=20260924-backup-schedule3-runtime'/);
 });
