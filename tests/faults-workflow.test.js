@@ -28,7 +28,7 @@ test('FAULTS toolbar mirrors TO workflow sections', () => {
   assert.match(html, /5\. ИМЗО ЧЕКУВЧИЛАР/);
   assert.match(html, /6\. ЯКУНИЙ ҲУЖЖАТЛАР/);
   assert.match(html, /⚙ Созламалар/);
-  assert.match(html, /faults-workflow\.js\?v=faults-workflow5-auto-analysis/);
+  assert.match(html, /faults-workflow\.js\?v=faults-workflow7-official-analysis-table/);
 });
 
 test('FAULTS workflow script is syntactically valid and exposes all panels', () => {
@@ -52,7 +52,44 @@ test('FAULTS opens monthly analysis automatically on every module entry', () => 
   assert.match(workflow, /window\.setTimeout\(autoOpenMonthlyAnalysis, 0\)/);
   assert.match(app, /postMessage\(\{ type: 'SEG_KIP_FAULTS_OPEN' \}, '\*'\)/);
   assert.match(app, /const isFaults = moduleName === 'faults'/);
-  assert.match(app, /faults: 'modules\/faults\.html\?v=20260924-workflow5-auto-analysis'/);
+  assert.match(app, /faults: 'modules\/faults\.html\?v=20260925-official-analysis-table1'/);
+});
+
+test('FAULTS main workspace shows only monthly analysis while legacy journal stays hidden', () => {
+  assert.match(workflow, /body\.faults-analysis-home \.faults-wrap\{display:none!important\}/);
+  assert.match(workflow, /body\.faults-analysis-home #faultsMonthlyModal\{position:relative/);
+  assert.match(workflow, /document\.body\.classList\.add\('faults-analysis-home'\)/);
+  assert.match(workflow, /id="faultsHomeReports"/);
+  assert.match(workflow, /id="faultsHomeSigners"/);
+  assert.match(workflow, /id="faultsHomeFinal"/);
+  assert.match(workflow, /id="faultsHomeSettings"/);
+  assert.match(workflow, /modal\.id === 'faultsMonthlyModal'/);
+  assert.doesNotMatch(workflow, /\$\('faultsMonthlyModal'\)\?\.classList\.remove\('show'\);\s*\$\('faultsDocumentModal'\)/);
+});
+
+test('FAULTS monthly analysis table matches the official document table', () => {
+  for (const header of [
+    '№<br>п/п',
+    'Дата, время<br>возникновения<br>неисправности',
+    'Наименование<br>оборудования',
+    'Краткое описание неисправности',
+    'Принятые меры по ликвидации<br>неисправности',
+    'Дата<br>устранения<br>неисправности',
+    'Подпись ответств.<br>за устранение<br>неисправности.',
+  ]) {
+    assert.ok(workflow.includes(header));
+  }
+  for (const width of ['6.17%', '10.71%', '9.56%', '31.26%', '21.52%', '9.38%', '11.42%']) {
+    assert.match(workflow, new RegExp(width.replace('.', '\\.')));
+  }
+  assert.match(workflow, /setPeriodAndReload\?\.\(uiState\.analysisYear, uiState\.analysisMonth\)/);
+  assert.match(workflow, /uiState\.analysisRows = buildDocumentDraftRows\(\)/);
+  assert.match(workflow, /<td>\$\{hasData \? esc\(row\.actNo\) : ''\}<\/td>/);
+  assert.match(workflow, /documentEquipmentText\(row\)/);
+  assert.match(workflow, /documentFailureText\(row\)/);
+  assert.match(workflow, /esc\(row\.actionText\)/);
+  assert.match(workflow, /row\.actionDate, row\.actionTime/);
+  assert.match(workflow, /signer\.signatureUrl/);
 });
 
 test('FAULTS monthly analysis creates a dedicated document blank', () => {
