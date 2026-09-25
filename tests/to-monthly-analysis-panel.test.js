@@ -19,6 +19,23 @@ test('TO monthly analysis panel is loaded as section 1', () => {
   assert.match(app, /modules\/to\.html\?v=20260925-analysis-home1/);
 });
 
+test('TO main workspace shows only monthly analysis on every menu entry', () => {
+  assert.doesNotThrow(() => new Function(panel));
+  assert.match(panel, /body\.to-analysis-home>\.top-bar/);
+  assert.match(panel, /body\.to-analysis-home>\.period-bar/);
+  assert.match(panel, /body\.to-analysis-home>\.document-container/);
+  assert.match(panel, /body\.to-analysis-home #toMonthlyAnalysisModal\{position:relative/);
+  assert.match(panel, /document\.body\.classList\.add\('to-analysis-home'\)/);
+  assert.match(panel, /document\.body\.classList\.remove\('to-analysis-home'\)/);
+  assert.match(panel, /id="toAnalysisReportsBtn"/);
+  assert.match(panel, /id="toAnalysisSignersBtn"/);
+  assert.match(panel, /id="toAnalysisFinalBtn"/);
+  assert.match(panel, /id="toAnalysisSettingsBtn"/);
+  assert.match(panel, /event\.data\?\.type === 'SEG_KIP_TO_OPEN'/);
+  assert.match(app, /const isTo = moduleName === 'to'/);
+  assert.match(app, /postMessage\(\{ type: 'SEG_KIP_TO_OPEN' \}, '\*'\)/);
+});
+
 test('TO monthly analysis reads selected month from ASOSIY VAROQ', () => {
   assert.match(panel, /\/api\/to-period-bridge\/select/);
   assert.match(panel, /year: state\.year, month: state\.month, sheetName: sourceSheet/);
