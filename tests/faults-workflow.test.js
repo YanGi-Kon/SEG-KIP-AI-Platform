@@ -67,6 +67,31 @@ test('FAULTS main workspace shows only monthly analysis while legacy journal sta
   assert.doesNotMatch(workflow, /\$\('faultsMonthlyModal'\)\?\.classList\.remove\('show'\);\s*\$\('faultsDocumentModal'\)/);
 });
 
+test('FAULTS monthly analysis table matches the official document table', () => {
+  for (const header of [
+    '№<br>п/п',
+    'Дата, время<br>возникновения<br>неисправности',
+    'Наименование<br>оборудования',
+    'Краткое описание неисправности',
+    'Принятые меры по ликвидации<br>неисправности',
+    'Дата<br>устранения<br>неисправности',
+    'Подпись ответств.<br>за устранение<br>неисправности.',
+  ]) {
+    assert.match(workflow, new RegExp(header.replace(/[.*+?^$()|[\]{}]/g, '\\test('FAULTS monthly analysis creates a dedicated document blank', () => {')));
+  }
+  for (const width of ['6.17%', '10.71%', '9.56%', '31.26%', '21.52%', '9.38%', '11.42%']) {
+    assert.match(workflow, new RegExp(width.replace('.', '\\.')));
+  }
+  assert.match(workflow, /setPeriodAndReload\?\.\(uiState\.analysisYear, uiState\.analysisMonth\)/);
+  assert.match(workflow, /uiState\.analysisRows = buildDocumentDraftRows\(\)/);
+  assert.match(workflow, /<td>\$\{hasData \? esc\(row\.actNo\) : ''\}<\/td>/);
+  assert.match(workflow, /documentEquipmentText\(row\)/);
+  assert.match(workflow, /documentFailureText\(row\)/);
+  assert.match(workflow, /esc\(row\.actionText\)/);
+  assert.match(workflow, /row\.actionDate, row\.actionTime/);
+  assert.match(workflow, /signer\.signatureUrl/);
+});
+
 test('FAULTS monthly analysis creates a dedicated document blank', () => {
   assert.match(workflow, /Хужат яратиш/);
   assert.doesNotMatch(workflow, /Хужатни очиш/);
