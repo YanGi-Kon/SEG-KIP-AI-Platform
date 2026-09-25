@@ -123,6 +123,7 @@
       .faults-wf-kpi small{display:block;color:#9fb7c7;font-size:10px}.faults-wf-kpi b{display:block;margin-top:5px;font-size:20px}
       .faults-wf-tablewrap{overflow:auto;border:1px solid rgba(255,255,255,.12);border-radius:13px}.faults-wf-table{width:100%;min-width:900px;border-collapse:collapse;background:rgba(1,12,24,.55)}
       .faults-wf-table th,.faults-wf-table td{padding:9px;border-bottom:1px solid rgba(255,255,255,.09);font-size:11px;text-align:left;vertical-align:top}.faults-wf-table th{position:sticky;top:0;background:#0a3848;color:#dffbff}
+      .faults-monthly-official-table{table-layout:fixed;min-width:1180px}.faults-monthly-official-table th{text-align:center;vertical-align:middle;line-height:1.08}.faults-monthly-official-table td{vertical-align:middle}.faults-monthly-official-table .pre{white-space:pre-wrap}.faults-monthly-official-table .faults-signer-preview{justify-content:center}.faults-monthly-official-table .faults-signer-preview img{max-width:78px;max-height:32px;object-fit:contain}
       .faults-wf-empty{padding:22px;text-align:center;color:#9fb7c7}.faults-reports-grid{display:grid;grid-template-columns:270px 1fr;min-height:560px}.faults-report-folders{overflow:auto;border-right:1px solid rgba(255,255,255,.09);padding:12px}
       .faults-report-folder{display:block;width:100%;margin-bottom:7px;padding:10px;border:1px solid rgba(34,211,238,.22);border-radius:10px;background:rgba(4,22,39,.8);color:#eaf7ff;text-align:left;cursor:pointer}.faults-report-folder.active{border-color:#22d3ee;background:rgba(34,211,238,.11)}
       .faults-report-preview{overflow:auto;padding:14px}.faults-wf-card{padding:13px;border:1px solid rgba(34,211,238,.22);border-radius:13px;background:rgba(2,15,28,.7);margin-bottom:12px}
@@ -170,7 +171,21 @@
         <div class="faults-wf-body">
           <div class="faults-wf-period"><button id="faultsAnalysisPrev" class="btn" type="button">←</button><select id="faultsAnalysisMonth"></select><select id="faultsAnalysisYear"></select><button id="faultsAnalysisNext" class="btn" type="button">→</button><span id="faultsMonthlyStatus" class="faults-wf-status sync">Davr tanlanmoqda...</span></div>
           <div class="faults-wf-kpis"><div class="faults-wf-kpi"><small>АКТ yozuvlari</small><b id="faultsKpiTotal">0</b></div><div class="faults-wf-kpi"><small>Yakunlangan ACT</small><b id="faultsKpiCompleted">0</b></div><div class="faults-wf-kpi"><small>Nosozliklar</small><b id="faultsKpiFaults">0</b></div><div class="faults-wf-kpi"><small>ASOSIY VAROQ</small><b id="faultsKpiSheet" style="font-size:13px">—</b></div></div>
-          <div class="faults-wf-tablewrap"><table class="faults-wf-table"><thead><tr><th>№</th><th>Сана</th><th>Ускуна</th><th>Поз.</th><th>Завод №</th><th>Ўлчаш чегараси</th><th>Жой</th><th>Ҳолат</th></tr></thead><tbody id="faultsMonthlyRows"></tbody></table></div>
+          <div class="faults-wf-tablewrap"><table class="faults-wf-table faults-monthly-official-table">
+            <colgroup>
+              <col style="width:6.17%"><col style="width:10.71%"><col style="width:9.56%"><col style="width:31.26%"><col style="width:21.52%"><col style="width:9.38%"><col style="width:11.42%">
+            </colgroup>
+            <thead><tr>
+              <th>№<br>п/п</th>
+              <th>Дата, время<br>возникновения<br>неисправности</th>
+              <th>Наименование<br>оборудования</th>
+              <th>Краткое описание неисправности</th>
+              <th>Принятые меры по ликвидации<br>неисправности</th>
+              <th>Дата<br>устранения<br>неисправности</th>
+              <th>Подпись ответств.<br>за устранение<br>неисправности.</th>
+            </tr></thead>
+            <tbody id="faultsMonthlyRows"></tbody>
+          </table></div>
           <div class="faults-wf-actions" style="justify-content:flex-end;margin-top:12px"><button id="faultsOpenMonthlyBtn" class="btn primary" type="button">Хужат яратиш</button></div>
         </div>
       </div></div>
@@ -261,12 +276,30 @@
   function renderMonthlyRows() {
     const body = $('faultsMonthlyRows');
     if (!body) return;
-    const rows = uiState.analysisRows || [];
+    const rows = Array.isArray(uiState.analysisRows) ? uiState.analysisRows : [];
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="8" class="faults-wf-empty">Tanlangan oy uchun АКТ yozuvlari topilmadi.</td></tr>';
+      body.innerHTML = '<tr><td colspan="7" class="faults-wf-empty">Tanlangan oy uchun АКТ yozuvlari topilmadi.</td></tr>';
       return;
     }
-    body.innerHTML = rows.map((row, index) => `<tr><td>${index + 1}</td><td>${esc(row.date)}</td><td>${esc(row.deviceName)}</td><td>${esc(row.positionNo)}</td><td>${esc(row.serialNo)}</td><td>${esc(row.measureRange)}</td><td>${esc(row.place)}</td><td>${esc(row.isCompleted ? 'Хужат якунланди' : 'Хужат яратиш')}</td></tr>`).join('');
+    const signer = currentSignerSnapshot();
+    body.innerHTML = rows.map((row) => {
+      const hasData = Boolean(
+        clean(row.sourceKey) || clean(row.actNo) || clean(row.date)
+        || clean(row.deviceName) || clean(row.actionText) || clean(row.reasonText),
+      );
+      const signature = hasData && clean(signer.signatureUrl)
+        ? `<span class="faults-signer-preview"><img src="${esc(signer.signatureUrl)}" alt="${esc(signer.fio || 'Imzo')}"></span>`
+        : (hasData ? esc(signer.fio || '') : '');
+      return `<tr>
+        <td>${hasData ? esc(row.actNo) : ''}</td>
+        <td>${hasData ? esc([row.date, row.time].filter(Boolean).join(' ')) : ''}</td>
+        <td>${hasData ? esc(documentEquipmentText(row)) : ''}</td>
+        <td class="pre">${hasData ? esc(documentFailureText(row)) : ''}</td>
+        <td class="pre">${hasData ? esc(row.actionText) : ''}</td>
+        <td>${hasData ? esc([row.actionDate, row.actionTime].filter(Boolean).join(' ')) : ''}</td>
+        <td class="faults-document-signer">${signature}</td>
+      </tr>`;
+    }).join('');
   }
 
   async function loadMonthlyAnalysis() {
@@ -278,12 +311,9 @@
     }
     if (status) { status.textContent = `${periodLabel(uiState.analysisYear, uiState.analysisMonth)} · yuklanmoqda...`; status.className = 'faults-wf-status sync'; }
     try {
-      const data = await api('/api/acts/monthly-analysis', {
-        method: 'POST',
-        body: JSON.stringify({ sheetName: sourceSheet, year: uiState.analysisYear, month: uiState.analysisMonth }),
-      });
-      uiState.analysisRows = Array.isArray(data.rows) ? data.rows : [];
-      const completed = uiState.analysisRows.filter((row) => row.isCompleted || clean(row.actNo)).length;
+      await window.FaultsJournalFrontend?.setPeriodAndReload?.(uiState.analysisYear, uiState.analysisMonth);
+      uiState.analysisRows = buildDocumentDraftRows();
+      const completed = uiState.analysisRows.filter((row) => clean(row.actNo)).length;
       if ($('faultsKpiTotal')) $('faultsKpiTotal').textContent = String(uiState.analysisRows.length);
       if ($('faultsKpiCompleted')) $('faultsKpiCompleted').textContent = String(completed);
       if ($('faultsKpiFaults')) $('faultsKpiFaults').textContent = String(uiState.analysisRows.length);
