@@ -55,6 +55,18 @@ test('FAULTS opens monthly analysis automatically on every module entry', () => 
   assert.match(app, /faults: 'modules\/faults\.html\?v=20260925-analysis-home1'/);
 });
 
+test('FAULTS main workspace shows only monthly analysis while legacy journal stays hidden', () => {
+  assert.match(workflow, /body\.faults-analysis-home \.faults-wrap\{display:none!important\}/);
+  assert.match(workflow, /body\.faults-analysis-home #faultsMonthlyModal\{position:relative/);
+  assert.match(workflow, /document\.body\.classList\.add\('faults-analysis-home'\)/);
+  assert.match(workflow, /id="faultsHomeReports"/);
+  assert.match(workflow, /id="faultsHomeSigners"/);
+  assert.match(workflow, /id="faultsHomeFinal"/);
+  assert.match(workflow, /id="faultsHomeSettings"/);
+  assert.match(workflow, /modal\.id === 'faultsMonthlyModal'/);
+  assert.doesNotMatch(workflow, /\$\('faultsMonthlyModal'\)\?\.classList\.remove\('show'\);\s*\$\('faultsDocumentModal'\)/);
+});
+
 test('FAULTS monthly analysis creates a dedicated document blank', () => {
   assert.match(workflow, /Хужат яратиш/);
   assert.doesNotMatch(workflow, /Хужатни очиш/);
