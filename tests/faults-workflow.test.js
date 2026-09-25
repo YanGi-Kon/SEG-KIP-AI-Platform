@@ -77,7 +77,7 @@ test('FAULTS monthly analysis table matches the official document table', () => 
     'Дата<br>устранения<br>неисправности',
     'Подпись ответств.<br>за устранение<br>неисправности.',
   ]) {
-    assert.match(workflow, new RegExp(header.replace(/[.*+?^$()|[\]{}]/g, '\\test('FAULTS monthly analysis creates a dedicated document blank', () => {')));
+    assert.ok(workflow.includes(header));
   }
   for (const width of ['6.17%', '10.71%', '9.56%', '31.26%', '21.52%', '9.38%', '11.42%']) {
     assert.match(workflow, new RegExp(width.replace('.', '\\.')));
