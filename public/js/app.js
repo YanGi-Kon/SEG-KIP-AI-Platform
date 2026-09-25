@@ -3,7 +3,7 @@ const MODULES = {
   journal: 'modules/hisobot-journal.html?v=20260912-hide-source1',
   acts: 'modules/acts.html?v=20260901-email-approval-signatures-4',
   faults: 'modules/faults.html?v=20260925-analysis-home1',
-  to: 'modules/to.html?v=20260916-final-documents1',
+  to: 'modules/to.html?v=20260925-analysis-home1',
   openai: 'modules/openai.html',
   users: 'modules/users.html',
   settings: 'modules/settings.html?v=20260924-backup-schedule3-runtime',
@@ -193,20 +193,24 @@ function openModulePage(moduleName, title) {
   const genericFrame = document.getElementById('genericModuleFrame');
   const isJournal = moduleName === 'journal';
   const isFaults = moduleName === 'faults';
+  const isTo = moduleName === 'to';
   if (journalFrame) journalFrame.hidden = !isJournal;
   if (faultsFrame) faultsFrame.hidden = !isFaults;
   if (genericFrame) genericFrame.hidden = isJournal || isFaults;
   const frame = isJournal ? journalFrame : (isFaults ? faultsFrame : genericFrame);
   const frameNeedsLoad = Boolean(frame && frame.getAttribute('src') !== src);
   if (frameNeedsLoad) {
-    if (isFaults) {
+    if (isFaults || isTo) {
+      const openMessage = isFaults ? 'SEG_KIP_FAULTS_OPEN' : 'SEG_KIP_TO_OPEN';
       frame.addEventListener('load', () => {
-        frame.contentWindow?.postMessage({ type: 'SEG_KIP_FAULTS_OPEN' }, '*');
+        frame.contentWindow?.postMessage({ type: openMessage }, '*');
       }, { once: true });
     }
     frame.src = src;
   } else if (isFaults && frame?.contentWindow) {
     frame.contentWindow.postMessage({ type: 'SEG_KIP_FAULTS_OPEN' }, '*');
+  } else if (isTo && frame?.contentWindow) {
+    frame.contentWindow.postMessage({ type: 'SEG_KIP_TO_OPEN' }, '*');
   }
   if (page) page.classList.add('active');
   const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'АКТ ВЫПОЛНЕННЫХ РАБОТ', users:'ПОЛЬЗОВАТЕЛИ', roles:'РОЛИ', settings:'НАСТРОЙКИ' };
