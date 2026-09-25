@@ -94,8 +94,13 @@
       .to-analysis-modal{position:fixed;inset:0;z-index:124;display:none;background:rgba(0,0,0,.78);padding:16px;font-family:Arial,sans-serif;color:#eaf7ff}
       .to-analysis-modal.show{display:flex;align-items:center;justify-content:center}
       .to-analysis-shell{width:min(1320px,100%);height:min(94vh,920px);display:flex;flex-direction:column;overflow:hidden;background:#071427;border:1px solid rgba(34,211,238,.30);border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.48)}
-      .to-analysis-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.09)}
-      .to-analysis-head h2{margin:0;font-size:20px}.to-analysis-head-actions{display:flex;gap:8px}
+      body.to-analysis-home{padding:0;min-height:100vh;overflow:auto}
+      body.to-analysis-home>.top-bar,body.to-analysis-home>.period-bar,body.to-analysis-home>.document-container,body.to-analysis-home>#toDocumentSaveBar{display:none!important}
+      body.to-analysis-home #toMonthlyAnalysisModal{position:relative;inset:auto;z-index:1;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:12px;background:transparent}
+      body.to-analysis-home #toMonthlyAnalysisModal .to-analysis-shell{width:100%;max-width:none;height:auto;max-height:none;min-height:calc(100vh - 24px);box-shadow:none}
+      body.to-analysis-home #toMonthlyAnalysisCloseBtn{display:none!important}
+      .to-analysis-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.09);flex-wrap:wrap}
+      .to-analysis-head h2{margin:0;font-size:20px}.to-analysis-head-actions,.to-analysis-home-nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
       .to-analysis-body{display:flex;flex-direction:column;min-height:0;flex:1;padding:16px}
       .to-analysis-titleline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
       .to-analysis-titleline h3{margin:0;font-size:20px}.to-analysis-note{margin:0 0 10px;color:#a9c8d8;font-size:12px}
@@ -151,8 +156,15 @@
     modal.innerHTML = `
       <div class="to-analysis-shell">
         <div class="to-analysis-head">
-          <h2>1. Ойлик анализ</h2>
-          <div class="to-analysis-head-actions"><button id="toMonthlyAnalysisRefreshBtn" class="btn" type="button">↻ Янгилаш</button><button id="toMonthlyAnalysisCloseBtn" class="btn" type="button">✕</button></div>
+          <div class="to-analysis-home-nav"><button id="toAnalysisBackBtn" class="btn" type="button">← Менюга қайтиш</button><h2>1. Ойлик анализ</h2></div>
+          <div class="to-analysis-head-actions">
+            <button id="toAnalysisReportsBtn" class="btn" type="button">3. Хисоботлар</button>
+            <button id="toAnalysisSignersBtn" class="btn" type="button">5. ИМЗО ЧЕКУВЧИЛАР</button>
+            <button id="toAnalysisFinalBtn" class="btn" type="button">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
+            <button id="toAnalysisSettingsBtn" class="btn primary workspace-admin-only" type="button">⚙ Созламалар</button>
+            <button id="toMonthlyAnalysisRefreshBtn" class="btn" type="button">↻ Янгилаш</button>
+            <button id="toMonthlyAnalysisCloseBtn" class="btn" type="button">✕</button>
+          </div>
         </div>
         <div class="to-analysis-body">
           <div class="to-analysis-titleline">
@@ -184,13 +196,39 @@
     document.body.appendChild(modal);
 
     $('toMonthlyAnalysisCloseBtn')?.addEventListener('click', close);
+    $('toAnalysisBackBtn')?.addEventListener('click', () => parent.postMessage({ type: 'SEG_CLOSE_MODULE' }, '*'));
+    $('toAnalysisReportsBtn')?.addEventListener('click', () => openSiblingPanel('reports'));
+    $('toAnalysisSignersBtn')?.addEventListener('click', () => openSiblingPanel('signers'));
+    $('toAnalysisFinalBtn')?.addEventListener('click', () => openSiblingPanel('final'));
+    $('toAnalysisSettingsBtn')?.addEventListener('click', () => window.ToJournalWorkspace?.openSettings?.());
     $('toMonthlyAnalysisRefreshBtn')?.addEventListener('click', () => void load());
     $('toAnalysisPrevBtn')?.addEventListener('click', () => void navigate(-1));
     $('toAnalysisNextBtn')?.addEventListener('click', () => void navigate(1));
     $('toAnalysisMonth')?.addEventListener('change', () => void selectPeriod());
     $('toAnalysisYear')?.addEventListener('change', () => void selectPeriod());
     $('toAnalysisDocumentBtn')?.addEventListener('click', () => void openOrCreateDocument());
-    modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal && !document.body.classList.contains('to-analysis-home')) close();
+    });
+  }
+
+  function openSiblingPanel(kind, attempt = 0) {
+    const panel = kind === 'reports'
+      ? window.ToJournalReports
+      : kind === 'signers'
+        ? window.ToJournalSigners
+        : kind === 'final'
+          ? window.ToFinalDocuments
+          : null;
+    if (panel?.open) {
+      panel.open();
+      return;
+    }
+    if (attempt >= 30) {
+      setMessage('Bo‘lim yuklanmadi. Sahifani yangilang.', 'bad');
+      return;
+    }
+    window.setTimeout(() => openSiblingPanel(kind, attempt + 1), 50);
   }
 
   function setMessage(text, tone = '') {
@@ -394,6 +432,7 @@
   }
 
   function open() {
+    document.body.classList.add('to-analysis-home');
     restorePeriod();
     $('toMonthlyAnalysisModal')?.classList.add('show');
     void load();
@@ -401,6 +440,7 @@
 
   function close() {
     $('toMonthlyAnalysisModal')?.classList.remove('show');
+    document.body.classList.remove('to-analysis-home');
   }
 
   function init() {
@@ -415,6 +455,9 @@
       state.period = null;
       restorePeriod();
       window.setTimeout(() => void load(), 0);
+    }
+    if (event.data?.type === 'SEG_KIP_TO_OPEN') {
+      window.setTimeout(() => open(), 0);
     }
   });
 
