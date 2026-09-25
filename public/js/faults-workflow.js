@@ -109,6 +109,12 @@
     style.textContent = `
       .faults-wf-modal{position:fixed;inset:0;z-index:150;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.78);font-family:Arial,sans-serif;color:#eaf7ff}
       .faults-wf-modal.show{display:flex}.faults-wf-shell{width:min(1180px,100%);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;background:#071427;border:1px solid rgba(34,211,238,.32);border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+      body.faults-analysis-home{min-height:100vh;overflow:auto}
+      body.faults-analysis-home .faults-wrap{display:none!important}
+      body.faults-analysis-home #faultsMonthlyModal{position:relative;inset:auto;z-index:1;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:12px;background:transparent}
+      body.faults-analysis-home #faultsMonthlyModal .faults-wf-shell{width:100%;max-width:none;max-height:none;min-height:calc(100vh - 24px);box-shadow:none}
+      body.faults-analysis-home #faultsMonthlyClose{display:none!important}
+      .faults-home-nav{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
       .faults-wf-shell.small{width:min(760px,100%)}.faults-wf-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.09)}
       .faults-wf-head h2{margin:0;font-size:20px}.faults-wf-head-actions,.faults-wf-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.faults-wf-body{padding:16px;overflow:auto;min-height:0}
       .faults-wf-period{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.faults-wf-period select,.faults-wf-input{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px}
@@ -147,7 +153,20 @@
     const host = document.createElement('div');
     host.innerHTML = `
       <div id="faultsMonthlyModal" class="faults-wf-modal"><div class="faults-wf-shell">
-        <div class="faults-wf-head"><h2>1. Ойлик анализ</h2><div class="faults-wf-head-actions"><button id="faultsMonthlyRefresh" class="btn" type="button">↻ Янгилаш</button><button id="faultsMonthlyClose" class="btn" type="button">✕</button></div></div>
+        <div class="faults-wf-head">
+          <div class="faults-home-nav">
+            <button id="faultsMonthlyBack" class="btn" type="button">← Менюга қайтиш</button>
+            <h2>1. Ойлик анализ</h2>
+          </div>
+          <div class="faults-wf-head-actions">
+            <button id="faultsHomeReports" class="btn" type="button">3. Хисоботлар</button>
+            <button id="faultsHomeSigners" class="btn" type="button">5. ИМЗО ЧЕКУВЧИЛАР</button>
+            <button id="faultsHomeFinal" class="btn" type="button">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
+            <button id="faultsHomeSettings" class="btn primary workspace-admin-only" type="button">⚙ Созламалар</button>
+            <button id="faultsMonthlyRefresh" class="btn" type="button">↻ Янгилаш</button>
+            <button id="faultsMonthlyClose" class="btn" type="button">✕</button>
+          </div>
+        </div>
         <div class="faults-wf-body">
           <div class="faults-wf-period"><button id="faultsAnalysisPrev" class="btn" type="button">←</button><select id="faultsAnalysisMonth"></select><select id="faultsAnalysisYear"></select><button id="faultsAnalysisNext" class="btn" type="button">→</button><span id="faultsMonthlyStatus" class="faults-wf-status sync">Davr tanlanmoqda...</span></div>
           <div class="faults-wf-kpis"><div class="faults-wf-kpi"><small>АКТ yozuvlari</small><b id="faultsKpiTotal">0</b></div><div class="faults-wf-kpi"><small>Yakunlangan ACT</small><b id="faultsKpiCompleted">0</b></div><div class="faults-wf-kpi"><small>Nosozliklar</small><b id="faultsKpiFaults">0</b></div><div class="faults-wf-kpi"><small>ASOSIY VAROQ</small><b id="faultsKpiSheet" style="font-size:13px">—</b></div></div>
@@ -186,15 +205,21 @@
     while (host.firstChild) document.body.appendChild(host.firstChild);
 
     const closers = [
-      ['faultsMonthlyClose', 'faultsMonthlyModal'], ['faultsReportsClose', 'faultsReportsModal'],
+      ['faultsReportsClose', 'faultsReportsModal'],
       ['faultsSignersClose', 'faultsSignersModal'], ['faultsFinalClose', 'faultsFinalModal'],
       ['faultsSettingsClose', 'faultsSettingsModal'], ['faultsDocumentClose', 'faultsDocumentModal'],
     ];
     closers.forEach(([buttonId, modalId]) => $(buttonId)?.addEventListener('click', () => $(modalId)?.classList.remove('show')));
     document.querySelectorAll('.faults-wf-modal').forEach((modal) => modal.addEventListener('click', (event) => {
+      if (modal.id === 'faultsMonthlyModal') return;
       if (event.target === modal) modal.classList.remove('show');
     }));
 
+    $('faultsMonthlyBack')?.addEventListener('click', () => parent.postMessage({ type: 'SEG_CLOSE_MODULE' }, '*'));
+    $('faultsHomeReports')?.addEventListener('click', () => openReports());
+    $('faultsHomeSigners')?.addEventListener('click', () => openSigners());
+    $('faultsHomeFinal')?.addEventListener('click', () => openFinalDocuments());
+    $('faultsHomeSettings')?.addEventListener('click', () => openSettings());
     $('faultsMonthlyRefresh')?.addEventListener('click', () => void loadMonthlyAnalysis());
     $('faultsAnalysisPrev')?.addEventListener('click', () => void navigateAnalysis(-1));
     $('faultsAnalysisNext')?.addEventListener('click', () => void navigateAnalysis(1));
@@ -375,7 +400,6 @@
         documentStatus.textContent = `${periodLabel(uiState.analysisYear, uiState.analysisMonth)} · saqlanmagan`;
         documentStatus.className = 'faults-wf-status sync';
       }
-      $('faultsMonthlyModal')?.classList.remove('show');
       $('faultsDocumentModal')?.classList.add('show');
     } catch (error) {
       const status = $('faultsMonthlyStatus');
@@ -386,6 +410,7 @@
   }
 
   function openMonthlyAnalysis() {
+    document.body.classList.add('faults-analysis-home');
     fillAnalysisSelectors();
     $('faultsMonthlyModal')?.classList.add('show');
     void loadMonthlyAnalysis();
@@ -842,9 +867,10 @@
   }
 
   function autoOpenMonthlyAnalysis() {
+    document.body.classList.add('faults-analysis-home');
     const modal = $('faultsMonthlyModal');
-    if (!modal || modal.classList.contains('show')) return;
-    openMonthlyAnalysis();
+    if (!modal) return;
+    if (!modal.classList.contains('show')) openMonthlyAnalysis();
   }
 
   function init() {
