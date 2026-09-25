@@ -2,7 +2,7 @@
 const MODULES = {
   journal: 'modules/hisobot-journal.html?v=20260912-hide-source1',
   acts: 'modules/acts.html?v=20260901-email-approval-signatures-4',
-  faults: 'modules/faults.html?v=20260924-workflow5-auto-analysis',
+  faults: 'modules/faults.html?v=20260925-analysis-home1',
   to: 'modules/to.html?v=20260916-final-documents1',
   openai: 'modules/openai.html',
   users: 'modules/users.html',
