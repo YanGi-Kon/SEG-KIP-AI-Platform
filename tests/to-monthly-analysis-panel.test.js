@@ -13,10 +13,10 @@ test('TO monthly analysis panel is loaded as section 1', () => {
   assert.match(toModule, />1\. Ойлик анализ<\/button>/);
   assert.ok(toModule.indexOf('toMonthlyAnalysisBtn') < toModule.indexOf('toSettingsBtn'));
   assert.match(bridge, /loadMonthlyAnalysisPanel/);
-  assert.match(bridge, /to-monthly-analysis-panel\.js\?v=to-analysis4-auto-open/);
+  assert.match(bridge, /to-monthly-analysis-panel\.js\?v=to-analysis5-home/);
   assert.match(panel, /button\.textContent = '1\. Ойлик анализ'/);
   assert.match(panel, /<h2>1\. Ойлик анализ<\/h2>/);
-  assert.match(app, /modules\/to\.html\?v=20260916-final-documents1/);
+  assert.match(app, /modules\/to\.html\?v=20260925-analysis-home1/);
 });
 
 test('TO monthly analysis reads selected month from ASOSIY VAROQ', () => {
