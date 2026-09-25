@@ -28,7 +28,7 @@ test('FAULTS toolbar mirrors TO workflow sections', () => {
   assert.match(html, /5\. ИМЗО ЧЕКУВЧИЛАР/);
   assert.match(html, /6\. ЯКУНИЙ ҲУЖЖАТЛАР/);
   assert.match(html, /⚙ Созламалар/);
-  assert.match(html, /faults-workflow\.js\?v=faults-workflow6-analysis-home/);
+  assert.match(html, /faults-workflow\.js\?v=faults-workflow7-official-analysis-table/);
 });
 
 test('FAULTS workflow script is syntactically valid and exposes all panels', () => {
@@ -52,7 +52,7 @@ test('FAULTS opens monthly analysis automatically on every module entry', () => 
   assert.match(workflow, /window\.setTimeout\(autoOpenMonthlyAnalysis, 0\)/);
   assert.match(app, /postMessage\(\{ type: 'SEG_KIP_FAULTS_OPEN' \}, '\*'\)/);
   assert.match(app, /const isFaults = moduleName === 'faults'/);
-  assert.match(app, /faults: 'modules\/faults\.html\?v=20260925-analysis-home1'/);
+  assert.match(app, /faults: 'modules\/faults\.html\?v=20260925-official-analysis-table1'/);
 });
 
 test('FAULTS main workspace shows only monthly analysis while legacy journal stays hidden', () => {
