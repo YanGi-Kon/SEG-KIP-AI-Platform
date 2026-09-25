@@ -61,7 +61,7 @@ test('faults frontend links the first column to Acts reports without local journ
 
 test('faults journal keeps a dedicated persistent iframe across menu navigation', () => {
   assert.match(indexSource, /id="faultsModuleFrame"/);
-  assert.match(indexSource, /js\/app\.js\?v=20260925-faults-analysis-home1/);
+  assert.match(indexSource, /js\/app\.js\?v=20260925-faults-to-analysis-home2/);
   assert.match(indexSource, /css\/style\.css\?v=5/);
   assert.match(styleSource, /#faultsModuleFrame\{/);
   assert.match(styleSource, /#faultsModuleFrame\[hidden\]/);
