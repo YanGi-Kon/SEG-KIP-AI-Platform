@@ -144,11 +144,11 @@
       document.body.appendChild(modal);
       $('kudukMonthlyClose')?.addEventListener('click', () => closeMonthlyAnalysis());
       $('kudukMonthlyBack')?.addEventListener('click', () => { closeMonthlyAnalysis(); try { parent.postMessage({type:'SEG_CLOSE_MODULE'}, '*'); } catch (_) {} });
-      $('kudukMonthlyRefresh')?.addEventListener('click', () => renderMonthlyAnalysis());
-      $('kudukAnalysisPrev')?.addEventListener('click', () => navigateMonthly(-1));
-      $('kudukAnalysisNext')?.addEventListener('click', () => navigateMonthly(1));
-      $('kudukAnalysisMonth')?.addEventListener('change', readMonthlySelectors);
-      $('kudukAnalysisYear')?.addEventListener('change', readMonthlySelectors);
+      $('kudukMonthlyRefresh')?.addEventListener('click', () => void loadMonthlyAnalysis({ forceRefresh:true }));
+      $('kudukAnalysisPrev')?.addEventListener('click', () => void navigateMonthly(-1));
+      $('kudukAnalysisNext')?.addEventListener('click', () => void navigateMonthly(1));
+      $('kudukAnalysisMonth')?.addEventListener('change', () => void readMonthlySelectors());
+      $('kudukAnalysisYear')?.addEventListener('change', () => void readMonthlySelectors());
       $('kudukCreateMonthlyDocument')?.addEventListener('click', createMonthlyDocument);
       modal.addEventListener('click', (event) => { if (event.target === modal) closeMonthlyAnalysis(); });
     }
@@ -257,7 +257,7 @@
     }
   }
 
-  const monthlyState = { year:0, month:0, route:null };
+  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false };
 
   function masterRows() {
     const state = window.KudukJournalWorkspace?.getState?.() || {};
@@ -268,9 +268,15 @@
   }
 
   function latestPeriod(rows) {
+    const state = window.KudukJournalWorkspace?.getState?.() || {};
+    const stateYear = Number(state.periodYear);
+    const stateMonth = Number(state.periodMonth);
+    if (Number.isInteger(stateYear) && stateYear >= 2026 && stateYear <= 2028 && Number.isInteger(stateMonth) && stateMonth >= 1 && stateMonth <= 12) {
+      return { year:stateYear, month:stateMonth };
+    }
     const periods = rows.map((row) => parseDate(row.date)).filter(Boolean).filter((p) => p.year >= 2026 && p.year <= 2028);
     periods.sort((a,b) => b.year-a.year || b.month-a.month);
-    return periods[0] || { year:new Date().getFullYear(), month:new Date().getMonth()+1 };
+    return periods[0] || { year:2026, month:new Date().getMonth()+1 };
   }
 
   function fillMonthlySelectors() {
@@ -291,10 +297,46 @@
   }
 
   function monthlyRows() {
-    return masterRows().filter((row) => {
-      const p = parseDate(row.date);
-      return p && p.year === monthlyState.year && p.month === monthlyState.month;
-    });
+    return Array.isArray(monthlyState.rows) ? monthlyState.rows : [];
+  }
+
+  async function loadMonthlyAnalysis({ forceRefresh=false } = {}) {
+    fillMonthlySelectors();
+    const status = $('kudukMonthlyStatus');
+    if (monthlyState.loading) return;
+    monthlyState.loading = true;
+    if (status) {
+      status.textContent = (MONTHS[monthlyState.month] || monthlyState.month) + ' ' + monthlyState.year + ' · Sheets синхронланмоқда...';
+      status.className = 'kw-status sync';
+    }
+    try {
+      const state = window.KudukJournalWorkspace?.getState?.() || {};
+      const payload = {
+        year: monthlyState.year,
+        month: monthlyState.month,
+        stateVersion: Number(state.version || 0) || 0,
+        stateUpdatedAt: clean(state.updatedAt),
+        ...(forceRefresh ? { forceRefresh:true } : {})
+      };
+      const data = await api('/api/hisobot-period/select', {
+        method:'POST',
+        body:JSON.stringify(payload)
+      });
+      monthlyState.year = Number(data?.selector?.year || monthlyState.year);
+      monthlyState.month = Number(data?.selector?.month || monthlyState.month);
+      monthlyState.rows = Array.isArray(data?.rows) ? data.rows : [];
+      fillMonthlySelectors();
+      renderMonthlyAnalysis();
+    } catch (error) {
+      monthlyState.rows = [];
+      renderMonthlyAnalysis();
+      if (status) {
+        status.textContent = 'Хато: ' + error.message;
+        status.className = 'kw-status bad';
+      }
+    } finally {
+      monthlyState.loading = false;
+    }
   }
 
   function renderMonthlyAnalysis() {
@@ -319,30 +361,30 @@
     }
   }
 
-  function readMonthlySelectors() {
+  async function readMonthlySelectors() {
     monthlyState.month = Number($('kudukAnalysisMonth')?.value) || monthlyState.month;
     monthlyState.year = Number($('kudukAnalysisYear')?.value) || monthlyState.year;
-    renderMonthlyAnalysis();
+    await loadMonthlyAnalysis();
   }
 
-  function navigateMonthly(delta) {
+  async function navigateMonthly(delta) {
     let absolute = monthlyState.year * 12 + (monthlyState.month - 1) + Number(delta || 0);
     let year = Math.floor(absolute / 12);
     let month = ((absolute % 12) + 12) % 12 + 1;
     if (year < 2026) { year = 2026; month = 1; }
     if (year > 2028) { year = 2028; month = 12; }
     monthlyState.year = year; monthlyState.month = month;
-    renderMonthlyAnalysis();
+    await loadMonthlyAnalysis();
   }
 
   function openMonthlyAnalysis(route=null) {
     injectUi();
     monthlyState.route = route || window.KudukJournalWorkspace?.getState?.()?.selectedRoute || monthlyState.route;
-    monthlyState.year = 0; monthlyState.month = 0;
+    monthlyState.year = 0; monthlyState.month = 0; monthlyState.rows = [];
     fillMonthlySelectors();
-    renderMonthlyAnalysis();
     document.body.classList.add('kuduk-analysis-home');
     $('kudukMonthlyModal')?.classList.add('show');
+    void loadMonthlyAnalysis();
   }
 
   function closeMonthlyAnalysis() {
@@ -569,5 +611,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });
   else init();
 
-  window.KudukWorkflow = { openMonthlyAnalysis, closeMonthlyAnalysis, renderMonthlyAnalysis, createMonthlyDocument, openReports, openSigners, openFinalDocuments, loadSigners, renderReportFolders };
+  window.KudukWorkflow = { openMonthlyAnalysis, closeMonthlyAnalysis, loadMonthlyAnalysis, renderMonthlyAnalysis, createMonthlyDocument, openReports, openSigners, openFinalDocuments, loadSigners, renderReportFolders };
 })();
