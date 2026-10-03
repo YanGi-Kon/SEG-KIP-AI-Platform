@@ -22,6 +22,9 @@
     <div class="panel">
       <div class="toolbar">
         <button class="btn orange workspace-operator-only" onclick="syncNow()">🔄 LIVE SYNC</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openReports()">3. Хисоботлар</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openFinalDocuments()">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
         <input id="search" class="input" placeholder="Qidirish: hudud yoki ЖУРНАЛ..." oninput="renderRoutes()">
       </div>
     </div>
@@ -33,6 +36,9 @@
       <div class="toolbar">
         <button class="btn" onclick="backToMenu()">← Menyuga qaytish</button>
         <button class="btn orange workspace-operator-only" onclick="syncNow()">🔄 LIVE SYNC</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openReports()">3. Хисоботлар</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openFinalDocuments()">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
         <button class="btn green workspace-operator-only" onclick="openEditor('add')">➕ Yangi yozuv</button>
         <input id="journalSearch" class="input" placeholder="Qidirish: nom, poz, zavod raqami, Место установки, skv..." oninput="renderRows()">
       </div>
@@ -288,6 +294,15 @@ async function removeRow(rowNumber){
 window.addEventListener('message', event => {
   if(event.data?.type === 'SEG_KIP_WORKSPACE_CHANGE') void activateWorkspace(event.data.workspaceId);
 });
+window.KudukJournalWorkspace = {
+  getState: () => state,
+  workspaceId,
+  sexId,
+  rows,
+  currentRoute,
+  syncNow,
+  fetchState
+};
 window.addEventListener('load', () => {
   activeWorkspaceId = workspaceId();
   try{ const saved = localStorage.getItem('seg_kip_sheet_url') || localStorage.getItem('spreadsheetUrl'); }catch(_){}
@@ -297,6 +312,7 @@ window.addEventListener('load', () => {
   try{ parent.postMessage({ type:'REQUEST_WORKSPACE_INFO' }, '*'); }catch(_){}
 });
 </script>
+<script id="kudukWorkflowScript" src="/js/kuduk-workflow.js?v=kuduk-workflow1"></script>
 <script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period6-auth-retry"></script>
 </body>
 </html>
