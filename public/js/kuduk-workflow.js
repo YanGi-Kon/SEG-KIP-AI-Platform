@@ -84,6 +84,11 @@
       .kw-card label{display:grid;gap:6px;font-size:12px;color:#cdeeff;font-weight:800}.kw-card input{width:100%;height:40px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:#061120;color:#fff;padding:8px 10px}
       .kw-signers-table{width:100%;min-width:760px;border-collapse:collapse}.kw-signers-table th,.kw-signers-table td{padding:10px;border-bottom:1px solid rgba(255,255,255,.09);font-size:12px;text-align:left}.kw-signers-table th{background:#0a2538;color:#dffbff}
       .kw-add-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.kw-add-grid input{width:100%;box-sizing:border-box;border:1px solid rgba(148,163,184,.25);border-radius:9px;background:#091729;color:#eaf7ff;padding:9px 10px}
+      body.kuduk-analysis-home{min-height:100vh;overflow:auto}
+      body.kuduk-analysis-home .wrap{display:none!important}
+      body.kuduk-analysis-home #kudukMonthlyModal{position:relative;inset:auto;z-index:1;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:12px;background:transparent}
+      body.kuduk-analysis-home #kudukMonthlyModal .kw-monthly-shell{width:100%;max-width:none;max-height:none;min-height:calc(100vh - 24px);box-shadow:none}
+      body.kuduk-analysis-home #kudukMonthlyClose{display:none!important}
       .kw-monthly-shell{width:min(1380px,100%);max-height:96vh;display:flex;flex-direction:column;overflow:hidden}
       .kw-monthly-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}.kw-monthly-period select{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px}
       .kw-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.kw-kpi{padding:12px;border:1px solid rgba(34,211,238,.22);border-radius:13px;background:rgba(2,15,28,.7)}.kw-kpi small{display:block;color:#9fb7c7;font-size:10px}.kw-kpi b{display:block;margin-top:5px;font-size:20px}
@@ -336,10 +341,12 @@
     monthlyState.year = 0; monthlyState.month = 0;
     fillMonthlySelectors();
     renderMonthlyAnalysis();
+    document.body.classList.add('kuduk-analysis-home');
     $('kudukMonthlyModal')?.classList.add('show');
   }
 
   function closeMonthlyAnalysis() {
+    document.body.classList.remove('kuduk-analysis-home');
     $('kudukMonthlyModal')?.classList.remove('show');
   }
 
