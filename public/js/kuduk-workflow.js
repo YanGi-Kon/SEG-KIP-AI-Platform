@@ -92,7 +92,8 @@
       .kw-monthly-shell{width:min(1380px,100%);max-height:96vh;display:flex;flex-direction:column;overflow:hidden}
       .kw-monthly-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}.kw-monthly-period select{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px}
       .kw-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.kw-kpi{padding:12px;border:1px solid rgba(34,211,238,.22);border-radius:13px;background:rgba(2,15,28,.7)}.kw-kpi small{display:block;color:#9fb7c7;font-size:10px}.kw-kpi b{display:block;margin-top:5px;font-size:20px}
-      .kw-monthly-table{width:100%;min-width:1320px;border-collapse:collapse;background:rgba(1,12,24,.55)}.kw-monthly-table th,.kw-monthly-table td{padding:8px;border-bottom:1px solid rgba(255,255,255,.09);border-right:1px solid rgba(255,255,255,.07);font-size:11px;text-align:left;vertical-align:top}.kw-monthly-table th{position:sticky;top:0;background:#0a3848;color:#dffbff;text-align:center}.kw-monthly-table td:last-child,.kw-monthly-table th:last-child{border-right:0}
+      .kw-monthly-table{width:100%;min-width:1400px;border-collapse:collapse;background:rgba(1,12,24,.55)}.kw-monthly-table th,.kw-monthly-table td{padding:8px;border-bottom:1px solid rgba(255,255,255,.09);border-right:1px solid rgba(255,255,255,.07);font-size:11px;text-align:left;vertical-align:top}.kw-monthly-table th{position:sticky;top:0;background:#0a3848;color:#dffbff;text-align:center}.kw-monthly-table td:last-child,.kw-monthly-table th:last-child{border-right:0}.kw-monthly-table .actions{white-space:nowrap;text-align:center}.kw-monthly-table .actions .btn{padding:7px 9px;margin:2px}
+      body.kuduk-analysis-home #modal{z-index:180}
       .kw-doc-body{padding:14px;overflow:auto;background:#dbe4ea}.kw-doc-paper{width:297mm;min-height:210mm;margin:0 auto;background:#fff;color:#111;padding:12mm;box-shadow:0 8px 30px rgba(0,0,0,.24);font-family:"Times New Roman",Times,serif;box-sizing:border-box}.kw-doc-title{text-align:center;font-size:16pt;font-weight:700;margin-bottom:4mm}.kw-doc-subtitle{text-align:center;font-size:12pt;margin-bottom:5mm}.kw-doc-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9pt}.kw-doc-table th,.kw-doc-table td{border:.25mm solid #000;padding:.8mm;vertical-align:middle;overflow-wrap:anywhere}.kw-doc-table th{text-align:center}
       @media(max-width:850px){.kw-reports-grid{grid-template-columns:1fr}.kw-folders{max-height:220px;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.kw-add-grid{grid-template-columns:1fr}}
     `;
@@ -135,7 +136,7 @@
             </div>
             <div class="kw-tablewrap"><table class="kw-monthly-table">
               <thead><tr>
-                <th>№</th><th>Дата</th><th>Поз номер</th><th>Наименование СИ</th><th>Тип, марка</th><th>Заводской номер</th><th>Предел измерения</th><th>Место установки</th><th>СКВ</th><th>Перечень в/р</th><th>Исполнитель</th><th>Подпись</th>
+                <th>№</th><th>Дата</th><th>Поз номер</th><th>Наименование СИ</th><th>Тип, марка</th><th>Заводской номер</th><th>Предел измерения</th><th>Место установки</th><th>СКВ</th><th>Перечень в/р</th><th>Исполнитель</th><th>Подпись</th><th>Амал</th>
               </tr></thead><tbody id="kudukMonthlyRows"></tbody>
             </table></div>
             <div class="kw-actions" style="justify-content:flex-end;margin-top:12px"><button id="kudukCreateMonthlyDocument" class="btn primary" type="button">Хужат яратиш</button></div>
@@ -347,7 +348,8 @@
     if (body) {
       body.innerHTML = rows.length ? rows.map((r,index) => `<tr>
         <td>${index+1}</td><td>${esc(r.date)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(r.executor)}</td><td>${esc(r.signature)}</td>
-      </tr>`).join('') : '<tr><td colspan="12" class="kw-empty">Танланган ой учун 📘 ЖУРНАЛ ёзувлари топилмади.</td></tr>';
+        <td class="actions"><button class="btn orange workspace-operator-only" type="button" title="Таҳрирлаш" onclick="window.KudukWorkflow?.editMonthlyRow(${index})">✏️</button><button class="btn red workspace-operator-only" type="button" title="Ўчириш" onclick="window.KudukWorkflow?.deleteMonthlyRow(${index})">🗑</button></td>
+      </tr>`).join('') : '<tr><td colspan="13" class="kw-empty">Танланган ой учун 📘 ЖУРНАЛ ёзувлари топилмади.</td></tr>';
     }
     const deviceCount = new Set(rows.map((r) => clean(r.name || r.brand)).filter(Boolean)).size;
     const placeCount = new Set(rows.map((r) => clean(r.location)).filter(Boolean)).size;
@@ -390,6 +392,50 @@
   function closeMonthlyAnalysis() {
     document.body.classList.remove('kuduk-analysis-home');
     $('kudukMonthlyModal')?.classList.remove('show');
+  }
+
+  function waitForEditorClose() {
+    return new Promise((resolve) => {
+      const started = Date.now();
+      const check = () => {
+        const modal = $('modal');
+        if (!modal?.classList.contains('show') || Date.now() - started > 120000) return resolve();
+        window.setTimeout(check, 250);
+      };
+      window.setTimeout(check, 250);
+    });
+  }
+
+  async function editMonthlyRow(index) {
+    const row = monthlyRows()[Number(index)];
+    if (!row || typeof window.openEditor !== 'function') return;
+    try {
+      await window.openEditor('edit', row);
+      await waitForEditorClose();
+      await loadMonthlyAnalysis({ forceRefresh:true });
+    } catch (error) {
+      const status = $('kudukMonthlyStatus');
+      if (status) {
+        status.textContent = 'Хато: ' + (error?.message || 'Ёзувни таҳрирлашда хато');
+        status.className = 'kw-status bad';
+      }
+    }
+  }
+
+  async function deleteMonthlyRow(index) {
+    const row = monthlyRows()[Number(index)];
+    if (!row || typeof window.removeRow !== 'function') return;
+    const rowNumber = Number(row._periodBaseRowNumber || row._rowNumber || 0);
+    if (!rowNumber) {
+      const status = $('kudukMonthlyStatus');
+      if (status) {
+        status.textContent = 'Ўчириш учун База қатор рақами топилмади.';
+        status.className = 'kw-status bad';
+      }
+      return;
+    }
+    await window.removeRow(rowNumber);
+    await loadMonthlyAnalysis({ forceRefresh:true });
   }
 
   function createMonthlyDocument() {
@@ -611,5 +657,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });
   else init();
 
-  window.KudukWorkflow = { openMonthlyAnalysis, closeMonthlyAnalysis, loadMonthlyAnalysis, renderMonthlyAnalysis, createMonthlyDocument, openReports, openSigners, openFinalDocuments, loadSigners, renderReportFolders };
+  window.KudukWorkflow = { openMonthlyAnalysis, closeMonthlyAnalysis, loadMonthlyAnalysis, renderMonthlyAnalysis, editMonthlyRow, deleteMonthlyRow, createMonthlyDocument, openReports, openSigners, openFinalDocuments, loadSigners, renderReportFolders };
 })();
