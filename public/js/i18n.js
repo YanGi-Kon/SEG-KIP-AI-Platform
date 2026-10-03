@@ -5,7 +5,7 @@ const TRANSLATIONS = {
     // Menu Titles
     '1. ЖУРНАЛ УЧЕТА': '1. ЖУРНАЛ УЧЕТА',
     '2. УЛЧОВ ВОСИТАЛАРИ': '2. ИЗМЕРИТЕЛЬНЫЕ ПРИБОРЫ',
-    '3. АКТЛАР ЖУРНАЛИ': '3. ЖУРНАЛ АКТОВ',
+    '3. ДЕФЕКТНЫЙ АКТ': '3. ДЕФЕКТНЫЙ АКТ',
     '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. ЖУРНАЛ НЕИСПРАВНОСТЕЙ',
     '5. АКТ ВЫПОЛНЕННЫХ РАБОТ': '5. АКТ ВЫПОЛНЕННЫХ РАБОТ',
     '7. ПОЛЬЗОВАТЕЛИ': '7. ПОЛЬЗОВАТЕЛИ',
@@ -17,7 +17,7 @@ const TRANSLATIONS = {
     // Menu Notes
     'Асосий ҳисоб журнали': 'Основной журнал учета',
     'Реестр ва паспорт маълумотлари': 'Данные реестра и паспортов',
-    'Актлар архиви': 'Архив актов',
+    'Дефектный акт': 'Дефектный акт',
     'Носозликлар назорати': 'Контроль неисправностей',
     'Техник хизмат кўрсатиш': 'Техническое обслуживание',
     'Управление доступом': 'Управление доступом',
@@ -375,7 +375,7 @@ const TRANSLATIONS = {
     'Пароль должен содержать 6-200 символов': 'Пароль должен содержать 6-200 символов',
 
     // Dashboard topbar titles
-    'SEG KIP AI Platform — Актлар журнали': 'SEG KIP AI Platform — Журнал актов',
+    'SEG KIP AI Platform — Дефектный акт': 'SEG KIP AI Platform — Дефектный акт',
     'SEG KIP AI Platform — Носозликлар журнали': 'SEG KIP AI Platform — Журнал неисправностей',
     'SEG KIP AI Platform — АКТ ВЫПОЛНЕННЫХ РАБОТ': 'SEG KIP AI Platform — АКТ ВЫПОЛНЕННЫХ РАБОТ',
     'Конструктор ролей': 'Конструктор ролей',
@@ -384,7 +384,7 @@ const TRANSLATIONS = {
     // Menu Titles
     '1. ЖУРНАЛ УЧЕТА': '1. HISOBOT JURNALI',
     '2. УЛЧОВ ВОСИТАЛАРИ': '2. O\'LCHOV VOSITALARI',
-    '3. АКТЛАР ЖУРНАЛИ': '3. AKTLAR JURNALI',
+    '3. ДЕФЕКТНЫЙ АКТ': '3. DEFEKT AKTI',
     '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. NOSOZLIKLAR JURNALI',
     '5. АКТ ВЫПОЛНЕННЫХ РАБОТ': '5. BAJARILGAN ISHLAR DALOLATNOMASI',
     '7. ПОЛЬЗОВАТЕЛИ': '7. FOYDALANUVCHILAR',
@@ -396,7 +396,7 @@ const TRANSLATIONS = {
     // Menu Notes
     'Асосий ҳисоб журнали': 'Asosiy hisobot jurnali',
     'Реестр ва паспорт маълумотлари': 'Reestr va pasport ma\'lumotlari',
-    'Актлар архиви': 'Aktlar arxivi',
+    'Дефектный акт': 'Defekt akti',
     'Носозликлар назорати': 'Nosozliklar nazorati',
     'Техник хизмат кўрсатиш': 'Texnik xizmat ko\'rsatish',
     'Управление доступом': 'Kirishni boshqarish',
@@ -753,7 +753,7 @@ const TRANSLATIONS = {
     'Пароль должен содержать 6-200 символов': 'Parol 6-200 belgidan iborat bo\'lishi kerak',
 
     // Dashboard topbar titles
-    'SEG KIP AI Platform — Актлар журнали': 'SEG KIP AI Platform — Aktlar jurnali',
+    'SEG KIP AI Platform — Дефектный акт': 'SEG KIP AI Platform — Defekt akti',
     'SEG KIP AI Platform — Носозликлар журнали': 'SEG KIP AI Platform — Nosozliklar jurnali',
     'SEG KIP AI Platform — АКТ ВЫПОЛНЕННЫХ РАБОТ': 'SEG KIP AI Platform — BAJARILGAN ISHLAR DALOLATNOMASI',
     'Конструктор ролей': 'Rollar konstruktori',
@@ -762,7 +762,7 @@ const TRANSLATIONS = {
     // Menu Titles
     '1. ЖУРНАЛ УЧЕТА': '1. ACCOUNTING JOURNAL',
     '2. УЛЧОВ ВОСИТАЛАРИ': '2. MEASURING INSTRUMENTS',
-    '3. АКТЛАР ЖУРНАЛИ': '3. ACTS JOURNAL',
+    '3. ДЕФЕКТНЫЙ АКТ': '3. DEFECT REPORT',
     '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. FAULTS JOURNAL',
     '5. АКТ ВЫПОЛНЕННЫХ РАБОТ': '5. COMPLETED WORK ACT',
     '7. ПОЛЬЗОВАТЕЛИ': '7. USERS',
@@ -774,7 +774,7 @@ const TRANSLATIONS = {
     // Menu Notes
     'Асосий ҳисоб журнали': 'Main accounting journal',
     'Реестр ва паспорт маълумотлари': 'Registry and passport data',
-    'Актлар архиви': 'Acts archive',
+    'Дефектный акт': 'Defect report',
     'Носозликлар назорати': 'Fault control',
     'Техник хизмат кўрсатиш': 'Maintenance',
     'Управление доступом': 'Access control',
@@ -1131,7 +1131,7 @@ const TRANSLATIONS = {
     'Пароль должен содержать 6-200 символов': 'Password must contain 6-200 characters',
 
     // Dashboard topbar titles
-    'SEG KIP AI Platform — Актлар журнали': 'SEG KIP AI Platform — Acts Journal',
+    'SEG KIP AI Platform — Дефектный акт': 'SEG KIP AI Platform — Defect Report',
     'SEG KIP AI Platform — Носозликлар журнали': 'SEG KIP AI Platform — Faults Journal',
     'SEG KIP AI Platform — АКТ ВЫПОЛНЕННЫХ РАБОТ': 'SEG KIP AI Platform — COMPLETED WORK ACT',
     'Конструктор ролей': 'Roles Constructor',
@@ -1140,7 +1140,7 @@ const TRANSLATIONS = {
     // Menu Titles
     '1. ЖУРНАЛ УЧЕТА': '1. ҲИСОБОТ ЖУРНАЛИ',
     '2. УЛЧОВ ВОСИТАЛАРИ': '2. ЎЛЧОВ ВОСИТАЛАРИ',
-    '3. АКТЛАР ЖУРНАЛИ': '3. АКТЛАР ЖУРНАЛИ',
+    '3. ДЕФЕКТНЫЙ АКТ': '3. ДЕФЕКТ АКТИ',
     '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. НОСОЗЛИКЛАР ЖУРНАЛИ',
     '5. АКТ ВЫПОЛНЕННЫХ РАБОТ': '5. БАЖАРИЛГАН ИШЛАР ДАЛОЛАТНОМАСИ',
     '7. ПОЛЬЗОВАТЕЛИ': '7. ФОЙДАЛАНУВЧИЛАР',
@@ -1152,7 +1152,7 @@ const TRANSLATIONS = {
     // Menu Notes
     'Асосий ҳисоб журнали': 'Асосий ҳисобот журнали',
     'Реестр ва паспорт маълумотлари': 'Реестр ва паспорт маълумотлари',
-    'Актлар архиви': 'Актлар архиви',
+    'Дефектный акт': 'Дефект акти',
     'Носозликлар назорати': 'Носозликлар назорати',
     'Техник хизмат кўрсатиш': 'Техник хизмат кўрсатиш',
     'Управление доступом': 'Киришни бошқариш',
@@ -1510,7 +1510,7 @@ const TRANSLATIONS = {
     'Пароль должен содержать 6-200 символов': 'Пароль 6-200 белгидан иборат бўлиши керак',
 
     // Dashboard topbar titles
-    'SEG KIP AI Platform — Актлар журнали': 'SEG KIP AI Platform — Актлар журнали',
+    'SEG KIP AI Platform — Дефектный акт': 'SEG KIP AI Platform — Дефект акти',
     'SEG KIP AI Platform — Носозликлар журнали': 'SEG KIP AI Platform — Носозликлар журнали',
     'SEG KIP AI Platform — АКТ ВЫПОЛНЕННЫХ РАБОТ': 'SEG KIP AI Platform — БАЖАРИЛГАН ИШЛАР ДАЛОЛАТНОМАСИ',
     'Конструктор ролей': 'Конструктор ролей',
