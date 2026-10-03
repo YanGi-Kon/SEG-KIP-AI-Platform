@@ -16,21 +16,15 @@
     <div class="status"><div class="small">Tizim holati</div><b id="statusText" class="offline">OFFLINE</b><div id="statusSub" class="small">Backend tekshirilmoqda...</div></div>
   </div>
 
-  <div class="panel">
-    <div class="grid">
-      <div><label class="label">Asosiy varoq nomi</label><input id="menuSheet" class="input" value="кудук руйхати"></div>
-      <div><label class="label">Auto sync sekund</label><input id="syncSeconds" class="input" type="number" min="10" value="30"></div>
-      <button class="btn primary workspace-admin-only" onclick="saveAndConnect()">🔐 SAQLASH & ULASH</button>
-      <button class="btn red workspace-admin-only" onclick="clearMemory()">🧹 XOTIRANI TOZALASH</button>
-    </div>
-    <div style="margin-top:10px; font-size:12px; color:#555;">Google Sheets ҳаволаси va Service Account umumiy Workspace sozlalaridan avtomatik olinadi.</div>
-    <div id="message" class="msg">Ma’lumotlar tanlangan Workspace bo‘yicha alohida saqlanadi.</div>
-  </div>
+  <div id="message" class="msg" style="display:none" aria-hidden="true"></div>
 
   <div id="menuView">
     <div class="panel">
       <div class="toolbar">
         <button class="btn orange workspace-operator-only" onclick="syncNow()">🔄 LIVE SYNC</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openReports()">3. Хисоботлар</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openFinalDocuments()">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
         <input id="search" class="input" placeholder="Qidirish: hudud yoki ЖУРНАЛ..." oninput="renderRoutes()">
       </div>
     </div>
@@ -42,6 +36,9 @@
       <div class="toolbar">
         <button class="btn" onclick="backToMenu()">← Menyuga qaytish</button>
         <button class="btn orange workspace-operator-only" onclick="syncNow()">🔄 LIVE SYNC</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openReports()">3. Хисоботлар</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
+        <button class="btn" type="button" onclick="window.KudukWorkflow?.openFinalDocuments()">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
         <button class="btn green workspace-operator-only" onclick="openEditor('add')">➕ Yangi yozuv</button>
         <input id="journalSearch" class="input" placeholder="Qidirish: nom, poz, zavod raqami, Место установки, skv..." oninput="renderRows()">
       </div>
@@ -122,8 +119,10 @@ function rememberSheetUrl(url){
 }
 function hydrateFromState(){
   if(state.spreadsheetUrl) rememberSheetUrl(state.spreadsheetUrl);
-  if(state.menuSheet) $('menuSheet').value = state.menuSheet;
-  if(state.syncSeconds) $('syncSeconds').value = state.syncSeconds;
+  const menuSheetEl = $('menuSheet');
+  const syncSecondsEl = $('syncSeconds');
+  if(state.menuSheet && menuSheetEl) menuSheetEl.value = state.menuSheet;
+  if(state.syncSeconds && syncSecondsEl) syncSecondsEl.value = state.syncSeconds;
   if(state.connected) setStatus('READY','ready', state.updatedAt||''); else setStatus('OFFLINE','offline','Ulanish sozlanmagan');
 }
 async function loadMetadata(force=false){
@@ -295,6 +294,15 @@ async function removeRow(rowNumber){
 window.addEventListener('message', event => {
   if(event.data?.type === 'SEG_KIP_WORKSPACE_CHANGE') void activateWorkspace(event.data.workspaceId);
 });
+window.KudukJournalWorkspace = {
+  getState: () => state,
+  workspaceId,
+  sexId,
+  rows,
+  currentRoute,
+  syncNow,
+  fetchState
+};
 window.addEventListener('load', () => {
   activeWorkspaceId = workspaceId();
   try{ const saved = localStorage.getItem('seg_kip_sheet_url') || localStorage.getItem('spreadsheetUrl'); }catch(_){}
@@ -304,6 +312,7 @@ window.addEventListener('load', () => {
   try{ parent.postMessage({ type:'REQUEST_WORKSPACE_INFO' }, '*'); }catch(_){}
 });
 </script>
+<script id="kudukWorkflowScript" src="/js/kuduk-workflow.js?v=kuduk-workflow2"></script>
 <script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period6-auth-retry"></script>
 </body>
 </html>
