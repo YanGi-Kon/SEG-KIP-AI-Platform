@@ -68,16 +68,53 @@ function responseSession(session) {
   };
 }
 
+function authInfrastructureError(error) {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || '').trim();
+
+  if (code === '42P01' || code === '42703' || /relation .* does not exist/i.test(message)) {
+    return {
+      status: 503,
+      error: 'Authentication database schema is not ready',
+      code: 'AUTH_SCHEMA_NOT_READY',
+      recommendedFix: 'Run npm run db:migrate, then restart npm start.',
+    };
+  }
+
+  if (
+    ['08001', '08003', '08006', '57P01', 'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(code)
+    || /connect.*(?:refused|timeout|timed out)|database .*unavailable/i.test(message)
+  ) {
+    return {
+      status: 503,
+      error: 'Authentication database is unavailable',
+      code: 'AUTH_DATABASE_UNAVAILABLE',
+      recommendedFix: 'Check DATABASE_URL in .env and run npm run dev:doctor.',
+    };
+  }
+
+  return null;
+}
+
 function handleError(res, error) {
+  const infrastructure = authInfrastructureError(error);
+  if (infrastructure) {
+    console.error('[Auth Error]', error);
+    return res.status(infrastructure.status).json(infrastructure);
+  }
+
   const knownStatus = Number(error.statusCode);
   const status = Number.isInteger(knownStatus) && knownStatus >= 400 && knownStatus < 600
     ? knownStatus
     : 500;
   if (status >= 500) console.error('[Auth Error]', error);
   const message = status >= 500 ? 'Authentication service error' : error.message;
-  res.status(status).json({
+  return res.status(status).json({
     error: message,
     code: error.code || (status >= 500 ? 'AUTH_SERVICE_ERROR' : 'AUTH_REQUEST_FAILED'),
+    ...(status >= 500 && process.env.NODE_ENV !== 'production' && error?.message
+      ? { detail: String(error.message) }
+      : {}),
   });
 }
 
