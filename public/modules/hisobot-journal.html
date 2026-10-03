@@ -230,6 +230,9 @@ function selectRoute(sheet){
   state.selectedRoute = route;
   state.rows = state.sheets?.[sheet] || [];
   renderAll();
+  if(isMasterRoute(route)){
+    window.setTimeout(() => window.KudukWorkflow?.openMonthlyAnalysis?.(route), 0);
+  }
 }
 function backToMenu(){
   state.currentView = 'menu';
