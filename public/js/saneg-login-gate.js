@@ -219,7 +219,10 @@
       }, 350);
     } catch (error) {
       setToken('');
-      setMessage(`Login xato: ${error.message}`, 'error');
+      const fix = String(error?.data?.recommendedFix || '').trim();
+      const detail = String(error?.data?.detail || '').trim();
+      const extra = [fix, detail && !fix ? detail : ''].filter(Boolean).join('\n');
+      setMessage(`Login xato: ${error.message}${extra ? '\n' + extra : ''}`, 'error');
     } finally {
       if (button) button.disabled = false;
       const pass = qs('#sanegLoginPassword');
