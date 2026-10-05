@@ -91,12 +91,13 @@
       body.kuduk-analysis-home #kudukMonthlyClose{display:none!important}
       .kw-monthly-shell{width:min(1380px,100%);max-height:96vh;display:flex;flex-direction:column;overflow:hidden}
       .kw-monthly-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}.kw-monthly-period select{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px}
-      .kw-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.kw-kpi{padding:12px;border:1px solid rgba(34,211,238,.22);border-radius:13px;background:rgba(2,15,28,.7)}.kw-kpi small{display:block;color:#9fb7c7;font-size:10px}.kw-kpi b{display:block;margin-top:5px;font-size:20px}
-      .kw-monthly-table{width:100%;min-width:1400px;border-collapse:collapse;background:rgba(1,12,24,.55)}.kw-monthly-table th,.kw-monthly-table td{padding:8px;border-bottom:1px solid rgba(255,255,255,.09);border-right:1px solid rgba(255,255,255,.07);font-size:11px;text-align:left;vertical-align:top}.kw-monthly-table th{position:sticky;top:0;background:#0a3848;color:#dffbff;text-align:center}.kw-monthly-table td:last-child,.kw-monthly-table th:last-child{border-right:0}.kw-monthly-table .actions{white-space:nowrap;text-align:center}.kw-monthly-table .actions .btn{padding:7px 9px;margin:2px}.kw-monthly-table tr.kw-row-unselected td{background:transparent}.kw-monthly-table tr.kw-row-unselected:hover td{background:rgba(255,255,255,.035)}.kw-monthly-table tr.kw-row-selected td{background:rgba(245,158,11,.24);color:#fff7d6}.kw-monthly-table tr.kw-row-selected:hover td{background:rgba(245,158,11,.32)}.kw-row-select{display:inline-flex;align-items:center;justify-content:center;gap:4px;margin:2px;padding:6px 8px;border:1px solid rgba(34,211,238,.35);border-radius:9px;background:rgba(34,211,238,.08);color:#a5f3fc;font-weight:900;cursor:pointer}.kw-row-select input,.kw-select-all-label input{accent-color:auto;cursor:pointer}.kw-select-all-label{display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:10px;color:#dffbff;cursor:pointer}
+      .kw-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:10px}.kw-kpi{padding:12px;border:1px solid rgba(34,211,238,.22);border-radius:13px;background:rgba(2,15,28,.7)}.kw-kpi small{display:block;color:#9fb7c7;font-size:10px}.kw-kpi b{display:block;margin-top:5px;font-size:20px}
+      .kw-progress{height:10px;border-radius:999px;background:rgba(148,163,184,.16);overflow:hidden;margin:0 0 12px}.kw-progress-bar{height:100%;width:0;background:linear-gradient(90deg,#14b8a6,#22c55e);transition:width .2s ease}
+      .kw-monthly-table{width:100%;min-width:1400px;border-collapse:collapse;background:rgba(1,12,24,.55)}.kw-monthly-table th,.kw-monthly-table td{padding:8px;border-bottom:1px solid rgba(255,255,255,.09);border-right:1px solid rgba(255,255,255,.07);font-size:11px;text-align:left;vertical-align:top}.kw-monthly-table th{position:sticky;top:0;background:#0a3848;color:#dffbff;text-align:center}.kw-monthly-table td:last-child,.kw-monthly-table th:last-child{border-right:0}.kw-monthly-table .actions{white-space:nowrap;text-align:center}.kw-monthly-table .actions .btn{padding:7px 9px;margin:2px}.kw-monthly-table tr.kw-row-unselected td{background:transparent}.kw-monthly-table tr.kw-row-unselected:hover td{background:rgba(255,255,255,.035)}.kw-monthly-table tr.kw-row-selected td{background:rgba(245,158,11,.24);color:#fff7d6}.kw-monthly-table tr.kw-row-selected:hover td{background:rgba(245,158,11,.32)}.kw-monthly-table tr.kw-row-reported td{background:rgba(16,185,129,.12);color:#dcfce7}.kw-monthly-table tr.kw-row-reported:hover td{background:rgba(16,185,129,.18)}.kw-row-reported-badge{display:inline-flex;align-items:center;justify-content:center;padding:6px 8px;border-radius:9px;border:1px solid rgba(16,185,129,.38);background:rgba(16,185,129,.12);color:#86efac;font-weight:900;font-size:10px}.kw-row-select{display:inline-flex;align-items:center;justify-content:center;gap:4px;margin:2px;padding:6px 8px;border:1px solid rgba(34,211,238,.35);border-radius:9px;background:rgba(34,211,238,.08);color:#a5f3fc;font-weight:900;cursor:pointer}.kw-row-select input,.kw-select-all-label input{accent-color:auto;cursor:pointer}.kw-select-all-label{display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:10px;color:#dffbff;cursor:pointer}
       body.kuduk-analysis-home #modal{z-index:180}
       .kw-doc-body{padding:14px;overflow:auto;background:#dbe4ea}.kw-doc-paper{width:297mm;min-height:210mm;margin:0 auto;background:#fff;color:#111;padding:12mm;box-shadow:0 8px 30px rgba(0,0,0,.24);font-family:"Times New Roman",Times,serif;box-sizing:border-box}.kw-doc-title{text-align:center;font-size:16pt;font-weight:700;margin-bottom:4mm}.kw-doc-subtitle{text-align:center;font-size:12pt;margin-bottom:5mm}.kw-doc-date{font-size:11pt;font-weight:700;margin:4mm 0 2mm}.kw-doc-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9pt}.kw-doc-table th,.kw-doc-table td{border:.25mm solid #000;padding:.8mm;vertical-align:middle;overflow-wrap:anywhere}.kw-doc-table th{text-align:center}
       .kw-date-shell{width:min(460px,100%)}.kw-date-input{width:100%;height:44px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:#061120;color:#fff;padding:8px 12px;font-size:15px}.kw-date-note{margin-top:8px;color:#9fb7c7;font-size:11px;line-height:1.45}
-      @media(max-width:850px){.kw-reports-grid{grid-template-columns:1fr}.kw-folders{max-height:220px;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.kw-add-grid{grid-template-columns:1fr}}
+      @media(max-width:1100px){.kw-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:850px){.kw-reports-grid{grid-template-columns:1fr}.kw-folders{max-height:220px;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.kw-add-grid{grid-template-columns:1fr}.kw-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
     `;
     document.head.appendChild(style);
   }
@@ -131,10 +132,13 @@
             </div>
             <div class="kw-kpis">
               <div class="kw-kpi"><small>Жами ёзувлар</small><b id="kudukKpiTotal">0</b></div>
-              <div class="kw-kpi"><small>Ускуна турлари</small><b id="kudukKpiDevices">0</b></div>
-              <div class="kw-kpi"><small>Ўрнатиш жойлари</small><b id="kudukKpiPlaces">0</b></div>
-              <div class="kw-kpi"><small>Манба варақ</small><b id="kudukKpiSheet" style="font-size:13px">—</b></div>
+              <div class="kw-kpi"><small>Ҳисоботда</small><b id="kudukKpiReported">0</b></div>
+              <div class="kw-kpi"><small>Қолган</small><b id="kudukKpiRemaining">0</b></div>
+              <div class="kw-kpi"><small>Ҳозир танланган</small><b id="kudukKpiSelected">0</b></div>
+              <div class="kw-kpi"><small>Ҳужжат яратиш амаллари</small><b id="kudukKpiBatches">0</b></div>
+              <div class="kw-kpi"><small>Бажарилиш</small><b id="kudukKpiProgress">0%</b></div>
             </div>
+            <div class="kw-progress"><div id="kudukProgressBar" class="kw-progress-bar"></div></div>
             <div class="kw-tablewrap"><table class="kw-monthly-table">
               <thead><tr>
                 <th>№</th><th>Дата</th><th>Поз номер</th><th>Наименование СИ</th><th>Тип, марка</th><th>Заводской номер</th><th>Предел измерения</th><th>Место установки</th><th>СКВ</th><th>Перечень в/р</th><th>Исполнитель</th><th>Подпись</th><th>Амал<br><label class="kw-select-all-label"><input id="kudukSelectAllRows" type="checkbox" title="Барчасини танлаш"> Танлаш</label></th>
@@ -290,7 +294,7 @@
     }
   }
 
-  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set() };
+  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0 };
 
   function masterRows() {
     const state = window.KudukJournalWorkspace?.getState?.() || {};
@@ -339,36 +343,66 @@
     return 'data:' + [row.date,row.pos,row.name,row.serial,row.location,index].map(clean).join('|');
   }
 
+  function reportSourceKey(row = {}, index = 0) {
+    const baseRow = Number(row._periodBaseRowNumber || row._rowNumber || 0);
+    if (baseRow) return 'base:' + baseRow;
+    return 'data:' + [row.date,row.pos,row.name,row.serial,row.location,index].map(clean).join('|');
+  }
+
+  function isReportedRow(row, index) {
+    return monthlyState.reportedKeys.has(reportSourceKey(row,index));
+  }
+
   function selectedMonthlyRows() {
     return monthlyRows().filter((row,index) => monthlyState.selectedKeys.has(monthlyRowKey(row,index)));
   }
 
   function updateSelectionUi() {
     const rows = monthlyRows();
-    const selected = selectedMonthlyRows();
+    const selectable = rows.filter((row,index) => !isReportedRow(row,index));
+    const selected = selectedMonthlyRows().filter((row,index) => !isReportedRow(row,index));
     const master = $('kudukSelectAllRows');
     if (master) {
-      master.checked = Boolean(rows.length && selected.length === rows.length);
-      master.indeterminate = Boolean(selected.length && selected.length < rows.length);
+      master.disabled = !selectable.length;
+      master.checked = Boolean(selectable.length && selected.length === selectable.length);
+      master.indeterminate = Boolean(selected.length && selected.length < selectable.length);
     }
     const button = $('kudukCreateMonthlyDocument');
-    if (button) button.textContent = selected.length ? 'Хужат яратиш (' + selected.length + ')' : 'Хужат яратиш';
+    if (button) {
+      button.disabled = !selected.length;
+      button.textContent = selected.length ? 'Хужат яратиш (' + selected.length + ')' : 'Хужат яратиш';
+    }
   }
 
   function toggleMonthlyRow(index, checked) {
     const row = monthlyRows()[Number(index)];
-    if (!row) return;
+    if (!row || isReportedRow(row, Number(index))) return;
     const key = monthlyRowKey(row, Number(index));
     if (checked) monthlyState.selectedKeys.add(key);
     else monthlyState.selectedKeys.delete(key);
-    updateSelectionUi();
+    renderMonthlyAnalysis();
   }
 
   function toggleSelectAll(checked) {
     const rows = monthlyRows();
     monthlyState.selectedKeys.clear();
-    if (checked) rows.forEach((row,index) => monthlyState.selectedKeys.add(monthlyRowKey(row,index)));
+    if (checked) rows.forEach((row,index) => {
+      if (!isReportedRow(row,index)) monthlyState.selectedKeys.add(monthlyRowKey(row,index));
+    });
     renderMonthlyAnalysis();
+  }
+
+  async function loadMonthlyReportState() {
+    monthlyState.reportedKeys.clear();
+    monthlyState.reportBatches = 0;
+    try {
+      const reportData = await api('/api/journal-reports/' + monthlyState.year + '/' + monthlyState.month);
+      const items = Array.isArray(reportData.items) ? reportData.items : [];
+      monthlyState.reportedKeys = new Set(items.map((item) => clean(item.sourceKey)).filter(Boolean));
+      monthlyState.reportBatches = Array.isArray(reportData.batches) ? reportData.batches.length : 0;
+    } catch (error) {
+      if (Number(error?.status) !== 404) throw error;
+    }
   }
 
   async function loadMonthlyAnalysis({ forceRefresh=false } = {}) {
@@ -396,8 +430,12 @@
       monthlyState.year = Number(data?.selector?.year || monthlyState.year);
       monthlyState.month = Number(data?.selector?.month || monthlyState.month);
       monthlyState.rows = Array.isArray(data?.rows) ? data.rows : [];
+      await loadMonthlyReportState();
       const availableKeys = new Set(monthlyState.rows.map((row,index) => monthlyRowKey(row,index)));
       monthlyState.selectedKeys = new Set([...monthlyState.selectedKeys].filter((key) => availableKeys.has(key)));
+      monthlyState.rows.forEach((row,index) => {
+        if (isReportedRow(row,index)) monthlyState.selectedKeys.delete(monthlyRowKey(row,index));
+      });
       fillMonthlySelectors();
       renderMonthlyAnalysis();
     } catch (error) {
@@ -419,22 +457,31 @@
     const route = monthlyState.route || window.KudukJournalWorkspace?.getState?.()?.selectedRoute || {};
     if (body) {
       body.innerHTML = rows.length ? rows.map((r,index) => {
-        const selected = monthlyState.selectedKeys.has(monthlyRowKey(r,index));
+        const reported = isReportedRow(r,index);
+        const selected = !reported && monthlyState.selectedKeys.has(monthlyRowKey(r,index));
         const checked = selected ? ' checked' : '';
-        const rowClass = selected ? 'kw-row-selected' : 'kw-row-unselected';
+        const rowClass = reported ? 'kw-row-reported' : (selected ? 'kw-row-selected' : 'kw-row-unselected');
+        const selectControl = reported
+          ? '<span class="kw-row-reported-badge" title="Бу қатор аввал ҳисоботга қўшилган">✓ Ҳисоботда</span>'
+          : '<label class="kw-row-select" title="Хужатга қўшиш"><input type="checkbox"' + checked + ' onchange="window.KudukWorkflow?.toggleMonthlyRow(' + index + ', this.checked)">✓</label>';
         return `<tr class="${rowClass}">
         <td>${index+1}</td><td>${esc(r.date)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(r.executor)}</td><td>${esc(r.signature)}</td>
-        <td class="actions"><label class="kw-row-select" title="Хужатга қўшиш"><input type="checkbox"${checked} onchange="window.KudukWorkflow?.toggleMonthlyRow(${index}, this.checked)">✓</label><button class="btn orange workspace-operator-only" type="button" title="Таҳрирлаш" onclick="window.KudukWorkflow?.editMonthlyRow(${index})">✏️</button><button class="btn red workspace-operator-only" type="button" title="Ўчириш" onclick="window.KudukWorkflow?.deleteMonthlyRow(${index})">🗑</button></td>
+        <td class="actions">${selectControl}<button class="btn orange workspace-operator-only" type="button" title="Таҳрирлаш" onclick="window.KudukWorkflow?.editMonthlyRow(${index})">✏️</button><button class="btn red workspace-operator-only" type="button" title="Ўчириш" onclick="window.KudukWorkflow?.deleteMonthlyRow(${index})">🗑</button></td>
       </tr>`;
       }).join('') : '<tr><td colspan="13" class="kw-empty">Танланган ой учун 📘 ЖУРНАЛ ёзувлари топилмади.</td></tr>';
       updateSelectionUi();
     }
-    const deviceCount = new Set(rows.map((r) => clean(r.name || r.brand)).filter(Boolean)).size;
-    const placeCount = new Set(rows.map((r) => clean(r.location)).filter(Boolean)).size;
+    const reportedCount = rows.filter((row,index) => isReportedRow(row,index)).length;
+    const selectedCount = rows.filter((row,index) => !isReportedRow(row,index) && monthlyState.selectedKeys.has(monthlyRowKey(row,index))).length;
+    const remainingCount = Math.max(0, rows.length - reportedCount);
+    const progress = rows.length ? Math.round((reportedCount / rows.length) * 1000) / 10 : 0;
     if ($('kudukKpiTotal')) $('kudukKpiTotal').textContent = String(rows.length);
-    if ($('kudukKpiDevices')) $('kudukKpiDevices').textContent = String(deviceCount);
-    if ($('kudukKpiPlaces')) $('kudukKpiPlaces').textContent = String(placeCount);
-    if ($('kudukKpiSheet')) $('kudukKpiSheet').textContent = clean(route.sheet || route.title) || 'ЖУРНАЛ';
+    if ($('kudukKpiReported')) $('kudukKpiReported').textContent = String(reportedCount);
+    if ($('kudukKpiRemaining')) $('kudukKpiRemaining').textContent = String(remainingCount);
+    if ($('kudukKpiSelected')) $('kudukKpiSelected').textContent = String(selectedCount);
+    if ($('kudukKpiBatches')) $('kudukKpiBatches').textContent = String(monthlyState.reportBatches || 0);
+    if ($('kudukKpiProgress')) $('kudukKpiProgress').textContent = String(progress) + '%';
+    if ($('kudukProgressBar')) $('kudukProgressBar').style.width = Math.max(0, Math.min(100, progress)) + '%';
     if ($('kudukMonthlyStatus')) {
       $('kudukMonthlyStatus').textContent = (MONTHS[monthlyState.month] || monthlyState.month) + ' ' + monthlyState.year + ' · ' + rows.length + ' та ёзув';
       $('kudukMonthlyStatus').className = 'kw-status ' + (rows.length ? 'ok' : 'sync');
@@ -464,7 +511,7 @@
   function openMonthlyAnalysis(route=null) {
     injectUi();
     monthlyState.route = route || window.KudukJournalWorkspace?.getState?.()?.selectedRoute || monthlyState.route;
-    monthlyState.year = 0; monthlyState.month = 0; monthlyState.rows = []; monthlyState.selectedKeys.clear();
+    monthlyState.year = 0; monthlyState.month = 0; monthlyState.rows = []; monthlyState.selectedKeys.clear(); monthlyState.reportedKeys.clear(); monthlyState.reportBatches = 0;
     fillMonthlySelectors();
     document.body.classList.add('kuduk-analysis-home');
     $('kudukMonthlyModal')?.classList.add('show');
@@ -612,6 +659,7 @@
         })
       });
       monthlyState.selectedKeys.clear();
+      await loadMonthlyReportState();
       renderMonthlyAnalysis();
       $('kudukDateModal')?.classList.remove('show');
       if ($('kudukMonthlyStatus')) {
@@ -691,7 +739,7 @@
       const batchMap = new Map(batches.map((batch) => [batch.id, batch]));
       host.innerHTML = `
         <div class="kw-actions" style="justify-content:space-between;margin-bottom:12px">
-          <div><b>${esc(MONTHS[month])} ${year}</b> · ${items.length} та ёзув · ${batches.length} та сана</div>
+          <div><b>${esc(MONTHS[month])} ${year}</b> · ${items.length} та ёзув · ${batches.length} та ҳужжат яратиш амали</div>
           <button id="kudukOpenStoredDocument" class="btn primary" type="button">Хужатни очиш</button>
         </div>
         <div class="kw-tablewrap"><table class="kw-table"><thead><tr>
