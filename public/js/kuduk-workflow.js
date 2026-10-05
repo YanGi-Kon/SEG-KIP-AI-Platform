@@ -343,10 +343,10 @@
     return 'data:' + [row.date,row.pos,row.name,row.serial,row.location,index].map(clean).join('|');
   }
 
-  function reportSourceKey(row = {}, index = 0) {
+  function reportSourceKey(row = {}) {
     const baseRow = Number(row._periodBaseRowNumber || row._rowNumber || 0);
     if (baseRow) return 'base:' + baseRow;
-    return 'data:' + [row.date,row.pos,row.name,row.serial,row.location,index].map(clean).join('|');
+    return 'data:' + [row.date,row.pos,row.name,row.brand,row.serial,row.range,row.location,row.skv,row.work].map(clean).join('|');
   }
 
   function isReportedRow(row, index) {
@@ -360,7 +360,7 @@
   function updateSelectionUi() {
     const rows = monthlyRows();
     const selectable = rows.filter((row,index) => !isReportedRow(row,index));
-    const selected = selectedMonthlyRows().filter((row,index) => !isReportedRow(row,index));
+    const selected = selectedMonthlyRows();
     const master = $('kudukSelectAllRows');
     if (master) {
       master.disabled = !selectable.length;
@@ -604,7 +604,7 @@
     const sourceRowNumber = Number(row?._periodBaseRowNumber || row?._rowNumber || 0) || null;
     const sourceKey = sourceRowNumber
       ? 'base:' + sourceRowNumber
-      : 'data:' + [row?.date,row?.pos,row?.name,row?.serial,row?.location,index].map(clean).join('|');
+      : 'data:' + [row?.date,row?.pos,row?.name,row?.brand,row?.serial,row?.range,row?.location,row?.skv,row?.work].map(clean).join('|');
     return { ...row, sourceKey, sourceRowNumber };
   }
 
