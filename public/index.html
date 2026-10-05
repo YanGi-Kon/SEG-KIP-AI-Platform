@@ -15,22 +15,29 @@
   .seg-pump-stage.is-ready .seg-pump-layer{opacity:1}
   .seg-pump-static-lower{clip-path:polygon(0 38%,100% 38%,100% 100%,0 100%)}
   .seg-pump-static-tower{clip-path:polygon(32% 16%,66% 16%,70% 100%,28% 100%)}
-  .seg-pump-beam{clip-path:polygon(0 0,100% 0,100% 48%,0 48%);transform-origin:50% 31%;animation:segPumpBeamReal 2.15s ease-in-out infinite}
-  .seg-pump-crank{clip-path:polygon(0 25%,38% 25%,38% 78%,0 78%);transform-origin:23% 54%;animation:segPumpCrankReal 2.15s linear infinite}
-  .seg-pump-rod{clip-path:polygon(70% 27%,100% 27%,100% 100%,70% 100%);animation:segPumpRodReal 2.15s ease-in-out infinite}
+  .seg-pump-beam{clip-path:polygon(0 0,100% 0,100% 48%,0 48%);transform-origin:50% 31%}
+  .seg-pump-crank{clip-path:polygon(0 25%,38% 25%,38% 78%,0 78%);transform-origin:23% 54%}
+  .seg-pump-rod{clip-path:polygon(70% 27%,100% 27%,100% 100%,70% 100%)}
+  .seg-pump-layer{transition:transform .16s ease-out,opacity .18s ease}
+  .seg-pump-stage[data-frame="0"] .seg-pump-beam{transform:rotate(-8deg)}
+  .seg-pump-stage[data-frame="0"] .seg-pump-crank{transform:rotate(20deg)}
+  .seg-pump-stage[data-frame="0"] .seg-pump-rod{transform:translateY(-19px)}
+  .seg-pump-stage[data-frame="1"] .seg-pump-beam{transform:rotate(0deg)}
+  .seg-pump-stage[data-frame="1"] .seg-pump-crank{transform:rotate(112deg)}
+  .seg-pump-stage[data-frame="1"] .seg-pump-rod{transform:translateY(2px)}
+  .seg-pump-stage[data-frame="2"] .seg-pump-beam{transform:rotate(8deg)}
+  .seg-pump-stage[data-frame="2"] .seg-pump-crank{transform:rotate(205deg)}
+  .seg-pump-stage[data-frame="2"] .seg-pump-rod{transform:translateY(24px)}
   .seg-loader-status{color:#f8fafc;font-size:14px;font-weight:900;letter-spacing:.02em;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.72)}
   .seg-loader-dots::after{content:'...';display:inline-block;width:22px;text-align:left;animation:segDots 1.2s steps(4,end) infinite;overflow:hidden;vertical-align:bottom}
-  @keyframes segPumpBeamReal{0%,100%{transform:rotate(-3.2deg)}50%{transform:rotate(5.8deg)}}
-  @keyframes segPumpCrankReal{to{transform:rotate(360deg)}}
-  @keyframes segPumpRodReal{0%,100%{transform:translateY(-7px)}50%{transform:translateY(18px)}}
   @keyframes segDots{0%{width:0}100%{width:22px}}
-  @media (prefers-reduced-motion:reduce){.seg-pump-beam,.seg-pump-crank,.seg-pump-rod,.seg-loader-dots::after{animation:none!important}}
+  @media (prefers-reduced-motion:reduce){.seg-pump-layer{transition:none!important}.seg-loader-dots::after{animation:none!important}}
 </style>
 </head>
 <body>
 <div id="segAppLoader" role="status" aria-live="polite" aria-hidden="false">
   <div class="seg-loader-card">
-    <div id="segLoaderPumpStage" class="seg-pump-stage" aria-hidden="true">
+    <div id="segLoaderPumpStage" class="seg-pump-stage" data-frame="0" aria-hidden="true">
       <img class="seg-pump-layer seg-pump-static-lower" alt="">
       <img class="seg-pump-layer seg-pump-static-tower" alt="">
       <img class="seg-pump-layer seg-pump-beam" alt="">
@@ -40,7 +47,7 @@
     <div id="segAppLoaderStatus" class="seg-loader-status">Sanegplatform yuklanmoqda<span class="seg-loader-dots"></span></div>
   </div>
 </div>
-<script src="js/app-loader.js?v=pumpjack-loader3-parts"></script>
+<script src="js/app-loader.js?v=pumpjack-loader4-three-frame"></script>
 <div class="app">
   <aside class="sidebar">
     <div>
