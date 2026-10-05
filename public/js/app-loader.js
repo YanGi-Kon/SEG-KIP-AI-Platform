@@ -3,35 +3,56 @@
   window.__segAppLoaderInstalled = true;
 
   const root = () => document.getElementById('segAppLoader');
-  const PUMP_PARTS = [
-    '/assets/loader/pumpjack-real-0.txt',
-    '/assets/loader/pumpjack-real-1.txt',
-    '/assets/loader/pumpjack-real-2.txt',
-    '/assets/loader/pumpjack-real-3.txt',
+  const FRAME_URLS = [
+    '/assets/loader/pumpjack-frame-1.b64',
+    '/assets/loader/pumpjack-frame-2.b64',
+    '/assets/loader/pumpjack-frame-3.b64',
   ];
+  const FRAME_SEQUENCE = [0, 1, 2, 1];
 
-  async function hydratePumpImage(){
-    const stage = document.getElementById('segLoaderPumpStage');
-    if (!stage || stage.dataset.ready === '1') return;
-    try {
-      const chunks = await Promise.all(PUMP_PARTS.map(async (url) => {
-        const res = await fetch(url, { cache:'no-store' });
-        if (!res.ok) throw new Error('loader asset ' + res.status);
-        return (await res.text()).trim();
-      }));
-      const src = 'data:image/webp;base64,' + chunks.join('');
-      stage.querySelectorAll('.seg-pump-layer').forEach((img) => { img.src = src; });
-      stage.dataset.ready = '1';
-      stage.classList.add('is-ready');
-      startPumpFrames();
-    } catch (error) {
-      console.warn('[loader] realistic pumpjack asset failed', error);
-    }
-  }
-  let hidden = false;
+  let frameSources = [];
+  let hydratePromise = null;
   let frameTimer = null;
   let frameCursor = 0;
-  const FRAME_SEQUENCE = [0, 1, 2, 1];
+  let hidden = false;
+
+  function preload(src){
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(src);
+      image.onerror = () => reject(new Error('Pumpjack frame preload failed.'));
+      image.src = src;
+    });
+  }
+
+  async function hydratePumpFrames(){
+    const image = document.getElementById('segLoaderPumpImg');
+    const stage = document.getElementById('segLoaderPumpStage');
+    if (!image || !stage) return [];
+    if (frameSources.length === FRAME_URLS.length) return frameSources;
+    if (hydratePromise) return hydratePromise;
+
+    hydratePromise = (async () => {
+      try {
+        const encodedFrames = await Promise.all(FRAME_URLS.map(async (url) => {
+          const response = await fetch(url, { cache:'no-store' });
+          if (!response.ok) throw new Error('loader frame ' + response.status);
+          return (await response.text()).trim();
+        }));
+        const sources = encodedFrames.map((value) => 'data:image/webp;base64,' + value);
+        await Promise.all(sources.map(preload));
+        frameSources = sources;
+        image.src = frameSources[0];
+        stage.classList.add('is-ready');
+        return frameSources;
+      } catch (error) {
+        console.warn('[loader] pumpjack frames failed', error);
+        return [];
+      }
+    })();
+
+    return hydratePromise;
+  }
 
   function stopPumpFrames(){
     if (frameTimer) {
@@ -40,16 +61,26 @@
     }
   }
 
+  function renderPumpFrame(){
+    const image = document.getElementById('segLoaderPumpImg');
+    if (!image || !frameSources.length) return;
+    const sourceIndex = FRAME_SEQUENCE[frameCursor] ?? 0;
+    image.src = frameSources[sourceIndex] || frameSources[0];
+  }
+
   function startPumpFrames(){
-    const stage = document.getElementById('segLoaderPumpStage');
-    if (!stage || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const image = document.getElementById('segLoaderPumpImg');
+    if (!image || frameSources.length < 3) return;
     stopPumpFrames();
     frameCursor = 0;
-    stage.dataset.frame = String(FRAME_SEQUENCE[frameCursor]);
+    renderPumpFrame();
+
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
     frameTimer = setInterval(() => {
       frameCursor = (frameCursor + 1) % FRAME_SEQUENCE.length;
-      stage.dataset.frame = String(FRAME_SEQUENCE[frameCursor]);
-    }, 390);
+      renderPumpFrame();
+    }, 360);
   }
 
   function setStatus(message){
@@ -57,24 +88,28 @@
     if (el && message) el.textContent = String(message);
   }
 
-  function show(message){
+  async function show(message){
     hidden = false;
     const el = root();
     if (!el) return;
+
     if (message) setStatus(message);
     el.style.display = 'grid';
     el.classList.remove('is-hidden');
     el.setAttribute('aria-hidden', 'false');
-    void hydratePumpImage();
-    startPumpFrames();
+
+    await hydratePumpFrames();
+    if (!hidden) startPumpFrames();
   }
 
   function hide(){
     if (hidden) return;
     hidden = true;
     stopPumpFrames();
+
     const el = root();
     if (!el) return;
+
     el.classList.add('is-hidden');
     el.setAttribute('aria-hidden', 'true');
     window.setTimeout(() => {
@@ -82,14 +117,16 @@
     }, 420);
   }
 
-  window.addEventListener('seg:auth-ready', hide, { once: true });
-  window.addEventListener('seg:login-ready', hide, { once: true });
+  window.addEventListener('seg:auth-ready', hide, { once:true });
+  window.addEventListener('seg:login-ready', hide, { once:true });
 
-  // Failsafe: never block the interface forever if an unexpected boot error occurs.
   window.setTimeout(() => {
     if (!hidden) hide();
   }, 12000);
 
-  void hydratePumpImage();
+  void hydratePumpFrames().then(() => {
+    if (!hidden) startPumpFrames();
+  });
+
   window.segAppLoader = { show, hide, setStatus };
 })();
