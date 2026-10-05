@@ -33,22 +33,27 @@
     if (hydratePromise) return hydratePromise;
 
     hydratePromise = (async () => {
-      try {
-        const encodedFrames = await Promise.all(FRAME_URLS.map(async (url) => {
-          const response = await fetch(url, { cache:'no-store' });
-          if (!response.ok) throw new Error('loader frame ' + response.status);
-          return (await response.text()).trim();
-        }));
-        const sources = encodedFrames.map((value) => 'data:image/webp;base64,' + value);
-        await Promise.all(sources.map(preload));
-        frameSources = sources;
+      const settled = await Promise.allSettled(FRAME_URLS.map(async (url) => {
+        const response = await fetch(url, { cache:'no-store' });
+        if (!response.ok) throw new Error('loader frame ' + response.status);
+        const encoded = (await response.text()).trim();
+        const src = 'data:image/webp;base64,' + encoded;
+        await preload(src);
+        return src;
+      }));
+
+      frameSources = settled
+        .filter((item) => item.status === 'fulfilled')
+        .map((item) => item.value);
+
+      if (frameSources.length) {
         image.src = frameSources[0];
         stage.classList.add('is-ready');
         return frameSources;
-      } catch (error) {
-        console.warn('[loader] pumpjack frames failed', error);
-        return [];
       }
+
+      console.warn('[loader] no valid pumpjack frames were loaded');
+      return [];
     })();
 
     return hydratePromise;
@@ -64,13 +69,14 @@
   function renderPumpFrame(){
     const image = document.getElementById('segLoaderPumpImg');
     if (!image || !frameSources.length) return;
-    const sourceIndex = FRAME_SEQUENCE[frameCursor] ?? 0;
+    const requestedIndex = FRAME_SEQUENCE[frameCursor] ?? 0;
+    const sourceIndex = requestedIndex % frameSources.length;
     image.src = frameSources[sourceIndex] || frameSources[0];
   }
 
   function startPumpFrames(){
     const image = document.getElementById('segLoaderPumpImg');
-    if (!image || frameSources.length < 3) return;
+    if (!image || !frameSources.length) return;
     stopPumpFrames();
     frameCursor = 0;
     renderPumpFrame();
