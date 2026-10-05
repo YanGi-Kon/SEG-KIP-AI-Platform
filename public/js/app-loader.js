@@ -3,7 +3,7 @@
   window.__segAppLoaderInstalled = true;
 
   const root = () => document.getElementById('segAppLoader');
-  const PUMPJACK_ASSET = '/assets/loader/pump_jack.gif';
+  const PUMPJACK_ASSET = '/assets/loader/pump_jack.webp';
 
   let frameSources = [];
   let hydratePromise = null;
