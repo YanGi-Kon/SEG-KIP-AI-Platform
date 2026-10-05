@@ -3,11 +3,7 @@
   window.__segAppLoaderInstalled = true;
 
   const root = () => document.getElementById('segAppLoader');
-  const FRAME_PARTS = [
-    '/assets/loader/frames/frame-1-0.txt',
-    '/assets/loader/frames/frame-1-1.txt',
-    '/assets/loader/frames/frame-1-2.txt',
-  ];
+  const PUMPJACK_ASSET = '/assets/loader/pump_jack_280.b64';
 
   let frameSources = [];
   let hydratePromise = null;
@@ -33,12 +29,10 @@
 
     hydratePromise = (async () => {
       try {
-        const parts = await Promise.all(FRAME_PARTS.map(async (url) => {
-          const response = await fetch(url, { cache:'no-store' });
-          if (!response.ok) throw new Error('loader part ' + response.status + ': ' + url);
-          return (await response.text()).trim();
-        }));
-        const src = 'data:image/webp;base64,' + parts.join('');
+        const response = await fetch(PUMPJACK_ASSET, { cache:'no-store' });
+        if (!response.ok) throw new Error('loader asset ' + response.status);
+        const encoded = (await response.text()).trim();
+        const src = 'data:image/webp;base64,' + encoded;
         await preload(src);
         frameSources = [src];
         image.src = src;
