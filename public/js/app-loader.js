@@ -23,11 +23,34 @@
       stage.querySelectorAll('.seg-pump-layer').forEach((img) => { img.src = src; });
       stage.dataset.ready = '1';
       stage.classList.add('is-ready');
+      startPumpFrames();
     } catch (error) {
       console.warn('[loader] realistic pumpjack asset failed', error);
     }
   }
   let hidden = false;
+  let frameTimer = null;
+  let frameCursor = 0;
+  const FRAME_SEQUENCE = [0, 1, 2, 1];
+
+  function stopPumpFrames(){
+    if (frameTimer) {
+      clearInterval(frameTimer);
+      frameTimer = null;
+    }
+  }
+
+  function startPumpFrames(){
+    const stage = document.getElementById('segLoaderPumpStage');
+    if (!stage || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    stopPumpFrames();
+    frameCursor = 0;
+    stage.dataset.frame = String(FRAME_SEQUENCE[frameCursor]);
+    frameTimer = setInterval(() => {
+      frameCursor = (frameCursor + 1) % FRAME_SEQUENCE.length;
+      stage.dataset.frame = String(FRAME_SEQUENCE[frameCursor]);
+    }, 390);
+  }
 
   function setStatus(message){
     const el = document.getElementById('segAppLoaderStatus');
@@ -43,11 +66,13 @@
     el.classList.remove('is-hidden');
     el.setAttribute('aria-hidden', 'false');
     void hydratePumpImage();
+    startPumpFrames();
   }
 
   function hide(){
     if (hidden) return;
     hidden = true;
+    stopPumpFrames();
     const el = root();
     if (!el) return;
     el.classList.add('is-hidden');
