@@ -86,12 +86,14 @@ const authBootGuard = `
     background: #020817 !important;
   }
 
-  html.saneg-auth-boot body > *:not(#sanegLoginGate) {
+  html.saneg-auth-boot body > *:not(#sanegLoginGate):not(#segAppLoader):not(script) {
     visibility: hidden !important;
   }
 
   html.saneg-auth-boot #sanegLoginGate,
-  html.saneg-auth-boot #sanegLoginGate * {
+  html.saneg-auth-boot #sanegLoginGate *,
+  html.saneg-auth-boot #segAppLoader,
+  html.saneg-auth-boot #segAppLoader * {
     visibility: visible !important;
   }
 </style>
