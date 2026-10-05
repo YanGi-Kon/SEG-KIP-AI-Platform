@@ -13,9 +13,10 @@ test('startup page contains pumpjack loader', () => {
   assert.match(index, /class="seg-pump-frame"/);
 });
 
-test('pumpjack loader reconstructs the complete animated asset from four chunks', () => {
+test('pumpjack loader reconstructs the complete animated asset from safe chunks', () => {
   assert.match(loader, /pump280-0\.txt/);
-  assert.match(loader, /pump280-1\.txt/);
+  assert.match(loader, /pump280-1a\.txt/);
+  assert.match(loader, /pump280-1b\.txt/);
   assert.match(loader, /pump280-2\.txt/);
   assert.match(loader, /pump280-3\.txt/);
   assert.match(loader, /parts\.join\(''\)/);
