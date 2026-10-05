@@ -3,12 +3,11 @@
   window.__segAppLoaderInstalled = true;
 
   const root = () => document.getElementById('segAppLoader');
-  const FRAME_URLS = [
-    '/assets/loader/pumpjack-frame-1.b64',
-    '/assets/loader/pumpjack-frame-2.b64',
-    '/assets/loader/pumpjack-frame-3.b64',
+  const FRAME_PARTS = [
+    '/assets/loader/frames/frame-1-0.txt',
+    '/assets/loader/frames/frame-1-1.txt',
+    '/assets/loader/frames/frame-1-2.txt',
   ];
-  const FRAME_SEQUENCE = [0, 1, 2, 1];
 
   let frameSources = [];
   let hydratePromise = null;
@@ -29,64 +28,37 @@
     const image = document.getElementById('segLoaderPumpImg');
     const stage = document.getElementById('segLoaderPumpStage');
     if (!image || !stage) return [];
-    if (frameSources.length === FRAME_URLS.length) return frameSources;
+    if (frameSources.length) return frameSources;
     if (hydratePromise) return hydratePromise;
 
     hydratePromise = (async () => {
-      const settled = await Promise.allSettled(FRAME_URLS.map(async (url) => {
-        const response = await fetch(url, { cache:'no-store' });
-        if (!response.ok) throw new Error('loader frame ' + response.status);
-        const encoded = (await response.text()).trim();
-        const src = 'data:image/webp;base64,' + encoded;
+      try {
+        const parts = await Promise.all(FRAME_PARTS.map(async (url) => {
+          const response = await fetch(url, { cache:'no-store' });
+          if (!response.ok) throw new Error('loader part ' + response.status + ': ' + url);
+          return (await response.text()).trim();
+        }));
+        const src = 'data:image/webp;base64,' + parts.join('');
         await preload(src);
-        return src;
-      }));
-
-      frameSources = settled
-        .filter((item) => item.status === 'fulfilled')
-        .map((item) => item.value);
-
-      if (frameSources.length) {
-        image.src = frameSources[0];
+        frameSources = [src];
+        image.src = src;
         stage.classList.add('is-ready');
         return frameSources;
+      } catch (error) {
+        console.error('[loader] pumpjack image failed', error);
+        stage.classList.add('is-error');
+        return [];
       }
-
-      console.warn('[loader] no valid pumpjack frames were loaded');
-      return [];
     })();
 
     return hydratePromise;
   }
 
-  function stopPumpFrames(){
-    if (frameTimer) {
-      clearInterval(frameTimer);
-      frameTimer = null;
-    }
-  }
-
-  function renderPumpFrame(){
-    const image = document.getElementById('segLoaderPumpImg');
-    if (!image || !frameSources.length) return;
-    const requestedIndex = FRAME_SEQUENCE[frameCursor] ?? 0;
-    const sourceIndex = requestedIndex % frameSources.length;
-    image.src = frameSources[sourceIndex] || frameSources[0];
-  }
+  function stopPumpFrames(){}
 
   function startPumpFrames(){
     const image = document.getElementById('segLoaderPumpImg');
-    if (!image || !frameSources.length) return;
-    stopPumpFrames();
-    frameCursor = 0;
-    renderPumpFrame();
-
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-
-    frameTimer = setInterval(() => {
-      frameCursor = (frameCursor + 1) % FRAME_SEQUENCE.length;
-      renderPumpFrame();
-    }, 360);
+    if (image && frameSources[0]) image.src = frameSources[0];
   }
 
   function setStatus(message){
