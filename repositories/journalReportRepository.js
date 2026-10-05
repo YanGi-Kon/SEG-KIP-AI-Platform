@@ -94,18 +94,19 @@ export async function getJournalReportByKey(workspaceId, year, month, client = n
   return mapReport(result.rows[0]);
 }
 
-export async function getJournalReportBundle(workspaceId, year, month) {
-  const report = await getJournalReportByKey(workspaceId, year, month);
+export async function getJournalReportBundle(workspaceId, year, month, client = null) {
+  const executor = client || { query };
+  const report = await getJournalReportByKey(workspaceId, year, month, client);
   if (!report) return null;
   const [batchesResult, itemsResult] = await Promise.all([
-    query(
+    executor.query(
       `SELECT id, report_id, document_date, created_by, created_at
        FROM journal_report_batches
        WHERE report_id = $1::uuid
        ORDER BY document_date ASC, created_at ASC`,
       [report.id],
     ),
-    query(
+    executor.query(
       `SELECT id, report_id, batch_id, source_key, source_row_number,
               date_text, position_no, equipment_name, brand, serial_no,
               measure_range, location, skv, work_type, executor, signature, created_at
@@ -162,7 +163,7 @@ export async function appendJournalReportRows(input) {
     const freshRows = incoming.filter((row) => row.sourceKey && !existingKeys.has(row.sourceKey));
 
     if (!freshRows.length) {
-      const bundle = await getJournalReportBundle(input.workspaceId, input.year, input.month);
+      const bundle = await getJournalReportBundle(input.workspaceId, input.year, input.month, client);
       return { ...bundle, addedCount: 0, skippedCount: incoming.length };
     }
 
@@ -221,7 +222,7 @@ export async function appendJournalReportRows(input) {
       [report.id, clean(input.sourceSheetName)],
     );
 
-    const bundle = await getJournalReportBundle(input.workspaceId, input.year, input.month);
+    const bundle = await getJournalReportBundle(input.workspaceId, input.year, input.month, client);
     return {
       ...bundle,
       addedCount,
