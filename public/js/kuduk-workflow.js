@@ -574,23 +574,17 @@
     const batches = Array.isArray(bundle?.batches) ? bundle.batches : [];
     const items = Array.isArray(bundle?.items) ? bundle.items : [];
     const batchById = new Map(batches.map((batch) => [batch.id, batch]));
-    const grouped = [];
-    for (const batch of batches) {
-      grouped.push({ batch, rows: items.filter((item) => item.batchId === batch.id) });
-    }
-    const orphanRows = items.filter((item) => !batchById.has(item.batchId));
-    if (orphanRows.length) grouped.push({ batch:{ documentDate:'' }, rows:orphanRows });
 
-    const sections = grouped.map(({batch,rows}) => {
-      const body = rows.map((r,index) => `<tr><td>${index+1}</td><td>${esc(r.date)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(r.executor)}</td><td>${esc(r.signature)}</td></tr>`).join('');
-      return `<div class="kw-doc-date">Ҳужжат санаси: ${esc(formatDocumentDate(batch.documentDate))}</div>
-        <table class="kw-doc-table"><thead><tr><th>№</th><th>Дата</th><th>Поз номер</th><th>Наименование СИ</th><th>Тип, марка</th><th>Заводской номер</th><th>Предел измерения</th><th>Место установки</th><th>СКВ</th><th>Перечень в/р</th><th>Исполнитель</th><th>Подпись</th></tr></thead><tbody>${body || '<tr><td colspan="12">Маълумот йўқ.</td></tr>'}</tbody></table>`;
+    const body = items.map((r,index) => {
+      const batch = batchById.get(r.batchId) || {};
+      const documentDate = formatDocumentDate(batch.documentDate) || r.date;
+      return `<tr><td>${index+1}</td><td>${esc(documentDate)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(r.executor)}</td><td>${esc(r.signature)}</td></tr>`;
     }).join('');
 
     paper.innerHTML = `
       <div class="kw-doc-title">ЖУРНАЛ УЧЕТА</div>
       <div class="kw-doc-subtitle">${esc(MONTHS[Number(report.month)] || report.month)} ${esc(report.year)}</div>
-      ${sections || '<div>Маълумот йўқ.</div>'}`;
+      <table class="kw-doc-table"><thead><tr><th>№</th><th>Дата</th><th>Поз номер</th><th>Наименование СИ</th><th>Тип, марка</th><th>Заводской номер</th><th>Предел измерения</th><th>Место установки</th><th>СКВ</th><th>Перечень в/р</th><th>Исполнитель</th><th>Подпись</th></tr></thead><tbody>${body || '<tr><td colspan="12">Маълумот йўқ.</td></tr>'}</tbody></table>`;
     if ($('kudukDocumentStatus')) $('kudukDocumentStatus').textContent =
       (MONTHS[Number(report.month)] || report.month) + ' ' + report.year + ' · ' + items.length + ' та ёзув';
     $('kudukDocumentModal')?.classList.add('show');
@@ -701,10 +695,11 @@
           <button id="kudukOpenStoredDocument" class="btn primary" type="button">Хужатни очиш</button>
         </div>
         <div class="kw-tablewrap"><table class="kw-table"><thead><tr>
-          <th>Ҳужжат санаси</th><th>Дата</th><th>Поз номер</th><th>Наименование СИ</th><th>Тип, марка</th><th>Заводской номер</th><th>Место установки</th>
+          <th>Дата</th><th>Поз номер</th><th>Наименование СИ</th><th>Тип, марка</th><th>Заводской номер</th><th>Место установки</th>
         </tr></thead><tbody>${items.map((r) => {
           const batch = batchMap.get(r.batchId) || {};
-          return `<tr><td>${esc(formatDocumentDate(batch.documentDate))}</td><td>${esc(r.date)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.location)}</td></tr>`;
+          const documentDate = formatDocumentDate(batch.documentDate) || r.date;
+          return `<tr><td>${esc(documentDate)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.location)}</td></tr>`;
         }).join('')}</tbody></table></div>`;
       $('kudukOpenStoredDocument')?.addEventListener('click', () => renderStoredDocument(data));
     } catch (error) {
