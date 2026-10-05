@@ -3,13 +3,7 @@
   window.__segAppLoaderInstalled = true;
 
   const root = () => document.getElementById('segAppLoader');
-  const PUMPJACK_PARTS = [
-    '/assets/loader/frames/pump280-0.txt',
-    '/assets/loader/frames/pump280-1a.txt',
-    '/assets/loader/frames/pump280-1b.txt',
-    '/assets/loader/frames/pump280-2.txt',
-    '/assets/loader/frames/pump280-3.txt',
-  ];
+  const PUMPJACK_ASSET = '/assets/loader/pump_jack.webp';
 
   let frameSources = [];
   let hydratePromise = null;
@@ -35,16 +29,9 @@
 
     hydratePromise = (async () => {
       try {
-        const parts = await Promise.all(PUMPJACK_PARTS.map(async (url) => {
-          const response = await fetch(url, { cache:'no-store' });
-          if (!response.ok) throw new Error('loader asset ' + response.status + ': ' + url);
-          return (await response.text()).trim();
-        }));
-        const encoded = parts.join('');
-        const src = 'data:image/webp;base64,' + encoded;
-        await preload(src);
-        frameSources = [src];
-        image.src = src;
+        await preload(PUMPJACK_ASSET);
+        frameSources = [PUMPJACK_ASSET];
+        image.src = PUMPJACK_ASSET;
         stage.classList.add('is-ready');
         return frameSources;
       } catch (error) {
