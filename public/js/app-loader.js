@@ -11,17 +11,18 @@
   ];
 
   async function hydratePumpImage(){
-    const img = document.getElementById('segLoaderPumpImg');
-    if (!img || img.dataset.ready === '1') return;
+    const stage = document.getElementById('segLoaderPumpStage');
+    if (!stage || stage.dataset.ready === '1') return;
     try {
       const chunks = await Promise.all(PUMP_PARTS.map(async (url) => {
         const res = await fetch(url, { cache:'no-store' });
         if (!res.ok) throw new Error('loader asset ' + res.status);
         return (await res.text()).trim();
       }));
-      img.src = 'data:image/webp;base64,' + chunks.join('');
-      img.dataset.ready = '1';
-      img.classList.add('is-ready');
+      const src = 'data:image/webp;base64,' + chunks.join('');
+      stage.querySelectorAll('.seg-pump-layer').forEach((img) => { img.src = src; });
+      stage.dataset.ready = '1';
+      stage.classList.add('is-ready');
     } catch (error) {
       console.warn('[loader] realistic pumpjack asset failed', error);
     }
