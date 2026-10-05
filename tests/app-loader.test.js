@@ -7,20 +7,20 @@ const loader = fs.readFileSync(new URL('../public/js/app-loader.js', import.meta
 const loginGate = fs.readFileSync(new URL('../public/js/saneg-login-gate.js', import.meta.url), 'utf8');
 const server = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
 
-test('startup page contains true frame-by-frame pumpjack loader', () => {
+test('startup page contains pumpjack loader', () => {
   assert.match(index, /id="segAppLoader"/);
   assert.match(index, /id="segLoaderPumpImg"/);
   assert.match(index, /class="seg-pump-frame"/);
-  assert.match(index, /app-loader\.js\?v=pumpjack-loader5-real-frames/);
 });
 
-test('pumpjack loader uses three generated transparent WebP frames', () => {
-  assert.match(loader, /pumpjack-frame-1\.b64/);
-  assert.match(loader, /pumpjack-frame-2\.b64/);
-  assert.match(loader, /pumpjack-frame-3\.b64/);
-  assert.match(loader, /FRAME_SEQUENCE = \[0, 1, 2, 1\]/);
+test('pumpjack asset is reconstructed from safe-size chunks', () => {
+  assert.match(loader, /frame-1-0\.txt/);
+  assert.match(loader, /frame-1-1\.txt/);
+  assert.match(loader, /frame-1-2\.txt/);
+  assert.match(loader, /parts\.join\(''\)/);
   assert.match(loader, /data:image\/webp;base64/);
-  assert.match(loader, /segLoaderPumpImg/);
+  assert.doesNotMatch(loader, /pumpjack-frame-2\.b64/);
+  assert.doesNotMatch(loader, /pumpjack-frame-3\.b64/);
 });
 
 test('loader disappears when auth boot destination becomes ready', () => {
