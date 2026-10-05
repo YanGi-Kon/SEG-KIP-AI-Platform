@@ -13,12 +13,10 @@ test('startup page contains pumpjack loader', () => {
   assert.match(index, /class="seg-pump-frame"/);
 });
 
-test('pumpjack asset is reconstructed from safe-size chunks', () => {
-  assert.match(loader, /frame-1-0\.txt/);
-  assert.match(loader, /frame-1-1\.txt/);
-  assert.match(loader, /frame-1-2\.txt/);
-  assert.match(loader, /parts\.join\(''\)/);
+test('pumpjack loader uses the uploaded animated asset', () => {
+  assert.match(loader, /pump_jack_280\.b64/);
   assert.match(loader, /data:image\/webp;base64/);
+  assert.doesNotMatch(loader, /frame-1-0\.txt/);
   assert.doesNotMatch(loader, /pumpjack-frame-2\.b64/);
   assert.doesNotMatch(loader, /pumpjack-frame-3\.b64/);
 });
