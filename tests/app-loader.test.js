@@ -13,12 +13,14 @@ test('startup page contains pumpjack loader', () => {
   assert.match(index, /class="seg-pump-frame"/);
 });
 
-test('pumpjack loader uses the uploaded animated asset', () => {
-  assert.match(loader, /pump_jack_280\.b64/);
+test('pumpjack loader reconstructs the complete animated asset from four chunks', () => {
+  assert.match(loader, /pump280-0\.txt/);
+  assert.match(loader, /pump280-1\.txt/);
+  assert.match(loader, /pump280-2\.txt/);
+  assert.match(loader, /pump280-3\.txt/);
+  assert.match(loader, /parts\.join\(''\)/);
   assert.match(loader, /data:image\/webp;base64/);
-  assert.doesNotMatch(loader, /frame-1-0\.txt/);
-  assert.doesNotMatch(loader, /pumpjack-frame-2\.b64/);
-  assert.doesNotMatch(loader, /pumpjack-frame-3\.b64/);
+  assert.doesNotMatch(loader, /pump_jack_280\.b64/);
 });
 
 test('loader disappears when auth boot destination becomes ready', () => {
