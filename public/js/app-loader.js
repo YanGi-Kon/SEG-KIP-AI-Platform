@@ -5,7 +5,8 @@
   const root = () => document.getElementById('segAppLoader');
   const PUMPJACK_PARTS = [
     '/assets/loader/frames/pump280-0.txt',
-    '/assets/loader/frames/pump280-1.txt',
+    '/assets/loader/frames/pump280-1a.txt',
+    '/assets/loader/frames/pump280-1b.txt',
     '/assets/loader/frames/pump280-2.txt',
     '/assets/loader/frames/pump280-3.txt',
   ];
