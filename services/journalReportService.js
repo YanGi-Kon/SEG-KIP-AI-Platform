@@ -55,9 +55,12 @@ function normalizeRow(row = {}, index = 0) {
     clean(row.date),
     clean(row.pos),
     clean(row.name),
+    clean(row.brand),
     clean(row.serial),
+    clean(row.range),
     clean(row.location),
-    String(index),
+    clean(row.skv),
+    clean(row.work),
   ].join('|');
   const sourceKey = clean(row.sourceKey) || (sourceRowNumber ? `base:${sourceRowNumber}` : `data:${fallback}`);
   return {
