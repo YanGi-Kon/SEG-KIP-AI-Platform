@@ -19,6 +19,7 @@
     document.documentElement.classList.remove('saneg-auth-boot');
     qs('#sanegAuthBootStyle')?.remove();
     qs('#sanegAuthBootScript')?.remove();
+    window.dispatchEvent(new CustomEvent('seg:auth-ready'));
   }
   function parseJsonSafe(text){
     if (!text) return {};
@@ -180,6 +181,7 @@
       </div>`;
     document.body.appendChild(root);
     releaseAuthBootGuard();
+    window.dispatchEvent(new CustomEvent('seg:login-ready'));
 
     qs('#sanegLoginEmail').value = localStorage.getItem(LOGIN_EMAIL_KEY) || '';
     qs('#sanegPasswordToggle')?.addEventListener('click', () => {

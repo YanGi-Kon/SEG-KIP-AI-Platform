@@ -23,10 +23,10 @@
     "googleapis": "^171.0.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^2.3.0",
+    "multer": "^2.4.0",
     "node-cron": "^4.6.0",
     "node-telegram-bot-api": "^1.2.0",
-    "nodemailer": "^9.1.1",
+    "nodemailer": "^10.0.15",
     "openai": "latest",
     "pdf-lib": "^1.17.1",
     "pg": "^8.13.1",
@@ -34,7 +34,7 @@
     "socket.io": "^4.7.5"
   },
   "overrides": {
-    "brace-expansion": "2.1.4",
+    "brace-expansion": "2.1.7",
     "qs": "6.16.0",
     "socket.io-parser": "4.2.7"
   }
