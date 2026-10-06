@@ -4,6 +4,15 @@ import { PDFDocument } from 'pdf-lib';
 export const MAX_PASSPORT_UPLOAD_BYTES = 15 * 1024 * 1024;
 export const MAX_PASSPORT_TOTAL_BYTES = 60 * 1024 * 1024;
 export const MAX_PASSPORT_PAGES = 500;
+
+export function normalizePassportFilename(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || !/[ÃÂÐÑ]/.test(raw)) return raw;
+  if ([...raw].some((char) => char.codePointAt(0) > 255)) return raw;
+  const decoded = Buffer.from(raw, 'latin1').toString('utf8');
+  if (!decoded || decoded.includes('\uFFFD')) return raw;
+  return /[\u0400-\u04ff]/.test(decoded) || /[А-Яа-яЁёЎўҚқҒғҲҳ]/.test(decoded) ? decoded : raw;
+}
 export const MAX_PASSPORT_UPLOAD_FILES = 20;
 export function passportError(message, code, statusCode = 400) {
   return Object.assign(new Error(message), { code, statusCode });
