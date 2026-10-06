@@ -351,7 +351,7 @@
         body: JSON.stringify({ year: state.year, month: state.month, sheetName: sourceSheet }),
       });
       const period = await requestJson(
-        `/api/to/periods/${state.year}/${state.month}`,
+        `/api/to/periods/${state.year}/${state.month}?optional=1`,
         { method: 'GET' },
         { allow404: true },
       );
