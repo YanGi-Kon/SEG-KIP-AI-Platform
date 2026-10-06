@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 const LOCK_KEY = 732451987;
+const MIGRATION_STATEMENT_TIMEOUT_MS = 180_000;
 
 export function migrationChecksum(content) {
   const normalized = String(content).replace(/\r\n?/g, '\n');
@@ -42,8 +43,11 @@ export async function runMigrations({ dryRun = false } = {}) {
   const pool = getPool();
   const client = await pool.connect();
   const report = { dryRun, applied: [], skipped: [], pending: [] };
+  let previousStatementTimeout = '';
 
   try {
+    previousStatementTimeout = (await client.query("SELECT current_setting('statement_timeout') AS value")).rows[0]?.value || '';
+    await client.query("SELECT set_config('statement_timeout', $1, false)", [`${MIGRATION_STATEMENT_TIMEOUT_MS}ms`]);
     await client.query('SELECT pg_advisory_lock($1)', [LOCK_KEY]);
     await ensureMigrationTable(client);
 
@@ -82,6 +86,9 @@ export async function runMigrations({ dryRun = false } = {}) {
     return report;
   } finally {
     await client.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {});
+    if (previousStatementTimeout) {
+      await client.query("SELECT set_config('statement_timeout', $1, false)", [previousStatementTimeout]).catch(() => {});
+    }
     client.release();
   }
 }
