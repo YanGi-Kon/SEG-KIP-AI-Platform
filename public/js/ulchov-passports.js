@@ -4,6 +4,33 @@
   const $=id=>document.getElementById(id);
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const workspaceId=()=>window.WorkspaceApiClient?.workspaceId()||'';
+  function repairFilename(value){
+    const raw=String(value??'');
+    if(!/[ÃÂÐÑ]/.test(raw))return raw;
+    try{
+      const chars=Array.from(raw);
+      if(chars.some(char=>char.codePointAt(0)>255))return raw;
+      const bytes=Uint8Array.from(chars,char=>char.codePointAt(0));
+      const decoded=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+      return /[\u0400-\u04ff]/.test(decoded)?decoded:raw;
+    }catch(_){return raw;}
+  }
+  function passportFailureMessage(passport){
+    const code=String(passport?.errorCode||'');
+    if(code==='WORKSPACE_SECRET_DECRYPT_FAILED'||code==='WORKSPACE_SECRET_INVALID'){
+      return 'Personal Drive webhook secretini server ocholmadi. 6. YAKUNIY HUJJATLAR → Personal Drive ulanishida Apps Script URL va webhook secretni qayta saqlang, so‘ng “Qayta urinish”ni bosing.';
+    }
+    if(code==='WORKSPACE_ENCRYPTION_KEY_REQUIRED'){
+      return 'Serverda WORKSPACE_ENCRYPTION_KEY sozlanmagan. Kamida 32 belgili barqaror kalitni sozlang, serverni qayta ishga tushiring va Personal Drive ulanishini qayta saqlang.';
+    }
+    if(code==='PASSPORT_APPS_SCRIPT_UPDATE_REQUIRED'){
+      return 'Apps Script eskirgan. Passport.gs ni qo‘shing va /exec deploymentni yangi versiya bilan yangilang.';
+    }
+    if(code==='PASSPORT_ADVANCED_DRIVE_REQUIRED'){
+      return 'Apps Script loyihasida Drive API v3 xizmatini yoqing va /exec deploymentni qayta deploy qiling.';
+    }
+    return passport?.error||'Qayta urinish kerak';
+  }
   const tracked=new Map(), summaries=new Map();
   let selection=null, folderContext=null, pollTimer=null, polling=false, uploading=false;
   async function api(path,options={},expected=workspaceId()){
@@ -18,8 +45,8 @@
   function statusText(passport){
     if(!passport)return 'Pasport hali yuklanmagan';
     if(passport.status==='completed')return `Pasport yangilandi — ${passport.pageCount} sahifa · v${passport.publishedVersion}`;
-    if(passport.status==='failed_permanent')return `PDF yangilanmadi: ${passport.error || 'Qayta urinish kerak'}`;
-    if(passport.status==='failed_retryable')return `Qayta urinish kutilmoqda... ${passport.error || ''}`;
+    if(passport.status==='failed_permanent')return `PDF yangilanmadi: ${passportFailureMessage(passport)}`;
+    if(passport.status==='failed_retryable')return `Qayta urinish kutilmoqda... ${passportFailureMessage(passport)}`;
     return 'PDF birlashtirilmoqda...';
   }
   function updateCard(key,passport){
@@ -45,7 +72,7 @@
     message('passportUploadStatus',statusText(passport),passport?.status==='failed_permanent'?'bad':passport?.status==='completed'?'ok':'');
     const hasDocs=data.documents.length>0;
     $('passportUploadHelp').textContent=hasDocs?'Tanlangan JPG va PDFlar ro‘yxat tartibida yagona PDFga birlashtirilib, pasport oxiriga qo‘shiladi.':'Bir yoki bir nechta JPG / PDF tanlang. Ular tartib bo‘yicha yagona PDFga birlashtiriladi. Bitta PDF barcha sahifalari bilan saqlanadi.';
-    $('passportHistory').innerHTML=data.documents.length?`<ol>${data.documents.map(doc=>`<li>${esc(doc.filename)} — ${doc.page_count} sahifa<small>${esc(new Date(doc.created_at).toLocaleString('uz-UZ',{timeZone:'Asia/Tashkent'}))}${doc.sequence===1?' · Asosiy pasport':''}</small></li>`).join('')}</ol>`:'Hujjatlar hali yo‘q.';
+    $('passportHistory').innerHTML=data.documents.length?`<ol>${data.documents.map(doc=>`<li>${esc(repairFilename(doc.filename))} — ${doc.page_count} sahifa<small>${esc(new Date(doc.created_at).toLocaleString('uz-UZ',{timeZone:'Asia/Tashkent'}))}${doc.sequence===1?' · Asosiy pasport':''}</small></li>`).join('')}</ol>`:'Hujjatlar hali yo‘q.';
     $('passportSubmit').disabled=uploading || !data.canUpload;
     $('passportFile').disabled=uploading || !data.canUpload;
     $('passportRetry').hidden=!data.canUpload || !['failed_retryable','failed_permanent'].includes(passport?.status);
@@ -136,7 +163,14 @@
       const connection=await api(connectionPath(wid),{},wid);
       $('passportConnectionUrl').value=connection.result?.appsScriptUrl || '';
       $('passportConnectionSecret').value='';
-      message('passportConnectionStatus',connection.result?.configured?'Personal Drive ulangan. Yozuvni “Tekshirish” bilan tasdiqlang.':'Shared Drive uchun bu ulanish talab qilinmaydi.');
+      const driveStatus=connection.result||{};
+      if(driveStatus.needsReconfiguration){
+        message('passportConnectionStatus',driveStatus.recommendedFix||driveStatus.message||'Personal Drive ulanishini qayta sozlang.','bad');
+      }else if(driveStatus.configured&&driveStatus.ready){
+        message('passportConnectionStatus','Personal Drive ulangan. Yozuvni “Tekshirish” bilan tasdiqlang.','ok');
+      }else{
+        message('passportConnectionStatus','Shared Drive uchun bu ulanish talab qilinmaydi.');
+      }
       for(const [key,summary] of summaries)updateCard(key,summary);
     }catch(error){if(!error.stale)message('passportFolderStatus',error.message,'bad');}
   }
