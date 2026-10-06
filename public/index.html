@@ -9,26 +9,19 @@
 <style id="segAppLoaderStyle">
   #segAppLoader{position:fixed;inset:0;z-index:60000;display:grid;place-items:center;background:rgba(2,8,23,.10);backdrop-filter:none;opacity:1;visibility:visible;transition:opacity .38s ease,visibility .38s ease;font-family:Inter,Arial,sans-serif}
   #segAppLoader.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
-  .seg-loader-card{display:grid;justify-items:center;gap:8px;padding:8px 18px 12px;max-width:660px;width:min(94vw,660px);background:transparent;border:0;box-shadow:none}
-  .seg-pump-stage{position:relative;width:min(320px,78vw);aspect-ratio:1/1;background:transparent!important;filter:drop-shadow(0 18px 26px rgba(0,0,0,.28))}
-  .seg-pump-frame{display:none}.seg-pump-canvas{display:block;width:100%;height:100%;object-fit:contain;background:transparent!important;opacity:0;pointer-events:none;user-select:none}.seg-pump-stage.is-ready .seg-pump-canvas{opacity:1}.seg-pump-stage.is-error .seg-pump-canvas{opacity:0}
+  .seg-loader-card{display:grid;justify-items:center;gap:8px;padding:8px 18px 12px;max-width:660px;width:min(94vw,660px);background:transparent;border:0;box-shadow:none}.seg-pump-stage.is-ready.seg-pump-stage.is-error
   
   .seg-loader-status{color:#f8fafc;font-size:14px;font-weight:900;letter-spacing:.02em;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.72)}
-  .seg-loader-dots::after{content:'...';display:inline-block;width:22px;text-align:left;animation:segDots 1.2s steps(4,end) infinite;overflow:hidden;vertical-align:bottom}
-  @keyframes segDots{0%{width:0}100%{width:22px}}
-  @media (prefers-reduced-motion:reduce){.seg-loader-dots::after{animation:none!important}}.seg-loader-dots::after{animation:none!important}}
+  @keyframes segDots{0%{width:0}100%{width:22px}}}
 </style>
 </head>
 <body>
 <div id="segAppLoader" role="status" aria-live="polite" aria-hidden="false">
   <div class="seg-loader-card">
-    <div id="segLoaderPumpStage" class="seg-pump-stage" aria-hidden="true">
-      <img id="segLoaderPumpSource" class="seg-pump-frame" src="/assets/loader/pump_jack.gif" alt="" aria-hidden="true"><canvas id="segLoaderPumpCanvas" class="seg-pump-canvas" aria-hidden="true"></canvas>
-    </div>
-    <div id="segAppLoaderStatus" class="seg-loader-status">Sanegplatform yuklanmoqda<span class="seg-loader-dots"></span></div>
+    <div id="segAppLoaderStatus" class="seg-loader-status">Sanegplatform yuklanmoqda...</div>
   </div>
 </div>
-<script src="js/app-loader.js?v=pumpjack-loader15-canvas-key"></script>
+<script src="js/app-loader.js?v=loader-static-status1"></script>
 <div class="app">
   <aside class="sidebar">
     <div>

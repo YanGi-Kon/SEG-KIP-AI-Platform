@@ -7,26 +7,15 @@ const loader=fs.readFileSync(new URL('../public/js/app-loader.js',import.meta.ur
 const loginGate=fs.readFileSync(new URL('../public/js/saneg-login-gate.js',import.meta.url),'utf8');
 const server=fs.readFileSync(new URL('../server.js',import.meta.url),'utf8');
 
-test('startup page contains canvas pumpjack loader and source GIF',()=>{
+test('startup loader is static and contains no pumpjack animation',()=>{
   assert.match(index,/id="segAppLoader"/);
-  assert.match(index,/id="segLoaderPumpSource"/);
-  assert.match(index,/id="segLoaderPumpCanvas"/);
-  assert.match(index,/pump_jack\.gif/);
-  assert.match(index,/seg-pump-canvas/);
-});
-
-test('loader removes checkerboard in canvas while GIF keeps animating',()=>{
-  assert.match(loader,/PUMP_SOURCE = '\/assets\/loader\/pump_jack\.gif'/);
-  assert.match(loader,/getImageData/);
-  assert.match(loader,/putImageData/);
-  assert.match(loader,/neutral && lo>=218/);
-  assert.match(loader,/setInterval\(chromaKeyFrame, FRAME_DELAY\)/);
-});
-
-test('loader has a visible-ready state only after successful canvas paint',()=>{
-  assert.match(loader,/st\.classList\.add\('is-ready'\)/);
-  assert.match(loader,/st\.classList\.remove\('is-error'\)/);
-  assert.match(index,/seg-pump-stage\.is-ready \.seg-pump-canvas\{opacity:1\}/);
+  assert.match(index,/Sanegplatform yuklanmoqda\.\.\./);
+  assert.doesNotMatch(index,/segLoaderPump/);
+  assert.doesNotMatch(index,/pump_jack/);
+  assert.doesNotMatch(index,/seg-loader-dots/);
+  assert.doesNotMatch(loader,/setInterval/);
+  assert.doesNotMatch(loader,/canvas/);
+  assert.doesNotMatch(loader,/pump/i);
 });
 
 test('loader disappears when auth boot destination becomes ready',()=>{
