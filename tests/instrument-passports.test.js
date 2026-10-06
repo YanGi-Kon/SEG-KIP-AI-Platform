@@ -170,3 +170,9 @@ test('Workspace Drive credentials do not silently fall back when a configured cr
   const serviceAccount={client_email:'workspace@example.com',project_id:'test',private_key:'-----BEGIN PRIVATE KEY-----\nTEST\n-----END PRIVATE KEY-----'};
   assert.equal(resolveDriveCredentials({serviceAccountBase64:Buffer.from(JSON.stringify(serviceAccount)).toString('base64')}).credentialSource,'WORKSPACE');
 });
+
+
+test('passport worker repairs legacy stored filenames before creating Drive originals',async()=>{
+  const source=await fs.promises.readFile(new URL('../services/instrumentPassportService.js',import.meta.url),'utf8');
+  assert.match(source,/normalizePassportFilename\(document\.filename\)/);
+});
