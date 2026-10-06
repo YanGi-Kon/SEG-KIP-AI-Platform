@@ -3,7 +3,13 @@
   window.__segAppLoaderInstalled = true;
 
   const root = () => document.getElementById('segAppLoader');
-  const PUMPJACK_ASSET = '/assets/loader/pump_jack.webp';
+  const FRAME_FILES = [
+    '/assets/loader/pumpjack-frame-1.b64',
+    '/assets/loader/pumpjack-frame-2.b64',
+    '/assets/loader/pumpjack-frame-3.b64'
+  ];
+  const FRAME_ORDER = [0,1,2,1];
+  const FRAME_DELAY = 220;
 
   let frameSources = [];
   let hydratePromise = null;
@@ -11,13 +17,19 @@
   let frameCursor = 0;
   let hidden = false;
 
-  function preload(src){
-    return new Promise((resolve, reject) => {
+  async function loadFrame(path){
+    const response = await fetch(path, { cache:'force-cache' });
+    if (!response.ok) throw new Error('Pumpjack frame load failed: '+response.status);
+    const b64 = (await response.text()).replace(/\s+/g,'');
+    if (!b64) throw new Error('Pumpjack frame is empty.');
+    const src = 'data:image/webp;base64,' + b64;
+    await new Promise((resolve,reject)=>{
       const image = new Image();
-      image.onload = () => resolve(src);
-      image.onerror = () => reject(new Error('Pumpjack frame preload failed.'));
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('Pumpjack frame decode failed.'));
       image.src = src;
     });
+    return src;
   }
 
   async function hydratePumpFrames(){
@@ -29,10 +41,10 @@
 
     hydratePromise = (async () => {
       try {
-        await preload(PUMPJACK_ASSET);
-        frameSources = [PUMPJACK_ASSET];
-        image.src = PUMPJACK_ASSET;
+        frameSources = await Promise.all(FRAME_FILES.map(loadFrame));
+        image.src = frameSources[0];
         stage.classList.add('is-ready');
+        stage.classList.remove('is-error');
         return frameSources;
       } catch (error) {
         console.error('[loader] pumpjack image failed', error);
@@ -44,11 +56,23 @@
     return hydratePromise;
   }
 
-  function stopPumpFrames(){}
+  function stopPumpFrames(){
+    if (frameTimer){
+      window.clearInterval(frameTimer);
+      frameTimer = null;
+    }
+  }
 
   function startPumpFrames(){
     const image = document.getElementById('segLoaderPumpImg');
-    if (image && frameSources[0]) image.src = frameSources[0];
+    if (!image || frameSources.length < 3) return;
+    stopPumpFrames();
+    frameCursor = 0;
+    image.src = frameSources[FRAME_ORDER[frameCursor]];
+    frameTimer = window.setInterval(() => {
+      frameCursor = (frameCursor + 1) % FRAME_ORDER.length;
+      image.src = frameSources[FRAME_ORDER[frameCursor]];
+    }, FRAME_DELAY);
   }
 
   function setStatus(message){
