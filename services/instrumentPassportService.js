@@ -42,7 +42,8 @@ export async function buildPassportJob(job, { repo = repository, providerFactory
   const merged = await mergePassportPdfs(documents);
   for (const document of documents) {
     if (document.drive_file_id && passport.output_root_id === root) continue;
-    const saved = await provider.savePassportPdf(folders.originals,`${document.sequence}-${safeName(document.filename)}`,document.pdf,`original:${document.id}`);
+    const name=`${document.sequence}-${safeName(document.filename)}`;
+    const saved = await provider.savePassportPdf(folders.originals,/\.pdf$/i.test(name)?name:`${name}.pdf`,document.pdf,`original:${document.id}`);
     await repo.recordPassportOriginal(document.id,saved.fileId);
   }
   if (passport.merged_pdf && passport.published_version > 0) {

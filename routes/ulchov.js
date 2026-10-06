@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { hasWorkspacePermission } from '../domain/permissions.js';
 import { extractDriveFolderId } from '../domain/workspace.js';
-import { instrumentPassportKey, readPassportPdf, MAX_PASSPORT_UPLOAD_BYTES, passportError } from '../domain/instrumentPassport.js';
+import { instrumentPassportKey, preparePassportUpload, MAX_PASSPORT_UPLOAD_BYTES, MAX_PASSPORT_TOTAL_BYTES, MAX_PASSPORT_UPLOAD_FILES, passportError } from '../domain/instrumentPassport.js';
 import * as passports from '../repositories/instrumentPassportRepository.js';
 import { createWorkspaceDriveProvider } from '../services/workspaceDriveFolderService.js';
 import { ulchovFolderId } from '../services/instrumentPassportService.js';
@@ -19,7 +19,21 @@ function workspaceGuards(permission) {
 
 router.use(workspaceGuards('workspace:read'));
 
-const passportUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:MAX_PASSPORT_UPLOAD_BYTES,files:1,fields:3}});
+const boundedStorage={
+  _handleFile(req,file,callback){
+    const chunks=[];let size=0,finished=false;
+    const done=(error,result)=>{if(!finished){finished=true;callback(error,result);}};
+    file.stream.on('data',chunk=>{
+      req.passportUploadBytes=(req.passportUploadBytes||0)+chunk.length;
+      if(req.passportUploadBytes>MAX_PASSPORT_TOTAL_BYTES){chunks.length=0;done(passportError('Tanlangan fayllar jami 60 MBdan oshmasin.','PASSPORT_TOTAL_SIZE_LIMIT',413));return;}
+      if(!finished){chunks.push(chunk);size+=chunk.length;}
+    });
+    file.stream.on('error',error=>done(error));
+    file.stream.on('end',()=>done(null,{buffer:Buffer.concat(chunks),size}));
+  },
+  _removeFile(_req,file,callback){delete file.buffer;callback(null);},
+};
+const passportUpload = multer({storage:boundedStorage,limits:{fileSize:MAX_PASSPORT_UPLOAD_BYTES,files:MAX_PASSPORT_UPLOAD_FILES,fields:3}});
 function passportResponseError(res,error) {
   const uploadLimit = error.code === 'LIMIT_FILE_SIZE';
   res.status(uploadLimit ? 413 : error.statusCode || 400).json({ok:false,error:uploadLimit?'PDF hajmi 15 MBdan oshmasin.':error.message,code:error.code || 'PASSPORT_FAILED'});
@@ -69,12 +83,12 @@ router.post('/passports/:key/retry',workspaceGuards('documents:create'),async(re
   }catch(error){passportResponseError(res,error);}
 });
 router.post('/passports/:key/documents',workspaceGuards('documents:create'),(req,res)=>{
-  passportUpload.single('file')(req,res,async uploadError=>{
+  passportUpload.array('file',MAX_PASSPORT_UPLOAD_FILES)(req,res,async uploadError=>{
     try {
       if(uploadError)throw uploadError;
       const rootFolderId=ulchovFolderId(req.workspace);
       if(!rootFolderId)throw passportError('6. ЯКУНИЙ ҲУЖЖАТЛАР oynasida Drive papkasini kiriting.','PASSPORT_FOLDER_REQUIRED');
-      if(!req.file)throw passportError('PDF fayl tanlang.','PASSPORT_FILE_REQUIRED');
+      if(!req.files?.length)throw passportError('JPG yoki PDF fayllar tanlang.','PASSPORT_FILE_REQUIRED');
       const sheetName=clean(req.body.sheetName);
       let menuRows=req.workspace.moduleSettings?.ulchov_menu_sheet_map || [];
       if(typeof menuRows==='string'){try{menuRows=JSON.parse(menuRows);}catch{menuRows=[];}}
@@ -84,8 +98,8 @@ router.post('/passports/:key/documents',workspaceGuards('documents:create'),(req
       const rows=await readSheetRows({...config,range:'A:Z'});
       const matches=parseInstruments(rows).instruments.filter(item=>instrumentPassportKey(sheetName,item)===req.params.key);
       if(matches.length!==1)throw passportError(matches.length?'Asbob identifikatori takrorlangan. Reestrni tekshiring.':'Asbob reestrda topilmadi. Kartochkalarni yangilang.','PASSPORT_INSTRUMENT_AMBIGUOUS',409);
-      const parsed=await readPassportPdf(req.file.buffer);
-      const filename=clean(req.file.originalname).replace(/[\\/\x00-\x1f]/g,'-').slice(0,180) || 'hujjat.pdf';
+      const parsed=await preparePassportUpload(req.files);
+      const filename=req.files.map(file=>clean(file.originalname).replace(/[\\/\x00-\x1f]/g,'-')).join(' + ').slice(0,180) || 'hujjat.pdf';
       const result=await passports.savePassportDocument({workspaceId:req.workspace.id,key:req.params.key,sheetName,instrument:matches[0],filename,parsed,userId:req.auth.userId,rootFolderId});
       res.status(result.duplicate?200:202).json({ok:true,...result});
     }catch(error){passportResponseError(res,error);}

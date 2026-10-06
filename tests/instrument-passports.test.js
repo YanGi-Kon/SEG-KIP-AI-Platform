@@ -5,7 +5,7 @@ import { PDFDocument } from 'pdf-lib';
 import { PGlite } from '@electric-sql/pglite';
 import { citext } from '@electric-sql/pglite/contrib/citext';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
-import { instrumentPassportKey, readPassportPdf, mergePassportPdfs } from '../domain/instrumentPassport.js';
+import { instrumentPassportKey, readPassportPdf, mergePassportPdfs, preparePassportUpload } from '../domain/instrumentPassport.js';
 import { createInstrumentPassportRepository } from '../repositories/instrumentPassportRepository.js';
 import { buildPassportJob, passportFailureRetryable } from '../services/instrumentPassportService.js';
 import { SharedDriveServiceAccountProvider, resolveDriveCredentials } from '../services/driveProviders/sharedDriveServiceAccountProvider.js';
@@ -26,6 +26,19 @@ test('PDF merge keeps all source pages in order and rejects invalid input',async
   await assert.rejects(readPassportPdf(Buffer.from('not PDF')),{code:'PASSPORT_PDF_INVALID'});
   await assert.rejects(readPassportPdf(Buffer.from('%PDF-broken')),{code:'PASSPORT_PDF_UNREADABLE'});
   await assert.rejects(readPassportPdf(await makePdf([100]),1),{code:'PASSPORT_PDF_SIZE_INVALID'});
+});
+
+test('a single multi-page PDF is preserved byte for byte; multiple uploads keep page order',async()=>{
+  const source=await makePdf([120,130]);
+  const single=await preparePassportUpload([{originalname:'passport.pdf',buffer:source}]);
+  assert.deepEqual(single.bytes,source);
+  assert.deepEqual((await mergePassportPdfs([{pdf:single.bytes}])).bytes,source);
+  const batch=[{originalname:'first.pdf',buffer:source},{originalname:'second.pdf',buffer:await makePdf([140])}];
+  const merged=await preparePassportUpload(batch);
+  assert.deepEqual(merged.pdf.getPages().map(page=>page.getWidth()),[120,130,140]);
+  assert.equal((await preparePassportUpload(batch)).checksum,merged.checksum);
+  await assert.rejects(preparePassportUpload([{originalname:'fake.jpg',buffer:source}]),{code:'PASSPORT_JPG_INVALID'});
+  await assert.rejects(preparePassportUpload([{originalname:'file.txt',buffer:source}]),{code:'PASSPORT_FILE_TYPE_INVALID'});
 });
 
 test('passport migration and durable queue work with PostgreSQL, including crash recovery',async t=>{

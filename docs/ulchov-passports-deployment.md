@@ -33,6 +33,8 @@ Services → **Drive API**, version **v3**ni yoqing. Agar loyiha standart Google
 
 ## Foydalanuvchi oqimi
 
+**📎 Ҳужжат қўшиш** kompyuterdagi fayl tanlash oynasini ochadi. Ctrl yoki Shift bilan 20 tagacha JPG/JPEG/PDF belgilang, so‘ng **Saqlash**ni bosing. Har bir fayl 15 MBgacha, jami 60 MBgacha bo‘lsin. JPGlar alohida PDF sahifalariga aylantiriladi; PDFlarning barcha sahifalari tanlangan fayllar ro‘yxati tartibida qo‘shiladi. Bir tanlash to‘plami bitta PDF sifatida navbatga yoziladi, xatoda qisman yuklash amalga oshmaydi. Bitta PDF tanlansa, baytlari o‘zgartirilmasdan saqlanadi. Avvalgi pasport mavjud bo‘lsa, yangi to‘plam uning oxiriga qo‘shiladi. ORIGINALS papkasida har bir yuklash to‘plamining PDF nusxasi saqlanadi.
+
 1. Asbob kartochkasida **PDF юклаш**ni bosing.
 2. Birinchi marta mavjud asosiy pasport PDFni tanlang; keyinchalik yangi qo‘shimcha PDFni tanlang.
 3. **PDF yuklash** → kachalka → **Pasport yangilandi**.
