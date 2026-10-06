@@ -30,3 +30,12 @@ test('the production fix bundle preserves the workspace settings UI', () => {
   );
   assert.match(workspaceUiScript, /window\.__segWorkspaceUiInstalled/);
 });
+
+
+test('workspace API reads the latest token written by the login gate', () => {
+  const workspaceUiPath = new URL('../public/js/workspace-ui.js', import.meta.url);
+  const workspaceUiScript = fs.readFileSync(workspaceUiPath, 'utf8');
+  assert.match(workspaceUiScript, /function currentAccessToken\(\)/);
+  assert.match(workspaceUiScript, /sessionStorage\.getItem\(ACCESS_TOKEN_KEY\)/);
+  assert.match(workspaceUiScript, /const accessToken = currentAccessToken\(\)/);
+});

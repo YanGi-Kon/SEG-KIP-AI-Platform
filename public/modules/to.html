@@ -385,8 +385,17 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     state.periodBusy=true; updatePeriodButtons();
     setPeriodStatus(`${selectedPeriodLabel()} · yuklanmoqda...`,'sync');
     try{
-      const data=await apiRequest(`/api/to/periods/${state.periodYear}/${state.periodMonth}`,{expectedWsId});
+      const data=await apiRequest(`/api/to/periods/${state.periodYear}/${state.periodMonth}?optional=1`,{expectedWsId});
       if(reqVer!==state.periodRequestVersion||expectedWsId!==state.workspaceId)return;
+      if(data.exists===false||!data.period){
+        resetPeriodView();
+        setPeriodStatus(`${selectedPeriodLabel()} · davr yaratilmagan`,'sync');
+        if(fallbackToSource){
+          if(state.sections.length)renderSourceSections(state.sections);
+          else await loadData(expectedWsId);
+        }
+        return;
+      }
       renderPeriodBundle(data);
     }catch(error){
       if(error.code==='STALE_WORKSPACE_RESPONSE')return;

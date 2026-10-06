@@ -68,3 +68,10 @@ test('TO API period yaratish va ikki tomonlama Sheets sync endpointlarini beradi
   assert.match(route, /documents:create/);
   assert.match(route, /ensureToPeriodSheet/);
 });
+
+
+test('TO optional period lookup returns an empty successful bundle instead of expected 404 noise', () => {
+  assert.match(route, /req\.query\.optional/);
+  assert.match(route, /exists:\s*false,\s*period:\s*null,\s*items:\s*\[\]/);
+  assert.match(route, /exists:\s*true/);
+});
