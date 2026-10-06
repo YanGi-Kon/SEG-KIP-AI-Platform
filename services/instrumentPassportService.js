@@ -1,4 +1,4 @@
-import { mergePassportPdfs, passportError } from '../domain/instrumentPassport.js';
+import { mergePassportPdfs, normalizePassportFilename, passportError } from '../domain/instrumentPassport.js';
 import { createWorkspaceDriveProvider } from './workspaceDriveFolderService.js';
 import { findWorkspaceById } from '../repositories/workspaceRepository.js';
 import * as repository from '../repositories/instrumentPassportRepository.js';
@@ -42,7 +42,7 @@ export async function buildPassportJob(job, { repo = repository, providerFactory
   const merged = await mergePassportPdfs(documents);
   for (const document of documents) {
     if (document.drive_file_id && passport.output_root_id === root) continue;
-    const name=`${document.sequence}-${safeName(document.filename)}`;
+    const name=`${document.sequence}-${safeName(normalizePassportFilename(document.filename))}`;
     const saved = await provider.savePassportPdf(folders.originals,/\.pdf$/i.test(name)?name:`${name}.pdf`,document.pdf,`original:${document.id}`);
     await repo.recordPassportOriginal(document.id,saved.fileId);
   }
