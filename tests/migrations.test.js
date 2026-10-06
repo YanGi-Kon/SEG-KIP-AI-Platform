@@ -23,6 +23,14 @@ test('migration checksums are stable across operating-system line endings', () =
   assert.equal(migrationChecksum(crlf), migrationChecksum(lf));
 });
 
+test('migration runner has a dedicated timeout and restores the pooled connection setting', async () => {
+  const source = await fs.readFile(new URL('../db/migrate.js', import.meta.url), 'utf8');
+  assert.match(source, /MIGRATION_STATEMENT_TIMEOUT_MS\s*=\s*180_000/);
+  assert.match(source, /current_setting\('statement_timeout'\)/);
+  assert.match(source, /set_config\('statement_timeout', \$1, false\)/);
+  assert.match(source, /previousStatementTimeout/);
+});
+
 test('core migration contains tenant identity tables', async () => {
   const sql = await fs.readFile(migrationFiles[0], 'utf8');
   for (const table of ['users', 'workspaces', 'workspace_members', 'refresh_sessions']) {

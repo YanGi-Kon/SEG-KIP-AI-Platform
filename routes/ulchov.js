@@ -35,15 +35,25 @@ const boundedStorage={
 };
 const passportUpload = multer({storage:boundedStorage,limits:{fileSize:MAX_PASSPORT_UPLOAD_BYTES,files:MAX_PASSPORT_UPLOAD_FILES,fields:3}});
 function passportResponseError(res,error) {
-  const uploadLimit = error.code === 'LIMIT_FILE_SIZE';
-  res.status(uploadLimit ? 413 : error.statusCode || 400).json({ok:false,error:uploadLimit?'PDF hajmi 15 MBdan oshmasin.':error.message,code:error.code || 'PASSPORT_FAILED'});
+  const uploadErrors={
+    LIMIT_FILE_SIZE:['Har bir JPG yoki PDF fayl 15 MBdan oshmasin.',413],
+    LIMIT_FILE_COUNT:['Bir martada 20 tagacha JPG yoki PDF tanlang.',413],
+    LIMIT_FIELD_COUNT:['Yuklash so‘rovida ortiqcha maydonlar bor.',400],
+    LIMIT_UNEXPECTED_FILE:['Faqat hujjat tanlash maydonidan foydalaning.',400],
+  };
+  const mapped=uploadErrors[error.code];
+  res.status(mapped?.[1] || error.statusCode || 400).json({
+    ok:false,
+    error:mapped?.[0] || error.message || 'Hujjatni yuklash amalga oshmadi.',
+    code:error.code || 'PASSPORT_FAILED',
+  });
 }
 function folderInfo(req) {
   const id = ulchovFolderId(req.workspace);
   return {folderId:id,folderUrl:id?`https://drive.google.com/drive/folders/${id}`:'',
     inherited:!req.workspace.moduleSettings?.ulchov_final_documents_folder_id,
     canConfigure:hasWorkspacePermission(req.workspaceRole,'workspace:update'),
-    canUpload:hasWorkspacePermission(req.workspaceRole,'documents:create')};
+    canUpload:true};
 }
 router.get('/final-folder',(req,res)=>res.json({ok:true,...folderInfo(req)}));
 router.put('/final-folder',workspaceGuards('workspace:update'),async(req,res)=>{
@@ -65,7 +75,7 @@ router.post('/final-folder/test',workspaceGuards('workspace:test'),async(req,res
   }catch(error){passportResponseError(res,error);}
 });
 router.get('/passports/:key',workspaceGuards('documents:read'),async(req,res)=>{
-  try {res.json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),canUpload:hasWorkspacePermission(req.workspaceRole,'documents:create')});}
+  try {res.json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),canUpload:true});}
   catch(error){passportResponseError(res,error);}
 });
 router.get('/passports/:key/pdf',workspaceGuards('documents:read'),async(req,res)=>{
@@ -75,14 +85,14 @@ router.get('/passports/:key/pdf',workspaceGuards('documents:read'),async(req,res
     res.type('application/pdf').set('Cache-Control','private, no-store').set('Content-Disposition','inline; filename="pasport.pdf"').send(passport.merged_pdf);
   }catch(error){passportResponseError(res,error);}
 });
-router.post('/passports/:key/retry',workspaceGuards('documents:create'),async(req,res)=>{
+router.post('/passports/:key/retry',workspaceGuards('workspace:read'),async(req,res)=>{
   try {
     const job=await passports.retryPassport(req.workspace.id,req.params.key,ulchovFolderId(req.workspace));
     if(!job)throw passportError('Qayta bajariladigan vazifa topilmadi.','PASSPORT_RETRY_NOT_FOUND',404);
     res.json({ok:true,jobId:job.id});
   }catch(error){passportResponseError(res,error);}
 });
-router.post('/passports/:key/documents',workspaceGuards('documents:create'),(req,res)=>{
+router.post('/passports/:key/documents',workspaceGuards('workspace:read'),(req,res)=>{
   passportUpload.array('file',MAX_PASSPORT_UPLOAD_FILES)(req,res,async uploadError=>{
     try {
       if(uploadError)throw uploadError;

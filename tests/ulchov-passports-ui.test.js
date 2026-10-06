@@ -10,19 +10,19 @@ import { PDFDocument, PDFName } from 'pdf-lib';
 import { instrumentPassportKey, preparePassportUpload, mergePassportPdfs } from '../domain/instrumentPassport.js';
 
 const chromePath=process.env.CHROME_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe','/usr/bin/google-chrome','/usr/bin/chromium'].find(file=>fs.existsSync(file));
-test('actual instrument cards upload PDFs, show their history, and enforce read-only UI', {skip:!chromePath},async t=>{
+test('actual instrument cards allow workspace members to upload PDFs and restrict folder settings', {skip:!chromePath},async t=>{
   const instrument={id:'old-row-id',pos:'1',serial:'CBFV88',brand:'WIKA',name:'Манометр',range:'1.6 MPa',location:'1-участка'};
   const key=instrumentPassportKey('Манометр',instrument);
   let passport=null,documents=[],sources=[],pendingReads=0,viewer=false,folder='';
   const app=express();app.use(express.json());
-  app.get('/api/ulchov/final-folder',(_req,res)=>res.json({folderId:folder,folderUrl:folder?`https://drive.google.com/drive/folders/${folder}`:'',canConfigure:!viewer,canUpload:!viewer}));
+  app.get('/api/ulchov/final-folder',(_req,res)=>res.json({folderId:folder,folderUrl:folder?`https://drive.google.com/drive/folders/${folder}`:'',canConfigure:!viewer,canUpload:true}));
   app.put('/api/ulchov/final-folder',(req,res)=>{folder=req.body.folderUrl.split('/').pop();res.json({ok:true});});
   app.post('/api/ulchov/final-folder/test',(_req,res)=>res.json({result:{folderName:'Asbob passportlari'}}));
   app.get('/api/workspaces/:workspaceId/documents/personal-drive',(_req,res)=>res.json({result:{configured:false}}));
   app.post('/api/ulchov/instruments',(_req,res)=>res.json({ok:true,sheetName:'Манометр',instruments:[{...instrument,passportKey:key,passport}]}));
   app.get('/api/ulchov/passports/:key',(_req,res)=>{
     if(passport?.status==='processing' && ++pendingReads>1)passport={...passport,status:'completed',publishedVersion:passport.version};
-    res.json({passport,documents,canUpload:!viewer});
+    res.json({passport,documents,canUpload:true});
   });
   app.post('/api/ulchov/passports/:key/documents',multer({storage:multer.memoryStorage()}).array('file',20),async(req,res)=>{
     assert.equal(req.body.sheetName,'Манометр');
@@ -100,10 +100,17 @@ test('actual instrument cards upload PDFs, show their history, and enforce read-
   await page.waitForFunction(()=>document.getElementById('passportFolderInput').disabled);
   assert.equal(await page.$eval('#passportSaveFolder',el=>el.disabled),true);
   await page.click('[data-passport-close="passportFolderModal"]');
-  assert.equal(await page.$eval('[data-passport-upload]',el=>el.disabled),true);
+  assert.equal(await page.$eval('[data-passport-upload]',el=>el.disabled),false);
   await page.evaluate(key=>window.UlchovPassports.openUpload(key),key);
-  await page.waitForFunction(()=>document.getElementById('passportUploadHelp').textContent.includes('operator'));
-  assert.equal(await page.$eval('#passportSubmit',el=>el.disabled),true);
+  await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled);
+  assert.equal(await page.$eval('#passportFile',el=>el.disabled),false);
+  const viewerFilename=path.join(os.tmpdir(),`passport-ui-viewer-${process.pid}.pdf`);
+  t.after(()=>{if(fs.existsSync(viewerFilename))fs.unlinkSync(viewerFilename);});
+  const viewerPdf=await PDFDocument.create();viewerPdf.addPage([240,300]);fs.writeFileSync(viewerFilename,await viewerPdf.save());
+  await (await page.$('#passportFile')).uploadFile(viewerFilename);
+  await page.click('#passportSubmit');
+  await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('Pasport yangilandi'));
+  assert.equal(documents.length,3);
   await page.setViewport({width:390,height:844});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
   if(process.env.PASSPORT_UI_PREVIEW)await page.screenshot({path:'tmp/ulchov-passport-mobile.png',fullPage:true});
