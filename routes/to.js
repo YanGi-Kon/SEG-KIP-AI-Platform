@@ -331,13 +331,15 @@ router.get('/periods/:year/:month', async (req, res) => {
   try {
     const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month);
     if (!bundle) {
+      const optional = ['1', 'true', 'yes'].includes(clean(req.query.optional).toLowerCase());
+      if (optional) return res.json({ ok: true, exists: false, period: null, items: [] });
       return res.status(404).json({
         ok: false,
         error: 'TO davri topilmadi',
         code: 'TO_PERIOD_NOT_FOUND',
       });
     }
-    return res.json({ ok: true, ...bundle });
+    return res.json({ ok: true, exists: true, ...bundle });
   } catch (error) {
     return apiError(res, error, 'TO_PERIOD_READ_FAILED');
   }
