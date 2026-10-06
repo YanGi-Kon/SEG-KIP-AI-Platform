@@ -151,7 +151,18 @@
   }
   async function testFolder(){
     const button=$('passportTestFolder');button.disabled=true;
-    try{message('passportFolderStatus','Drive yozuvi tekshirilmoqda...');const data=await api('/api/ulchov/final-folder/test',{method:'POST'});message('passportFolderStatus',`Papka tayyor: ${data.result.folderName || data.result.folderId}.`,'ok');}
+    try{
+      message('passportFolderStatus','Drive yozuvi tekshirilmoqda...');
+      const data=await api('/api/ulchov/final-folder/test',{method:'POST'});
+      const folderName=data.result.folderName || data.result.folderId;
+      if(data.passportReady===false){
+        const warning=data.passportWarning || 'Pasport PDF adapteri tayyor emas.';
+        message('passportFolderStatus',`Papka yozuvi ishlaydi: ${folderName}. Pasport PDF uchun Apps Script yangilanishi kerak.`,'bad');
+        message('passportConnectionStatus',data.passportRecommendedFix || warning,'bad');
+      }else{
+        message('passportFolderStatus',`Papka tayyor: ${folderName}.`,'ok');
+      }
+    }
     catch(error){if(!error.stale)message('passportFolderStatus',error.message,'bad');}
     finally{button.disabled=!folderContext?.canConfigure;}
   }

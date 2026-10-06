@@ -142,7 +142,18 @@ test('Shared Drive updates the same canonical file and isolates its deterministi
 });
 test('Personal Drive explains an outdated script and verifies PDF write receipts',async()=>{
   const provider=new AppsScriptPersonalDriveProvider({url:'https://example.com',secret:'test',fetchImpl:async()=>({ok:true,status:200,text:async()=>JSON.stringify({ok:false,code:'DRIVE_APPS_SCRIPT_ACTION_INVALID',error:'Old script',statusCode:400})})});
-  await assert.rejects(provider.passportCapabilities(),{code:'PASSPORT_APPS_SCRIPT_UPDATE_REQUIRED'});
+  await assert.rejects(provider.passportCapabilities(),error=>{
+    assert.equal(error.code,'PASSPORT_APPS_SCRIPT_UPDATE_REQUIRED');
+    assert.match(error.recommendedFix,/Passport\.gs/);
+    assert.match(error.recommendedFix,/Drive API v3/);
+    return true;
+  });
+  provider.request=async()=>{throw Object.assign(new Error('Drive advanced service missing'),{code:'PASSPORT_ADVANCED_DRIVE_REQUIRED',statusCode:400});};
+  await assert.rejects(provider.passportCapabilities(),error=>{
+    assert.equal(error.code,'PASSPORT_ADVANCED_DRIVE_REQUIRED');
+    assert.match(error.recommendedFix,/Drive API v3/);
+    return true;
+  });
   assert.equal(passportFailureRetryable({code:'PASSPORT_APPS_SCRIPT_UPDATE_REQUIRED'}),false);
   assert.equal(passportFailureRetryable({code:'DRIVE_APPS_SCRIPT_TIMEOUT',statusCode:504}),true);
   assert.equal(passportFailureRetryable({code:'DRIVE_WRITE_PERMISSION_DENIED',statusCode:403}),false);
