@@ -45,7 +45,7 @@ test('TO monthly analysis reads selected month from ASOSIY VAROQ', () => {
 });
 
 test('TO monthly analysis checks whether the monthly document already exists', () => {
-  assert.match(panel, /\/api\/to\/periods\/\$\{state\.year\}\/\$\{state\.month\}/);
+  assert.match(panel, /\/api\/to\/periods\/\$\{state\.year\}\/\$\{state\.month\}\?optional=1/);
   assert.match(panel, /allow404: true/);
   assert.match(panel, /const created = period \? 1 : 0/);
   assert.match(panel, /const percent = created \? 100 : 0/);
