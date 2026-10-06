@@ -5,7 +5,10 @@ import puppeteer from 'puppeteer-core';
 
 const chromePath = process.env.CHROME_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(path => fs.existsSync(path));
 test('kachalka follows independent loading states without changing status text', {skip: !chromePath}, async () => {
-  const browser = await puppeteer.launch({ executablePath: chromePath, headless: true, timeout: 10000 });
+  const browser = await puppeteer.launch({
+    executablePath: chromePath, headless: true, timeout: 60000, pipe: true,
+    args: process.platform === 'linux' ? ['--no-sandbox', '--disable-dev-shm-usage'] : [],
+  });
   try {
     const page = await browser.newPage();
     await page.setContent(`<div id="segAppLoader">Sanegplatform yuklanmoqda...</div>
