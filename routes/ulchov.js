@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { hasWorkspacePermission } from '../domain/permissions.js';
 import { extractDriveFolderId } from '../domain/workspace.js';
-import { instrumentPassportKey, preparePassportUpload, MAX_PASSPORT_UPLOAD_BYTES, MAX_PASSPORT_TOTAL_BYTES, MAX_PASSPORT_UPLOAD_FILES, passportError } from '../domain/instrumentPassport.js';
+import { instrumentPassportKey, normalizePassportFilename, preparePassportUpload, MAX_PASSPORT_UPLOAD_BYTES, MAX_PASSPORT_TOTAL_BYTES, MAX_PASSPORT_UPLOAD_FILES, passportError } from '../domain/instrumentPassport.js';
 import * as passports from '../repositories/instrumentPassportRepository.js';
 import { createWorkspaceDriveProvider } from '../services/workspaceDriveFolderService.js';
 import { ulchovFolderId } from '../services/instrumentPassportService.js';
@@ -118,7 +118,7 @@ router.post('/passports/:key/documents',workspaceGuards('workspace:read'),(req,r
       const matches=parseInstruments(rows).instruments.filter(item=>instrumentPassportKey(sheetName,item)===req.params.key);
       if(matches.length!==1)throw passportError(matches.length?'Asbob identifikatori takrorlangan. Reestrni tekshiring.':'Asbob reestrda topilmadi. Kartochkalarni yangilang.','PASSPORT_INSTRUMENT_AMBIGUOUS',409);
       const parsed=await preparePassportUpload(req.files);
-      const filename=req.files.map(file=>clean(file.originalname).replace(/[\\/\x00-\x1f]/g,'-')).join(' + ').slice(0,180) || 'hujjat.pdf';
+      const filename=req.files.map(file=>normalizePassportFilename(file.originalname).replace(/[\\/\x00-\x1f]/g,'-')).join(' + ').slice(0,180) || 'hujjat.pdf';
       const result=await passports.savePassportDocument({workspaceId:req.workspace.id,key:req.params.key,sheetName,instrument:matches[0],filename,parsed,userId:req.auth.userId,rootFolderId});
       res.status(result.duplicate?200:202).json({ok:true,...result});
     }catch(error){passportResponseError(res,error);}
