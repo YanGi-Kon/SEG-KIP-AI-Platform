@@ -299,10 +299,17 @@
     return data;
   }
 
+  function currentAccessToken() {
+    const stored = sessionStorage.getItem(ACCESS_TOKEN_KEY) || '';
+    if (stored !== state.accessToken) state.accessToken = stored;
+    return stored;
+  }
+
   async function apiFetch(path, options = {}, retry = true) {
     const headers = { ...(options.headers || {}) };
     if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-    if (state.accessToken) headers.Authorization = `Bearer ${state.accessToken}`;
+    const accessToken = currentAccessToken();
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
     const res = await fetch(path, {
       ...options,
