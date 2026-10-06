@@ -41,6 +41,26 @@ export function classifyAppsScriptDriveError(error) {
   );
 }
 
+function classifyPassportAdapterError(error) {
+  if (error?.code === 'DRIVE_APPS_SCRIPT_ACTION_INVALID') {
+    return providerError(
+      'Personal Drive Apps Script eskirgan: Passport.gs qo‘shilib /exec deployment yangilanishi kerak.',
+      'PASSPORT_APPS_SCRIPT_UPDATE_REQUIRED',
+      400,
+      { recommendedFix: 'Apps Script loyihasiga repositorydagi apps-script/Passport.gs faylini qo‘shing, Drive API v3 xizmatini yoqing va Deploy → Manage deployments → Edit → New version → Deploy qiling.' },
+    );
+  }
+  if (error?.code === 'PASSPORT_ADVANCED_DRIVE_REQUIRED') {
+    return providerError(
+      'Personal Drive Apps Scriptda Advanced Drive service v3 yoqilmagan.',
+      'PASSPORT_ADVANCED_DRIVE_REQUIRED',
+      400,
+      { recommendedFix: 'Apps Script → Services bo‘limida Drive API v3 ni yoqing, so‘ng /exec deploymentni yangi versiya bilan qayta deploy qiling.' },
+    );
+  }
+  return error;
+}
+
 export class AppsScriptPersonalDriveProvider {
   constructor({ url, secret, fetchImpl = globalThis.fetch, timeoutMs = 30000 }) {
     this.url = clean(url);
@@ -133,10 +153,7 @@ export class AppsScriptPersonalDriveProvider {
 
   async passportCapabilities() {
     try { return await this.request('passport_capabilities', {}); }
-    catch (error) {
-      if (error.code === 'DRIVE_APPS_SCRIPT_ACTION_INVALID') throw providerError('Personal Drive Apps Script’ga Passport.gs qo‘shing va /exec deploymentni yangilang.', 'PASSPORT_APPS_SCRIPT_UPDATE_REQUIRED', 400);
-      throw error;
-    }
+    catch (error) { throw classifyPassportAdapterError(error); }
   }
 
   async savePassportPdf(targetFolderId, name, value, operationKey) {
@@ -146,8 +163,7 @@ export class AppsScriptPersonalDriveProvider {
     try {
       result = await this.request('save_passport_pdf', {targetFolderId,name,operationKey,pdfBase64:bytes.toString('base64')});
     } catch(error) {
-      if (error.code === 'DRIVE_APPS_SCRIPT_ACTION_INVALID') throw providerError('Personal Drive Apps Script’ga Passport.gs qo‘shing va /exec deploymentni yangilang.', 'PASSPORT_APPS_SCRIPT_UPDATE_REQUIRED', 400);
-      throw error;
+      throw classifyPassportAdapterError(error);
     }
     if (!result.fileId || Number(result.size) !== bytes.length || result.parentFolderId !== targetFolderId) throw providerError('Drive PDF yozuvi tasdiqlanmadi.', 'DRIVE_UPLOAD_RESULT_INVALID', 502);
     return {fileId:result.fileId,url:result.url || `https://drive.google.com/file/d/${result.fileId}/view`,size:Number(result.size)};
