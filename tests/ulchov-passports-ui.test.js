@@ -51,8 +51,9 @@ test('actual instrument cards upload PDFs, show their history, and enforce read-
     sessionStorage.setItem('seg_kip_workspace_access_token','fixture-token');
   });
   await page.goto(`http://127.0.0.1:${server.address().port}/modules/ulchov.html`,{waitUntil:'domcontentloaded'});
-  await page.addScriptTag({url:'/js/ulchov-sheets.js'});
+  await page.waitForFunction(()=>Boolean(window.UlchovSheets));
   await page.evaluate(()=>window.UlchovSheets.loadSheet(true));
+  assert.equal(await page.$$eval('.instrument-card',cards=>cards.every(card=>card.querySelector('[data-passport-upload]')?.textContent==='📎 Ҳужжат қўшиш')),true);
   await page.click('#passportFinalDocumentsButton');
   await page.waitForFunction(()=>!document.getElementById('passportSaveFolder').disabled);
   await page.type('#passportFolderInput','https://drive.google.com/drive/folders/test-folder-id');
