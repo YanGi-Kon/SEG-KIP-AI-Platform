@@ -31,6 +31,7 @@ import { createKudukRouter, initKudukRealtime } from "./routes/kuduk.js";
 import { isDatabaseConfigured } from "./db/pool.js";
 import { runMigrations } from "./db/migrate.js";
 import { startFinalPdfExportWorker } from "./services/finalPdfExportWorker.js";
+import { startInstrumentPassportWorker } from "./services/instrumentPassportWorker.js";
 import { initBackupWorker } from "./services/backupService.js";
 
 dotenv.config();
@@ -258,6 +259,7 @@ async function startServer() {
   }
 
   startFinalPdfExportWorker();
+  startInstrumentPassportWorker();
   initBackupWorker();
 
   server.listen(PORT, () => {

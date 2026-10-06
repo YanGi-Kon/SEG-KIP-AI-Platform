@@ -1,4 +1,11 @@
 import express from 'express';
+import multer from 'multer';
+import { hasWorkspacePermission } from '../domain/permissions.js';
+import { extractDriveFolderId } from '../domain/workspace.js';
+import { instrumentPassportKey, readPassportPdf, MAX_PASSPORT_UPLOAD_BYTES, passportError } from '../domain/instrumentPassport.js';
+import * as passports from '../repositories/instrumentPassportRepository.js';
+import { createWorkspaceDriveProvider } from '../services/workspaceDriveFolderService.js';
+import { ulchovFolderId } from '../services/instrumentPassportService.js';
 import { listSheets, readSheetRows, validateServiceAccount } from '../services/googleSheetsService.js';
 import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
 import { requireAccessToken } from '../middleware/auth.js';
@@ -11,6 +18,79 @@ function workspaceGuards(permission) {
 }
 
 router.use(workspaceGuards('workspace:read'));
+
+const passportUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:MAX_PASSPORT_UPLOAD_BYTES,files:1,fields:3}});
+function passportResponseError(res,error) {
+  const uploadLimit = error.code === 'LIMIT_FILE_SIZE';
+  res.status(uploadLimit ? 413 : error.statusCode || 400).json({ok:false,error:uploadLimit?'PDF hajmi 15 MBdan oshmasin.':error.message,code:error.code || 'PASSPORT_FAILED'});
+}
+function folderInfo(req) {
+  const id = ulchovFolderId(req.workspace);
+  return {folderId:id,folderUrl:id?`https://drive.google.com/drive/folders/${id}`:'',
+    inherited:!req.workspace.moduleSettings?.ulchov_final_documents_folder_id,
+    canConfigure:hasWorkspacePermission(req.workspaceRole,'workspace:update'),
+    canUpload:hasWorkspacePermission(req.workspaceRole,'documents:create')};
+}
+router.get('/final-folder',(req,res)=>res.json({ok:true,...folderInfo(req)}));
+router.put('/final-folder',workspaceGuards('workspace:update'),async(req,res)=>{
+  try {
+    const id=extractDriveFolderId(req.body?.folderUrl || req.body?.folderId || '');
+    if(!id)throw passportError('Google Drive papka URL yoki ID kiriting.','PASSPORT_FOLDER_REQUIRED');
+    await passports.saveUlchovFolder(req.workspace.id,id);
+    res.json({ok:true,folderId:id,folderUrl:`https://drive.google.com/drive/folders/${id}`});
+  }catch(error){passportResponseError(res,error);}
+});
+router.post('/final-folder/test',workspaceGuards('workspace:test'),async(req,res)=>{
+  try {
+    const id=ulchovFolderId(req.workspace);
+    if(!id)throw passportError('Avval yakuniy hujjatlar papkasini saqlang.','PASSPORT_FOLDER_REQUIRED');
+    const provider=await createWorkspaceDriveProvider(req.workspace);
+    await provider.passportCapabilities();
+    const result=await provider.validateFolder(id,{writeTest:true});
+    res.json({ok:true,result});
+  }catch(error){passportResponseError(res,error);}
+});
+router.get('/passports/:key',workspaceGuards('documents:read'),async(req,res)=>{
+  try {res.json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),canUpload:hasWorkspacePermission(req.workspaceRole,'documents:create')});}
+  catch(error){passportResponseError(res,error);}
+});
+router.get('/passports/:key/pdf',workspaceGuards('documents:read'),async(req,res)=>{
+  try {
+    const passport=await passports.getPassport(req.workspace.id,req.params.key);
+    if(!passport?.merged_pdf)throw passportError('Yagona pasport hali tayyor emas.','PASSPORT_NOT_READY',404);
+    res.type('application/pdf').set('Cache-Control','private, no-store').set('Content-Disposition','inline; filename="pasport.pdf"').send(passport.merged_pdf);
+  }catch(error){passportResponseError(res,error);}
+});
+router.post('/passports/:key/retry',workspaceGuards('documents:create'),async(req,res)=>{
+  try {
+    const job=await passports.retryPassport(req.workspace.id,req.params.key,ulchovFolderId(req.workspace));
+    if(!job)throw passportError('Qayta bajariladigan vazifa topilmadi.','PASSPORT_RETRY_NOT_FOUND',404);
+    res.json({ok:true,jobId:job.id});
+  }catch(error){passportResponseError(res,error);}
+});
+router.post('/passports/:key/documents',workspaceGuards('documents:create'),(req,res)=>{
+  passportUpload.single('file')(req,res,async uploadError=>{
+    try {
+      if(uploadError)throw uploadError;
+      const rootFolderId=ulchovFolderId(req.workspace);
+      if(!rootFolderId)throw passportError('6. ЯКУНИЙ ҲУЖЖАТЛАР oynasida Drive papkasini kiriting.','PASSPORT_FOLDER_REQUIRED');
+      if(!req.file)throw passportError('PDF fayl tanlang.','PASSPORT_FILE_REQUIRED');
+      const sheetName=clean(req.body.sheetName);
+      let menuRows=req.workspace.moduleSettings?.ulchov_menu_sheet_map || [];
+      if(typeof menuRows==='string'){try{menuRows=JSON.parse(menuRows);}catch{menuRows=[];}}
+      const allowed=new Set([req.workspace.moduleSettings?.ulchov_sheet_name,...(Array.isArray(menuRows)?menuRows.map(row=>row.sheetName || row.sheet):[])]);
+      if(!allowed.has(sheetName))throw passportError('Asbob sozlangan O‘lchov varag‘ida bo‘lishi kerak.','PASSPORT_SHEET_NOT_CONFIGURED');
+      const config=resolveConfig(req);
+      const rows=await readSheetRows({...config,range:'A:Z'});
+      const matches=parseInstruments(rows).instruments.filter(item=>instrumentPassportKey(sheetName,item)===req.params.key);
+      if(matches.length!==1)throw passportError(matches.length?'Asbob identifikatori takrorlangan. Reestrni tekshiring.':'Asbob reestrda topilmadi. Kartochkalarni yangilang.','PASSPORT_INSTRUMENT_AMBIGUOUS',409);
+      const parsed=await readPassportPdf(req.file.buffer);
+      const filename=clean(req.file.originalname).replace(/[\\/\x00-\x1f]/g,'-').slice(0,180) || 'hujjat.pdf';
+      const result=await passports.savePassportDocument({workspaceId:req.workspace.id,key:req.params.key,sheetName,instrument:matches[0],filename,parsed,userId:req.auth.userId,rootFolderId});
+      res.status(result.duplicate?200:202).json({ok:true,...result});
+    }catch(error){passportResponseError(res,error);}
+  });
+});
 
 function clean(value) {
   return String(value ?? '').trim();
@@ -234,11 +314,13 @@ router.post('/instruments', async (req, res) => {
         missingColumns: parsed.missingColumns,
       });
     }
+    const keys=parsed.instruments.map(item=>instrumentPassportKey(config.sheetName,item));
+    const summaries=await passports.passportSummaries(req.workspace.id,keys);
     res.json({
       ok: true,
       sheetName: config.sheetName,
       rowsRead: rows.length,
-      instruments: parsed.instruments,
+      instruments: parsed.instruments.map((item,index)=>({...item,passportKey:keys[index],passport:summaries.get(keys[index]) || null})),
       summary: summarize(parsed.instruments),
       missingColumns: parsed.missingColumns,
     });

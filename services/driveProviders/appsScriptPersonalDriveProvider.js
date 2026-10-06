@@ -131,6 +131,28 @@ export class AppsScriptPersonalDriveProvider {
     };
   }
 
+  async passportCapabilities() {
+    try { return await this.request('passport_capabilities', {}); }
+    catch (error) {
+      if (error.code === 'DRIVE_APPS_SCRIPT_ACTION_INVALID') throw providerError('Personal Drive Apps Script’ga Passport.gs qo‘shing va /exec deploymentni yangilang.', 'PASSPORT_APPS_SCRIPT_UPDATE_REQUIRED', 400);
+      throw error;
+    }
+  }
+
+  async savePassportPdf(targetFolderId, name, value, operationKey) {
+    const bytes = Buffer.from(value || []);
+    if (!bytes.subarray(0,5).equals(Buffer.from('%PDF-'))) throw providerError('Haqiqiy PDF talab qilinadi.', 'DRIVE_PDF_SIGNATURE_INVALID');
+    let result;
+    try {
+      result = await this.request('save_passport_pdf', {targetFolderId,name,operationKey,pdfBase64:bytes.toString('base64')});
+    } catch(error) {
+      if (error.code === 'DRIVE_APPS_SCRIPT_ACTION_INVALID') throw providerError('Personal Drive Apps Script’ga Passport.gs qo‘shing va /exec deploymentni yangilang.', 'PASSPORT_APPS_SCRIPT_UPDATE_REQUIRED', 400);
+      throw error;
+    }
+    if (!result.fileId || Number(result.size) !== bytes.length || result.parentFolderId !== targetFolderId) throw providerError('Drive PDF yozuvi tasdiqlanmadi.', 'DRIVE_UPLOAD_RESULT_INVALID', 502);
+    return {fileId:result.fileId,url:result.url || `https://drive.google.com/file/d/${result.fileId}/view`,size:Number(result.size)};
+  }
+
   async uploadPdf(targetFolderId, name, value) {
     const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value || '');
     if (!buffer.length) {

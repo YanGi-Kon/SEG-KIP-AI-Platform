@@ -1,7 +1,7 @@
 (function installKachalka(){
   'use strict';
   if (window.segKachalka) return;
-  const busy = /yuklanmoqda|юкланмоқда|загрузка|загружается|загружаем|loading\.{0,3}|saqlanmoqda|сақланмоқда|сохранение|сохраняется|saving\.{0,3}|tayyorlanmoqda|тайёрланмоқда|подготовка|preparing\.{0,3}|sinxronlanmoqda|синхронланмоқда|синхронизация|syncing|kutilmoqda|кутилмоқда|ishlanmoqda|ишланмоқда|обработка|processing\.{0,3}/i;
+  const busy = /yuklanmoqda|юкланмоқда|загрузка|загружается|загружаем|loading\.{0,3}|saqlanmoqda|сақланмоқда|сохранение|сохраняется|saving\.{0,3}|tayyorlanmoqda|тайёрланмоқда|подготовка|preparing\.{0,3}|sinxronlanmoqda|синхронланмоқда|синхронизация|syncing|kutilmoqda|кутилмоқда|ishlanmoqda|ишланмоқда|birlashtirilmoqda|бирлаштирилмоқда|tekshirilmoqda|обработка|processing\.{0,3}/i;
   const active = new Map();
   const pending = new Set();
   let scheduled = false;

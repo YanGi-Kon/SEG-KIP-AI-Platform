@@ -1,0 +1,92 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import express from 'express';
+import multer from 'multer';
+import puppeteer from 'puppeteer-core';
+import { PDFDocument } from 'pdf-lib';
+import { instrumentPassportKey, readPassportPdf, mergePassportPdfs } from '../domain/instrumentPassport.js';
+
+const chromePath=process.env.CHROME_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe','/usr/bin/google-chrome','/usr/bin/chromium'].find(file=>fs.existsSync(file));
+test('actual instrument cards upload PDFs, show their history, and enforce read-only UI', {skip:!chromePath},async t=>{
+  const instrument={id:'old-row-id',pos:'1',serial:'CBFV88',brand:'WIKA',name:'Манометр',range:'1.6 MPa',location:'1-участка'};
+  const key=instrumentPassportKey('Манометр',instrument);
+  let passport=null,documents=[],sources=[],pendingReads=0,viewer=false,folder='';
+  const app=express();app.use(express.json());
+  app.get('/api/ulchov/final-folder',(_req,res)=>res.json({folderId:folder,folderUrl:folder?`https://drive.google.com/drive/folders/${folder}`:'',canConfigure:!viewer,canUpload:!viewer}));
+  app.put('/api/ulchov/final-folder',(req,res)=>{folder=req.body.folderUrl.split('/').pop();res.json({ok:true});});
+  app.post('/api/ulchov/final-folder/test',(_req,res)=>res.json({result:{folderName:'Asbob passportlari'}}));
+  app.get('/api/workspaces/:workspaceId/documents/personal-drive',(_req,res)=>res.json({result:{configured:false}}));
+  app.post('/api/ulchov/instruments',(_req,res)=>res.json({ok:true,sheetName:'Манометр',instruments:[{...instrument,passportKey:key,passport}]}));
+  app.get('/api/ulchov/passports/:key',(_req,res)=>{
+    if(passport?.status==='processing' && ++pendingReads>1)passport={...passport,status:'completed',publishedVersion:passport.version};
+    res.json({passport,documents,canUpload:!viewer});
+  });
+  app.post('/api/ulchov/passports/:key/documents',multer({storage:multer.memoryStorage()}).single('file'),async(req,res)=>{
+    assert.equal(req.body.sheetName,'Манометр');
+    assert.equal(req.get('x-workspace-id'),'00000000-0000-4000-8000-000000000001');
+    const parsed=await readPassportPdf(req.file.buffer);
+    const duplicate=sources.some(source=>source.checksum===parsed.checksum);
+    if(!duplicate){
+      sources.push({pdf:parsed.bytes,checksum:parsed.checksum});
+      documents.push({filename:req.file.originalname,sequence:documents.length+1,page_count:parsed.pageCount,created_at:new Date().toISOString()});
+      const merged=await mergePassportPdfs(sources);
+      passport={version:documents.length,publishedVersion:documents.length-1,pageCount:merged.pageCount,status:'processing'};pendingReads=0;
+    }
+    res.status(duplicate?200:202).json({ok:true,duplicate,passport});
+  });
+  app.use(express.static(new URL('../public/',import.meta.url).pathname.replace(/^\/(?=[A-Z]:)/,'')));
+  const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+  t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const browser=await puppeteer.launch({executablePath:chromePath,headless:true,pipe:true,timeout:60000,args:process.platform==='linux'?['--no-sandbox','--disable-dev-shm-usage']:[]});
+  t.after(()=>browser.close());
+  const page=await browser.newPage();
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.evaluateOnNewDocument(()=>{
+    localStorage.setItem('seg_kip_selected_workspace_id','00000000-0000-4000-8000-000000000001');
+    localStorage.setItem('ulchov_settings_confirmed','true');
+    localStorage.setItem('ulchov_menu_sheet_map',JSON.stringify([{menuName:'ПАСПОРТ МАНОМЕТР',sheetName:'Манометр'}]));
+    sessionStorage.setItem('seg_kip_workspace_access_token','fixture-token');
+  });
+  await page.goto(`http://127.0.0.1:${server.address().port}/modules/ulchov.html`,{waitUntil:'domcontentloaded'});
+  await page.addScriptTag({url:'/js/ulchov-sheets.js'});
+  await page.evaluate(()=>window.UlchovSheets.loadSheet(true));
+  await page.click('#passportFinalDocumentsButton');
+  await page.waitForFunction(()=>!document.getElementById('passportSaveFolder').disabled);
+  await page.type('#passportFolderInput','https://drive.google.com/drive/folders/test-folder-id');
+  await page.click('#passportSaveFolder');
+  await page.waitForFunction(()=>document.getElementById('passportFolderStatus').textContent.includes('Papka saqlandi'));
+  assert.equal(folder,'test-folder-id');
+  await page.click('#passportTestFolder');
+  await page.waitForFunction(()=>document.getElementById('passportFolderStatus').textContent.includes('Papka tayyor'));
+  await page.click('[data-passport-close="passportFolderModal"]');
+  await page.click('[data-passport-upload]');
+  await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled);
+  const filename=path.join(os.tmpdir(),`passport-ui-${process.pid}.pdf`);
+  t.after(()=>{if(fs.existsSync(filename))fs.unlinkSync(filename);});
+  const pdf=await PDFDocument.create();pdf.addPage([200,300]);fs.writeFileSync(filename,await pdf.save());
+  await (await page.$('#passportFile')).uploadFile(filename);
+  await page.click('#passportSubmit');
+  await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('Pasport yangilandi'));
+  assert.equal(await page.$$eval('#passportHistory li',items=>items.length),1);
+  await (await page.$('#passportFile')).uploadFile(filename);await page.click('#passportSubmit');
+  await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('avval yuklangan'));
+  assert.equal(documents.length,1);
+  assert.equal(errors.length,0,errors.join('\n'));
+  await page.click('[data-passport-close="passportUploadModal"]');
+  if(process.env.PASSPORT_UI_PREVIEW){fs.mkdirSync('tmp',{recursive:true});await page.screenshot({path:'tmp/ulchov-passport-cards.png',fullPage:true});}
+  viewer=true;
+  await page.click('#passportFinalDocumentsButton');
+  await page.waitForFunction(()=>document.getElementById('passportFolderInput').disabled);
+  assert.equal(await page.$eval('#passportSaveFolder',el=>el.disabled),true);
+  await page.click('[data-passport-close="passportFolderModal"]');
+  assert.equal(await page.$eval('[data-passport-upload]',el=>el.disabled),true);
+  await page.evaluate(key=>window.UlchovPassports.openUpload(key),key);
+  await page.waitForFunction(()=>document.getElementById('passportUploadHelp').textContent.includes('operator'));
+  assert.equal(await page.$eval('#passportSubmit',el=>el.disabled),true);
+  await page.setViewport({width:390,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+  if(process.env.PASSPORT_UI_PREVIEW)await page.screenshot({path:'tmp/ulchov-passport-mobile.png',fullPage:true});
+});

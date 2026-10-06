@@ -122,7 +122,7 @@ function isSanegLoginActive(){
       if (!doc || doc.getElementById('segUlchovSheetsScript')) return;
       const script = doc.createElement('script');
       script.id = 'segUlchovSheetsScript';
-      script.src = '/js/ulchov-sheets.js?v=stage6e';
+      script.src = '/js/ulchov-sheets.js?v=20261006-passports';
       script.defer = true;
       doc.head.appendChild(script);
     } catch (_) {}

@@ -1,0 +1,24 @@
+.passport-card-actions{display:grid;gap:8px;margin-top:14px}
+.passport-card-actions .pdf-btn{width:100%;font:inherit;cursor:pointer;padding:10px 8px}
+.passport-card-actions .passport-upload-btn{background:rgba(0,212,255,.08);border:1px dashed rgba(0,212,255,.6)}
+.passport-card-actions button:disabled{opacity:.45;cursor:not-allowed}
+.passport-card-status{margin-top:8px;font-size:11px;line-height:1.5;color:#b8dbea;overflow-wrap:anywhere}
+#ulchovPassportToolbar{display:flex;justify-content:flex-end;padding:6px 20px;gap:8px}
+.passport-settings-button,.passport-action{font:700 13px 'Exo 2',Arial,sans-serif;border:1px solid #178eb6;background:#07324b;color:#dcf7ff;border-radius:10px;padding:10px 14px;cursor:pointer}
+.passport-action.primary{background:#087ca2}.passport-action:disabled{opacity:.5;cursor:not-allowed}
+.passport-overlay{position:fixed;inset:0;z-index:4000;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,5,15,.8)}
+.passport-overlay.open{display:flex}
+.passport-dialog{width:min(760px,100%);max-height:90vh;overflow:auto;background:#071b30;color:#def4ff;border:1px solid #14aadd;border-radius:20px;padding:24px;box-shadow:0 24px 80px #0008}
+.passport-dialog h2{font-size:20px;margin:0}.passport-dialog p{font-size:13px;color:#aac8dc;line-height:1.6}
+.passport-dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.passport-close{font:24px Arial;background:transparent;border:0;color:#def4ff;cursor:pointer}
+.passport-dialog label{display:grid;gap:8px;margin:16px 0;font-size:13px;font-weight:700}
+.passport-dialog input{width:100%;min-width:0;padding:12px;border:1px solid #176485;border-radius:10px;background:#03111e;color:white;font:14px Arial;box-sizing:border-box}
+.passport-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.passport-message{padding:12px;margin-top:14px;border:1px solid #185879;border-radius:10px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.passport-message.bad{border-color:#b94a4a;color:#ffc7c7}.passport-message.ok{border-color:#238c76;color:#b4f4dc}
+.passport-history{margin-top:20px}.passport-history ol{padding-left:24px;font-size:13px;line-height:1.8}.passport-history li{overflow-wrap:anywhere}
+.passport-history small{display:block;color:#9cbad0}
+.passport-provider{margin-top:22px;border-top:1px solid #185879;padding-top:12px}
+.passport-provider summary{cursor:pointer;font-size:13px;font-weight:700}
+@media(max-width:520px){.passport-dialog{padding:16px}.passport-dialog h2{font-size:17px}.passport-actions>*{flex:1}.passport-dialog input{font-size:16px}}
