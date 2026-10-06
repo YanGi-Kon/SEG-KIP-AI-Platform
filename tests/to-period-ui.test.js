@@ -56,3 +56,9 @@ test('TO JURNALI tanlangan oy/yilni Workspace bo‘yicha eslab qoladi', () => {
   assert.match(html, /restoreSavedPeriod\(state\.workspaceId\)/);
   assert.match(html, /ToPeriodSheetBridge\?\.sync\?\.\(\)/);
 });
+
+
+test('TO JURNALI missing periodni 404siz optional lookup bilan tekshiradi', () => {
+  assert.match(html, /\/api\/to\/periods\/\$\{state\.periodYear\}\/\$\{state\.periodMonth\}\?optional=1/);
+  assert.match(html, /data\.exists===false\|\|!data\.period/);
+});
