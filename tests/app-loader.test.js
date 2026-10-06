@@ -7,11 +7,12 @@ const loader=fs.readFileSync(new URL('../public/js/app-loader.js',import.meta.ur
 const loginGate=fs.readFileSync(new URL('../public/js/saneg-login-gate.js',import.meta.url),'utf8');
 const server=fs.readFileSync(new URL('../server.js',import.meta.url),'utf8');
 
-test('startup loader is static and contains no pumpjack animation',()=>{
+test('startup loader shows the supplied GIF above its status',()=>{
   assert.match(index,/id="segAppLoader"/);
   assert.match(index,/Sanegplatform yuklanmoqda\.\.\./);
-  assert.doesNotMatch(index,/segLoaderPump/);
-  assert.doesNotMatch(index,/pump_jack/);
+  assert.match(index,/<img class="seg-loader-animation"[^>]+src="assets\/images\/saneg-loading\.gif"[^>]*>\s*<div id="segAppLoaderStatus"/);
+  const animation=fs.readFileSync(new URL('../public/assets/images/saneg-loading.gif',import.meta.url));
+  assert.match(animation.subarray(0,6).toString(),/^GIF8[79]a$/);
   assert.doesNotMatch(index,/seg-loader-dots/);
   assert.doesNotMatch(loader,/setInterval/);
   assert.doesNotMatch(loader,/canvas/);
