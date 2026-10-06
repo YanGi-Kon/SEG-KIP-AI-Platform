@@ -4,6 +4,27 @@ import { PDFDocument } from 'pdf-lib';
 export const MAX_PASSPORT_UPLOAD_BYTES = 15 * 1024 * 1024;
 export const MAX_PASSPORT_TOTAL_BYTES = 60 * 1024 * 1024;
 export const MAX_PASSPORT_PAGES = 500;
+
+const CP1252_REVERSE = new Map([
+  ['€',0x80],['‚',0x82],['ƒ',0x83],['„',0x84],['…',0x85],['†',0x86],['‡',0x87],['ˆ',0x88],
+  ['‰',0x89],['Š',0x8a],['‹',0x8b],['Œ',0x8c],['Ž',0x8e],['‘',0x91],['’',0x92],['“',0x93],
+  ['”',0x94],['•',0x95],['–',0x96],['—',0x97],['˜',0x98],['™',0x99],['š',0x9a],['›',0x9b],
+  ['œ',0x9c],['ž',0x9e],['Ÿ',0x9f],
+]);
+export function normalizePassportFilename(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw || !/[ÃÂÐÑ]/.test(raw)) return raw;
+  const bytes = [];
+  for (const char of raw) {
+    const point = char.codePointAt(0);
+    if (point <= 255) bytes.push(point);
+    else if (CP1252_REVERSE.has(char)) bytes.push(CP1252_REVERSE.get(char));
+    else return raw;
+  }
+  const decoded = Buffer.from(bytes).toString('utf8');
+  if (!decoded || decoded.includes('\uFFFD')) return raw;
+  return decoded;
+}
 export const MAX_PASSPORT_UPLOAD_FILES = 20;
 export function passportError(message, code, statusCode = 400) {
   return Object.assign(new Error(message), { code, statusCode });

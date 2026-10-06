@@ -115,3 +115,13 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
   if(process.env.PASSPORT_UI_PREVIEW)await page.screenshot({path:'tmp/ulchov-passport-mobile.png',fullPage:true});
 });
+
+
+test('passport UI gives actionable Personal Drive secret guidance and repairs legacy filenames',async()=>{
+  const source=await fs.promises.readFile(new URL('../public/js/ulchov-passports.js',import.meta.url),'utf8');
+  assert.match(source,/WORKSPACE_SECRET_DECRYPT_FAILED/);
+  assert.match(source,/Apps Script URL va webhook secretni qayta saqlang/);
+  assert.match(source,/function repairFilename/);
+  assert.match(source,/repairFilename\(doc\.filename\)/);
+  assert.match(source,/needsReconfiguration/);
+});
