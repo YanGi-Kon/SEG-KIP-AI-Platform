@@ -93,6 +93,10 @@
   function start(){
     if (!startPromise) startPromise = loadMedia().catch((error) => {
       startPromise = null;
+      const gateActive = Boolean(document.getElementById('sanegLoginGate') || document.body?.classList?.contains('saneg-login-active'));
+      if (!gateActive && error?.message === 'Login media stage vaqtida yaratilmadi') {
+        return { type:'skipped', reason:'login-inactive' };
+      }
       console.warn('[login-media] Ishga tushirish xatosi. SVG fallback saqlandi.', error);
       return { type:'fallback', error:error.message };
     });
