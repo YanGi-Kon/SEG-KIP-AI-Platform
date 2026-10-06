@@ -98,7 +98,15 @@
   function clearCards(t){const g=$('cards-grid');if($('total-count'))$('total-count').textContent='0';if($('summary-row'))$('summary-row').innerHTML='';if(g)g.innerHTML=`<div class="empty-state"><div class="icon">⚙️</div><p>${esc(t)}</p></div>`}
   function updateFilters(data){const brands=[...new Set(data.map(x=>x.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b));const locs=[...new Set(data.map(x=>x.location).filter(Boolean))].sort((a,b)=>a.localeCompare(b));if($('filter-brand'))$('filter-brand').innerHTML='<option value="">Барча брендлар</option>'+brands.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');if($('filter-location'))$('filter-location').innerHTML='<option value="">Барча ҳудудлар</option>'+locs.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}
   function renderSummary(data){const r=$('summary-row');if(!r)return;const c={};data.forEach(x=>{c[x.brand]=(c[x.brand]||0)+1});r.innerHTML=Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([b,n])=>`<div class="summary-chip"><div class="chip-dot" style="background:${color(b)}"></div><span>${esc(b)}</span><span class="num" style="color:${color(b)}">${n}</span></div>`).join('')}
-  function renderCards(data){setPageTitle();const g=$('cards-grid');if($('total-count'))$('total-count').textContent=data.length;if(!g)return;if(!data.length)return clearCards('Ҳеч нарса топилмади. Қидирув шартларини ўзгартиринг.');g.innerHTML=data.map(x=>{const c=color(x.brand),wc=String(x.work||'').toLowerCase().includes('то-2')||String(x.work||'').toLowerCase().includes('to-2')?'work-to2':'work-akt',u=`https://drive.google.com/drive/search?q=${encodeURIComponent(x.serial||x.name||'')}`;return `<div class="instrument-card" style="--card-color:${c}"><div class="card-top"><div><div class="pos-label">ПОЗИЦИЯ</div><div class="pos-badge">${esc(x.pos||'—')}</div></div><div style="text-align:center"><div style="font-size:32px">${esc(devIcon(x.name))}</div></div><div style="text-align:right"><div class="card-brand"><div class="brand-badge" style="background:${c}">${esc(x.brand||'Бошқа')}</div></div><div style="font-size:18px;margin-top:4px">${esc(brandIcon(x.brand))}</div></div></div><div class="card-body"><div class="card-name">${esc(x.name||'Асбоб')}</div><div class="serial-row"><div class="serial-label">ЗАВОД РАҚАМИ</div><div class="serial-val">${esc(x.serial||'—')}</div></div><div class="card-info"><div class="info-item"><div class="info-label">Ўлчов диап.</div><div class="info-value">${esc(x.range||'—')}</div></div><div class="info-item"><div class="info-label">Хизмат тури</div><div class="info-value">${esc(x.work||'—')}</div></div></div><div><span class="location-tag">📍 ${esc(x.location||'—')}</span><span class="work-tag ${wc}">${esc(x.work||'—')}</span></div><div style="height:10px"></div><a href="${u}" target="_blank" rel="noopener" class="pdf-btn">📄 Паспортни кўриш</a></div></div>`}).join('')}
+  function renderCards(data){
+    setPageTitle();const g=$('cards-grid');if($('total-count'))$('total-count').textContent=data.length;
+    if(!g)return;if(!data.length)return clearCards('Ҳеч нарса топилмади. Қидирув шартларини ўзгартиринг.');
+    g.innerHTML=data.map(x=>{
+      const c=color(x.brand),wc=/то-2|to-2/i.test(String(x.work||''))?'work-to2':'work-akt';
+      return `<div class="instrument-card" data-passport-key="${esc(x.passportKey||'')}" style="--card-color:${c}"><div class="card-top"><div><div class="pos-label">ПОЗИЦИЯ</div><div class="pos-badge">${esc(x.pos||'—')}</div></div><div style="text-align:center"><div style="font-size:32px">${esc(devIcon(x.name))}</div></div><div style="text-align:right"><div class="card-brand"><div class="brand-badge" style="background:${c}">${esc(x.brand||'Бошқа')}</div></div><div style="font-size:18px;margin-top:4px">${esc(brandIcon(x.brand))}</div></div></div><div class="card-body"><div class="card-name">${esc(x.name||'Асбоб')}</div><div class="serial-row"><div class="serial-label">ЗАВОД РАҚАМИ</div><div class="serial-val">${esc(x.serial||'—')}</div></div><div class="card-info"><div class="info-item"><div class="info-label">Ўлчов диап.</div><div class="info-value">${esc(x.range||'—')}</div></div><div class="info-item"><div class="info-label">Хизмат тури</div><div class="info-value">${esc(x.work||'—')}</div></div></div><div><span class="location-tag">📍 ${esc(x.location||'—')}</span><span class="work-tag ${wc}">${esc(x.work||'—')}</span></div><div class="passport-card-actions"><button type="button" class="pdf-btn" data-passport-view>📄 Паспортни кўриш</button><button type="button" class="pdf-btn passport-upload-btn" data-passport-upload ${x.passportKey?'':'disabled'}>📤 PDF юклаш</button></div><div class="passport-card-status" aria-live="polite">${x.passport?`${x.passport.pageCount||0} sahifa`:'Pasport hali yuklanmagan'}</div></div></div>`;
+    }).join('');
+    window.UlchovPassports?.onCardsRendered(data);
+  }
   function filterCards(){const q=($('search-input')?.value||'').toLowerCase(),b=$('filter-brand')?.value||'',l=$('filter-location')?.value||'';const data=state.instruments.filter(x=>{const h=`${x.pos} ${x.name} ${x.brand} ${x.serial} ${x.range} ${x.location} ${x.work}`.toLowerCase();return(!q||h.includes(q))&&(!b||x.brand===b)&&(!l||x.location===l)});renderSummary(data);renderCards(data)}
   async function loadSheet(openAfter=false,expectedWorkspaceId=workspaceId()){
     const s=settings();
@@ -215,6 +223,13 @@
       }
     }
     
+    const passportButton=$('passportFinalDocumentsButton');
+    if(passportButton&&$('ulchovToolbar')){
+      $('ulchovToolbar').prepend(passportButton);
+      $('ulchovToolbar').style.gap='10px';
+      $('ulchovToolbar').style.flexWrap='wrap';
+      $('ulchovPassportToolbar')?.remove();
+    }
     patchCards();
     fixText();
     window.filterCards=filterCards;

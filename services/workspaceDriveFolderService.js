@@ -90,7 +90,7 @@ export async function createWorkspaceDriveProvider(workspace) {
       timeoutMs: process.env.PERSONAL_DRIVE_APPS_SCRIPT_TIMEOUT_MS || 30000,
     });
   }
-  return createSharedDriveProvider();
+  return createSharedDriveProvider(workspace);
 }
 
 export async function configureWorkspacePersonalDrive(userId, workspaceId, input = {}) {

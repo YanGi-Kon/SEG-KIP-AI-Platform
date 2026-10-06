@@ -188,10 +188,46 @@ export class SharedDriveServiceAccountProvider {
     if (!clean(fileId)) return;
     await this.drive.files.delete({ fileId, supportsAllDrives: true }).catch(() => {});
   }
+
+  async passportCapabilities() { return { ready: true }; }
+
+  async savePassportPdf(parentFolderId, name, value, operationKey) {
+    const bytes = Buffer.from(value || []);
+    if (!bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) throw providerError('Haqiqiy PDF talab qilinadi.', 'DRIVE_PDF_SIGNATURE_INVALID');
+    try {
+      const listed = await this.drive.files.list({
+        q: `'${queryEscape(parentFolderId)}' in parents and trashed=false and appProperties has { key='segPassportKey' and value='${queryEscape(operationKey)}' }`,
+        fields: 'files(id,mimeType)', supportsAllDrives: true, includeItemsFromAllDrives: true, pageSize: 2,
+      });
+      const matches = listed.data.files || [];
+      if (matches.length > 1) throw providerError('Drive’da takroriy pasport kaliti topildi.', 'PASSPORT_DRIVE_DUPLICATE', 409);
+      const existing = matches[0];
+      if (existing && existing.mimeType !== 'application/pdf') throw providerError('Pasport kaliti PDF faylga tegishli emas.', 'DRIVE_PDF_MIME_TYPE_INVALID');
+      const media = { mimeType:'application/pdf', body:Readable.from(bytes) };
+      const response = existing
+        ? await this.drive.files.update({fileId:existing.id,requestBody:{name},media,fields:'id,webViewLink,size',supportsAllDrives:true})
+        : await this.drive.files.create({requestBody:{name,mimeType:'application/pdf',parents:[parentFolderId],appProperties:{segPassportKey:operationKey}},media,fields:'id,webViewLink,size',supportsAllDrives:true});
+      if (!response.data?.id) throw providerError('Drive PDF ID qaytarmadi.', 'DRIVE_UPLOAD_RESULT_INVALID', 502);
+      return {fileId:response.data.id,url:response.data.webViewLink || `https://drive.google.com/file/d/${response.data.id}/view`,size:Number(response.data.size || bytes.length)};
+    } catch(error) {
+      if (String(error.code || '').startsWith('PASSPORT_')) throw error;
+      throw classifySharedDriveError(error);
+    }
+  }
 }
 
-export async function createSharedDriveProvider() {
-  const { serviceAccount, credentialSource } = resolveEnvServiceAccount();
+export function resolveDriveCredentials(workspace = {}) {
+  if (!workspace.serviceAccountBase64) return resolveEnvServiceAccount();
+  try {
+    const serviceAccount = JSON.parse(Buffer.from(workspace.serviceAccountBase64,'base64').toString('utf8'));
+    serviceAccount.private_key=String(serviceAccount.private_key || '').replace(/\\n/g,'\n');
+    if (!serviceAccount.client_email || !serviceAccount.project_id || !serviceAccount.private_key.startsWith('-----BEGIN PRIVATE KEY-----')) throw new Error('Invalid credential');
+    return {serviceAccount,credentialSource:'WORKSPACE'};
+  } catch {throw providerError('Workspace service account yaroqsiz.', 'GOOGLE_SERVICE_ACCOUNT_INVALID');}
+}
+
+export async function createSharedDriveProvider(workspace = {}) {
+  const { serviceAccount, credentialSource } = resolveDriveCredentials(workspace);
   const auth = new google.auth.JWT({
     email: serviceAccount.client_email,
     key: serviceAccount.private_key,

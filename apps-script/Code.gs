@@ -128,6 +128,10 @@ function doPost(e) {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     authenticate_(body);
     var action = clean_(body.action);
+    if (typeof handlePassportRequest_ === 'function') {
+      var passportResult = handlePassportRequest_(body);
+      if (passportResult) return response_(passportResult);
+    }
     if (action === 'validate_folder') return response_(validateFolder_(body.payload || {}));
     if (action === 'ensure_subfolder') return response_(ensureSubfolder_(body.payload || {}));
     if (action === 'upload_pdf_base64') return response_(uploadPdfBase64_(body.payload || {}));
