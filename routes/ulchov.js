@@ -69,9 +69,18 @@ router.post('/final-folder/test',workspaceGuards('workspace:test'),async(req,res
     const id=ulchovFolderId(req.workspace);
     if(!id)throw passportError('Avval yakuniy hujjatlar papkasini saqlang.','PASSPORT_FOLDER_REQUIRED');
     const provider=await createWorkspaceDriveProvider(req.workspace);
-    await provider.passportCapabilities();
     const result=await provider.validateFolder(id,{writeTest:true});
-    res.json({ok:true,result});
+    let passportReady=true,passportCode='',passportWarning='',passportRecommendedFix='';
+    try {
+      await provider.passportCapabilities();
+    } catch (error) {
+      if(!['PASSPORT_APPS_SCRIPT_UPDATE_REQUIRED','PASSPORT_ADVANCED_DRIVE_REQUIRED'].includes(error.code))throw error;
+      passportReady=false;
+      passportCode=error.code || '';
+      passportWarning=error.message || 'Pasport Drive adapteri tayyor emas.';
+      passportRecommendedFix=error.recommendedFix || '';
+    }
+    res.json({ok:true,result,passportReady,passportCode,passportWarning,passportRecommendedFix});
   }catch(error){passportResponseError(res,error);}
 });
 router.get('/passports/:key',workspaceGuards('documents:read'),async(req,res)=>{
