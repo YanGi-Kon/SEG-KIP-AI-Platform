@@ -13,7 +13,7 @@
   .seg-loader-animation{display:block;width:min(200px,45vw);height:auto;aspect-ratio:1;object-fit:contain;filter:url(#segLoaderBackgroundKey)}
   .seg-loader-status{color:#f8fafc;font-size:14px;font-weight:900;letter-spacing:.02em;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.72)}
 </style>
-<script src="/js/kachalka.js?v=20261008-single-loader" defer></script>
+<script src="/js/kachalka.js?v=20261008-loader-state-fix" defer></script>
 </head>
 <body>
 <!-- Remove the GIF's baked-in light checkerboard while keeping every animation frame. -->
@@ -98,7 +98,7 @@
     <header class="topbar">
       <div>
         <h2>SEG KIP AI Platform</h2>
-        <p data-i18n="Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси">Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси</p>
+        <p data-loading-description data-i18n="Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси">Нефт-газ соҳаси учун журналлар ва КИП назорат интерфейси</p>
       </div>
       <div class="status" style="display:flex; align-items:center; gap:8px;">
         <select id="topbarWorkspaceSwitcher" style="display:none; margin-right:12px; background:rgba(255,255,255,0.06); border:1px solid rgba(34,211,238,0.25); border-radius:10px; color:#e2e8f0; padding:6px 12px; font-size:12px; outline:none; max-width:240px; cursor:pointer;" onchange="window.topbarSelectWorkspace(this.value)">

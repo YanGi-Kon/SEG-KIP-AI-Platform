@@ -12,6 +12,8 @@ test('one shared kachalka follows loading states without changing status text', 
   try {
     const page = await browser.newPage();
     await page.setContent(`<div id="description">Модуль загружается из отдельного HTML файла</div>
+      <div id="ulchovDescription">Загружается из отдельного файла modules/ulchov.html</div>
+      <div data-loading-description>Loading module description</div>
       <span id="period">Davr yuklanmoqda...</span><span id="analysis">Октябрь 2026 · юкланмоқда...</span>
       <div id="done">Tayyor</div><select id="choice"><option>Загрузка...</option><option>Tayyor</option></select>`);
     await page.addScriptTag({content: fs.readFileSync(new URL('../public/js/kachalka.js', import.meta.url), 'utf8')});
@@ -31,6 +33,13 @@ test('one shared kachalka follows loading states without changing status text', 
       document.getElementById('analysis').textContent = 'Xato: server javob bermadi';
       document.getElementById('done').remove();
     });
+    await page.waitForFunction(() => document.querySelector('#segSharedLoader[hidden]'));
+    await page.evaluate(() => {
+      document.getElementById('ulchovDescription').textContent = 'Загружается из отдельного файла modules/formulyar.html';
+      document.getElementById('period').setAttribute('aria-busy', 'true');
+    });
+    await page.waitForFunction(() => document.querySelector('#segSharedLoader:not([hidden])'));
+    await page.evaluate(() => document.getElementById('period').setAttribute('aria-busy','false'));
     await page.waitForFunction(() => document.querySelector('#segSharedLoader[hidden]'));
     await page.evaluate(() => {
       document.getElementById('period').innerHTML = '<span>Hisobotlar yuklanmoqda...</span>';

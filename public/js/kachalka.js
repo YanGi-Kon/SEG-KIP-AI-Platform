@@ -13,7 +13,11 @@
     return Array.from(el.childNodes).filter(n => n.nodeType === 3).map(n => n.textContent).join(' ');
   }
   function eligible(el){
-    return !el.closest('[data-kachalka],#segAppLoader,script,style,textarea,input,[contenteditable="true"]') && !/загружается из отдельного HTML/i.test(ownText(el)) && (busy.test(ownText(el)) || el.getAttribute('aria-busy') === 'true');
+    if (el.closest('[data-kachalka],#segAppLoader,script,style,textarea,input,[contenteditable="true"]')) return false;
+    if (el.getAttribute('aria-busy') === 'true') return true;
+    // Module descriptions say how the page is embedded, not whether a request is pending.
+    if (el.closest('[data-loading-description]') || /загружается из отдельного (?:HTML\s+)?файла?/i.test(ownText(el))) return false;
+    return busy.test(ownText(el));
   }
   function refresh(el){
     if (!el.isConnected || !eligible(el)) {
@@ -91,7 +95,10 @@
         const el = record.target.nodeType === 3 ? record.target.parentElement : record.target;
         if (!el || el.closest('[data-kachalka],script,style')) continue;
         if (record.type === 'childList' && [...record.addedNodes, ...record.removedNodes].every(n => n.nodeType === 1 && n.matches('[data-kachalka]'))) continue;
-        collect(record.target);
+        // Attribute changes only affect visibility or this element's busy state.
+        // Do not rescan hundreds of instrument cards when a menu is hidden/shown.
+        if (record.type === 'attributes' || record.type === 'childList') pending.add(el);
+        else collect(record.target);
         for (const node of record.addedNodes || []) collect(node);
         changed = true;
       }
