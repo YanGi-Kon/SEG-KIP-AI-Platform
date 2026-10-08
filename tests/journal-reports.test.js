@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import puppeteer from 'puppeteer-core';
 
 const serverSource = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
 const workflowSource = fs.readFileSync(new URL('../public/js/kuduk-workflow.js', import.meta.url), 'utf8');
@@ -8,6 +9,29 @@ const migrationSource = fs.readFileSync(new URL('../db/migrations/033_journal_re
 const routeSource = fs.readFileSync(new URL('../routes/journalReports.js', import.meta.url), 'utf8');
 const serviceSource = fs.readFileSync(new URL('../services/journalReportService.js', import.meta.url), 'utf8');
 const repositorySource = fs.readFileSync(new URL('../repositories/journalReportRepository.js', import.meta.url), 'utf8');
+
+const chromePath = process.env.CHROME_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(path => fs.existsSync(path));
+test('journal document table fits inside the paper despite the module table minimum width', {skip: !chromePath}, async () => {
+  const browser = await puppeteer.launch({executablePath:chromePath,headless:true,pipe:true,args:process.platform==='linux'?['--no-sandbox','--disable-dev-shm-usage']:[]});
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({width:1600,height:1000});
+    const module = fs.readFileSync(new URL('../public/modules/kuduk-journal.html', import.meta.url),'utf8');
+    const baseStyle = module.match(/<style>([\s\S]*?)<\/style>/)[1];
+    const documentStyle = workflowSource.split('\n').find(line=>line.includes('.kw-doc-body{'));
+    await page.setContent(`<style>${baseStyle}${documentStyle}</style><div class="kw-doc-paper"><table class="kw-doc-table"><tbody><tr>${Array.from({length:12},()=>'<td>VeryLongDeviceSerialNumber12345678901234567890</td>').join('')}</tr></tbody></table></div>`);
+    const geometry = await page.evaluate(()=>{
+      const paper = document.querySelector('.kw-doc-paper');
+      const table = document.querySelector('.kw-doc-table');
+      const p = paper.getBoundingClientRect();
+      const t = table.getBoundingClientRect();
+      const style = getComputedStyle(paper);
+      return {left:t.left-p.left-parseFloat(style.paddingLeft),right:p.right-parseFloat(style.paddingRight)-t.right,overflow:table.scrollWidth-table.clientWidth};
+    });
+    assert.ok(geometry.left>=-1 && geometry.right>=-1,JSON.stringify(geometry));
+    assert.ok(geometry.overflow<=1,JSON.stringify(geometry));
+  } finally { await browser.close(); }
+});
 
 test('JOURNAL UCHETA monthly reports are persisted separately from source Sheets rows', () => {
   assert.match(migrationSource, /CREATE TABLE IF NOT EXISTS journal_reports/);
