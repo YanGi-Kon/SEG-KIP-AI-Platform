@@ -13,6 +13,29 @@
   let signerRows = [];
   let documentRenderVersion = 0;
   const signatureObjectUrls = [];
+  let reportsPreviousScroll = 0;
+  let documentPreviousScroll = 0;
+  function syncFullPageLayout() {
+    try {
+      const frame = window.frameElement;
+      if (!frame) return;
+      const expanded = document.body.classList.contains('kuduk-reports-home') || document.body.classList.contains('kuduk-document-home');
+      frame.toggleAttribute('data-kuduk-full-page',expanded);
+      if (!parent.document.getElementById('kudukFullPageStyle')) {
+        const style = parent.document.createElement('style');
+        style.id = 'kudukFullPageStyle';
+        style.textContent = '.main:has(.generic-module-page.active iframe[data-kuduk-full-page]:not([hidden])){padding:0!important;min-width:0}.main:has(.generic-module-page.active iframe[data-kuduk-full-page]:not([hidden]))>.topbar{display:none}.generic-module-page.active:has(iframe[data-kuduk-full-page]:not([hidden])){height:100dvh;min-height:0;border:0;border-radius:0;box-shadow:none}.generic-module-page.active iframe[data-kuduk-full-page]:not([hidden]){height:100dvh!important;min-height:0!important}';
+        parent.document.head.appendChild(style);
+      }
+    } catch (_) {}
+  }
+  function closeDocument() {
+    $('kudukDocumentModal')?.classList.remove('show');
+    document.body.classList.remove('kuduk-document-home');
+    releaseDocumentSignatures();
+    syncFullPageLayout();
+    window.scrollTo(0,documentPreviousScroll);
+  }
   const SIGNER_TEXT = {
     ru: {title:'5. ПОДПИСАНТЫ',registry:'Общий реестр подписантов Workspace.',refresh:'↻ Обновить',position:'Должность',name:'Ф.И.О.',status:'Статус',add:'+ Добавить',master:'Мастер КИПиА'},
     uz_cyrl: {title:'5. ИМЗО ЧЕКУВЧИЛАР',registry:'Workspace учун умумий электрон имзо реестри.',refresh:'↻ Янгилаш',position:'Лавозим',name:'Ф.И.О.',status:'Ҳолат',add:'+ Қўшиш',master:'НЎВваА устаси'},
@@ -123,6 +146,19 @@
       body.kuduk-analysis-home #kudukMonthlyModal{position:relative;inset:auto;z-index:1;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:12px;background:transparent}
       body.kuduk-analysis-home #kudukMonthlyModal .kw-monthly-shell{width:100%;max-width:none;max-height:none;min-height:calc(100vh - 24px);box-shadow:none}
       body.kuduk-analysis-home #kudukMonthlyClose{display:none!important}
+      body.kuduk-reports-home{margin:0;min-height:100vh;overflow:auto}
+      body.kuduk-reports-home .wrap,body.kuduk-reports-home #kudukMonthlyModal{display:none!important}
+      body.kuduk-reports-home #kudukReportsModal{position:relative;inset:auto;z-index:1;display:flex;align-items:stretch;min-height:100vh;padding:12px;background:transparent}
+      body.kuduk-reports-home #kudukReportsModal>.kw-shell{width:100%;max-width:none;max-height:none;min-height:calc(100vh - 24px);display:flex;flex-direction:column;box-shadow:none}
+      body.kuduk-reports-home .kw-reports-grid{flex:1;min-width:0}
+      body.kuduk-reports-home #kudukReportsModal{padding:0}
+      body.kuduk-reports-home #kudukReportsModal>.kw-shell{min-height:100vh;border:0;border-radius:0}
+      body.kuduk-document-home{margin:0;height:100vh;overflow:hidden}
+      body.kuduk-document-home .wrap,body.kuduk-document-home #kudukMonthlyModal,body.kuduk-document-home #kudukReportsModal{display:none!important}
+      body.kuduk-document-home #kudukDocumentModal{position:relative;inset:auto;z-index:1;display:flex;height:100vh;padding:0;background:transparent}
+      body.kuduk-document-home #kudukDocumentModal>.kw-shell{width:100%!important;height:100vh!important;max-height:none;display:flex;flex-direction:column;border:0;border-radius:0;box-shadow:none}
+      body.kuduk-document-home #kudukDocumentModal .kw-head{flex-shrink:0}
+      body.kuduk-document-home .kw-doc-body{flex:1;min-height:0}
       .kw-monthly-document-actions{min-height:48px;margin-top:12px}
       #kudukCreateMonthlyDocument{position:fixed;bottom:max(48px,env(safe-area-inset-bottom));right:154px;z-index:130;box-shadow:0 6px 24px rgba(0,0,0,.35)}
       .kw-monthly-shell{width:min(1380px,100%);max-height:96vh;display:flex;flex-direction:column;overflow:hidden}
@@ -236,8 +272,7 @@
           <div class="kw-doc-body"><div id="kudukDocumentPaper" class="kw-doc-paper"></div></div>
         </div>`;
       document.body.appendChild(modal);
-      $('kudukDocumentClose')?.addEventListener('click', () => { modal.classList.remove('show'); releaseDocumentSignatures(); });
-      modal.addEventListener('click', (event) => { if (event.target === modal) { modal.classList.remove('show'); releaseDocumentSignatures(); } });
+      $('kudukDocumentClose')?.addEventListener('click', closeDocument);
     }
 
     if (!$('kudukReportsModal')) {
@@ -248,7 +283,7 @@
         <div class="kw-shell">
           <div class="kw-head">
             <div><h2>3. Хисоботлар</h2><p>1. ЖУРНАЛ УЧЕТА маълумотлари 2026–2028 йиллар бўйича ойларга ажратилган.</p></div>
-            <button id="kudukReportsClose" class="btn" type="button">✕</button>
+            <button id="kudukReportsClose" class="btn" type="button">← Орқага қайтиш</button>
           </div>
           <div class="kw-reports-grid">
             <aside id="kudukReportFolders" class="kw-folders"></aside>
@@ -256,8 +291,7 @@
           </div>
         </div>`;
       document.body.appendChild(modal);
-      $('kudukReportsClose')?.addEventListener('click', () => modal.classList.remove('show'));
-      modal.addEventListener('click', (event) => { if (event.target === modal) modal.classList.remove('show'); });
+      $('kudukReportsClose')?.addEventListener('click', closeReports);
     }
 
     if (!$('kudukSignersModal')) {
@@ -715,6 +749,10 @@
   async function renderStoredDocument(bundle) {
     const paper = $('kudukDocumentPaper');
     if (!paper) return;
+    if (!document.body.classList.contains('kuduk-document-home')) documentPreviousScroll=window.scrollY;
+    document.body.classList.add('kuduk-document-home');
+    syncFullPageLayout();
+    window.scrollTo(0,0);
     releaseDocumentSignatures();
     const version = documentRenderVersion;
     const wid = workspaceId();
@@ -896,8 +934,19 @@
 
   function openReports() {
     injectUi();
+    if (!document.body.classList.contains('kuduk-reports-home')) reportsPreviousScroll = window.scrollY;
+    document.body.classList.add('kuduk-reports-home');
+    syncFullPageLayout();
     $('kudukReportsModal')?.classList.add('show');
+    window.scrollTo(0,0);
     void renderReportFolders();
+  }
+
+  function closeReports() {
+    document.body.classList.remove('kuduk-reports-home');
+    syncFullPageLayout();
+    $('kudukReportsModal')?.classList.remove('show');
+    window.scrollTo(0,reportsPreviousScroll);
   }
 
   async function loadSigners() {
@@ -1077,12 +1126,16 @@
       if (event.source!==parent || event.data?.type!=='SEG_KIP_WORKSPACE_CHANGE') return;
       releaseDocumentSignatures();
       $('kudukDocumentModal')?.classList.remove('show');
+      document.body.classList.remove('kuduk-document-home','kuduk-reports-home');
+      $('kudukReportsModal')?.classList.remove('show');
+      syncFullPageLayout();
       if ($('kudukDocumentPaper')) $('kudukDocumentPaper').innerHTML='';
       signerRows=[];
       renderSignerRows();
       if ($('kudukSignersModal')?.classList.contains('show')) void loadSigners();
     });
     window.addEventListener('pagehide',releaseDocumentSignatures);
+    window.addEventListener('pagehide',()=>{try{window.frameElement?.removeAttribute('data-kuduk-full-page');}catch(_){}});
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });

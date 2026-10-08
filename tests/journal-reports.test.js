@@ -18,7 +18,7 @@ test('journal document table fits inside the paper despite the module table mini
     await page.setViewport({width:1600,height:1000});
     const module = fs.readFileSync(new URL('../public/modules/kuduk-journal.html', import.meta.url),'utf8');
     const baseStyle = module.match(/<style>([\s\S]*?)<\/style>/)[1];
-    const documentStyle = workflowSource.split('\n').find(line=>line.includes('.kw-doc-body{'));
+    const documentStyle = workflowSource.split('\n').find(line=>line.includes('.kw-doc-paper{'));
     await page.setContent(`<style>${baseStyle}${documentStyle}</style><div class="kw-doc-paper"><table class="kw-doc-table"><tbody><tr>${Array.from({length:12},()=>'<td>VeryLongDeviceSerialNumber12345678901234567890</td>').join('')}</tr></tbody></table></div>`);
     const geometry = await page.evaluate(()=>{
       const paper = document.querySelector('.kw-doc-paper');
@@ -103,14 +103,33 @@ test('journal places the active Uzbek KIP master PNG into rows and translates th
     await page.addScriptTag({content:workflowSource});
     await page.evaluate(()=>window.KudukWorkflow.openReports());
     await page.waitForSelector('#kudukOpenStoredDocument');
+    const reportsLayout=await page.evaluate(()=>{
+      const reports=document.getElementById('kudukReportsModal');
+      const shell=reports.querySelector('.kw-shell');
+      return {position:getComputedStyle(reports).position,width:shell.getBoundingClientRect().width,viewport:innerWidth,height:shell.getBoundingClientRect().height,viewportHeight:innerHeight};
+    });
+    assert.equal(reportsLayout.position,'relative');
+    assert.ok(reportsLayout.width>=reportsLayout.viewport-26,JSON.stringify(reportsLayout));
+    assert.ok(reportsLayout.height>=reportsLayout.viewportHeight-26,JSON.stringify(reportsLayout));
     await page.click('#kudukOpenStoredDocument');
     await page.waitForFunction(()=>document.querySelector('#kudukDocumentPaper td:last-child img')?.naturalWidth>0);
+    const documentLayout=await page.evaluate(()=>{
+      const rect=document.querySelector('#kudukDocumentModal>.kw-shell').getBoundingClientRect();
+      return {x:rect.x,y:rect.y,width:rect.width,height:rect.height,viewportWidth:innerWidth,viewportHeight:innerHeight,reportsHidden:getComputedStyle(document.getElementById('kudukReportsModal')).display==='none'};
+    });
+    assert.equal(documentLayout.x,0);
+    assert.equal(documentLayout.y,0);
+    assert.equal(documentLayout.width,documentLayout.viewportWidth);
+    assert.equal(documentLayout.height,documentLayout.viewportHeight);
+    assert.equal(documentLayout.reportsHidden,true);
     assert.equal(await page.$eval('#kudukDocumentPaper td:last-child img',el=>el.title),'Test Master');
     assert.equal(await page.$eval('#kudukDocumentPaper td:nth-last-child(2)',el=>el.textContent),'Test Master');
     const requests=await page.evaluate(()=>window.signatureRequests);
     assert.equal(requests.length,1);
     assert.match(requests[0],/11111111-1111-4111-8111-111111111111/);
     await page.click('#kudukDocumentClose');
+    assert.equal(await page.evaluate(()=>document.body.classList.contains('kuduk-document-home')),false);
+    assert.equal(await page.$eval('#kudukReportsModal',el=>getComputedStyle(el).display),'flex');
     await page.evaluate(()=>window.KudukWorkflow.openSigners());
     await page.waitForFunction(()=>document.getElementById('kudukSignerRows').textContent.includes('Test Master'));
     await page.select('#kudukSignersLanguage','ru');
@@ -147,4 +166,34 @@ test('JOURNAL UCHETA Reports reads persisted monthly reports instead of reconstr
   assert.match(workflowSource, /api\('\/api\/journal-reports'\)/);
   assert.match(workflowSource, /api\('\/api\/journal-reports\/' \+ year \+ '\/' \+ month\)/);
   assert.match(workflowSource, /Ҳужжат санаси/);
+});
+
+test('reports fill the parent main area and restore its layout on return', {skip:!chromePath}, async()=>{
+  const browser=await puppeteer.launch({executablePath:chromePath,headless:true,pipe:true,args:process.platform==='linux'?['--no-sandbox']:[]});
+  try {
+    const page=await browser.newPage();
+    await page.setViewport({width:1600,height:1000});
+    const css=fs.readFileSync(new URL('../public/css/style.css',import.meta.url),'utf8');
+    await page.setContent(`<style>${css}</style><div class="app"><aside class="sidebar"></aside><main class="main"><header class="topbar">Header</header><section class="generic-module-page active"><iframe id="hisobotModuleFrame"></iframe></section></main></div>`);
+    const frame=await (await page.$('iframe')).contentFrame();
+    await frame.setContent('<style>*{box-sizing:border-box}body{margin:0}</style><body></body>');
+    await frame.evaluate(()=>{window.fetch=async()=>new Response(JSON.stringify({reports:[]}));});
+    await frame.addScriptTag({content:workflowSource});
+    await frame.evaluate(()=>window.KudukWorkflow.openReports());
+    for (const height of [1000,700]) {
+      await page.setViewport({width:1600,height});
+      const bounds=await page.evaluate(()=>{
+        const rect=document.querySelector('iframe').getBoundingClientRect();
+        const sidebar=document.querySelector('.sidebar').getBoundingClientRect();
+        return {x:rect.x,y:rect.y,right:rect.right,bottom:rect.bottom,sidebarRight:sidebar.right,width:innerWidth,height:innerHeight};
+      });
+      assert.equal(bounds.x,bounds.sidebarRight,JSON.stringify(bounds));
+      assert.equal(bounds.y,0,JSON.stringify(bounds));
+      assert.equal(bounds.right,bounds.width,JSON.stringify(bounds));
+      assert.equal(bounds.bottom,bounds.height,JSON.stringify(bounds));
+    }
+    await frame.click('#kudukReportsClose');
+    assert.equal(await page.$eval('iframe',el=>el.hasAttribute('data-kuduk-full-page')),false);
+    assert.notEqual(await page.$eval('.topbar',el=>getComputedStyle(el).display),'none');
+  } finally {await browser.close();}
 });
