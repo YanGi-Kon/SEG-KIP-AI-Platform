@@ -42,14 +42,15 @@ test('latest Workspace response wins when O‘lchov workspaces switch quickly', 
     return elements.get(id);
   };
   const parent = { localStorage, sessionStorage, postMessage() {} };
-  const menus = JSON.stringify([{ menuName: 'ПАСПОРТ МАНОМЕТР', sheetName: 'Манометр' }]);
+  const grid = {children:[],dataset:{},appendChild(child){this.children.push(child);}};
   const context = {
     console,
     document: {
       readyState: 'loading',
       addEventListener(type, handler) { handlers[type] = handler; },
       getElementById: element,
-      querySelector() { return null; },
+      querySelector(selector) { return selector === '#page-submenu .submenu-grid' ? grid : null; },
+      createElement() { return {remove(){grid.children=grid.children.filter(child=>child!==this);}}; },
     },
     fetch: async (_url, options) => {
       const workspaceId = options.headers['x-workspace-id'];
@@ -77,7 +78,7 @@ test('latest Workspace response wins when O‘lchov workspaces switch quickly', 
     id,
     moduleSettings: {
       ulchov_sheet_name: 'Манометр',
-      ulchov_menu_sheet_map: menus,
+      ulchov_menu_sheet_map: JSON.stringify([{ menuName:id==='workspace-a'?'ПАСПОРТ МАНОМЕТР':'Технический паспорт и формуляр', sheetName:'Манометр' }]),
     },
   });
 
@@ -93,4 +94,9 @@ test('latest Workspace response wins when O‘lchov workspaces switch quickly', 
   assert.equal(context.window.UlchovSheets.state.instruments.length, 1);
   assert.equal(context.window.UlchovSheets.state.instruments[0].name, 'B-1');
   assert.equal(element('total-count').textContent, 1);
+  assert.equal(grid.children.length,1);
+  assert.match(grid.children[0].innerHTML, /<h3>Технический паспорт и формуляр<\/h3>/);
+  assert.equal(context.window.UlchovSheets.state.activeMenu,'Технический паспорт и формуляр');
+  grid.children[0].onclick();
+  assert.equal(context.window.UlchovSheets.state.activeMenu,'Технический паспорт и формуляр');
 });

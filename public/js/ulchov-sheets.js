@@ -6,7 +6,6 @@
     {menuName:'ТЕЛЕМЕХАНИКА ФОРМУЛЯР',sheetName:'Телемеханика'},
     {menuName:"UMUMIY BO'LIM",sheetName:'Умумий'}
   ];
-  const MENU_ORDER=['ПАСПОРТ МАНОМЕТР','ФОРМУЛЯР','ТЕЛЕМЕХАНИКА ФОРМУЛЯР',"UMUMIY BO'LIM"];
   const ICONS={'ПАСПОРТ МАНОМЕТР':'📋','ФОРМУЛЯР':'📄','ТЕЛЕМЕХАНИКА ФОРМУЛЯР':'📡',"UMUMIY BO'LIM":'🧭'};
   const DESCS={
     'ПАСПОРТ МАНОМЕТР':'Манометр паспортлари ва ўлчов асбоблари реестри.',
@@ -81,7 +80,7 @@
         }
       }, '*');
     }
-    await loadSheet(true);closeSettings()
+    patchCards();await loadSheet(true);closeSettings()
     }catch(e){
       let errMsg = e.message;
       if (errMsg.includes('invalid_grant') || errMsg.includes('account not found')) {
@@ -90,7 +89,7 @@
       localStorage.setItem(KEYS.confirmed,'false');setMsg(errMsg,'bad');setStatus(errMsg,'bad')
     }
   }
-  function clearSettings(){localStorage.removeItem(KEYS.menus);localStorage.removeItem(KEYS.legacySheet);localStorage.removeItem(KEYS.confirmed);state.instruments=[];state.loaded=false;state.loadedSheet='';clearCards('Созламалар тозаланди. Google Sheets уланиш созламаларини киритинг.');setStatus('Созламалар тозаланди.','warn');setMsg('Созламалар тозаланди.','warn')}
+  function clearSettings(){localStorage.removeItem(KEYS.menus);localStorage.removeItem(KEYS.legacySheet);localStorage.removeItem(KEYS.confirmed);state.instruments=[];state.loaded=false;state.loadedSheet='';patchCards();clearCards('Созламалар тозаланди. Google Sheets уланиш созламаларини киритинг.');setStatus('Созламалар тозаланди.','warn');setMsg('Созламалар тозаланди.','warn')}
   function color(b){if(typeof window.getBrandColor==='function')return window.getBrandColor(b);const k=String(b||'').toLowerCase();if(k.includes('wika'))return'#00aaff';if(k.includes('физ'))return'#00cc66';if(k.includes('полит'))return'#ffaa00';if(k.includes('метран'))return'#aa44ff';if(k.includes('росма'))return'#ff4444';if(k.includes('темпу'))return'#ff6600';return'#00d4ff'}
   function devIcon(n){if(typeof window.getDeviceIcon==='function')return window.getDeviceIcon(n);const k=String(n||'').toLowerCase();if(k.includes('темп'))return'🌡️';if(k.includes('уров'))return'📏';if(k.includes('дат'))return'📡';return'⚙️'}
   function brandIcon(b){return typeof window.getBrandIcon==='function'?window.getBrandIcon(b):'◆'}
@@ -141,7 +140,18 @@
   }
   function showConfiguredPage(){if(typeof window.goPage==='function')window.goPage('pasport');setPageTitle();renderSummary(state.instruments);renderCards(state.instruments)}
   async function openConfiguredMenu(menuName){state.activeMenu=menuName;state.loaded=false;const wanted=sheetFor(menuName);if(!wanted){setStatus(`${menuName} учун ASOSIY VAROQ киритилмаган.`,'bad');if (window.ulchovIsAdmin !== false) { openSettings(); } return}if(!hasSettings()){clearCards('Созламалар киритилмаган.');setStatus(`${menuName} учун аввал Google Sheets созламаларини киритинг.`,'warn');if (window.ulchovIsAdmin !== false) { openSettings(); } return}const ok=await loadSheet(false);if(ok)showConfiguredPage()}
-  function patchCards(){const grid=document.querySelector('#page-submenu .submenu-grid');if(!grid||grid.dataset.ulchovPatched==='true')return;Array.from(grid.children).forEach(ch=>ch.remove());MENU_ORDER.forEach(name=>{const b=document.createElement('button');b.type='button';b.className='sub-card ulchov-nav-card';b.innerHTML=`<div class="sub-icon">${ICONS[name]}</div><h3>${esc(name)}</h3><p>${esc(DESCS[name])}</p>`;b.onclick=()=>openConfiguredMenu(name);grid.appendChild(b)});grid.dataset.ulchovPatched='true'}
+  function patchCards(){
+    const grid=document.querySelector('#page-submenu .submenu-grid');if(!grid)return;
+    const configured=readMenus();const menus=configured.length?configured:DEFAULT_MENUS;
+    const signature=JSON.stringify(menus);if(grid.dataset.ulchovMenus===signature)return;
+    Array.from(grid.children).forEach(ch=>ch.remove());
+    menus.forEach(({menuName:name})=>{
+      const b=document.createElement('button');b.type='button';b.className='sub-card ulchov-nav-card';
+      b.innerHTML=`<div class="sub-icon">${ICONS[name]||'📋'}</div><h3>${esc(name)}</h3><p>${esc(DESCS[name]||'Ўлчов асбоблари маълумотлари.')}</p>`;
+      b.onclick=()=>openConfiguredMenu(name);grid.appendChild(b);
+    });
+    grid.dataset.ulchovMenus=signature;
+  }
   function fixText(){[document.querySelector('.stats-bar'),document.querySelector('#page-main'),document.querySelector('#page-pasport')].filter(Boolean).forEach(root=>{const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode()))n.nodeValue=n.nodeValue.replace(/аслоб/g,'асбоб').replace(/Аслоб/g,'Асбоб')})}
   async function handleWorkspace(ws, isAdmin, nextWorkspaceId='') {
     const nextId=String(nextWorkspaceId||ws?.id||workspaceId()||'').trim();
@@ -171,6 +181,7 @@
     state.loaded=false;
     state.loadedSheet='';
     const workspaceMenus=readMenus();
+    patchCards();
     if(workspaceMenus.length&&!workspaceMenus.some(item=>item.menuName===state.activeMenu)){
       state.activeMenu=workspaceMenus[0].menuName;
     }
@@ -233,7 +244,7 @@
     patchCards();
     fixText();
     window.filterCards=filterCards;
-    window.goPasport=()=>openConfiguredMenu('ПАСПОРТ МАНОМЕТР');
+    window.goPasport=()=>openConfiguredMenu(readMenus()[0]?.menuName||DEFAULT_MENUS[0].menuName);
     
     if (window.parent && window.parent !== window) {
       setStatus('Иш жойи созланмоқда...', 'warn');
