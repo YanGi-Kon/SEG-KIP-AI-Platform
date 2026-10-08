@@ -10,6 +10,39 @@
   const clean = (v) => String(v ?? '').trim();
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const parentStorage = (store, key) => { try { return parent?.[store]?.getItem(key) || ''; } catch (_) { return ''; } };
+  let signerRows = [];
+  let documentRenderVersion = 0;
+  const signatureObjectUrls = [];
+  const SIGNER_TEXT = {
+    ru: {title:'5. ПОДПИСАНТЫ',registry:'Общий реестр подписантов Workspace.',refresh:'↻ Обновить',position:'Должность',name:'Ф.И.О.',status:'Статус',add:'+ Добавить',master:'Мастер КИПиА'},
+    uz_cyrl: {title:'5. ИМЗО ЧЕКУВЧИЛАР',registry:'Workspace учун умумий электрон имзо реестри.',refresh:'↻ Янгилаш',position:'Лавозим',name:'Ф.И.О.',status:'Ҳолат',add:'+ Қўшиш',master:'НЎВваА устаси'},
+    uz: {title:'5. IMZO CHEKUVCHILAR',registry:'Workspace uchun umumiy elektron imzo reestri.',refresh:'↻ Yangilash',position:'Lavozim',name:'F.I.O.',status:'Holat',add:'+ Qo‘shish',master:'NO‘V va A ustasi'},
+    en: {title:'5. SIGNERS',registry:'Shared Workspace signer registry.',refresh:'↻ Refresh',position:'Position',name:'Full name',status:'Status',add:'+ Add',master:'Instrumentation master'},
+  };
+  function isKipMasterSigner(row) {
+    const position = clean(row.position).normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'');
+    return ['мастеркипиа','нўввааустаси','нуввааустаси','masterkipia','novvaaustasi','instrumentationmaster'].includes(position);
+  }
+  function signerLanguage() {
+    const lang = $('kudukSignersLanguage')?.value || parentStorage('localStorage','seg_kip_lang') || 'ru';
+    return SIGNER_TEXT[lang] ? lang : 'ru';
+  }
+  function renderSignerRows() {
+    const text = SIGNER_TEXT[signerLanguage()];
+    const body = $('kudukSignerRows');
+    if (body) body.innerHTML = signerRows.length ? signerRows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(isKipMasterSigner(r)?text.master:r.position)}</td><td>${esc(r.fullName||r.fio)}</td><td>${esc(r.email||r.gmail)}</td><td>${esc(r.status||'active')}</td></tr>`).join('') : '<tr><td colspan="5" class="kw-empty">—</td></tr>';
+  }
+  function applySignerLanguage() {
+    const text = SIGNER_TEXT[signerLanguage()];
+    $('kudukSignersModal')?.querySelectorAll('[data-signer-text]').forEach(el=>{el.textContent=text[el.dataset.signerText];});
+    if ($('kudukSignerPosition')) $('kudukSignerPosition').placeholder=text.position;
+    if ($('kudukSignerName')) $('kudukSignerName').placeholder=text.name;
+    renderSignerRows();
+  }
+  function releaseDocumentSignatures() {
+    documentRenderVersion++;
+    signatureObjectUrls.splice(0).forEach(url=>URL.revokeObjectURL(url));
+  }
 
   function workspaceId() {
     return clean(
@@ -203,8 +236,8 @@
           <div class="kw-doc-body"><div id="kudukDocumentPaper" class="kw-doc-paper"></div></div>
         </div>`;
       document.body.appendChild(modal);
-      $('kudukDocumentClose')?.addEventListener('click', () => modal.classList.remove('show'));
-      modal.addEventListener('click', (event) => { if (event.target === modal) modal.classList.remove('show'); });
+      $('kudukDocumentClose')?.addEventListener('click', () => { modal.classList.remove('show'); releaseDocumentSignatures(); });
+      modal.addEventListener('click', (event) => { if (event.target === modal) { modal.classList.remove('show'); releaseDocumentSignatures(); } });
     }
 
     if (!$('kudukReportsModal')) {
@@ -234,13 +267,15 @@
       modal.innerHTML = `
         <div class="kw-shell" style="width:min(980px,100%)">
           <div class="kw-head">
-            <div><h2>5. ИМЗО ЧЕКУВЧИЛАР</h2><p>Workspace учун умумий электрон имзо реестри.</p></div>
+            <div><h2 data-signer-text="title">5. ИМЗО ЧЕКУВЧИЛАР</h2><p data-signer-text="registry">Workspace учун умумий электрон имзо реестри.</p></div>
             <button id="kudukSignersClose" class="btn" type="button">✕</button>
           </div>
           <div class="kw-body">
             <div class="kw-actions" style="justify-content:space-between;margin-bottom:12px">
               <div id="kudukSignersStatus" class="kw-status sync">Юкланмоқда...</div>
-              <button id="kudukSignersRefresh" class="btn" type="button">↻ Янгилаш</button>
+              <div class="kw-actions"><label style="font-size:12px">🌐 Язык интерфейса
+                <select id="kudukSignersLanguage" class="btn" aria-label="Язык интерфейса"><option value="ru">Русский</option><option value="uz_cyrl">Ўзбекча (кирилл)</option><option value="uz">O‘zbekcha (lotin)</option><option value="en">English</option></select>
+              </label><button id="kudukSignersRefresh" class="btn" type="button" data-signer-text="refresh">↻ Янгилаш</button></div>
             </div>
             <div class="kw-card workspace-admin-only">
               <div class="kw-add-grid">
@@ -250,16 +285,21 @@
                 <input id="kudukSignerFile" type="file" accept="image/png">
               </div>
               <div class="kw-actions" style="justify-content:flex-end;margin-top:10px">
-                <button id="kudukSignerAdd" class="btn green" type="button">+ Қўшиш</button>
+                <button id="kudukSignerAdd" class="btn green" type="button" data-signer-text="add">+ Қўшиш</button>
               </div>
               <div id="kudukSignerAddStatus" class="kw-status"></div>
             </div>
-            <div class="tablewrap"><table class="kw-signers-table"><thead><tr><th>№</th><th>Лавозим</th><th>Ф.И.О.</th><th>Gmail</th><th>Ҳолат</th></tr></thead><tbody id="kudukSignerRows"></tbody></table></div>
+            <div class="tablewrap"><table class="kw-signers-table"><thead><tr><th>№</th><th data-signer-text="position">Лавозим</th><th data-signer-text="name">Ф.И.О.</th><th>Gmail</th><th data-signer-text="status">Ҳолат</th></tr></thead><tbody id="kudukSignerRows"></tbody></table></div>
           </div>
         </div>`;
       document.body.appendChild(modal);
       $('kudukSignersClose')?.addEventListener('click', () => modal.classList.remove('show'));
       $('kudukSignersRefresh')?.addEventListener('click', () => void loadSigners());
+      $('kudukSignersLanguage')?.addEventListener('change', () => {
+        const lang = signerLanguage();
+        try { localStorage.setItem('seg_kip_lang',lang); parent.localStorage.setItem('seg_kip_lang',lang); parent.setLanguage?.(lang); } catch (_) {}
+        applySignerLanguage();
+      });
       $('kudukSignerAdd')?.addEventListener('click', () => void addSigner());
       modal.addEventListener('click', (event) => { if (event.target === modal) modal.classList.remove('show'); });
     }
@@ -672,9 +712,44 @@
     return m ? m[3] + '.' + m[2] + '.' + m[1] : raw;
   }
 
-  function renderStoredDocument(bundle) {
+  async function renderStoredDocument(bundle) {
     const paper = $('kudukDocumentPaper');
     if (!paper) return;
+    releaseDocumentSignatures();
+    const version = documentRenderVersion;
+    const wid = workspaceId();
+    const signatureUrls = new Map();
+    let masters = [], signatureError = '';
+    $('kudukDocumentModal')?.classList.add('show');
+    paper.innerHTML = '<div class="kw-empty">Ҳужжат ва имзо юкланмоқда...</div>';
+    try {
+      const data = await api('/api/workspaces/' + encodeURIComponent(wid) + '/signers');
+      masters = (data.rows || []).filter(row=>clean(row.status||'active')==='active' && isKipMasterSigner(row));
+      const imageResults = await Promise.allSettled(masters.map(async signer=>{
+        const signatureId = clean(signer.signatureFileId).match(/^db:([0-9a-f-]{36})$/i)?.[1];
+        if (signatureId) {
+          const path = '/api/workspaces/' + encodeURIComponent(wid) + '/signers/signature/' + encodeURIComponent(signatureId);
+          let response = await fetch(path,{headers:{Authorization:'Bearer '+authToken(),'x-workspace-id':wid},credentials:'include'});
+          if (response.status===401) {
+            await refreshSession();
+            response = await fetch(path,{headers:{Authorization:'Bearer '+authToken(),'x-workspace-id':wid},credentials:'include'});
+          }
+          if (!response.ok) throw new Error('Уста имзосини юклаб бўлмади.');
+          const blob = await response.blob();
+          if (version!==documentRenderVersion || wid!==workspaceId()) return;
+          if (!blob.type.startsWith('image/')) throw new Error('Имзо расм формати нотўғри.');
+          const url = URL.createObjectURL(blob);
+          signatureObjectUrls.push(url);
+          signatureUrls.set(signer.id,url);
+        } else if (/^https:\/\//i.test(clean(signer.signatureUrl))) {
+          signatureUrls.set(signer.id,clean(signer.signatureUrl));
+        }
+      }));
+      const failed = imageResults.find(result=>result.status==='rejected');
+      if (failed) signatureError = failed.reason.message;
+      if (!masters.length) signatureError = 'Фаол «Мастер КИПиА / НЎВваА устаси» имзо чекувчиси топилмади.';
+    } catch (error) { signatureError = error.message; }
+    if (version!==documentRenderVersion || wid!==workspaceId()) return;
     const report = bundle?.report || {};
     const batches = Array.isArray(bundle?.batches) ? bundle.batches : [];
     const items = Array.isArray(bundle?.items) ? bundle.items : [];
@@ -683,7 +758,12 @@
     const body = items.map((r,index) => {
       const batch = batchById.get(r.batchId) || {};
       const documentDate = formatDocumentDate(batch.documentDate) || r.date;
-      return `<tr><td>${index+1}</td><td>${esc(documentDate)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(r.executor)}</td><td>${esc(r.signature)}</td></tr>`;
+      const matched = masters.filter(signer=>clean(signer.fullName||signer.fio).toLowerCase()===clean(r.executor).toLowerCase());
+      const master = matched.length===1 ? matched[0] : masters.length===1 ? masters[0] : null;
+      if (masters.length>1 && !master) signatureError = 'Бир нечта уста киритилган. Қаторнинг «Исполнитель» қийматига мос устани белгиланг.';
+      const url = master && signatureUrls.get(master.id);
+      const signature = url ? `<img src="${esc(url)}" alt="Имзо" title="${esc(master.fullName||master.fio)}" style="display:block;width:100%;max-width:20mm;height:8mm;object-fit:contain;margin:auto">` : esc(r.signature);
+      return `<tr><td>${index+1}</td><td>${esc(documentDate)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(r.executor)}</td><td>${signature}</td></tr>`;
     }).join('');
 
     paper.innerHTML = `
@@ -691,7 +771,7 @@
       <div class="kw-doc-subtitle">${esc(MONTHS[Number(report.month)] || report.month)} ${esc(report.year)}</div>
       <table class="kw-doc-table"><thead><tr><th>№</th><th>Дата</th><th>Поз номер</th><th>Наименование СИ</th><th>Тип, марка</th><th>Заводской номер</th><th>Предел измерения</th><th>Место установки</th><th>СКВ</th><th>Перечень в/р</th><th>Исполнитель</th><th>Подпись</th></tr></thead><tbody>${body || '<tr><td colspan="12">Маълумот йўқ.</td></tr>'}</tbody></table>`;
     if ($('kudukDocumentStatus')) $('kudukDocumentStatus').textContent =
-      (MONTHS[Number(report.month)] || report.month) + ' ' + report.year + ' · ' + items.length + ' та ёзув';
+      (MONTHS[Number(report.month)] || report.month) + ' ' + report.year + ' · ' + items.length + ' та ёзув' + (signatureError ? ' · '+signatureError : '');
     $('kudukDocumentModal')?.classList.add('show');
   }
 
@@ -725,7 +805,7 @@
         $('kudukMonthlyStatus').textContent = '✅ ' + Number(data.addedCount || 0) + ' та қатор ҳисоботга қўшилди' + (skipped ? ', ' + skipped + ' та такрорий қатор ўтказиб юборилди' : '');
         $('kudukMonthlyStatus').className = 'kw-status ok';
       }
-      renderStoredDocument(data);
+      await renderStoredDocument(data);
     } catch (error) {
       if (status) {
         status.textContent = error?.data?.recommendedFix ? error.message + ' · ' + error.data.recommendedFix : error.message;
@@ -827,8 +907,10 @@
       const wid = workspaceId();
       if (!wid) throw new Error('Workspace танланмаган');
       const data = await api('/api/workspaces/' + encodeURIComponent(wid) + '/signers?includeInactive=true');
+      if (wid!==workspaceId()) return;
       const rows = Array.isArray(data.rows) ? data.rows : [];
-      if (body) body.innerHTML = rows.length ? rows.map((r,i) => `<tr><td>${i+1}</td><td>${esc(r.position)}</td><td>${esc(r.fullName || r.fio)}</td><td>${esc(r.email || r.gmail)}</td><td>${esc(r.status || 'active')}</td></tr>`).join('') : '<tr><td colspan="5" class="kw-empty">Имзо чекувчилар топилмади.</td></tr>';
+      signerRows = rows;
+      applySignerLanguage();
       if (status) { status.textContent = rows.length + ' та имзо чекувчи'; status.className = 'kw-status ok'; }
     } catch (error) {
       if (status) { status.textContent = error.message; status.className = 'kw-status bad'; }
@@ -873,6 +955,9 @@
 
   function openSigners() {
     injectUi();
+    const lang = parentStorage('localStorage','seg_kip_lang') || localStorage.getItem('seg_kip_lang') || 'ru';
+    if ($('kudukSignersLanguage')) $('kudukSignersLanguage').value = SIGNER_TEXT[lang] ? lang : 'ru';
+    applySignerLanguage();
     $('kudukSignersModal')?.classList.add('show');
     void loadSigners();
   }
@@ -987,6 +1072,16 @@
   function init() {
     injectStyle();
     injectUi();
+    window.addEventListener('message', event=>{
+      if (event.source!==parent || event.data?.type!=='SEG_KIP_WORKSPACE_CHANGE') return;
+      releaseDocumentSignatures();
+      $('kudukDocumentModal')?.classList.remove('show');
+      if ($('kudukDocumentPaper')) $('kudukDocumentPaper').innerHTML='';
+      signerRows=[];
+      renderSignerRows();
+      if ($('kudukSignersModal')?.classList.contains('show')) void loadSigners();
+    });
+    window.addEventListener('pagehide',releaseDocumentSignatures);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });

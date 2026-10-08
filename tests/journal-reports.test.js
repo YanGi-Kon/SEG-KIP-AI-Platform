@@ -73,6 +73,54 @@ test('JOURNAL UCHETA monthly reports are persisted separately from source Sheets
   assert.match(migrationSource, /UNIQUE \(report_id, source_key\)/);
 });
 
+test('journal places the active Uzbek KIP master PNG into rows and translates the signer interface', {skip:!chromePath}, async()=>{
+  const browser=await puppeteer.launch({executablePath:chromePath,headless:true,pipe:true,args:process.platform==='linux'?['--no-sandbox','--disable-dev-shm-usage']:[]});
+  try {
+    const page=await browser.newPage();
+    await page.setContent('<body></body>');
+    await page.evaluate(()=>{
+      const storage=new Map();
+      Object.defineProperty(window,'localStorage',{value:{getItem:key=>storage.get(key)||'',setItem:(key,value)=>storage.set(key,value)}});
+      window.KudukJournalWorkspace={workspaceId:()=> 'test-workspace'};
+      window.signatureRequests=[];
+      window.fetch=async url=>{
+        if(String(url).includes('/signers/signature/')) {
+          window.signatureRequests.push(String(url));
+          const binary=atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=');
+          return new Response(Uint8Array.from(binary,c=>c.charCodeAt(0)),{headers:{'Content-Type':'image/png'}});
+        }
+        let data;
+        if(String(url).includes('/signers')) data={rows:[
+          {id:'master',position:'НЎВваА устаси',fullName:'Test Master',status:'active',signatureFileId:'db:11111111-1111-4111-8111-111111111111'},
+          {id:'inactive',position:'Мастер КИПиА',fullName:'Inactive Master',status:'inactive',signatureFileId:'db:22222222-2222-4222-8222-222222222222'},
+          {id:'chief',position:'Начальник КИПиА',fullName:'Chief',status:'active',signatureFileId:'db:33333333-3333-4333-8333-333333333333'}
+        ]};
+        else if(String(url)==='/api/journal-reports') data={reports:[{year:2026,month:5,rowCount:1}]};
+        else data={report:{year:2026,month:5},batches:[],items:[{executor:'Test Master',name:'Манометр'}]};
+        return new Response(JSON.stringify(data),{status:200});
+      };
+    });
+    await page.addScriptTag({content:workflowSource});
+    await page.evaluate(()=>window.KudukWorkflow.openReports());
+    await page.waitForSelector('#kudukOpenStoredDocument');
+    await page.click('#kudukOpenStoredDocument');
+    await page.waitForFunction(()=>document.querySelector('#kudukDocumentPaper td:last-child img')?.naturalWidth>0);
+    assert.equal(await page.$eval('#kudukDocumentPaper td:last-child img',el=>el.title),'Test Master');
+    const requests=await page.evaluate(()=>window.signatureRequests);
+    assert.equal(requests.length,1);
+    assert.match(requests[0],/11111111-1111-4111-8111-111111111111/);
+    await page.click('#kudukDocumentClose');
+    await page.evaluate(()=>window.KudukWorkflow.openSigners());
+    await page.waitForFunction(()=>document.getElementById('kudukSignerRows').textContent.includes('Test Master'));
+    await page.select('#kudukSignersLanguage','ru');
+    assert.match(await page.$eval('#kudukSignerRows',el=>el.textContent),/Мастер КИПиА/);
+    assert.equal(await page.$eval('#kudukSignerPosition',el=>el.placeholder),'Должность');
+    await page.select('#kudukSignersLanguage','uz_cyrl');
+    assert.match(await page.$eval('#kudukSignerRows',el=>el.textContent),/НЎВваА устаси/);
+    assert.equal(await page.$eval('#kudukSignerPosition',el=>el.placeholder),'Лавозим');
+  } finally {await browser.close();}
+});
+
 test('JOURNAL UCHETA mounts a workspace-protected report API', () => {
   assert.match(serverSource, /app\.use\("\/api\/journal-reports", journalReportsRouter\)/);
   assert.match(routeSource, /requireWorkspaceRequestPermission\('workspace:read'\)/);
