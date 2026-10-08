@@ -77,7 +77,7 @@
       document.body.prepend(template.content);
     }
     const style = document.createElement('style');
-    style.textContent = '#segSharedLoader{position:fixed;inset:0;z-index:60000;display:grid;place-items:center;background:rgba(2,8,23,.10);font-family:Arial,sans-serif}#segSharedLoader[hidden]{display:none}#segSharedLoader>div{display:grid;justify-items:center;gap:8px;padding:8px 18px 12px}#segSharedLoader img{display:block;width:min(200px,45vw);height:auto;aspect-ratio:1;object-fit:contain;filter:url(#segLoaderBackgroundKey)}#segSharedLoader span{color:#f8fafc;font-size:14px;font-weight:900;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.72)}';
+    style.textContent = '#segSharedLoader{position:fixed;inset:0;z-index:60000;display:grid;place-items:center;background:transparent;font-family:Arial,sans-serif}#segSharedLoader[hidden]{display:none}#segSharedLoader>div{display:grid;justify-items:center;gap:8px;padding:8px 18px 12px}#segSharedLoader img{display:block;width:min(200px,45vw);height:auto;aspect-ratio:1;object-fit:contain;filter:url(#segLoaderBackgroundKey)}#segSharedLoader span{color:#f8fafc;font-size:14px;font-weight:900;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.72)}';
     if (!hostWindow.document.getElementById('segAppLoader') && !hostWindow.document.getElementById('segSharedLoader')) {
       hostWindow.document.head.append(style);
       const loader = hostWindow.document.createElement('div');

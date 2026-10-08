@@ -20,6 +20,7 @@ test('one shared kachalka follows loading states without changing status text', 
     await page.waitForFunction(() => document.querySelector('#segSharedLoader:not([hidden])'));
     assert.equal(await page.$$eval('[data-kachalka]', els => els.length), 1);
     assert.equal(await page.$eval('#segSharedLoader img', el => getComputedStyle(el).width), '200px');
+    assert.equal(await page.$eval('#segSharedLoader', el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
     assert.equal(await page.$eval('#period', el => el.firstChild.textContent), 'Davr yuklanmoqda...');
     await page.evaluate(() => {
       document.getElementById('period').textContent = 'Tayyor';

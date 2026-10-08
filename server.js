@@ -82,15 +82,9 @@ const staticNoCacheOptions = {
 
 const authBootGuard = `
 <style id="sanegAuthBootStyle">
-  html.saneg-auth-boot,
-  html.saneg-auth-boot body {
-    background: #020817 !important;
-  }
-
   html.saneg-auth-boot .app {
     visibility: visible !important;
     pointer-events: none !important;
-    filter: brightness(.72) saturate(.86);
   }
 
   html.saneg-auth-boot #sanegLoginGate,
