@@ -33,6 +33,38 @@ test('journal document table fits inside the paper despite the module table mini
   } finally { await browser.close(); }
 });
 
+test('journal lets administrators reconnect an unreadable Personal Drive secret', {skip: !chromePath}, async () => {
+  const browser = await puppeteer.launch({executablePath:chromePath,headless:true,pipe:true,args:process.platform==='linux'?['--no-sandbox','--disable-dev-shm-usage']:[]});
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<body></body>');
+    await page.evaluate(()=>{
+      window.KudukJournalWorkspace = {workspaceId:()=> 'test-workspace'};
+      window.savedDrive = false;
+      window.testRole = 'administrator';
+      window.fetch = async (url,options={}) => {
+        let data;
+        if (String(url).endsWith('/personal-drive')) {
+          if (options.method==='PUT') window.savedDrive = true;
+          data = {result:{appsScriptUrl:'https://script.google.com/macros/s/test/exec',ready:window.savedDrive,needsReconfiguration:!window.savedDrive}};
+        } else data = {workspace:{memberRole:window.testRole,finalDocumentsFolderId:'test-folder'}};
+        return new Response(JSON.stringify(data),{status:200});
+      };
+    });
+    await page.addScriptTag({content:workflowSource});
+    await page.evaluate(()=>window.KudukWorkflow.openFinalDocuments());
+    await page.waitForFunction(()=>document.getElementById('kudukPersonalDriveStatus').textContent.includes('SEG_KIP_WEBHOOK_SECRET'));
+    assert.equal(await page.$eval('#kudukPersonalDriveConfig',el=>el.hidden),false);
+    assert.equal(await page.$eval('#kudukPersonalDriveSecret',el=>el.type),'password');
+    await page.type('#kudukPersonalDriveSecret','test-secret-with-more-than-32-characters');
+    await page.click('#kudukPersonalDriveSave');
+    await page.waitForFunction(()=>document.getElementById('kudukPersonalDriveStatus').textContent.includes('Personal Drive ulangan'));
+    assert.equal(await page.$eval('#kudukPersonalDriveSecret',el=>el.value),'');
+    await page.evaluate(()=>{window.testRole='operator';window.KudukWorkflow.openFinalDocuments();});
+    await page.waitForFunction(()=>document.getElementById('kudukPersonalDriveConfig').hidden);
+  } finally { await browser.close(); }
+});
+
 test('JOURNAL UCHETA monthly reports are persisted separately from source Sheets rows', () => {
   assert.match(migrationSource, /CREATE TABLE IF NOT EXISTS journal_reports/);
   assert.match(migrationSource, /CREATE TABLE IF NOT EXISTS journal_report_batches/);

@@ -286,6 +286,21 @@
               </div>
               <div id="kudukFinalStatus" class="kw-status sync" style="margin-top:10px">Папка ҳолати текширилмаган.</div>
             </div>
+            <div class="kw-card">
+              <b>Personal Drive ulanishi</b>
+              <div id="kudukPersonalDriveConfig" hidden>
+                <label style="margin-top:10px">Apps Script /exec URL
+                  <input id="kudukPersonalDriveUrl" type="url" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec">
+                </label>
+                <label style="margin-top:10px">Webhook secret (kamida 32 belgi)
+                  <input id="kudukPersonalDriveSecret" type="password" autocomplete="new-password" placeholder="Saqlangan secret qayta ko‘rsatilmaydi">
+                </label>
+                <div class="kw-actions" style="justify-content:flex-end;margin-top:12px">
+                  <button id="kudukPersonalDriveSave" class="btn primary" type="button">Qayta ulash</button>
+                </div>
+              </div>
+              <div id="kudukPersonalDriveStatus" class="kw-status" style="margin-top:10px"></div>
+            </div>
           </div>
         </div>`;
       document.body.appendChild(modal);
@@ -293,6 +308,7 @@
       $('kudukFinalSave')?.addEventListener('click', () => void saveFinalFolder());
       $('kudukFinalTest')?.addEventListener('click', () => void testFinalFolder());
       $('kudukFinalOpen')?.addEventListener('click', openFinalFolder);
+      $('kudukPersonalDriveSave')?.addEventListener('click', () => void savePersonalDrive());
       modal.addEventListener('click', (event) => { if (event.target === modal) modal.classList.remove('show'); });
     }
   }
@@ -864,16 +880,61 @@
   async function loadFinalFolder() {
     const input = $('kudukFinalFolder');
     const status = $('kudukFinalStatus');
+    if ($('kudukPersonalDriveConfig')) $('kudukPersonalDriveConfig').hidden = true;
+    if ($('kudukPersonalDriveSecret')) $('kudukPersonalDriveSecret').value = '';
     try {
       const wid = workspaceId();
       if (!wid) throw new Error('Workspace танланмаган');
       const data = await api('/api/workspaces/' + encodeURIComponent(wid));
+      if (wid !== workspaceId()) return;
+      if ($('kudukPersonalDriveConfig')) $('kudukPersonalDriveConfig').hidden = !['owner','administrator'].includes(clean(data.workspace?.memberRole).toLowerCase());
       const folderId = clean(data.workspace?.finalDocumentsFolderId || data.finalDocumentsFolderId);
       if (input) input.value = folderId;
       if (status) { status.textContent = folderId ? 'Drive папка созланган.' : 'Drive папка созланмаган.'; status.className = 'kw-status ' + (folderId ? 'sync' : 'bad'); }
+      await loadPersonalDriveStatus(wid);
     } catch (error) {
       if (status) { status.textContent = error.message; status.className = 'kw-status bad'; }
     }
+  }
+
+  async function loadPersonalDriveStatus(wid) {
+    const status = $('kudukPersonalDriveStatus');
+    try {
+      const data = await api('/api/workspaces/' + encodeURIComponent(wid) + '/documents/personal-drive');
+      if (wid !== workspaceId()) return;
+      const result = data.result || {};
+      if ($('kudukPersonalDriveUrl')) $('kudukPersonalDriveUrl').value = result.appsScriptUrl || '';
+      if (status) {
+        status.textContent = result.needsReconfiguration
+          ? 'Saqlangan Drive secretini ochib bo‘lmadi. Yuqoridagi URL va Apps Script dagi SEG_KIP_WEBHOOK_SECRET qiymatini qayta kiriting. Buni Workspace owner yoki administrator bajaradi.'
+          : result.ready ? 'Personal Drive ulangan. Papkani “Текшириш” orqali tekshiring.' : 'Personal Drive ulanmagan. Shared Drive sozlamalari ishlatiladi.';
+        status.className = 'kw-status ' + (result.needsReconfiguration ? 'bad' : result.ready ? 'ok' : 'sync');
+      }
+    } catch (error) {
+      if (wid === workspaceId() && status) { status.textContent = error.message; status.className = 'kw-status bad'; }
+    }
+  }
+
+  async function savePersonalDrive() {
+    const wid = workspaceId();
+    const status = $('kudukPersonalDriveStatus');
+    const button = $('kudukPersonalDriveSave');
+    const appsScriptUrl = clean($('kudukPersonalDriveUrl')?.value);
+    const secret = clean($('kudukPersonalDriveSecret')?.value);
+    if (!wid || !appsScriptUrl || secret.length < 32) {
+      if (status) { status.textContent = 'Apps Script /exec URL va kamida 32 belgili secret kiriting.'; status.className = 'kw-status bad'; }
+      return;
+    }
+    try {
+      button.disabled = true;
+      if (status) { status.textContent = 'Drive ulanishi saqlanmoqda...'; status.className = 'kw-status sync'; }
+      await api('/api/workspaces/' + encodeURIComponent(wid) + '/documents/personal-drive', { method:'PUT', body:JSON.stringify({ appsScriptUrl, secret }) });
+      if (wid !== workspaceId()) return;
+      $('kudukPersonalDriveSecret').value = '';
+      await loadPersonalDriveStatus(wid);
+    } catch (error) {
+      if (wid === workspaceId() && status) { status.textContent = error.message; status.className = 'kw-status bad'; }
+    } finally { button.disabled = false; }
   }
 
   async function saveFinalFolder() {
@@ -904,7 +965,8 @@
       await api('/api/workspaces/' + encodeURIComponent(wid) + '/documents/final-folder/test', { method:'POST', body:'{}' });
       if (status) { status.textContent = '✅ Drive папка ёзиш учун тайёр.'; status.className = 'kw-status ok'; }
     } catch (error) {
-      if (status) { status.textContent = error.message; status.className = 'kw-status bad'; }
+      if (status) { status.textContent = [error.message, error.data?.recommendedFix].filter(Boolean).join(' '); status.className = 'kw-status bad'; }
+      if (error.data?.code === 'WORKSPACE_SECRET_DECRYPT_FAILED' || error.data?.code === 'WORKSPACE_SECRET_INVALID') await loadPersonalDriveStatus(wid);
     }
   }
 
