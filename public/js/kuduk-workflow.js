@@ -763,7 +763,8 @@
       if (masters.length>1 && !master) signatureError = 'Бир нечта уста киритилган. Қаторнинг «Исполнитель» қийматига мос устани белгиланг.';
       const url = master && signatureUrls.get(master.id);
       const signature = url ? `<img src="${esc(url)}" alt="Имзо" title="${esc(master.fullName||master.fio)}" style="display:block;width:100%;max-width:20mm;height:8mm;object-fit:contain;margin:auto">` : esc(r.signature);
-      return `<tr><td>${index+1}</td><td>${esc(documentDate)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(r.executor)}</td><td>${signature}</td></tr>`;
+      const executor = url ? clean(master.fullName||master.fio) : r.executor;
+      return `<tr><td>${index+1}</td><td>${esc(documentDate)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(executor)}</td><td>${signature}</td></tr>`;
     }).join('');
 
     paper.innerHTML = `

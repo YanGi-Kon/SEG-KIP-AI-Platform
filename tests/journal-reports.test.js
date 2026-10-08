@@ -96,7 +96,7 @@ test('journal places the active Uzbek KIP master PNG into rows and translates th
           {id:'chief',position:'Начальник КИПиА',fullName:'Chief',status:'active',signatureFileId:'db:33333333-3333-4333-8333-333333333333'}
         ]};
         else if(String(url)==='/api/journal-reports') data={reports:[{year:2026,month:5,rowCount:1}]};
-        else data={report:{year:2026,month:5},batches:[],items:[{executor:'Test Master',name:'Манометр'}]};
+        else data={report:{year:2026,month:5},batches:[],items:[{executor:'',name:'Манометр'}]};
         return new Response(JSON.stringify(data),{status:200});
       };
     });
@@ -106,6 +106,7 @@ test('journal places the active Uzbek KIP master PNG into rows and translates th
     await page.click('#kudukOpenStoredDocument');
     await page.waitForFunction(()=>document.querySelector('#kudukDocumentPaper td:last-child img')?.naturalWidth>0);
     assert.equal(await page.$eval('#kudukDocumentPaper td:last-child img',el=>el.title),'Test Master');
+    assert.equal(await page.$eval('#kudukDocumentPaper td:nth-last-child(2)',el=>el.textContent),'Test Master');
     const requests=await page.evaluate(()=>window.signatureRequests);
     assert.equal(requests.length,1);
     assert.match(requests[0],/11111111-1111-4111-8111-111111111111/);
