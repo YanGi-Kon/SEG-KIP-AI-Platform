@@ -5,38 +5,49 @@
   const active = new Map();
   const pending = new Set();
   let scheduled = false;
+  let hostWindow = window;
+  try { if (window.top.document) hostWindow = window.top; } catch (_) {}
+  const sources = hostWindow.__segKachalkaSources || (hostWindow.__segKachalkaSources = new Map());
+  sources.set(document, active);
   function ownText(el){
     return Array.from(el.childNodes).filter(n => n.nodeType === 3).map(n => n.textContent).join(' ');
   }
   function eligible(el){
-    return !el.closest('[data-kachalka],#segAppLoader,script,style,textarea,input,[contenteditable="true"]') && (busy.test(ownText(el)) || el.getAttribute('aria-busy') === 'true');
+    return !el.closest('[data-kachalka],#segAppLoader,script,style,textarea,input,[contenteditable="true"]') && !/загружается из отдельного HTML/i.test(ownText(el)) && (busy.test(ownText(el)) || el.getAttribute('aria-busy') === 'true');
   }
   function refresh(el){
     if (!el.isConnected || !eligible(el)) {
-      active.get(el)?.remove();
       active.delete(el);
       return;
     }
     const host = el.tagName === 'OPTION' ? el.closest('select') : el;
     if (!host) return;
     if (el.tagName === 'OPTION' && !el.selected) {
-      active.get(el)?.remove(); active.delete(el); return;
+      active.delete(el); return;
     }
-    if (active.get(el)?.isConnected) return;
-    const indicator = document.createElement('span');
-    indicator.dataset.kachalka = '';
-    indicator.className = 'seg-kachalka';
-    indicator.setAttribute('aria-hidden', 'true');
-    const img = document.createElement('img');
-    img.src = '/assets/images/saneg-loading.gif';
-    img.alt = '';
-    img.width = 56; img.height = 56;
-    const label = document.createElement('span');
-    label.textContent = 'Sanegplatform yuklanmoqda...';
-    indicator.append(img, label);
-    if (el.tagName === 'OPTION') host.after(indicator);
-    else host.append(indicator);
-    active.set(el, indicator);
+    active.set(el, host);
+  }
+  function renderSharedLoader(){
+    let loading = false;
+    for (const [source, targets] of sources) {
+      if (source !== hostWindow.document) {
+        const frame = source.defaultView?.frameElement;
+        if (!frame?.isConnected || !frame.getClientRects().length) continue;
+      }
+      for (const element of targets.values()) {
+        if (element.isConnected && element.getClientRects().length && source.defaultView.getComputedStyle(element).visibility !== 'hidden') {
+          loading = true;
+          break;
+        }
+      }
+      if (loading) break;
+    }
+    if (hostWindow.segAppLoader?.setBusy) {
+      hostWindow.segAppLoader.setBusy(loading);
+    } else {
+      const loader = hostWindow.document.getElementById('segSharedLoader');
+      if (loader && loader.hidden === loading) loader.hidden = !loading;
+    }
   }
   function collect(node){
     if (node.nodeType === 3) { if (node.parentElement) pending.add(node.parentElement); return; }
@@ -50,6 +61,7 @@
     for (const el of active.keys()) pending.add(el);
     const targets = Array.from(pending); pending.clear();
     for (const el of targets) refresh(el);
+    renderSharedLoader();
   }
   function schedule(){
     if (!scheduled) { scheduled = true; requestAnimationFrame(flush); }
@@ -61,8 +73,17 @@
       document.body.prepend(template.content);
     }
     const style = document.createElement('style');
-    style.textContent = '.seg-kachalka{display:inline-flex;vertical-align:middle;flex-direction:column;align-items:center;justify-content:center;gap:3px;margin:4px 8px;max-width:100%;pointer-events:none}.seg-kachalka img{display:block;width:56px;height:56px;object-fit:contain;filter:url(#segLoaderBackgroundKey)}.seg-kachalka>span{font:700 10px/1.3 Arial,sans-serif;color:inherit;text-align:center;white-space:normal}';
-    document.head.append(style);
+    style.textContent = '#segSharedLoader{position:fixed;inset:0;z-index:60000;display:grid;place-items:center;background:rgba(2,8,23,.10);font-family:Arial,sans-serif}#segSharedLoader[hidden]{display:none}#segSharedLoader>div{display:grid;justify-items:center;gap:8px;padding:8px 18px 12px}#segSharedLoader img{display:block;width:min(200px,45vw);height:auto;aspect-ratio:1;object-fit:contain;filter:url(#segLoaderBackgroundKey)}#segSharedLoader span{color:#f8fafc;font-size:14px;font-weight:900;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.72)}';
+    if (!hostWindow.document.getElementById('segAppLoader') && !hostWindow.document.getElementById('segSharedLoader')) {
+      hostWindow.document.head.append(style);
+      const loader = hostWindow.document.createElement('div');
+      loader.id = 'segSharedLoader';
+      loader.dataset.kachalka = '';
+      loader.hidden = true;
+      loader.setAttribute('role', 'status');
+      loader.innerHTML = '<div><img src="/assets/images/saneg-loading.gif" width="200" height="200" alt=""><span>Sanegplatform yuklanmoqda...</span></div>';
+      hostWindow.document.body.append(loader);
+    }
     collect(document.body); flush();
     const observer = new MutationObserver(records => {
       let changed = false;
@@ -76,7 +97,8 @@
       }
       if (changed) schedule();
     });
-    observer.observe(document.body, {subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['aria-busy']});
+    observer.observe(document.body, {subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['aria-busy','class','style','hidden']});
+    window.addEventListener('pagehide', () => { observer.disconnect(); sources.delete(document); renderSharedLoader(); }, {once:true});
     document.addEventListener('change', event => { if (event.target.tagName === 'SELECT') { collect(event.target); schedule(); } });
   }
   window.segKachalka = { refresh: () => { collect(document.body); schedule(); } };

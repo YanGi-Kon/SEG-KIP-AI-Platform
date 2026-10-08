@@ -4,6 +4,8 @@
 
   const root = () => document.getElementById('segAppLoader');
   let hidden = false;
+  let booting = true;
+  let busy = false;
 
   function setStatus(message){
     const el = document.getElementById('segAppLoaderStatus');
@@ -21,6 +23,8 @@
   }
 
   function hide(){
+    booting = false;
+    if (busy) return;
     if (hidden) return;
     hidden = true;
     const el = root();
@@ -39,5 +43,12 @@
     if (!hidden) hide();
   }, 12000);
 
-  window.segAppLoader = { show, hide, setStatus };
+  function setBusy(value){
+    if (busy === Boolean(value)) return;
+    busy = Boolean(value);
+    if (busy) show('Sanegplatform yuklanmoqda...');
+    else if (!booting) hide();
+  }
+
+  window.segAppLoader = { show, hide, setStatus, setBusy };
 })();

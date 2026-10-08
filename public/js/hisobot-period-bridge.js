@@ -299,7 +299,7 @@
       .hisobot-period-controls .btn{padding:9px 12px;min-width:40px;border-radius:10px}
       .hisobot-period-select{min-width:96px;background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.17);border-radius:10px;padding:9px 11px;font-size:13px;font-weight:800;outline:none;cursor:pointer}
       .hisobot-period-select.year{min-width:82px}
-      .hisobot-period-status{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:7px 11px;border-radius:10px;border:1px solid rgba(34,211,238,.24);font-size:12px;font-weight:900;white-space:nowrap;color:#fde68a;background:rgba(15,23,42,.72)}
+      .hisobot-period-status{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:7px 11px;border-radius:10px;border:0;font-size:12px;font-weight:900;white-space:nowrap;color:#fde68a;background:rgba(15,23,42,.72)}
       .hisobot-period-status.ok{color:#86efac}.hisobot-period-status.bad{color:#fca5a5}.hisobot-period-status.sync{color:#fde68a}
       @media(max-width:760px){.hisobot-period-controls{width:100%}.hisobot-period-select{flex:1}.hisobot-period-status{order:5;width:100%}}
     `;

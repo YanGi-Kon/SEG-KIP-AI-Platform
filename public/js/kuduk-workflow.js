@@ -5,7 +5,8 @@
   const WORKSPACE_TOKEN_KEY = 'seg_kip_workspace_access_token';
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const MONTHS = ['', 'Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-  const $ = (id) => document.getElementById(id);
+  let floatingDocumentButton = null;
+  const $ = (id) => document.getElementById(id) || (id === 'kudukCreateMonthlyDocument' ? floatingDocumentButton : null);
   const clean = (v) => String(v ?? '').trim();
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const parentStorage = (store, key) => { try { return parent?.[store]?.getItem(key) || ''; } catch (_) { return ''; } };
@@ -89,6 +90,8 @@
       body.kuduk-analysis-home #kudukMonthlyModal{position:relative;inset:auto;z-index:1;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:12px;background:transparent}
       body.kuduk-analysis-home #kudukMonthlyModal .kw-monthly-shell{width:100%;max-width:none;max-height:none;min-height:calc(100vh - 24px);box-shadow:none}
       body.kuduk-analysis-home #kudukMonthlyClose{display:none!important}
+      .kw-monthly-document-actions{min-height:48px;margin-top:12px}
+      #kudukCreateMonthlyDocument{position:fixed;bottom:max(48px,env(safe-area-inset-bottom));right:154px;z-index:130;box-shadow:0 6px 24px rgba(0,0,0,.35)}
       .kw-monthly-shell{width:min(1380px,100%);max-height:96vh;display:flex;flex-direction:column;overflow:hidden}
       .kw-monthly-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}.kw-monthly-period select{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px}
       .kw-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:10px}.kw-kpi{padding:12px;border:1px solid rgba(34,211,238,.22);border-radius:13px;background:rgba(2,15,28,.7)}.kw-kpi small{display:block;color:#9fb7c7;font-size:10px}.kw-kpi b{display:block;margin-top:5px;font-size:20px}
@@ -144,7 +147,7 @@
                 <th>№</th><th>Дата</th><th>Поз номер</th><th>Наименование СИ</th><th>Тип, марка</th><th>Заводской номер</th><th>Предел измерения</th><th>Место установки</th><th>СКВ</th><th>Перечень в/р</th><th>Исполнитель</th><th>Подпись</th><th>Амал<br><label class="kw-select-all-label"><input id="kudukSelectAllRows" type="checkbox" title="Барчасини танлаш"> Танлаш</label></th>
               </tr></thead><tbody id="kudukMonthlyRows"></tbody>
             </table></div>
-            <div class="kw-actions" style="justify-content:flex-end;margin-top:12px"><button id="kudukCreateMonthlyDocument" class="btn primary" type="button">Хужат яратиш</button></div>
+            <div class="kw-monthly-document-actions"><button id="kudukCreateMonthlyDocument" class="btn primary" type="button">Хужат яратиш</button></div>
           </div>
         </div>`;
       document.body.appendChild(modal);
@@ -515,12 +518,51 @@
     fillMonthlySelectors();
     document.body.classList.add('kuduk-analysis-home');
     $('kudukMonthlyModal')?.classList.add('show');
+    mountFloatingDocumentButton();
     void loadMonthlyAnalysis();
   }
 
   function closeMonthlyAnalysis() {
     document.body.classList.remove('kuduk-analysis-home');
     $('kudukMonthlyModal')?.classList.remove('show');
+  }
+
+  function mountFloatingDocumentButton() {
+    if (floatingDocumentButton || window.parent === window) return;
+    try {
+      const frame = window.frameElement;
+      const host = parent.document;
+      if (!frame || !host.body) return;
+      const button = $('kudukCreateMonthlyDocument');
+      if (!button) return;
+      floatingDocumentButton = button;
+      // A fixed element inside an iframe is confined to that frame's viewport.
+      // Keep the existing button and handlers, but mount it in the outer viewport.
+      button.style.cssText = 'position:fixed;bottom:max(48px,env(safe-area-inset-bottom));right:154px;z-index:130;border:0;border-radius:13px;padding:11px 14px;font:800 13px Arial,sans-serif;cursor:pointer;background:linear-gradient(135deg,#0891b2,#22d3ee);color:#00111b;box-shadow:0 6px 24px rgba(0,0,0,.35)';
+      host.body.appendChild(button);
+      const syncVisibility = () => {
+        const analysisOpen = document.body.classList.contains('kuduk-analysis-home');
+        const overlayOpen = document.querySelector('.kw-modal.show:not(#kudukMonthlyModal), #modal.show');
+        button.hidden = !analysisOpen || !!overlayOpen || !frame.getClientRects().length;
+      };
+      const observer = new MutationObserver(syncVisibility);
+      observer.observe(document.body, { attributes:true, subtree:true, attributeFilter:['class','style','hidden'] });
+      const hostObserver = new MutationObserver(syncVisibility);
+      for (let element = frame; element; element = element.parentElement) {
+        hostObserver.observe(element, { attributes:true, attributeFilter:['class','style','hidden'] });
+      }
+      parent.addEventListener('resize', syncVisibility);
+      window.addEventListener('pagehide', () => {
+        observer.disconnect();
+        hostObserver.disconnect();
+        parent.removeEventListener('resize', syncVisibility);
+        button.remove();
+        floatingDocumentButton = null;
+      }, { once:true });
+      syncVisibility();
+    } catch (_) {
+      // Standalone and cross-origin embeds use the local fixed-position button.
+    }
   }
 
   function waitForEditorClose() {
