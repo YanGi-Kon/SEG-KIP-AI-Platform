@@ -61,11 +61,20 @@ function classifyPassportAdapterError(error) {
   return error;
 }
 
+function diagnosticHost(value) {
+  try { return new URL(value).hostname; } catch (_) { return ''; }
+}
+function diagnosticCode(value) {
+  return /^[A-Z][A-Z0-9_]{0,79}$/.test(String(value || '')) ? String(value) : 'UNKNOWN';
+}
+const DIAGNOSTIC_ACTIONS = new Set(['validate_folder', 'ensure_subfolder', 'upload_pdf_base64', 'passport_capabilities', 'save_passport_pdf']);
+
 export class AppsScriptPersonalDriveProvider {
-  constructor({ url, secret, fetchImpl = globalThis.fetch, timeoutMs = 30000 }) {
+  constructor({ url, secret, fetchImpl = globalThis.fetch, timeoutMs = 30000, diagnosticsLogger = entry => console.info('[apps-script-drive]', JSON.stringify(entry)) }) {
     this.url = clean(url);
     this.secret = clean(secret);
     this.fetchImpl = fetchImpl;
+    this.diagnosticsLogger = diagnosticsLogger;
     this.timeoutMs = Math.max(1000, Number(timeoutMs || 30000));
     this.providerName = 'apps_script_personal_drive';
     if (!this.url || !this.secret) {
@@ -84,19 +93,39 @@ export class AppsScriptPersonalDriveProvider {
     const nonce = crypto.randomUUID();
     const envelope = { action, payload, timestamp, nonce };
     const signature = signAppsScriptRequest(envelope, this.secret);
+    const requestBody = JSON.stringify({ ...envelope, signature });
+    const startedAt = Date.now();
+    const diagnostic = {
+      requestId: nonce,
+      action: DIAGNOSTIC_ACTIONS.has(action) ? action : 'other',
+      requestHost: diagnosticHost(this.url),
+      requestBytes: Buffer.byteLength(requestBody),
+      httpStatus: null,
+      responseHost: '',
+      redirected: false,
+      responseType: '',
+      responseFormat: 'unavailable',
+      outcome: 'error',
+    };
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const response = await this.fetchImpl(this.url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...envelope, signature }),
+        body: requestBody,
         redirect: 'follow',
         signal: controller.signal,
       });
+      diagnostic.httpStatus = response.status;
+      diagnostic.responseHost = diagnosticHost(response.url || this.url);
+      diagnostic.redirected = Boolean(response.redirected);
+      const mimeType = clean(response.headers?.get?.('content-type')).split(';')[0].toLowerCase();
+      diagnostic.responseType = ['application/json', 'text/html', 'text/plain'].includes(mimeType) ? mimeType : 'other';
       const text = await response.text();
       let data = {};
-      try { data = text ? JSON.parse(text) : {}; } catch (_) {
+      try { data = text ? JSON.parse(text) : {}; diagnostic.responseFormat = text ? 'json' : 'empty'; } catch (_) {
+        diagnostic.responseFormat = 'non-json';
         if (response.status === 404) {
           throw providerError(
             'Apps Script /exec deployment topilmadi yoki faol emas.',
@@ -119,11 +148,19 @@ export class AppsScriptPersonalDriveProvider {
           Number(data.statusCode || response.status || 400),
         );
       }
+      diagnostic.outcome = 'success';
       return data;
     } catch (error) {
-      throw classifyAppsScriptDriveError(error);
+      const classified = classifyAppsScriptDriveError(error);
+      diagnostic.errorCode = diagnosticCode(classified.code);
+      classified.driveRequestId = nonce;
+      classified.driveRequestAction = diagnostic.action;
+      throw classified;
     } finally {
       clearTimeout(timer);
+      diagnostic.durationMs = Date.now() - startedAt;
+      // Never log payloads, signatures, secrets, full URLs, response bodies or remote messages.
+      try { this.diagnosticsLogger?.(diagnostic); } catch (_) { /* Logging cannot change a Drive operation. */ }
     }
   }
 
