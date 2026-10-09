@@ -37,7 +37,7 @@
   }
 
   window.addEventListener('seg:auth-ready', hide, { once:true });
-  window.addEventListener('seg:login-ready', hide, { once:true });
+  window.addEventListener('seg:login-ready', () => { busy = false; hide(); });
 
   window.setTimeout(() => {
     if (!hidden) hide();
@@ -45,7 +45,8 @@
 
   function setBusy(value){
     if (busy === Boolean(value)) return;
-    busy = Boolean(value);
+    // Background modules must not cover the manual login screen.
+    busy = Boolean(value) && !document.getElementById('sanegLoginGate');
     if (busy) show('Sanegplatform yuklanmoqda...');
     else if (!booting) hide();
   }

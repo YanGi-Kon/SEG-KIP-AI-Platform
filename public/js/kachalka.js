@@ -33,7 +33,9 @@
   }
   function renderSharedLoader(){
     let loading = false;
+    const loginVisible = Boolean(hostWindow.document.getElementById('sanegLoginGate'));
     for (const [source, targets] of sources) {
+      if (loginVisible) break;
       if (source !== hostWindow.document) {
         const frame = source.defaultView?.frameElement;
         if (!frame?.isConnected || !frame.getClientRects().length) continue;

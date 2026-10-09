@@ -255,6 +255,9 @@
       releaseAuthBootGuard();
       return true;
     } catch (_) {
+      setToken('');
+      state.user = null;
+      document.body.removeAttribute('data-platform-role');
       return false;
     }
   }
