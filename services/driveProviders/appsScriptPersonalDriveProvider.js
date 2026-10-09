@@ -126,6 +126,17 @@ export class AppsScriptPersonalDriveProvider {
       let data = {};
       try { data = text ? JSON.parse(text) : {}; diagnostic.responseFormat = text ? 'json' : 'empty'; } catch (_) {
         diagnostic.responseFormat = 'non-json';
+        if (response.status === 404 && response.redirected === true
+          && diagnostic.responseHost === 'script.googleusercontent.com'
+          && ['passport_capabilities', 'validate_folder', 'ensure_subfolder', 'save_passport_pdf'].includes(action)) {
+          // The Apps Script entrypoint ran, but its redirected response was unavailable.
+          // Durable workers retry these actions; legacy uploads are excluded because they create new files.
+          throw providerError(
+            'Google Apps Script javobini olishda vaqtinchalik xato yuz berdi.',
+            'DRIVE_APPS_SCRIPT_REDIRECT_FAILED',
+            502,
+          );
+        }
         if (response.status === 404) {
           throw providerError(
             'Apps Script /exec deployment topilmadi yoki faol emas.',
