@@ -377,6 +377,7 @@ async function loadSheet(t, route) {
   try {
     const grid = await getGrid(t, route.sheet);
     const matrix = valuesMatrixFromGrid(grid);
+    t.hashes[`__grid:${route.sheet}`] = sha(matrix);
     const parsed = normalizeDataSheet(route.sheet, matrix);
     const hash = sha(parsed.rows);
     const changed = hash !== t.hashes[route.sheet];
@@ -416,6 +417,7 @@ async function loadMultipleSheets(t, routes) {
         }
         try {
           const matrix = valuesMatrixFromGrid(grid);
+          t.hashes[`__grid:${route.sheet}`] = sha(matrix);
           const parsed = normalizeDataSheet(route.sheet, matrix);
           const hash = sha(parsed.rows);
           const changed = hash !== t.hashes[route.sheet];
@@ -442,6 +444,7 @@ async function syncTenant(sexId, reason = "manual") {
   if (!t.sheetsApi) throw new Error("Backend konfiguratsiya qilinmagan.");
   if (t.syncRunning) return publicState(t);
   t.syncRunning = true;
+  const beforeRevision = sha({ spreadsheetId: t.spreadsheetId, menuSheet: t.menuSheet, hashes: t.hashes, connected: t.connected });
   try {
     const routes = await extractRoutes(t).catch(e => { log(t, "error", "Route map o'qishda xato: " + e.message); return []; });
     const routeHash = sha(routes.map(r => ({ title: r.title, sheet: r.sheet, a1: r.a1, source: r.source })));
@@ -453,10 +456,11 @@ async function syncTenant(sexId, reason = "manual") {
     
     for (const r of t.routes) { r.count = Array.isArray(t.sheets[r.sheet]) ? t.sheets[r.sheet].length : 0; r.status = t.statuses[r.sheet]?.status || "pending"; r.message = t.statuses[r.sheet]?.message || ""; }
     t.connected = true;
-    t.updatedAt = new Date().toISOString();
-    t.version += 1;
+    t.lastCheckedAt = new Date().toISOString();
+    const changed = beforeRevision !== sha({ spreadsheetId: t.spreadsheetId, menuSheet: t.menuSheet, hashes: t.hashes, connected: t.connected });
+    if (changed) { t.updatedAt = t.lastCheckedAt; t.version += 1; }
     log(t, "ok", `Sync bajarildi (${reason}). Status: READY`);
-    IO?.to(`sex:${t.sexId}`).emit("kuduk-data-update", publicState(t));
+    if (changed) IO?.to(`sex:${t.sexId}`).emit("kuduk-data-update", publicState(t));
     return publicState(t);
   } finally { t.syncRunning = false; }
 }
@@ -758,6 +762,16 @@ export function createKudukRouter(io) {
     const sexId = tenantIdForRequest(req, req.query.sexId || req.query.sex || "sex_default");
     const t = await loadRequestTenant(req, sexId).catch(() => null);
     res.json({ ok: true, sexId, connected: Boolean(t?.connected), status: t?.connected ? "READY" : "OFFLINE" });
+  });
+  router.get("/revision", async (req, res) => {
+    try {
+      const t = await loadRequestTenant(req, req.query.sexId || "sex_default");
+      if (t.sheetsApi && !t.syncRunning && Date.now() - (Date.parse(t.lastCheckedAt || "") || 0) > 30_000) {
+        await syncTenant(t.sexId, "revision-check");
+      }
+      res.set("Cache-Control", "private, no-store");
+      res.json({ spreadsheetId: t.spreadsheetId || "", version: t.version || 0, updatedAt: t.updatedAt || "", validating: Boolean(t.syncRunning) || Object.values(t.statuses || {}).some(status => status.status === "error") });
+    } catch (e) { res.status(400).json({ ok: false, error: e.message }); }
   });
   router.get("/state", async (req, res) => {
     try { res.json(publicState(await loadRequestTenant(req, req.query.sexId || "sex_default"))); }

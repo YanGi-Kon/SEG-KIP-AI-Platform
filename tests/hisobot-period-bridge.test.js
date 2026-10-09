@@ -19,7 +19,7 @@ const {
 test('HISOBOT JURNALI removes legacy route dropdown and injects TO-style period bridge', () => {
   assert.match(serverSource, /app\.get\("\/modules\/kuduk-journal\.html"/);
   assert.match(serverSource, /html\.replace\(\/<select id="routeSelect"/);
-  assert.match(serverSource, /hisobot-period-bridge\.js\?v=hisobot-period7-hide-source/);
+  assert.match(serverSource, /hisobot-period-bridge\.js\?v=hisobot-period8-refresh-cache/);
   assert.match(bridgeSource, /oldSelector\.remove\(\)/);
   assert.match(bridgeSource, /hisobotPrevPeriodBtn/);
   assert.match(bridgeSource, /hisobotPeriodMonth/);

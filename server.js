@@ -69,11 +69,11 @@ const kudukJournalHtmlPath = join(publicDir, "modules", "kuduk-journal.html");
 const faviconPngPath = join(publicAssetsDir, "images", "saneg-favicon.png");
 
 const staticNoCacheOptions = {
-  etag: false,
+  etag: true,
   maxAge: 0,
   setHeaders(res, filePath) {
     if (filePath.endsWith(".html") || filePath.endsWith(".js")) {
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
     }
@@ -112,7 +112,7 @@ app.use(express.urlencoded({ extended: false, limit: "2mb" }));
 
 app.use((req, res, next) => {
   if (req.path === "/" || req.path.endsWith(".html") || req.path.endsWith(".js") || req.path.endsWith(".css") || req.path.includes("favicon")) {
-    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Cache-Control", "public, max-age=0, must-revalidate");
     res.set("Pragma", "no-cache");
     res.set("Expires", "0");
   }
@@ -167,7 +167,7 @@ app.get("/modules/to.html", (_req, res, next) => {
 app.get("/modules/kuduk-journal.html", (_req, res, next) => {
   try {
     const html = readFileSync(kudukJournalHtmlPath, "utf8");
-    const bridgeScript = '<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period7-hide-source"></script>';
+    const bridgeScript = '<script id="hisobotPeriodBridgeScript" src="/js/hisobot-period-bridge.js?v=hisobot-period8-refresh-cache"></script>';
     const htmlWithoutLegacySelector = html.replace(/<select id="routeSelect"[^>]*><\/select>/, "");
     const safeHtml = htmlWithoutLegacySelector.includes("hisobotPeriodBridgeScript")
       ? htmlWithoutLegacySelector
