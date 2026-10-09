@@ -4,6 +4,7 @@ import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess
 import {
   appendJournalReportRows,
   getJournalReport,
+  deleteJournalReport,
   listJournalReportFolders,
   normalizeJournalReportPeriod,
 } from '../services/journalReportService.js';
@@ -12,6 +13,7 @@ import { exportJournalReportPdf } from '../services/journalReportPdfService.js';
 
 const router = express.Router();
 const requireWorkspaceRead = requireWorkspaceRequestPermission('workspace:read');
+const requireJournalDelete = requireWorkspaceRequestPermission('documents:cancel');
 const requireJournalSave = requireWorkspaceRequestPermission('documents:create');
 
 function classifyJournalReportError(error, fallbackCode) {
@@ -85,6 +87,16 @@ router.post('/:year/:month/pdf', requireJournalSave, async (req, res) => {
     return res.json({ ok: true, result });
   } catch (error) {
     const classified = classifyJournalReportError(error, 'JOURNAL_REPORT_PDF_FAILED');
+    return res.status(classified.statusCode).json({ ok: false, ...classified });
+  }
+});
+
+router.delete('/:year/:month', requireJournalDelete, async (req, res) => {
+  try {
+    const result = await deleteJournalReport(req.workspace.id, req.params.year, req.params.month);
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    const classified = classifyJournalReportError(error, 'JOURNAL_REPORT_DELETE_FAILED');
     return res.status(classified.statusCode).json({ ok: false, ...classified });
   }
 });

@@ -27,7 +27,7 @@
         const style = parent.document.createElement('style');
         style.id = 'kudukFullPageStyle';
         style.textContent = '.main:has(.generic-module-page.active iframe[data-kuduk-full-page]:not([hidden])){padding:0!important;min-width:0}.main:has(.generic-module-page.active iframe[data-kuduk-full-page]:not([hidden]))>.topbar{display:none}.generic-module-page.active:has(iframe[data-kuduk-full-page]:not([hidden])){height:100dvh;min-height:0;border:0;border-radius:0;box-shadow:none}.generic-module-page.active iframe[data-kuduk-full-page]:not([hidden]){height:100dvh!important;min-height:0!important}';
-        style.textContent += '.main:has(iframe[data-kuduk-document-page]:not([hidden])) .seg-excel-button{display:none!important}';
+        style.textContent += '.main:has(iframe[data-kuduk-full-page]:not([hidden])) .seg-excel-button{display:none!important}';
         parent.document.head.appendChild(style);
       }
     } catch (_) {}
@@ -107,7 +107,8 @@
   async function api(path, options = {}, retry = true) {
     const headers = new Headers(options.headers || {});
     const token = authToken();
-    const wid = workspaceId();
+    const wid = options.workspaceId || workspaceId();
+    if (options.workspaceId && wid !== workspaceId()) throw new Error('Workspace ўзгарди. Амал бекор қилинди.');
     if (token) headers.set('Authorization', 'Bearer ' + token);
     if (wid) headers.set('x-workspace-id', wid);
     if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
@@ -137,6 +138,10 @@
       .kw-year{margin:10px 0 7px;color:#a5f3fc;font-weight:900;font-size:13px}
       .kw-folder{width:100%;display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;margin:0 0 8px;padding:11px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:#eaf7ff;border-radius:12px;cursor:pointer}
       .kw-folder:hover,.kw-folder.active{border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.10)}
+      .kw-folder-row{display:flex;align-items:stretch;gap:6px;margin-bottom:8px}
+      .kw-folder-row .kw-folder{flex:1;min-width:0;margin:0}
+      .kw-report-delete{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;border:1px solid rgba(248,113,113,.25);border-radius:10px;background:rgba(248,113,113,.06);color:#fca5a5;cursor:pointer}
+      .kw-report-delete:hover{background:rgba(248,113,113,.2);border-color:#f87171}.kw-report-delete:disabled{opacity:.45;cursor:default}
       .kw-preview{padding:16px;overflow:auto;background:#0b1628}.kw-empty{padding:28px;text-align:center;color:#9fb7c7}
       .kw-tablewrap{overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:12px}
       .kw-table{width:100%;min-width:980px;border-collapse:collapse}.kw-table th,.kw-table td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left;vertical-align:top}
@@ -950,7 +955,7 @@
           currentYear = report.year;
           html += '<div class="kw-year">' + report.year + '</div>';
         }
-        html += '<button class="kw-folder" type="button" data-year="' + report.year + '" data-month="' + report.month + '"><span>📁 ' + esc(MONTHS[report.month]) + '</span><b>' + Number(report.rowCount || 0) + '</b></button>';
+        html += '<div class="kw-folder-row"><button class="kw-folder" type="button" data-year="' + report.year + '" data-month="' + report.month + '"><span>📁 ' + esc(MONTHS[report.month]) + '</span><b>' + Number(report.rowCount || 0) + '</b></button><button class="kw-report-delete" type="button" data-year="' + report.year + '" data-month="' + report.month + '" title="Ҳисоботни ўчириш" aria-label="' + esc(MONTHS[report.month] + ' ' + report.year + ' ҳисоботини ўчириш') + '"' + (report.status !== 'draft' ? ' disabled' : '') + '><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg></button></div>';
       });
       host.innerHTML = html;
       host.querySelectorAll('.kw-folder').forEach((btn) => btn.addEventListener('click', () => {
@@ -958,10 +963,26 @@
         btn.classList.add('active');
         void renderReportPreview(Number(btn.dataset.year), Number(btn.dataset.month));
       }));
+      host.querySelectorAll('.kw-report-delete').forEach(btn => btn.addEventListener('click', () => void deleteStoredReport(btn)));
       host.querySelector('.kw-folder')?.click();
     } catch (error) {
       host.innerHTML = '<div class="kw-empty">' + esc(error?.data?.recommendedFix ? error.message + ' · ' + error.data.recommendedFix : error.message) + '</div>';
     }
+  }
+
+  async function deleteStoredReport(button) {
+    if (!button || button.disabled) return;
+    const year = Number(button.dataset.year), month = Number(button.dataset.month);
+    const wid = workspaceId();
+    if (!wid || !window.confirm(MONTHS[month] + ' ' + year + ' ҳисоботи ва ундаги сақланган қаторлар ўчирилсинми? Google Sheets ва Drive PDF файллари сақланади.')) return;
+    button.disabled = true;
+    try {
+      await api('/api/journal-reports/' + year + '/' + month, { method: 'DELETE', workspaceId: wid });
+      if (wid !== workspaceId()) return;
+      await renderReportFolders();
+    } catch (error) {
+      if (wid === workspaceId()) window.alert('Ҳисобот ўчирилмади: ' + error.message);
+    } finally { button.disabled = false; }
   }
 
   async function renderReportPreview(year, month) {

@@ -230,3 +230,19 @@ export async function appendJournalReportRows(input) {
     };
   });
 }
+
+export async function deleteJournalReport(workspaceId, year, month) {
+  const result = await query(
+    `DELETE FROM journal_reports
+     WHERE workspace_id = $1::uuid AND period_year = $2::smallint AND period_month = $3::smallint
+       AND status = 'draft'
+     RETURNING id`,
+    [workspaceId, Number(year), Number(month)],
+  );
+  if (result.rows[0]) return { deleted: true, reportId: result.rows[0].id };
+  const existing = await getJournalReportByKey(workspaceId, year, month);
+  const error = new Error(existing ? 'Якунланган ҳисоботни ўчириб бўлмайди.' : 'Ҳисобот топилмади.');
+  error.statusCode = existing ? 409 : 404;
+  error.code = existing ? 'JOURNAL_REPORT_COMPLETED' : 'JOURNAL_REPORT_NOT_FOUND';
+  throw error;
+}
