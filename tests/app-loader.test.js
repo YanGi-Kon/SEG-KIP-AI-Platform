@@ -38,7 +38,7 @@ test('shared work keeps the startup loader visible until work finishes',()=>{
   const listeners = new Map();
   const timers = [];
   const window = {addEventListener:(name,callback)=>listeners.set(name,callback),setTimeout:callback=>timers.push(callback)};
-  const document = {getElementById:id=>id==='segAppLoader'?element:{textContent:''}};
+  const document = {getElementById:id=>id==='segAppLoader'?element:id==='segAppLoaderStatus'?{textContent:''}:null};
   vm.runInNewContext(loader,{window,document});
   window.segAppLoader.setBusy(true);
   listeners.get('seg:auth-ready')();
@@ -49,4 +49,27 @@ test('shared work keeps the startup loader visible until work finishes',()=>{
   timers.forEach(callback=>callback());
   assert.equal(element.style.display,'grid');
   assert.equal(classes.has('is-hidden'),false);
+});
+
+test('manual login clears background work and restores loading after sign-in',()=>{
+  const classes = new Set();
+  const element = {style:{}, classList:{add:name=>classes.add(name),remove:name=>classes.delete(name)},setAttribute(){}};
+  const listeners = new Map();
+  const timers = [];
+  let loginVisible = false;
+  const window = {addEventListener:(name,callback)=>listeners.set(name,callback),setTimeout:callback=>timers.push(callback)};
+  const document = {getElementById:id=>id==='segAppLoader'?element:id==='sanegLoginGate'&&loginVisible?{}:null};
+  vm.runInNewContext(loader,{window,document});
+  window.segAppLoader.setBusy(true);
+  loginVisible = true;
+  listeners.get('seg:login-ready')();
+  timers.forEach(callback=>callback());
+  assert.equal(element.style.display,'none');
+  window.segAppLoader.setBusy(true);
+  assert.equal(element.style.display,'none');
+  loginVisible = false;
+  window.segAppLoader.setBusy(true);
+  assert.equal(element.style.display,'grid');
+  window.segAppLoader.setBusy(false);
+  assert.equal(classes.has('is-hidden'),true);
 });
