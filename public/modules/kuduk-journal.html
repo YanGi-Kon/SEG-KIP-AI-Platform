@@ -80,6 +80,15 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt
 const api = p => '/api/kuduk' + p;
 function parentStorage(name, key){ try{ return parent?.[name]?.getItem(key) || ''; }catch(_){ return ''; } }
 function workspaceId(){ return localStorage.getItem('seg_kip_selected_workspace_id') || parentStorage('localStorage', 'seg_kip_selected_workspace_id'); }
+function sessionReady(){
+  const token = sessionStorage.getItem('seg_kip_workspace_access_token') || parentStorage('sessionStorage', 'seg_kip_workspace_access_token');
+  if(!token) return false;
+  try{
+    if(parent.document?.documentElement.classList.contains('saneg-auth-boot')) return false;
+    if(parent.sanegLoginGate && !parent.sanegLoginGate.state.user) return false;
+  }catch(_){}
+  return true;
+}
 function sexId(){ return String(state.sexId || 'sex_4').trim().replace(/[^a-zA-Z0-9_-]+/g,'_') || 'sex_4'; }
 function msg(text, type='info'){ $('message').innerHTML = esc(text); $('message').className = 'msg ' + type; }
 function setStatus(text, type='offline', sub=''){ $('statusText').textContent = text; $('statusText').className = type; $('statusSub').textContent = sub || ''; }
@@ -158,6 +167,7 @@ function renderFieldEditor(key, label, value=''){
   return `<div><label class="label">${esc(label)}</label><input class="input" id="f_${key}" value="${esc(value)}"></div>`;
 }
 async function fetchState(expectedWorkspaceId = workspaceId()){
+  if(!sessionReady() || !expectedWorkspaceId) return;
   try {
     const nextState = await request('/state?sexId=' + encodeURIComponent(sexId()));
     if(expectedWorkspaceId && expectedWorkspaceId !== workspaceId()) return;
@@ -178,7 +188,7 @@ function finishWorkspaceReload(nextWorkspaceId){
 async function activateWorkspace(nextWorkspaceId){
   const nextId = String(nextWorkspaceId || workspaceId() || '').trim();
   const workspaceChanged = Boolean(nextId && nextId !== activeWorkspaceId);
-  if(!nextId) return;
+  if(!nextId || !sessionReady()) return;
   if(!workspaceChanged && workspaceReloading){ workspaceReloadPending = true; return; }
   if(!workspaceChanged && state.connected) return;
   workspaceReloading = true;
@@ -305,11 +315,8 @@ window.KudukJournalWorkspace = {
   fetchState
 };
 window.addEventListener('load', () => {
-  activeWorkspaceId = workspaceId();
-  try{ const saved = localStorage.getItem('seg_kip_sheet_url') || localStorage.getItem('spreadsheetUrl'); }catch(_){}
-  workspaceReloading = true;
-  connectSocket();
-  Promise.resolve(fetchState()).finally(() => finishWorkspaceReload(activeWorkspaceId));
+  // Wait for a usable session before opening the socket or loading protected data.
+  void activateWorkspace(workspaceId());
   try{ parent.postMessage({ type:'REQUEST_WORKSPACE_INFO' }, '*'); }catch(_){}
 });
 </script>
