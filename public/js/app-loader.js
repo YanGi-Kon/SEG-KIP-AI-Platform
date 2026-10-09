@@ -3,9 +3,14 @@
   window.__segAppLoaderInstalled = true;
 
   const root = () => document.getElementById('segAppLoader');
-  let hidden = false;
+  let hidden = true;
   let booting = true;
   let busy = false;
+  let suppressReload = window.performance?.getEntriesByType?.('navigation')?.[0]?.type === 'reload';
+  // Refresh remains quiet until the user starts an operation.
+  const resumeOperations = () => { suppressReload = false; };
+  window.addEventListener('pointerdown', resumeOperations, { once:true, passive:true });
+  window.addEventListener('keydown', resumeOperations, { once:true });
 
   function setStatus(message){
     const el = document.getElementById('segAppLoaderStatus');
@@ -13,6 +18,7 @@
   }
 
   function show(message){
+    if (suppressReload) return;
     hidden = false;
     const el = root();
     if (!el) return;
@@ -44,6 +50,7 @@
   }, 12000);
 
   function setBusy(value){
+    if (suppressReload) { busy = false; hide(); return; }
     if (busy === Boolean(value)) return;
     // Background modules must not cover the manual login screen.
     busy = Boolean(value) && !document.getElementById('sanegLoginGate');

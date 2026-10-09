@@ -73,3 +73,24 @@ test('manual login clears background work and restores loading after sign-in',()
   window.segAppLoader.setBusy(false);
   assert.equal(classes.has('is-hidden'),true);
 });
+
+test('refresh has no kachalka until the user starts an operation',()=>{
+  assert.match(index,/<div id="segAppLoader" class="is-hidden" style="display:none"/);
+  const classes = new Set(['is-hidden']);
+  const element = {style:{display:'none'},classList:{add:name=>classes.add(name),remove:name=>classes.delete(name)},setAttribute(){}};
+  const listeners = new Map();
+  const window = {performance:{getEntriesByType:()=>[{type:'reload'}]},addEventListener:(name,callback)=>listeners.set(name,callback),setTimeout:callback=>callback()};
+  const document = {getElementById:id=>id==='segAppLoader'?element:null};
+  vm.runInNewContext(loader,{window,document});
+  window.segAppLoader.show('Startup');
+  window.segAppLoader.setBusy(true);
+  listeners.get('seg:auth-ready')();
+  window.segAppLoader.setBusy(true);
+  assert.equal(element.style.display,'none');
+  assert.equal(classes.has('is-hidden'),true);
+  listeners.get('pointerdown')();
+  window.segAppLoader.setBusy(true);
+  assert.equal(element.style.display,'grid');
+  window.segAppLoader.setBusy(false);
+  assert.equal(element.style.display,'none');
+});
