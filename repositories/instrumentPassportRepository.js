@@ -33,6 +33,11 @@ async function passportDetails(workspaceId, key) {
     FROM instrument_passport_documents WHERE passport_id=$1 ORDER BY sequence`, [summary.id]);
   return { passport: summary, documents: result.rows };
 }
+async function getPassportDocument(workspaceId, key, documentId) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(documentId)) return null;
+  return (await query(`SELECT d.pdf FROM instrument_passport_documents d JOIN instrument_passports p ON p.id=d.passport_id
+    WHERE p.workspace_id=$1 AND p.instrument_key=$2 AND d.id=$3`, [workspaceId,key,documentId])).rows[0] || null;
+}
 async function savePassportDocument({ workspaceId, key, sheetName, instrument, filename, parsed, userId, rootFolderId }) {
   return withTransaction(async client => {
     await client.query(`INSERT INTO instrument_passports(workspace_id,instrument_key,sheet_name,instrument)
@@ -106,6 +111,6 @@ async function saveUlchovFolder(workspaceId, folderId) {
   await query(`UPDATE workspaces SET module_settings=jsonb_set(COALESCE(module_settings,'{}'::jsonb),'{ulchov_final_documents_folder_id}',to_jsonb($2::text)),updated_at=NOW() WHERE id=$1`, [workspaceId,folderId]);
 }
 
-return {passportSummaries,getPassport,passportDetails,savePassportDocument,duePassportJobs,claimPassportJob,loadPassportBuild,completePassportJob,recordPassportOriginal,failPassportJob,retryPassport,saveUlchovFolder};
+return {passportSummaries,getPassport,passportDetails,getPassportDocument,savePassportDocument,duePassportJobs,claimPassportJob,loadPassportBuild,completePassportJob,recordPassportOriginal,failPassportJob,retryPassport,saveUlchovFolder};
 }
-export const {passportSummaries,getPassport,passportDetails,savePassportDocument,duePassportJobs,claimPassportJob,loadPassportBuild,completePassportJob,recordPassportOriginal,failPassportJob,retryPassport,saveUlchovFolder} = createInstrumentPassportRepository();
+export const {passportSummaries,getPassport,passportDetails,getPassportDocument,savePassportDocument,duePassportJobs,claimPassportJob,loadPassportBuild,completePassportJob,recordPassportOriginal,failPassportJob,retryPassport,saveUlchovFolder} = createInstrumentPassportRepository();

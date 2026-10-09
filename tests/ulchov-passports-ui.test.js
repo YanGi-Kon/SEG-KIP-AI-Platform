@@ -27,7 +27,7 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
   app.post('/api/ulchov/passports/:key/documents',multer({storage:multer.memoryStorage()}).array('file',20),async(req,res)=>{
     assert.equal(req.body.sheetName,'Манометр');
     assert.equal(req.get('x-workspace-id'),'00000000-0000-4000-8000-000000000001');
-    const parsed=await preparePassportUpload(req.files);
+    const parsed=await preparePassportUpload(req.files,{pageOrder:req.body.pageOrder?JSON.parse(req.body.pageOrder):undefined});
     const duplicate=sources.some(source=>source.checksum===parsed.checksum);
     if(!duplicate){
       sources.push({pdf:parsed.bytes,checksum:parsed.checksum});
@@ -37,6 +37,7 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
     }
     res.status(duplicate?200:202).json({ok:true,duplicate,passport});
   });
+  app.get('/vendor/pdf-lib.min.js',(_req,res)=>res.sendFile(path.resolve('node_modules/pdf-lib/dist/pdf-lib.min.js')));
   app.use(express.static(new URL('../public/',import.meta.url).pathname.replace(/^\/(?=[A-Z]:)/,'')));
   const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
   t.after(()=>new Promise(resolve=>server.close(resolve)));
@@ -70,10 +71,10 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
   t.after(()=>{if(fs.existsSync(filename))fs.unlinkSync(filename);});
   const pdf=await PDFDocument.create();pdf.addPage([200,300]);fs.writeFileSync(filename,await pdf.save());
   await (await page.$('#passportFile')).uploadFile(filename);
-  await page.click('#passportSubmit');
+  await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled && document.getElementById('passportSelectedFiles').children.length>0);await page.click('#passportSubmit');
   await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('Pasport yangilandi'));
   assert.equal(await page.$$eval('#passportHistory li',items=>items.length),1);
-  await (await page.$('#passportFile')).uploadFile(filename);await page.click('#passportSubmit');
+  await (await page.$('#passportFile')).uploadFile(filename);await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled && document.getElementById('passportSelectedFiles').children.length>0);await page.click('#passportSubmit');
   await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('avval yuklangan'));
   assert.equal(documents.length,1);
   const jpgFilename=path.join(os.tmpdir(),`passport-ui-${process.pid}.jpg`);
@@ -82,14 +83,14 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
   const jpg=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=20;canvas.height=30;const context=canvas.getContext('2d');context.fillStyle='orange';context.fillRect(0,0,20,30);return canvas.toDataURL('image/jpeg').split(',')[1];});
   fs.writeFileSync(jpgFilename,Buffer.from(jpg,'base64'));
   const extra=await PDFDocument.create();extra.addPage([220,300]);extra.addPage([230,300]);fs.writeFileSync(extraFilename,await extra.save());
-  await (await page.$('#passportFile')).uploadFile(jpgFilename,extraFilename);await page.click('#passportSubmit');
+  await (await page.$('#passportFile')).uploadFile(jpgFilename,extraFilename);await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled && document.getElementById('passportSelectedFiles').children.length>0);await page.click('#passportSubmit');
   await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('Pasport yangilandi') && document.getElementById('passportHistory').querySelectorAll('li').length===2);
   assert.equal(passport.pageCount,4);
   const merged=await mergePassportPdfs(sources);
   const mergedPdf=await PDFDocument.load(merged.bytes);
   assert.deepEqual(mergedPdf.getPages().map(page=>Math.round(page.getWidth())),[200,595,220,230]);
   assert.equal(mergedPdf.getPage(1).node.Resources().lookup(PDFName.of('XObject')).keys().length,1);
-  await (await page.$('#passportFile')).uploadFile(jpgFilename,extraFilename);await page.click('#passportSubmit');
+  await (await page.$('#passportFile')).uploadFile(jpgFilename,extraFilename);await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled && document.getElementById('passportSelectedFiles').children.length>0);await page.click('#passportSubmit');
   await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('avval yuklangan'));
   assert.equal(documents.length,2);
   assert.equal(errors.length,0,errors.join('\n'));
@@ -108,7 +109,7 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
   t.after(()=>{if(fs.existsSync(viewerFilename))fs.unlinkSync(viewerFilename);});
   const viewerPdf=await PDFDocument.create();viewerPdf.addPage([240,300]);fs.writeFileSync(viewerFilename,await viewerPdf.save());
   await (await page.$('#passportFile')).uploadFile(viewerFilename);
-  await page.click('#passportSubmit');
+  await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled && document.getElementById('passportSelectedFiles').children.length>0);await page.click('#passportSubmit');
   await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('Pasport yangilandi'));
   assert.equal(documents.length,3);
   await page.setViewport({width:390,height:844});

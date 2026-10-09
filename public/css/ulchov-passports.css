@@ -22,3 +22,17 @@
 .passport-provider{margin-top:22px;border-top:1px solid #185879;padding-top:12px}
 .passport-provider summary{cursor:pointer;font-size:13px;font-weight:700}
 @media(max-width:520px){.passport-dialog{padding:16px}.passport-dialog h2{font-size:17px}.passport-actions>*{flex:1}.passport-dialog input{font-size:16px}}
+
+.passport-gallery-dialog{width:min(1000px,100%)}
+.passport-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:12px;margin:14px 0}
+.passport-media-card{padding:8px;border:2px solid #23516b;border-radius:12px;background:#061523;min-width:0}
+.passport-media-card.selected{border-color:#18c5d8;background:#093448}
+.passport-media-select{position:relative;width:100%;height:155px;border:0;border-radius:8px;padding:0;background:#0a2336;color:#def4ff;cursor:pointer;overflow:hidden}
+.passport-media-select img{width:100%;height:100%;object-fit:contain}.passport-pdf-icon{display:grid;place-content:center;height:100%;font-size:22px;line-height:1.7}
+.passport-selection-badge{position:absolute;top:6px;right:6px;background:#087f9e;color:white;border:2px solid white;border-radius:50%;min-width:27px;height:27px;display:grid;place-items:center;font-weight:700}
+.passport-media-card small{display:block;margin:8px 0;font-size:12px;overflow-wrap:anywhere}
+.passport-media-tools{display:flex;gap:5px;flex-wrap:wrap}.passport-media-tools button{background:#103e55;color:#def4ff;border:1px solid #247896;border-radius:6px;padding:6px;cursor:pointer}.passport-media-tools button:disabled{opacity:.4;cursor:default}
+.passport-media-viewer{margin:16px 0;padding:12px;border:1px solid #237796;border-radius:12px}.passport-media-viewer[hidden]{display:none}.passport-media-viewer img{display:block;max-width:100%;max-height:65vh;margin:auto;object-fit:contain}.passport-media-viewer iframe{width:100%;height:60vh;border:0;background:white}.passport-media-viewer .passport-dialog-head{margin-bottom:12px}
+#passportHistory li{padding:12px 0;border-bottom:1px solid #185879}#passportHistory .passport-action{margin-top:8px}
+#passportFile[hidden]{display:none}
+@media(max-width:520px){.passport-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}.passport-media-select{height:140px}.passport-media-tools button{min-height:36px}}

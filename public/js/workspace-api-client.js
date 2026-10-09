@@ -46,7 +46,9 @@
     if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
     const accessToken = token();
     if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-    const response = await fetch(path, { ...options, headers, credentials: 'include' });
+    const { rawResponse, ...fetchOptions } = options;
+    const response = await fetch(path, { ...fetchOptions, headers, credentials: 'include' });
+    if (rawResponse && response.ok) return response;
     const data = await parse(response);
     if (response.status === 401 && retry) {
       if (token() === accessToken) await refresh();

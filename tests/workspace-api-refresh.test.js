@@ -22,3 +22,9 @@ test('failed refresh releases the shared promise for a subsequent attempt',async
  const fetchImpl=async(path)=>path==='/api/auth/refresh'?(++refreshes===1?reply(401,{error:'expired'}):reply(200,{accessToken:fresh})):reply(200,{ok:true});const api=client(parent,fetchImpl,old);
  await assert.rejects(api.request('/one'));assert.equal((await api.request('/one')).ok,true);assert.equal(refreshes,2);
 });
+
+test('PDF responses remain unread and a 401 still refreshes authorization',async()=>{
+ const parent={sessionStorage:storage('old-token')};let calls=0;let parsed=false;const pdf={status:200,ok:true,blob:async()=>({pdf:true}),text:async()=>{parsed=true;throw new Error('binary response consumed');}};
+ const api=client(parent,async(path,options)=>{if(path==='/api/auth/refresh')return reply(200,{accessToken:'fresh-token'});calls++;assert.equal('rawResponse' in options,false);return calls===1?reply(401,{error:'expired'}):pdf;},'old-token');
+ assert.equal(await api.request('/pdf',{rawResponse:true}),pdf);assert.equal(parsed,false);assert.equal(calls,2);
+});

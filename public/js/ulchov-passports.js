@@ -42,6 +42,68 @@
   }
   const tracked=new Map(), summaries=new Map();
   let selection=null, folderContext=null, pollTimer=null, polling=false, uploading=false;
+
+  const candidates=[], chosen=[], previewUrls=new Set();
+  let importing=false, galleryEpoch=0, galleryNextId=0, canUpload=false, historySignature='', savedDocuments=[];
+  function objectUrl(blob){const url=URL.createObjectURL(blob);previewUrls.add(url);return url;}
+  function clearGallery(){galleryEpoch++;candidates.length=0;chosen.length=0;historySignature='';savedDocuments=[];for(const url of previewUrls)URL.revokeObjectURL(url);previewUrls.clear();$('passportMediaViewer')?.replaceChildren();renderGallery();}
+  function renderGallery(){
+    const el=$('passportSelectedFiles');if(!el)return;
+    $('passportSelectionCount').textContent=chosen.length+' ta sahifa tanlandi';
+    el.innerHTML=candidates.map((item,index)=>{
+      const order=chosen.indexOf(item.id),disabled=uploading||importing||!canUpload;
+      return '<article class="passport-media-card '+(order>=0?'selected':'')+'"><button type="button" class="passport-media-select" data-gallery-toggle="'+index+'" aria-pressed="'+(order>=0)+'" '+(disabled?'disabled':'')+' aria-label="'+esc(item.file.name)+' · '+(item.pageIndex+1)+'-sahifani tanlash">'+(item.image?'<img loading="lazy" src="'+item.url+'" alt="'+esc(item.file.name)+'">':'<span class="passport-pdf-icon">PDF<br>'+(item.pageIndex+1)+'-sahifa</span>')+'<span class="passport-selection-badge">'+(order>=0?order+1:'○')+'</span></button><small>'+esc(item.file.name)+(item.image?'':' · '+(item.pageIndex+1)+'-sahifa')+'</small><div class="passport-media-tools"><button type="button" data-gallery-view="'+index+'">Ko‘rish</button>'+(order>=0?'<button type="button" data-gallery-move="'+index+'" data-offset="-1" aria-label="Oldinga surish" '+(disabled||order===0?'disabled':'')+'>←</button><button type="button" data-gallery-move="'+index+'" data-offset="1" aria-label="Keyinga surish" '+(disabled||order===chosen.length-1?'disabled':'')+'>→</button><button type="button" data-gallery-first="'+index+'" '+(disabled||order===0?'disabled':'')+'>Birinchi</button>':'')+'</div></article>';
+    }).join('');
+    $('passportSubmit').disabled=uploading||importing||!canUpload;
+    $('passportFile').disabled=uploading||importing||!canUpload;
+    for(const id of ['passportChooseFiles','passportSelectAll','passportSelectNone'])$(id).disabled=uploading||importing||!canUpload;
+  }
+  async function importFiles(){
+    const files=Array.from($('passportFile').files),epoch=galleryEpoch;
+    $('passportFile').value='';if(!files.length)return;
+    if(candidates.filter((item,i,array)=>array.findIndex(x=>x.file===item.file)===i).length+files.length>20)return message('passportUploadStatus','20 tagacha JPG yoki PDF qo‘shing.','bad');
+    importing=true;renderGallery();
+    try{
+      for(const file of files){
+        if(!/\.(pdf|jpe?g)$/i.test(file.name)||file.size>15*1024*1024||!file.size)throw new Error('Har bir fayl JPG yoki PDF, 15 MBgacha bo‘lsin.');
+        if(candidates.some(item=>item.file.name===file.name&&item.file.size===file.size&&item.file.lastModified===file.lastModified))continue;
+        let count=1;
+        if(/\.pdf$/i.test(file.name)){
+          if(!window.PDFLib)throw new Error('PDF vositasi yuklanmadi. Sahifani yangilang.');
+          const pdf=await window.PDFLib.PDFDocument.load(await file.arrayBuffer());count=pdf.getPageCount();
+        }
+        if(epoch!==galleryEpoch)return;
+        if(!count||candidates.length+count>500)throw new Error('Galereya 500 sahifadan oshmasin.');
+        const url=objectUrl(file),image=/\.jpe?g$/i.test(file.name);
+        for(let pageIndex=0;pageIndex<count;pageIndex++){
+          const item={id:galleryEpoch+':'+galleryNextId++,file,pageIndex,url,image};candidates.push(item);chosen.push(item.id);
+        }
+      }
+      message('passportUploadStatus','Raqamlar PDF tartibini bildiradi. Belgini bosib sahifani tanlang yoki bekor qiling.');
+    }catch(error){if(epoch===galleryEpoch)message('passportUploadStatus',error.message||'Fayl ochilmadi.','bad');}
+    finally{if(epoch===galleryEpoch){importing=false;renderGallery();}}
+  }
+  function showMedia(url,image,title,page=1){
+    const viewer=$('passportMediaViewer');viewer.hidden=false;
+    viewer.innerHTML='<div class="passport-dialog-head"><strong>'+esc(title)+'</strong><button class="passport-close" type="button" id="passportCloseMedia" aria-label="Ko‘rishni yopish">×</button></div>'+(image?'<img src="'+url+'" alt="'+esc(title)+'">':'<iframe title="'+esc(title)+'" src="'+url+'#page='+page+'&view=FitH"></iframe><a class="passport-action" href="'+url+'#page='+page+'" target="_blank" rel="noopener">Katta oynada ochish</a>');
+    $('passportCloseMedia').onclick=()=>{viewer.hidden=true;viewer.replaceChildren();};
+    viewer.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+  async function viewSaved(index){
+    const doc=savedDocuments[index],selected=selection;if(!doc||!selected)return;
+    const button=$('passportHistory').querySelector('[data-saved-view="'+index+'"]');if(button)button.disabled=true;
+    try{
+      if(!doc.previewUrl){
+        const response=await window.WorkspaceApiClient.request(passportPath(selected.key)+'/documents/'+encodeURIComponent(doc.id)+'/pdf',{headers:{'x-workspace-id':selected.wid},rawResponse:true});
+        if(selection!==selected||selected.wid!==workspaceId())return;
+        const blob=await response.blob();if(selection!==selected||selected.wid!==workspaceId())return;
+        doc.previewUrl=objectUrl(blob);
+      }
+      showMedia(doc.previewUrl,false,repairFilename(doc.filename));
+    }catch(error){if(selection===selected)message('passportUploadStatus',error.message||'Hujjat ochilmadi.','bad');}
+    finally{if(button)button.disabled=false;}
+  }
+
   async function api(path,options={},expected=workspaceId()){
     if(!expected)throw new Error('Avval Workspace tanlang.');
     const result=await window.WorkspaceApiClient.request(path,{...options,headers:{...options.headers,'x-workspace-id':expected}});
@@ -80,13 +142,18 @@
     const passport=data.passport;
     message('passportUploadStatus',statusText(passport),passport?.status==='failed_permanent'?'bad':passport?.status==='completed'?'ok':'');
     const hasDocs=data.documents.length>0;
-    $('passportUploadHelp').textContent=hasDocs?'Tanlangan JPG va PDFlar ro‘yxat tartibida yagona PDFga birlashtirilib, pasport oxiriga qo‘shiladi.':'Bir yoki bir nechta JPG / PDF tanlang. Ular tartib bo‘yicha yagona PDFga birlashtiriladi. Bitta PDF barcha sahifalari bilan saqlanadi.';
-    $('passportHistory').innerHTML=data.documents.length?`<ol>${data.documents.map(doc=>`<li>${esc(repairFilename(doc.filename))} — ${doc.page_count} sahifa<small>${esc(new Date(doc.created_at).toLocaleString('uz-UZ',{timeZone:'Asia/Tashkent'}))}${doc.sequence===1?' · Asosiy pasport':''}</small></li>`).join('')}</ol>`:'Hujjatlar hali yo‘q.';
+    $('passportUploadHelp').textContent=hasDocs?'Avval saqlangan sahifalar pastdagi tarixda ko‘rinadi. Yangi tanlangan sahifalar raqamlar tartibida pasport oxiriga qo‘shiladi.':'Surat yoki PDF qo‘shing. Sahifalarni belgilang: 1 — birinchi, 2 — keyingi sahifa. Belgilanmagan sahifalar saqlanmaydi.';
+    canUpload=data.canUpload;
+    const nextHistory=JSON.stringify(data.documents);
+    if(historySignature!==nextHistory){historySignature=nextHistory;savedDocuments=data.documents;
+    $('passportHistory').innerHTML=data.documents.length?`<ol>${data.documents.map(doc=>`<li>${esc(repairFilename(doc.filename))} — ${doc.page_count} sahifa<small>${esc(new Date(doc.created_at).toLocaleString('uz-UZ',{timeZone:'Asia/Tashkent'}))}${doc.sequence===1?' · Asosiy pasport':''}</small><button class="passport-action" type="button" data-saved-view="${data.documents.indexOf(doc)}">Sahifalarni ko‘rish</button></li>`).join('')}</ol>`:'Hujjatlar hali yo‘q.';
+    }
     $('passportSubmit').disabled=uploading || !data.canUpload;
     $('passportFile').disabled=uploading || !data.canUpload;
     $('passportRetry').hidden=!data.canUpload || !['failed_retryable','failed_permanent'].includes(passport?.status);
     $('passportPreview').disabled=!passport?.publishedVersion;
     if(!data.canUpload)$('passportUploadHelp').textContent='Siz pasport va tarixni ko‘rishingiz mumkin. PDF yuklash uchun operator yoki administrator roli kerak.';
+    renderGallery();
   }
   async function poll(){
     pollTimer=null;if(polling)return;
@@ -103,14 +170,15 @@
     }finally{polling=false;if(tracked.size&&!pollTimer)pollTimer=setTimeout(poll,3000);}
   }
   async function openUpload(key,chooseFiles=false){
-    if(uploading)return;
+    if(uploading||importing)return;
     const instrument=window.UlchovSheets?.state?.instruments.find(item=>item.passportKey===key);
     if(!instrument)return;
     const selected={key,wid:workspaceId(),sheetName:window.UlchovSheets.state.loadedSheet};selection=selected;
     $('passportUploadTitle').textContent=`${instrument.name} · ${instrument.serial || instrument.pos}`;
+    clearGallery();canUpload=false;importing=false;$('passportMediaViewer').hidden=true;
     $('passportFile').value='';$('passportSelectedFiles').textContent='';$('passportHistory').textContent='';$('passportSubmit').disabled=true;$('passportPreview').disabled=true;$('passportRetry').hidden=true;
     $('passportUploadModal').classList.add('open');
-    if(chooseFiles){$('passportFile').disabled=false;$('passportFile').click();}
+    if(chooseFiles){canUpload=true;$('passportFile').disabled=false;$('passportFile').click();}
     message('passportUploadStatus','Hujjatlar tarixi yuklanmoqda...');
     try{
       const data=await api(passportPath(key),{},selected.wid);
@@ -119,23 +187,27 @@
     }catch(error){if(!error.stale && selection===selected)message('passportUploadStatus',error.message,'bad');}
   }
   async function upload(){
-    if(uploading || !selection)return;
-    const selected=selection,files=Array.from($('passportFile').files);
+    if(uploading || importing || !selection)return;
+    const selected=selection,items=chosen.map(id=>candidates.find(item=>item.id===id));
+    const files=[...new Set(items.map(item=>item.file))];
+    const pageOrder=items.map(item=>({fileIndex:files.indexOf(item.file),pageIndex:item.pageIndex}));
     if(!files.length)return message('passportUploadStatus','JPG yoki PDF fayllar tanlang.','bad');
     if(files.length>20 || files.some(file=>file.size>15*1024*1024 || !/\.(pdf|jpe?g)$/i.test(file.name)))return message('passportUploadStatus','20 tagacha JPG yoki PDF tanlang. Har biri 15 MBgacha bo‘lsin.','bad');
     if(files.reduce((sum,file)=>sum+file.size,0)>60*1024*1024)return message('passportUploadStatus','Fayllar jami 60 MBdan oshmasin.','bad');
-    const body=new FormData();for(const file of files)body.append('file',file);body.append('sheetName',selected.sheetName);
-    uploading=true;$('passportSubmit').disabled=true;$('passportFile').disabled=true;
+    const body=new FormData();for(const file of files)body.append('file',file);body.append('sheetName',selected.sheetName);body.append('pageOrder',JSON.stringify(pageOrder));
+    uploading=true;renderGallery();
     message('passportUploadStatus','PDF yuklanmoqda va birlashtirish navbatiga qo‘yilmoqda...');
     try{
       const result=await api(`${passportPath(selected.key)}/documents`,{method:'POST',body},selected.wid);
       const data=await api(passportPath(selected.key),{},selected.wid);
       updateCard(selected.key,data.passport);track(selected.key,data.passport);
       if(selection!==selected)return;
-      uploading=false;showDetails(data);$('passportFile').value='';$('passportSelectedFiles').textContent='';
+      uploading=false;for(const item of items){const i=chosen.indexOf(item.id);if(i>=0)chosen.splice(i,1);}
+      for(let i=candidates.length-1;i>=0;i--)if(items.includes(candidates[i]))candidates.splice(i,1);
+      showDetails(data);$('passportFile').value='';renderGallery();
       if(result.duplicate)message('passportUploadStatus','Bu PDF avval yuklangan. Sahifalar takroran qo‘shilmadi.','ok');
     }catch(error){if(!error.stale && selection===selected)message('passportUploadStatus',error.message,'bad');}
-    finally{uploading=false;if(selection===selected){$('passportSubmit').disabled=false;$('passportFile').disabled=false;}}
+    finally{uploading=false;if(selection===selected)renderGallery();}
   }
   async function preview(key){
     const wid=workspaceId(),popup=window.open('about:blank','_blank');
@@ -216,7 +288,7 @@
     finally{button.disabled=!folderContext?.canConfigure;}
   }
   function reset(){
-    selection=null;folderContext=null;tracked.clear();summaries.clear();clearTimeout(pollTimer);pollTimer=null;
+    clearGallery();importing=false;canUpload=false;selection=null;folderContext=null;tracked.clear();summaries.clear();clearTimeout(pollTimer);pollTimer=null;
     $('passportUploadModal')?.classList.remove('open');$('passportFolderModal')?.classList.remove('open');
     if($('passportFile'))$('passportFile').value='';if($('passportConnectionSecret'))$('passportConnectionSecret').value='';
   }
@@ -227,19 +299,33 @@
     if(existingToolbar){existingToolbar.prepend(toolbar.firstElementChild);existingToolbar.style.gap='10px';existingToolbar.style.flexWrap='wrap';}
     else if(header)header.after(toolbar);else document.body.prepend(toolbar);
     const container=document.createElement('div');container.innerHTML=`
-      <div class="passport-overlay" id="passportUploadModal"><section class="passport-dialog" role="dialog" aria-modal="true" aria-labelledby="passportUploadTitle"><div class="passport-dialog-head"><h2 id="passportUploadTitle">Asbob pasporti</h2><button class="passport-close" data-passport-close="passportUploadModal" aria-label="Yopish">×</button></div><p id="passportUploadHelp"></p><label>JPG / PDF · har biri 15 MBgacha · jami 60 MB<input id="passportFile" type="file" accept="image/jpeg,application/pdf,.jpg,.jpeg,.pdf" multiple></label><div id="passportSelectedFiles" class="passport-history"></div><div class="passport-actions"><button class="passport-action primary" id="passportSubmit">Saqlash</button><button class="passport-action" id="passportPreview">Pasportni ko‘rish</button><button class="passport-action" id="passportRetry" hidden>Qayta urinish</button></div><div class="passport-message" id="passportUploadStatus" aria-live="polite"></div><div class="passport-history"><strong>Yuklangan hujjatlar</strong><div id="passportHistory"></div></div></section></div>
+      <div class="passport-overlay" id="passportUploadModal"><section class="passport-dialog passport-gallery-dialog" role="dialog" aria-modal="true" aria-labelledby="passportUploadTitle"><div class="passport-dialog-head"><h2 id="passportUploadTitle">Asbob pasporti</h2><button class="passport-close" data-passport-close="passportUploadModal" aria-label="Yopish">×</button></div><p id="passportUploadHelp"></p><p>JPG / PDF · har biri 15 MBgacha · jami 60 MB · 20 tagacha fayl</p><input id="passportFile" type="file" accept="image/jpeg,application/pdf,.jpg,.jpeg,.pdf" multiple hidden><div class="passport-actions"><button class="passport-action" id="passportChooseFiles" type="button">＋ Fayllar qo‘shish</button><button class="passport-action" id="passportSelectAll" type="button">Barchasini tanlash</button><button class="passport-action" id="passportSelectNone" type="button">Tanlovni bekor qilish</button></div><p id="passportSelectionCount" aria-live="polite">0 ta sahifa tanlandi</p><div id="passportSelectedFiles" class="passport-gallery"></div><div id="passportMediaViewer" class="passport-media-viewer" hidden></div><div class="passport-actions"><button class="passport-action primary" id="passportSubmit">Saqlash</button><button class="passport-action" id="passportPreview">Pasportni ko‘rish</button><button class="passport-action" id="passportRetry" hidden>Qayta urinish</button></div><div class="passport-message" id="passportUploadStatus" aria-live="polite"></div><div class="passport-history"><strong>Yuklangan hujjatlar</strong><div id="passportHistory"></div></div></section></div>
       <div class="passport-overlay" id="passportFolderModal"><section class="passport-dialog" role="dialog" aria-modal="true" aria-labelledby="passportFolderTitle"><div class="passport-dialog-head"><h2 id="passportFolderTitle">6. ЯКУНИЙ ҲУЖЖАТЛАР</h2><button class="passport-close" data-passport-close="passportFolderModal" aria-label="Yopish">×</button></div><p>Yagona pasport PDFlar shu papka ichidagi PASPORTLAR bo‘limiga saqlanadi.</p><label>Google Drive papka URL yoki ID<input id="passportFolderInput" placeholder="https://drive.google.com/drive/folders/..."></label><div class="passport-actions"><button class="passport-action primary" id="passportSaveFolder">Saqlash</button><button class="passport-action" id="passportTestFolder">Tekshirish</button><a class="passport-action" id="passportFolderLink" target="_blank" rel="noopener noreferrer" hidden>Papkani ochish</a></div><div class="passport-message" id="passportFolderStatus" aria-live="polite"></div><details class="passport-provider"><summary>Personal Drive ulanishi</summary><p>Workspace uchun mavjud ulanish ishlatiladi. Bu sozlama ACT va TO uchun ham umumiy.</p><label>Apps Script /exec URL<input id="passportConnectionUrl" type="url"></label><label>Webhook secret<input id="passportConnectionSecret" type="password" autocomplete="new-password"></label><button class="passport-action" id="passportSaveConnection">Ulash</button><div class="passport-message" id="passportConnectionStatus"></div></details></section></div>`;
     document.body.append(container);
-    $('passportFile').onchange=()=>{$('passportSelectedFiles').textContent=Array.from($('passportFile').files).map((file,index)=>`${index+1}. ${file.name}`).join(' · ');};
+    $('passportFile').onchange=importFiles;
+    $('passportChooseFiles').onclick=()=>$('passportFile').click();
+    $('passportSelectAll').onclick=()=>{for(const item of candidates)if(!chosen.includes(item.id))chosen.push(item.id);renderGallery();};
+    $('passportSelectNone').onclick=()=>{chosen.length=0;renderGallery();};
+    $('passportSelectedFiles').onclick=event=>{
+      const button=event.target.closest('button');if(!button)return;
+      if(button.dataset.galleryView!==undefined){const item=candidates[Number(button.dataset.galleryView)];if(item)showMedia(item.url,item.image,item.file.name,item.pageIndex+1);return;}
+      if(uploading||importing||!canUpload)return;
+      const index=Number(button.dataset.galleryToggle??button.dataset.galleryMove??button.dataset.galleryFirst),item=candidates[index];if(!item)return;
+      const order=chosen.indexOf(item.id);
+      if(button.dataset.galleryToggle!==undefined){if(order<0)chosen.push(item.id);else chosen.splice(order,1);}
+      else if(order>=0){const next=button.dataset.galleryFirst!==undefined?0:order+Number(button.dataset.offset);if(next>=0&&next<chosen.length){chosen.splice(order,1);chosen.splice(next,0,item.id);}}
+      renderGallery();
+    };
+    $('passportHistory').onclick=event=>{const button=event.target.closest('[data-saved-view]');if(button)viewSaved(Number(button.dataset.savedView));};
     $('passportFinalDocumentsButton').onclick=openFolder;$('passportSubmit').onclick=upload;$('passportPreview').onclick=()=>selection&&preview(selection.key);$('passportRetry').onclick=retry;
     $('passportSaveFolder').onclick=saveFolder;$('passportTestFolder').onclick=testFolder;$('passportSaveConnection').onclick=saveConnection;
     document.addEventListener('click',event=>{
-      const close=event.target.closest('[data-passport-close]');if(close){if(!uploading)$(close.dataset.passportClose).classList.remove('open');return;}
+      const close=event.target.closest('[data-passport-close]');if(close){if(!uploading&&!importing)$(close.dataset.passportClose).classList.remove('open');return;}
       const button=event.target.closest('[data-passport-upload],[data-passport-view]');if(!button)return;
       const key=button.closest('[data-passport-key]')?.dataset.passportKey;if(!key)return;
       if(button.hasAttribute('data-passport-upload'))openUpload(key,true);else preview(key);
     });
-    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!uploading){$('passportUploadModal').classList.remove('open');$('passportFolderModal').classList.remove('open');}});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!uploading&&!importing){$('passportUploadModal').classList.remove('open');$('passportFolderModal').classList.remove('open');}});
     window.addEventListener('message',event=>{if(event.source===parent && event.data?.type==='SEG_KIP_WORKSPACE_CHANGE')reset();});
     window.addEventListener('seg-kip:workspace-change',reset);
   }

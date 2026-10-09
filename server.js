@@ -119,6 +119,8 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get("/vendor/pdf-lib.min.js", (_req, res) => res.sendFile(join(__dirname, "node_modules", "pdf-lib", "dist", "pdf-lib.min.js")));
+
 app.get("/favicon.ico", (_req, res) => {
   res.type("image/png");
   res.sendFile(faviconPngPath);

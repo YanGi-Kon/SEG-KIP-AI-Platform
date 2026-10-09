@@ -94,6 +94,13 @@ router.get('/passports/:key/pdf',workspaceGuards('documents:read'),async(req,res
     res.type('application/pdf').set('Cache-Control','private, no-store').set('Content-Disposition','inline; filename="pasport.pdf"').send(passport.merged_pdf);
   }catch(error){passportResponseError(res,error);}
 });
+router.get('/passports/:key/documents/:documentId/pdf',workspaceGuards('documents:read'),async(req,res)=>{
+  try {
+    const document=await passports.getPassportDocument(req.workspace.id,req.params.key,req.params.documentId);
+    if(!document)throw passportError('Hujjat topilmadi.','PASSPORT_DOCUMENT_NOT_FOUND',404);
+    res.type('application/pdf').set('Cache-Control','private, no-store').set('Content-Disposition','inline; filename="hujjat.pdf"').send(document.pdf);
+  }catch(error){passportResponseError(res,error);}
+});
 router.post('/passports/:key/retry',workspaceGuards('workspace:read'),async(req,res)=>{
   try {
     const job=await passports.retryPassport(req.workspace.id,req.params.key,ulchovFolderId(req.workspace));
@@ -117,7 +124,12 @@ router.post('/passports/:key/documents',workspaceGuards('workspace:read'),(req,r
       const rows=await readSheetRows({...config,range:'A:Z'});
       const matches=parseInstruments(rows).instruments.filter(item=>instrumentPassportKey(sheetName,item)===req.params.key);
       if(matches.length!==1)throw passportError(matches.length?'Asbob identifikatori takrorlangan. Reestrni tekshiring.':'Asbob reestrda topilmadi. Kartochkalarni yangilang.','PASSPORT_INSTRUMENT_AMBIGUOUS',409);
-      const parsed=await preparePassportUpload(req.files);
+      let pageOrder;
+      if (req.body.pageOrder !== undefined) {
+        try { pageOrder = JSON.parse(req.body.pageOrder); }
+        catch { throw passportError('Sahifa tartibi noto‘g‘ri.', 'PASSPORT_PAGE_ORDER_INVALID'); }
+      }
+      const parsed=await preparePassportUpload(req.files, {pageOrder});
       const filename=req.files.map(file=>normalizePassportFilename(file.originalname).replace(/[\\/\x00-\x1f]/g,'-')).join(' + ').slice(0,180) || 'hujjat.pdf';
       const result=await passports.savePassportDocument({workspaceId:req.workspace.id,key:req.params.key,sheetName,instrument:matches[0],filename,parsed,userId:req.auth.userId,rootFolderId});
       res.status(result.duplicate?200:202).json({ok:true,...result});
