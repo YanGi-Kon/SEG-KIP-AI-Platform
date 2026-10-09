@@ -22,10 +22,12 @@
       if (!frame) return;
       const expanded = document.body.classList.contains('kuduk-reports-home') || document.body.classList.contains('kuduk-document-home');
       frame.toggleAttribute('data-kuduk-full-page',expanded);
+      frame.toggleAttribute('data-kuduk-document-page',document.body.classList.contains('kuduk-document-home'));
       if (!parent.document.getElementById('kudukFullPageStyle')) {
         const style = parent.document.createElement('style');
         style.id = 'kudukFullPageStyle';
         style.textContent = '.main:has(.generic-module-page.active iframe[data-kuduk-full-page]:not([hidden])){padding:0!important;min-width:0}.main:has(.generic-module-page.active iframe[data-kuduk-full-page]:not([hidden]))>.topbar{display:none}.generic-module-page.active:has(iframe[data-kuduk-full-page]:not([hidden])){height:100dvh;min-height:0;border:0;border-radius:0;box-shadow:none}.generic-module-page.active iframe[data-kuduk-full-page]:not([hidden]){height:100dvh!important;min-height:0!important}';
+        style.textContent += '.main:has(iframe[data-kuduk-document-page]:not([hidden])) .seg-excel-button{display:none!important}';
         parent.document.head.appendChild(style);
       }
     } catch (_) {}
@@ -171,7 +173,8 @@
       body.kuduk-analysis-home #modal{z-index:180}
       .kw-doc-body{padding:14px;overflow:auto;background:#dbe4ea}.kw-doc-paper{width:297mm;min-height:210mm;margin:0 auto;background:#fff;color:#111;padding:12mm;box-shadow:0 8px 30px rgba(0,0,0,.24);font-family:"Times New Roman",Times,serif;box-sizing:border-box}.kw-doc-title{text-align:center;font-size:16pt;font-weight:700;margin-bottom:4mm}.kw-doc-subtitle{text-align:center;font-size:12pt;margin-bottom:5mm}.kw-doc-date{font-size:11pt;font-weight:700;margin:4mm 0 2mm}.kw-doc-table{width:100%;min-width:0;max-width:100%;border-collapse:collapse;table-layout:fixed;font-size:9pt}.kw-doc-table th,.kw-doc-table td{border:.25mm solid #000;padding:.8mm;vertical-align:middle;overflow-wrap:anywhere}.kw-doc-table th{text-align:center}
       .kw-document-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;flex-shrink:0}
-      #kudukDocumentStatus a{color:#67e8f9;text-decoration:underline}
+      #kudukDocumentOpenPdf[hidden]{display:none!important}
+      #kudukDocumentOpenPdf{text-decoration:none}
       @media(max-width:850px){#kudukDocumentModal .kw-head{align-items:flex-start;flex-wrap:wrap}.kw-document-actions{width:100%;justify-content:flex-start}}
       @media print{
         @page{size:A4 landscape;margin:12mm}
@@ -284,7 +287,7 @@
       modal.className = 'kw-modal';
       modal.innerHTML = `
         <div class="kw-shell" style="width:min(1540px,100%);height:min(96vh,1040px)">
-          <div class="kw-head"><div><h2>ЖУРНАЛ УЧЕТА — Хужат</h2><p id="kudukDocumentStatus"></p></div><div class="kw-document-actions"><button id="kudukDocumentClose" class="btn" type="button">← Ортга кайтиш</button><button id="kudukDocumentPrint" class="btn" type="button" disabled>Чоп этиш</button><button id="kudukDocumentSavePdf" class="btn primary workspace-operator-only" type="button" disabled>Жорий ой учун саклаш</button></div></div>
+          <div class="kw-head"><div><h2>ЖУРНАЛ УЧЕТА — Хужат</h2><p id="kudukDocumentStatus"></p></div><div class="kw-document-actions"><button id="kudukDocumentClose" class="btn" type="button">← Ортга кайтиш</button><button id="kudukDocumentPrint" class="btn" type="button" disabled>Чоп этиш</button><a id="kudukDocumentOpenPdf" class="btn" target="_blank" rel="noopener noreferrer" hidden>PDFни очиш</a><button id="kudukDocumentSavePdf" class="btn primary workspace-operator-only" type="button" disabled>Жорий ой учун саклаш</button></div></div>
           <div class="kw-doc-body"><div id="kudukDocumentPaper" class="kw-doc-paper"></div></div>
         </div>`;
       document.body.appendChild(modal);
@@ -774,6 +777,7 @@
     releaseDocumentSignatures();
     const version = documentRenderVersion;
     const wid = workspaceId();
+    if ($('kudukDocumentOpenPdf')) { $('kudukDocumentOpenPdf').hidden = true; $('kudukDocumentOpenPdf').removeAttribute('href'); }
     if ($('kudukDocumentPrint')) $('kudukDocumentPrint').disabled = true;
     if ($('kudukDocumentSavePdf')) $('kudukDocumentSavePdf').disabled = true;
     const signatureUrls = new Map();
@@ -855,16 +859,11 @@
       if (currentDocument !== target || workspaceId() !== target.workspaceId) return;
       const result = data.result || {};
       if (!result.fileId) throw new Error('PDF сақлангани тасдиқланмади.');
-      if (status) {
-        status.textContent = 'PDF ЯКУНИЙ ҲУЖЖАТЛАР папкасига сақланди. ';
-        if (/^https:\/\/drive\.google\.com\//.test(result.url || '')) {
-          const link = document.createElement('a');
-          link.href = result.url;
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          link.textContent = 'PDFни очиш';
-          status.appendChild(link);
-        }
+      if (status) status.textContent = 'PDF ЯКУНИЙ ҲУЖЖАТЛАР папкасига сақланди.';
+      const link = $('kudukDocumentOpenPdf');
+      if (link && /^https:\/\/drive\.google\.com\//.test(result.url || '')) {
+        link.href = result.url;
+        link.hidden = false;
       }
     } catch (error) {
       if (currentDocument === target && status) status.textContent = 'PDF сақланмади: ' + error.message + (error.data?.recommendedFix ? ' · ' + error.data.recommendedFix : '');
@@ -1195,7 +1194,7 @@
       if ($('kudukSignersModal')?.classList.contains('show')) void loadSigners();
     });
     window.addEventListener('pagehide',releaseDocumentSignatures);
-    window.addEventListener('pagehide',()=>{try{window.frameElement?.removeAttribute('data-kuduk-full-page');}catch(_){}});
+    window.addEventListener('pagehide',()=>{try{window.frameElement?.removeAttribute('data-kuduk-full-page');window.frameElement?.removeAttribute('data-kuduk-document-page');}catch(_){}});
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });

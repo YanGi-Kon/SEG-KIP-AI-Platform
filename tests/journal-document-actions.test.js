@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const workflow = fs.readFileSync(new URL('../public/js/kuduk-workflow.js',import.meta.url),'utf8');
 function setup(upload) {
   const classes = new Set();
-  const elements = new Map(['kudukDocumentPaper','kudukDocumentStatus','kudukDocumentModal','kudukDocumentPrint','kudukDocumentSavePdf'].map(id=>[id,{innerHTML:'',textContent:'',disabled:true,classList:{add(){},remove(){}},appendChild(){}}]));
+  const elements = new Map(['kudukDocumentPaper','kudukDocumentStatus','kudukDocumentModal','kudukDocumentPrint','kudukDocumentSavePdf','kudukDocumentOpenPdf'].map(id=>[id,{innerHTML:'',textContent:'',disabled:true,hidden:true,removeAttribute(name){delete this[name];},classList:{add(){},remove(){}},appendChild(){}}]));
   let workspace = 'workspace-a';
   let prints = 0;
   const calls = [];
@@ -36,6 +36,11 @@ test('document controls save the displayed month and print only when rendering i
   assert.equal(calls.at(-1).options.method,'POST');
   assert.equal(calls.at(-1).options.headers.get('x-workspace-id'),'workspace-a');
   assert.match(elements.get('kudukDocumentStatus').textContent,/сақланди/);
+  assert.equal(elements.get('kudukDocumentOpenPdf').hidden,false);
+  assert.equal(elements.get('kudukDocumentOpenPdf').href,'https://drive.google.com/file/d/file-a/view');
+  await ui.renderStoredDocument({...bundle,report:{year:2026,month:9}});
+  assert.equal(elements.get('kudukDocumentOpenPdf').hidden,true);
+  assert.equal(elements.get('kudukDocumentOpenPdf').href,undefined);
 });
 
 test('a double click sends one export and a Workspace switch blocks stale document actions',async()=>{
