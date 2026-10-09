@@ -67,13 +67,17 @@ function diagnosticHost(value) {
 function diagnosticCode(value) {
   return /^[A-Z][A-Z0-9_]{0,79}$/.test(String(value || '')) ? String(value) : 'UNKNOWN';
 }
+const SAFE_RETRY_ACTIONS = new Set(['passport_capabilities', 'validate_folder', 'ensure_subfolder', 'save_passport_pdf']);
+const TRANSIENT_REQUEST_ERRORS = new Set(['DRIVE_APPS_SCRIPT_TIMEOUT', 'DRIVE_APPS_SCRIPT_REDIRECT_FAILED', 'DRIVE_APPS_SCRIPT_INVALID_RESPONSE', 'DRIVE_UPLOAD_FAILED']);
 const DIAGNOSTIC_ACTIONS = new Set(['validate_folder', 'ensure_subfolder', 'upload_pdf_base64', 'passport_capabilities', 'save_passport_pdf']);
 
 export class AppsScriptPersonalDriveProvider {
-  constructor({ url, secret, fetchImpl = globalThis.fetch, timeoutMs = 30000, diagnosticsLogger = entry => console.info('[apps-script-drive]', JSON.stringify(entry)) }) {
+  constructor({ url, secret, fetchImpl = globalThis.fetch, timeoutMs = 30000, maxRequestAttempts = 3, retryDelayMs = 500, diagnosticsLogger = entry => console.info('[apps-script-drive]', JSON.stringify(entry)) }) {
     this.url = clean(url);
     this.secret = clean(secret);
     this.fetchImpl = fetchImpl;
+    this.maxRequestAttempts = Math.min(3, Math.max(1, Number(maxRequestAttempts) || 1));
+    this.retryDelayMs = Math.min(2000, Math.max(0, Number(retryDelayMs) || 0));
     this.diagnosticsLogger = diagnosticsLogger;
     this.timeoutMs = Math.max(1000, Number(timeoutMs || 30000));
     this.providerName = 'apps_script_personal_drive';
@@ -89,6 +93,17 @@ export class AppsScriptPersonalDriveProvider {
   }
 
   async request(action, payload = {}) {
+    const attempts = SAFE_RETRY_ACTIONS.has(action) ? this.maxRequestAttempts : 1;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try { return await this.requestOnce(action, payload, attempt); }
+      catch (error) {
+        if (attempt === attempts || !TRANSIENT_REQUEST_ERRORS.has(error.code)) throw error;
+        await new Promise(resolve => setTimeout(resolve, this.retryDelayMs * attempt));
+      }
+    }
+  }
+
+  async requestOnce(action, payload = {}, attempt = 1) {
     const timestamp = Date.now();
     const nonce = crypto.randomUUID();
     const envelope = { action, payload, timestamp, nonce };
@@ -97,6 +112,7 @@ export class AppsScriptPersonalDriveProvider {
     const startedAt = Date.now();
     const diagnostic = {
       requestId: nonce,
+      attempt,
       action: DIAGNOSTIC_ACTIONS.has(action) ? action : 'other',
       requestHost: diagnosticHost(this.url),
       requestBytes: Buffer.byteLength(requestBody),
@@ -128,7 +144,7 @@ export class AppsScriptPersonalDriveProvider {
         diagnostic.responseFormat = 'non-json';
         if (response.status === 404 && response.redirected === true
           && diagnostic.responseHost === 'script.googleusercontent.com'
-          && ['passport_capabilities', 'validate_folder', 'ensure_subfolder', 'save_passport_pdf'].includes(action)) {
+          && SAFE_RETRY_ACTIONS.has(action)) {
           // The Apps Script entrypoint ran, but its redirected response was unavailable.
           // Durable workers retry these actions; legacy uploads are excluded because they create new files.
           throw providerError(

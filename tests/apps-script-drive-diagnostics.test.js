@@ -4,7 +4,7 @@ import { passportFailureRetryable } from '../services/instrumentPassportService.
 import { AppsScriptPersonalDriveProvider } from '../services/driveProviders/appsScriptPersonalDriveProvider.js';
 function setup(response,logger){
  const logs=[];
- const provider=new AppsScriptPersonalDriveProvider({url:'https://script.google.com/macros/s/private-deployment/exec',secret:'private-secret',diagnosticsLogger:logger||((entry)=>logs.push(entry)),fetchImpl:async()=>response});
+ const provider=new AppsScriptPersonalDriveProvider({url:'https://script.google.com/macros/s/private-deployment/exec',secret:'private-secret',maxRequestAttempts:1,diagnosticsLogger:logger||((entry)=>logs.push(entry)),fetchImpl:async()=>response});
  return {provider,logs};
 }
 test('HTML 404 records action, redirect host and correlation without sensitive values',async()=>{
@@ -25,7 +25,7 @@ test('a broken diagnostic logger cannot break a successful Drive request',async(
  const {provider}=setup({ok:true,status:200,text:async()=>JSON.stringify({ok:true,ready:true})},()=>{throw new Error('logging failure');});assert.equal((await provider.passportCapabilities()).ready,true);
 });
 test('network failures are recorded without remote messages',async()=>{
- const logs=[];const provider=new AppsScriptPersonalDriveProvider({url:'https://script.google.com/macros/s/id/exec',secret:'secret',diagnosticsLogger:e=>logs.push(e),fetchImpl:async()=>{throw new Error('private-network-message');}});await assert.rejects(provider.passportCapabilities());assert.equal(logs[0].httpStatus,null);assert.equal(logs[0].responseFormat,'unavailable');assert.equal(JSON.stringify(logs).includes('private-network-message'),false);
+ const logs=[];const provider=new AppsScriptPersonalDriveProvider({url:'https://script.google.com/macros/s/id/exec',secret:'secret',maxRequestAttempts:1,diagnosticsLogger:e=>logs.push(e),fetchImpl:async()=>{throw new Error('private-network-message');}});await assert.rejects(provider.passportCapabilities());assert.equal(logs[0].httpStatus,null);assert.equal(logs[0].responseFormat,'unavailable');assert.equal(JSON.stringify(logs).includes('private-network-message'),false);
 });
 
 test('direct deployment 404 stays permanent and does not trigger passport retries',async()=>{
@@ -43,4 +43,17 @@ test('only safe actions from the Google response host become retryable',async()=
  }
  const {provider}=setup({ok:false,status:404,url:'https://other.example/echo',redirected:true,text:async()=>'<html>Not Found</html>'});
  await assert.rejects(provider.passportCapabilities(),{code:'DRIVE_APPS_SCRIPT_DEPLOYMENT_NOT_FOUND'});
+});
+
+test('safe request retries only the failed step with fresh authentication nonces',async()=>{
+ const requests=[],logs=[];const provider=new AppsScriptPersonalDriveProvider({url:'https://script.google.com/macros/s/id/exec',secret:'secret',retryDelayMs:0,diagnosticsLogger:e=>logs.push(e),fetchImpl:async(url,options)=>{
+  requests.push(JSON.parse(options.body));return requests.length===1?{ok:true,status:200,redirected:true,url:'https://script.google.com/error',headers:{get:()=> 'text/html'},text:async()=>'<html>Error</html>'}:{ok:true,status:200,text:async()=>JSON.stringify({ok:true,folderId:'folder'})};
+ }});
+ const result=await provider.ensureSubfolder('root','PASPORTLAR');assert.equal(result.folderId,'folder');assert.equal(requests.length,2);assert.notEqual(requests[0].nonce,requests[1].nonce);assert.notEqual(requests[0].signature,requests[1].signature);assert.equal(logs[1].attempt,2);
+});
+test('per-action retries are bounded and do not repeat legacy PDF uploads',async()=>{
+ for(const action of ['ensure_subfolder','upload_pdf_base64']){
+  let calls=0;const provider=new AppsScriptPersonalDriveProvider({url:'https://script.google.com/macros/s/id/exec',secret:'secret',retryDelayMs:0,diagnosticsLogger:()=>{},fetchImpl:async()=>{calls++;return{ok:false,status:503,text:async()=>JSON.stringify({ok:false,code:'DRIVE_UPLOAD_FAILED',statusCode:503})};}});
+  await assert.rejects(provider.request(action));assert.equal(calls,action==='ensure_subfolder'?3:1);
+ }
 });

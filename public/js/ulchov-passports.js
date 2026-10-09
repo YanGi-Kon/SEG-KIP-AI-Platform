@@ -98,7 +98,7 @@
           const data=await api(passportPath(key),{},wid);
           updateCard(key,data.passport);track(key,data.passport);
           if(selection?.key===key && selection.wid===wid && $('passportUploadModal').classList.contains('open'))showDetails(data);
-        }catch(error){if(error.stale)tracked.delete(key);else {tracked.delete(key);if(selection?.key===key)message('passportUploadStatus',error.message,'bad');}}
+        }catch(error){if(error.stale || [401,403,404].includes(error.status))tracked.delete(key);else if(selection?.key===key)message('passportUploadStatus','Aloqa vaqtincha uzildi. Pasport holati qayta tekshirilmoqda...');}
       }
     }finally{polling=false;if(tracked.size&&!pollTimer)pollTimer=setTimeout(poll,3000);}
   }
