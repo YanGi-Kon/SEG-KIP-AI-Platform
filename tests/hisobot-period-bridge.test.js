@@ -118,7 +118,9 @@ test('HISOBOT retries the same Workspace after the parent session finishes resto
   assert.match(hisobotHtmlSource, /workspaceReloadPending = true/);
   assert.match(hisobotHtmlSource, /function finishWorkspaceReload/);
   assert.match(hisobotHtmlSource, /Workspace sessiyasi tiklanmoqda/);
-  assert.match(hisobotHtmlSource, /finally\(\(\) => finishWorkspaceReload\(activeWorkspaceId\)\)/);
+  assert.match(hisobotHtmlSource, /finally\{\s*finishWorkspaceReload\(nextId\)/);
+  assert.match(hisobotHtmlSource, /void activateWorkspace\(workspaceId\(\)\)/);
+  assert.match(hisobotHtmlSource, /!nextId \|\| !sessionReady\(\)/);
   assert.match(bridgeSource, /!state\?\.connected[\s\S]*?Workspace sessiyasi kutilmoqda/);
 });
 
