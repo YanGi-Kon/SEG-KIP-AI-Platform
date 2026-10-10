@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Lokal sozlamalarni ko‘chirish</title>
+  <style>
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#03101c;color:#e9f8ff;font:16px system-ui,sans-serif}
+    main{width:min(620px,calc(100% - 36px));padding:28px;border:1px solid #167d9d;border-radius:18px;background:#071b2b;box-shadow:0 18px 60px #0008}
+    h1{margin:0 0 12px;font-size:24px}p{line-height:1.55;color:#b9d2df}.status{padding:12px;border-radius:10px;background:#031522;color:#8fe7ff;white-space:pre-wrap}
+    button,a{display:inline-block;margin-top:18px;padding:11px 18px;border:1px solid #1bc2ed;border-radius:9px;background:#087a9f;color:white;text-decoration:none;cursor:pointer;font-weight:700}
+    button:disabled{opacity:.55;cursor:wait}.bad{color:#ff9f9f}.ok{color:#8dffc1}
+  </style>
+  <script src="/js/local-state-transfer.js?v=20261006" defer></script>
+</head>
+<body>
+  <main>
+    <h1>3002 → 3001 sozlamalarini ko‘chirish</h1>
+    <p>Bu vosita faqat lokal kompyuterda ishlaydi. Interfeys, modul va davr sozlamalari ko‘chiriladi. Login tokenlari, parollar, secretlar, Service Account va chat tarixi ko‘chirilmaydi.</p>
+    <div id="transferStatus" class="status">Tayyorlanmoqda…</div>
+    <button id="transferButton" type="button" hidden>3001 ga ko‘chirish</button>
+    <a id="homeButton" href="/" hidden>3001 ni ochish</a>
+  </main>
+</body>
+</html>
