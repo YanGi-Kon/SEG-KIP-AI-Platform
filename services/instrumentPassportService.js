@@ -22,7 +22,7 @@ export async function buildPassportJob(job, { repo = repository, providerFactory
     await repo.completePassportJob(job,{obsolete:true});
     return {obsolete:true};
   }
-  if (!documents.length || documents.length !== job.payload.version) throw passportError('Pasport hujjatlarining ketma-ketligi to‘liq emas.', 'PASSPORT_DOCUMENTS_INCOMPLETE');
+  if (!documents.length) throw passportError('Pasport hujjatlarining ketma-ketligi to‘liq emas.', 'PASSPORT_DOCUMENTS_INCOMPLETE');
   const workspace = await workspaceLoader(job.workspace_id);
   if (!workspace || workspace.status === 'archived') throw passportError('Workspace topilmadi.', 'PASSPORT_WORKSPACE_NOT_FOUND',404);
   const provider = await providerFactory(workspace);

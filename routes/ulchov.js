@@ -94,12 +94,32 @@ router.get('/passports/:key/pdf',workspaceGuards('documents:read'),async(req,res
     res.type('application/pdf').set('Cache-Control','private, no-store').set('Content-Disposition','inline; filename="pasport.pdf"').send(passport.merged_pdf);
   }catch(error){passportResponseError(res,error);}
 });
+router.delete('/passports/:key/documents/:documentId',workspaceGuards('workspace:read'),async(req,res)=>{
+  try {
+    await passports.deletePassportDocument({workspaceId:req.workspace.id,key:req.params.key,documentId:req.params.documentId,rootFolderId:ulchovFolderId(req.workspace)});
+    res.json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),canUpload:true});
+  }catch(error){passportResponseError(res,error);}
+});
 router.get('/passports/:key/documents/:documentId/pdf',workspaceGuards('documents:read'),async(req,res)=>{
   try {
     const document=await passports.getPassportDocument(req.workspace.id,req.params.key,req.params.documentId);
     if(!document)throw passportError('Hujjat topilmadi.','PASSPORT_DOCUMENT_NOT_FOUND',404);
     res.type('application/pdf').set('Cache-Control','private, no-store').set('Content-Disposition','inline; filename="hujjat.pdf"').send(document.pdf);
   }catch(error){passportResponseError(res,error);}
+});
+router.put('/passports/:key/documents/:documentId',workspaceGuards('workspace:read'),(req,res)=>{
+  passportUpload.single('file')(req,res,async uploadError=>{
+    try{
+      if(uploadError)throw uploadError;
+      if(!req.file)throw passportError('JPG yoki PDF fayl tanlang.','PASSPORT_FILE_REQUIRED');
+      const rootFolderId=ulchovFolderId(req.workspace);
+      if(!rootFolderId)throw passportError('Avval pasportlar papkasini sozlang.','PASSPORT_FOLDER_REQUIRED');
+      const parsed=await preparePassportUpload([req.file]);
+      const filename=normalizePassportFilename(req.file.originalname).replace(/[\\/\x00-\x1f]/g,'-').slice(0,180)||'hujjat.pdf';
+      await passports.replacePassportDocument({workspaceId:req.workspace.id,key:req.params.key,documentId:req.params.documentId,rootFolderId,filename,parsed,userId:req.auth.userId});
+      res.status(202).json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),canUpload:true});
+    }catch(error){passportResponseError(res,error);}
+  });
 });
 router.post('/passports/:key/retry',workspaceGuards('workspace:read'),async(req,res)=>{
   try {

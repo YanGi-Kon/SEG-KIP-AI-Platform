@@ -65,6 +65,46 @@ async function duePassportJobs() {
     AND (status IN ('pending','failed_retryable') AND next_attempt_at<=NOW()
       OR status='processing' AND locked_at<NOW()-INTERVAL '15 minutes') ORDER BY created_at LIMIT 20`)).rows;
 }
+async function deletePassportDocument({workspaceId,key,documentId,rootFolderId}) {
+  if(!/^[0-9a-f-]{36}$/i.test(documentId))throw passportError('Hujjat topilmadi.','PASSPORT_DOCUMENT_NOT_FOUND',404);
+  return withTransaction(async client=>{
+    const passport=(await client.query('SELECT * FROM instrument_passports WHERE workspace_id=$1 AND instrument_key=$2 FOR UPDATE',[workspaceId,key])).rows[0];
+    if(!passport)throw passportError('Hujjat topilmadi.','PASSPORT_DOCUMENT_NOT_FOUND',404);
+    const lock=await client.query('SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS locked',[`passport:${passport.id}`]);
+    if(!lock.rows[0].locked)throw passportError('Pasport yangilanmoqda. Birozdan keyin qayta urining.','PASSPORT_BUSY',409);
+    const removed=await client.query('DELETE FROM instrument_passport_documents WHERE passport_id=$1 AND id=$2 RETURNING id',[passport.id,documentId]);
+    if(!removed.rows.length)throw passportError('Hujjat topilmadi.','PASSPORT_DOCUMENT_NOT_FOUND',404);
+    const remaining=await client.query('SELECT COALESCE(SUM(page_count),0)::int AS pages FROM instrument_passport_documents WHERE passport_id=$1',[passport.id]);
+    await client.query(`UPDATE outbox_jobs SET status='completed',completed_at=NOW(),locked_at=NULL WHERE job_type='passport_merge' AND workspace_id=$1 AND payload->>'passportId'=$2 AND status<>'completed'`,[workspaceId,passport.id]);
+    if(!remaining.rows[0].pages){
+      await client.query('DELETE FROM instrument_passports WHERE id=$1',[passport.id]);
+      return;
+    }
+    const version=passport.source_version+1;
+    await client.query(`UPDATE instrument_passports SET source_version=$2,merged_pdf=NULL,current_file_id='',current_file_url='',page_count=$3,last_error='',last_error_code='',updated_at=NOW() WHERE id=$1`,[passport.id,version,remaining.rows[0].pages]);
+    await client.query(`INSERT INTO outbox_jobs(workspace_id,job_type,idempotency_key,payload,max_attempts) VALUES($1,'passport_merge',$2,$3::jsonb,6)`,[workspaceId,`passport:${passport.id}:${version}`,JSON.stringify({passportId:passport.id,version,rootFolderId})]);
+  });
+}
+async function replacePassportDocument({workspaceId,key,documentId,rootFolderId,filename,parsed,userId}) {
+  if(!/^[0-9a-f-]{36}$/i.test(documentId))throw passportError('Hujjat topilmadi.','PASSPORT_DOCUMENT_NOT_FOUND',404);
+  return withTransaction(async client=>{
+    const passport=(await client.query('SELECT * FROM instrument_passports WHERE workspace_id=$1 AND instrument_key=$2 FOR UPDATE',[workspaceId,key])).rows[0];
+    if(!passport)throw passportError('Hujjat topilmadi.','PASSPORT_DOCUMENT_NOT_FOUND',404);
+    const lock=await client.query('SELECT pg_try_advisory_xact_lock(hashtextextended($1,0)) AS locked',[`passport:${passport.id}`]);
+    if(!lock.rows[0].locked)throw passportError('Pasport yangilanmoqda. Birozdan keyin qayta urining.','PASSPORT_BUSY',409);
+    const doc=(await client.query('SELECT id FROM instrument_passport_documents WHERE passport_id=$1 AND id=$2',[passport.id,documentId])).rows[0];
+    if(!doc)throw passportError('Hujjat topilmadi.','PASSPORT_DOCUMENT_NOT_FOUND',404);
+    const totals=(await client.query('SELECT COALESCE(SUM(byte_count),0) AS bytes,COALESCE(SUM(page_count),0) AS pages FROM instrument_passport_documents WHERE passport_id=$1 AND id<>$2',[passport.id,documentId])).rows[0];
+    if(Number(totals.bytes)+parsed.bytes.length>MAX_PASSPORT_TOTAL_BYTES||Number(totals.pages)+parsed.pageCount>MAX_PASSPORT_PAGES)throw passportError('Asbob pasporti 60 MB yoki 500 sahifa chegarasidan oshadi.','PASSPORT_TOTAL_SIZE_LIMIT',413);
+    const duplicate=await client.query('SELECT id FROM instrument_passport_documents WHERE passport_id=$1 AND id<>$2 AND checksum=$3',[passport.id,documentId,parsed.checksum]);
+    if(duplicate.rows.length)throw passportError('Bu hujjat pasportda allaqachon mavjud.','PASSPORT_DOCUMENT_DUPLICATE',409);
+    await client.query(`UPDATE instrument_passport_documents SET filename=$3,checksum=$4,pdf=$5,byte_count=$6,page_count=$7,created_by=$8,created_at=NOW(),drive_file_id='' WHERE passport_id=$1 AND id=$2`,[passport.id,documentId,filename,parsed.checksum,parsed.bytes,parsed.bytes.length,parsed.pageCount,userId]);
+    const version=passport.source_version+1;
+    await client.query(`UPDATE outbox_jobs SET status='completed',completed_at=NOW(),locked_at=NULL WHERE job_type='passport_merge' AND workspace_id=$1 AND payload->>'passportId'=$2 AND status<>'completed'`,[workspaceId,passport.id]);
+    await client.query(`UPDATE instrument_passports SET source_version=$2,merged_pdf=NULL,page_count=$3,last_error='',last_error_code='',updated_at=NOW() WHERE id=$1`,[passport.id,version,Number(totals.pages)+parsed.pageCount]);
+    await client.query(`INSERT INTO outbox_jobs(workspace_id,job_type,idempotency_key,payload,max_attempts) VALUES($1,'passport_merge',$2,$3::jsonb,6)`,[workspaceId,`passport:${passport.id}:${version}`,JSON.stringify({passportId:passport.id,version,rootFolderId})]);
+  });
+}
 async function claimPassportJob(id, client) {
   return (await client.query(`UPDATE outbox_jobs SET status='processing',attempts=attempts+1,locked_at=NOW(),locked_by=$2
     WHERE id=$1 AND job_type='passport_merge' AND (status IN ('pending','failed_retryable')
@@ -111,6 +151,6 @@ async function saveUlchovFolder(workspaceId, folderId) {
   await query(`UPDATE workspaces SET module_settings=jsonb_set(COALESCE(module_settings,'{}'::jsonb),'{ulchov_final_documents_folder_id}',to_jsonb($2::text)),updated_at=NOW() WHERE id=$1`, [workspaceId,folderId]);
 }
 
-return {passportSummaries,getPassport,passportDetails,getPassportDocument,savePassportDocument,duePassportJobs,claimPassportJob,loadPassportBuild,completePassportJob,recordPassportOriginal,failPassportJob,retryPassport,saveUlchovFolder};
+return {replacePassportDocument,deletePassportDocument,passportSummaries,getPassport,passportDetails,getPassportDocument,savePassportDocument,duePassportJobs,claimPassportJob,loadPassportBuild,completePassportJob,recordPassportOriginal,failPassportJob,retryPassport,saveUlchovFolder};
 }
-export const {passportSummaries,getPassport,passportDetails,getPassportDocument,savePassportDocument,duePassportJobs,claimPassportJob,loadPassportBuild,completePassportJob,recordPassportOriginal,failPassportJob,retryPassport,saveUlchovFolder} = createInstrumentPassportRepository();
+export const {replacePassportDocument,deletePassportDocument,passportSummaries,getPassport,passportDetails,getPassportDocument,savePassportDocument,duePassportJobs,claimPassportJob,loadPassportBuild,completePassportJob,recordPassportOriginal,failPassportJob,retryPassport,saveUlchovFolder} = createInstrumentPassportRepository();

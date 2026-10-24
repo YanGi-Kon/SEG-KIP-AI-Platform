@@ -46,7 +46,14 @@
   const candidates=[], chosen=[], previewUrls=new Set();
   let importing=false, galleryEpoch=0, galleryNextId=0, canUpload=false, historySignature='', savedDocuments=[];
   function objectUrl(blob){const url=URL.createObjectURL(blob);previewUrls.add(url);return url;}
-  function clearGallery(){galleryEpoch++;candidates.length=0;chosen.length=0;historySignature='';savedDocuments=[];for(const url of previewUrls)URL.revokeObjectURL(url);previewUrls.clear();$('passportMediaViewer')?.replaceChildren();renderGallery();}
+  function clearMediaWindows(){
+    const active=$('passportMediaViewer'),layout=document.querySelector('.passport-document-layout');
+    if(active&&layout)layout.prepend(active);
+    document.querySelectorAll('.passport-media-viewer:not(#passportMediaViewer)').forEach(panel=>panel.remove());
+    $('passportMinimizedWindows')?.remove();
+    if(active){active.hidden=true;active.replaceChildren();active.classList.remove('minimized','maximized');delete active.dataset.mediaUrl;}
+  }
+  function clearGallery(){clearMediaWindows();galleryEpoch++;candidates.length=0;chosen.length=0;historySignature='';savedDocuments=[];for(const url of previewUrls)URL.revokeObjectURL(url);previewUrls.clear();$('passportMediaViewer')?.replaceChildren();renderGallery();}
   function renderGallery(){
     const el=$('passportSelectedFiles');if(!el)return;
     $('passportSelectionCount').textContent=chosen.length+' ta sahifa tanlandi';
@@ -84,10 +91,55 @@
     finally{if(epoch===galleryEpoch){importing=false;renderGallery();}}
   }
   function showMedia(url,image,title,page=1){
-    const viewer=$('passportMediaViewer');viewer.hidden=false;
+    let viewer=$('passportMediaViewer');
+    const existing=Array.from(document.querySelectorAll('.passport-media-viewer')).find(panel=>!panel.hidden&&panel.dataset.mediaUrl===url&&panel.dataset.mediaPage===String(page));
+    if(existing){
+      if(existing.classList.contains('minimized'))existing.querySelector('[aria-expanded]')?.click();
+      existing.scrollIntoView({block:'nearest',behavior:'smooth'});return existing;
+    }
+    if(viewer.classList.contains('minimized')&&!viewer.hidden){
+      viewer.removeAttribute('id');viewer.querySelector('#passportCloseMedia')?.removeAttribute('id');
+      const next=document.createElement('div');next.id='passportMediaViewer';next.className='passport-media-viewer';
+      const layout=document.querySelector('.passport-document-layout');
+      (layout||viewer.parentElement).append(next);viewer=next;
+    }
+    viewer.hidden=false;viewer.classList.remove('minimized','maximized');viewer.dataset.mediaUrl=url;viewer.dataset.mediaPage=String(page);
+    if(!viewer.parentElement.classList.contains('passport-document-layout')){
+      const layout=document.createElement('div');layout.className='passport-document-layout';
+      const history=$('passportHistory').closest('.passport-history');
+      history.before(layout);layout.append(viewer,history);
+    }
     viewer.innerHTML='<div class="passport-dialog-head"><strong>'+esc(title)+'</strong><button class="passport-close" type="button" id="passportCloseMedia" aria-label="Ko‘rishni yopish">×</button></div>'+(image?'<img src="'+url+'" alt="'+esc(title)+'">':'<iframe title="'+esc(title)+'" src="'+url+'#page='+page+'&view=FitH"></iframe><a class="passport-action" href="'+url+'#page='+page+'" target="_blank" rel="noopener">Katta oynada ochish</a>');
-    $('passportCloseMedia').onclick=()=>{viewer.hidden=true;viewer.replaceChildren();};
+    const controls=document.createElement('div');controls.className='passport-window-controls';
+    const minimize=document.createElement('button');minimize.type='button';minimize.className='passport-window-button';minimize.textContent='−';minimize.setAttribute('aria-label','Oynani yig‘ish');minimize.title='Yig‘ish';minimize.setAttribute('aria-expanded','true');
+    const maximize=document.createElement('button');maximize.type='button';maximize.className='passport-window-button';maximize.textContent='□';maximize.setAttribute('aria-label','Oynani kengaytirish');maximize.title='Kengaytirish';maximize.setAttribute('aria-pressed','false');
+    const close=$('passportCloseMedia');close.className='passport-window-button passport-window-close';close.title='Yopish';
+    close.parentElement.append(controls);controls.append(minimize,maximize,close);
+    minimize.onclick=()=>{
+      const minimized=viewer.classList.toggle('minimized');
+      let tray=$('passportMinimizedWindows');
+      if(!tray){tray=document.createElement('div');tray.id='passportMinimizedWindows';tray.className='passport-minimized-windows';tray.setAttribute('role','region');tray.setAttribute('aria-label','Yig‘ilgan hujjatlar');$('passportUploadModal').append(tray);}
+      if(minimized){viewer.classList.remove('maximized');maximize.textContent='□';maximize.setAttribute('aria-pressed','false');maximize.setAttribute('aria-label','Oynani kengaytirish');tray.append(viewer);}
+      else {
+        document.querySelector('.passport-document-layout').prepend(viewer);
+        document.querySelectorAll('.passport-media-viewer.maximized').forEach(other=>other.classList.remove('maximized'));
+        viewer.classList.add('maximized');maximize.textContent='❐';maximize.title='Tiklash';maximize.setAttribute('aria-label','Oyna o‘lchamini tiklash');maximize.setAttribute('aria-pressed','true');
+        viewer.scrollIntoView({block:'nearest',behavior:'instant'});
+      }
+      minimize.textContent=minimized?'Ochish':'−';minimize.title=minimized?'Tiklash':'Yig‘ish';minimize.setAttribute('aria-label',minimized?'Oynani tiklash':'Oynani yig‘ish');minimize.setAttribute('aria-expanded',String(!minimized));
+      minimize.focus({preventScroll:true});
+    };
+    maximize.onclick=()=>{
+      if(viewer.parentElement.id==='passportMinimizedWindows')document.querySelector('.passport-document-layout').prepend(viewer);
+      document.querySelectorAll('.passport-media-viewer.maximized').forEach(other=>{if(other!==viewer)other.classList.remove('maximized');});
+      viewer.classList.remove('minimized');minimize.textContent='−';minimize.title='Yig‘ish';minimize.setAttribute('aria-label','Oynani yig‘ish');minimize.setAttribute('aria-expanded','true');
+      const maximized=viewer.classList.toggle('maximized');maximize.textContent=maximized?'❐':'□';maximize.title=maximized?'Tiklash':'Kengaytirish';maximize.setAttribute('aria-label',maximized?'Oyna o‘lchamini tiklash':'Oynani kengaytirish');maximize.setAttribute('aria-pressed',String(maximized));
+      if(maximized)viewer.parentElement.scrollIntoView({block:'start',behavior:'smooth'});
+    };
+    close.onclick=()=>{viewer.hidden=true;viewer.classList.remove('minimized','maximized');viewer.replaceChildren();delete viewer.dataset.mediaUrl;if(!viewer.id)viewer.remove();};
+    maximize.click();
     viewer.scrollIntoView({block:'nearest',behavior:'smooth'});
+    return viewer;
   }
   async function viewSaved(index){
     const doc=savedDocuments[index],selected=selection;if(!doc||!selected)return;
@@ -99,9 +151,51 @@
         const blob=await response.blob();if(selection!==selected||selected.wid!==workspaceId())return;
         doc.previewUrl=objectUrl(blob);
       }
-      showMedia(doc.previewUrl,false,repairFilename(doc.filename));
+      const panel=showMedia(doc.previewUrl,false,repairFilename(doc.filename));
+      if(canUpload&&!panel.querySelector('.danger')){const remove=document.createElement('button');remove.type='button';remove.className='passport-action danger';remove.textContent='O‘chirish';remove.onclick=()=>deleteSaved(index);panel.append(remove);}
     }catch(error){if(selection===selected)message('passportUploadStatus',error.message||'Hujjat ochilmadi.','bad');}
     finally{if(button)button.disabled=false;}
+  }
+
+  async function deleteSaved(index){
+    const doc=savedDocuments[index],selected=selection;
+    if(!doc||!selected||!canUpload||uploading)return;
+    if(!window.confirm('“'+repairFilename(doc.filename)+'” hujjati va uning barcha sahifalari pasportdan o‘chirilsinmi?'))return;
+    uploading=true;
+    document.querySelectorAll('[data-saved-delete], .passport-media-viewer .danger').forEach(button=>button.disabled=true);
+    message('passportUploadStatus','Hujjat o‘chirilmoqda...');
+    try{
+      const data=await api(passportPath(selected.key)+'/documents/'+encodeURIComponent(doc.id),{method:'DELETE'},selected.wid);
+      updateCard(selected.key,data.passport);track(selected.key,data.passport);
+      if(selection!==selected)return;
+      uploading=false;historySignature='';clearMediaWindows();
+      showDetails(data);
+      message('passportUploadStatus',data.passport?'Hujjat o‘chirildi. Qolgan sahifalardan pasport qayta tayyorlanmoqda.':'Hujjat o‘chirildi. Pasportda hujjatlar qolmadi.','ok');
+    }catch(error){if(!error.stale&&selection===selected)message('passportUploadStatus',error.message,'bad');}
+    finally{uploading=false;document.querySelectorAll('[data-saved-delete], .passport-media-viewer .danger').forEach(button=>button.disabled=false);}
+  }
+  function editSaved(index){
+    const doc=savedDocuments[index],selected=selection;
+    if(!doc||!selected||!canUpload||uploading||importing)return;
+    const input=document.createElement('input');input.type='file';input.accept='image/jpeg,application/pdf,.jpg,.jpeg,.pdf';
+    input.onchange=async()=>{
+      const file=input.files[0];if(!file||selection!==selected||selected.wid!==workspaceId())return;
+      if(file.size>15*1024*1024||! /\.(pdf|jpe?g)$/i.test(file.name))return message('passportUploadStatus','15 MBgacha JPG yoki PDF fayl tanlang.','bad');
+      if(!window.confirm('“'+repairFilename(doc.filename)+'” o‘rniga “'+file.name+'” yuklansinmi?'))return;
+      const body=new FormData();body.append('file',file);
+      uploading=true;renderGallery();
+      document.querySelectorAll('[data-saved-edit], [data-saved-delete]').forEach(button=>button.disabled=true);
+      message('passportUploadStatus','Hujjat almashtirilmoqda...');
+      try{
+        const data=await api(passportPath(selected.key)+'/documents/'+encodeURIComponent(doc.id),{method:'PUT',body},selected.wid);
+        updateCard(selected.key,data.passport);track(selected.key,data.passport);
+        if(selection!==selected)return;
+        uploading=false;historySignature='';clearMediaWindows();
+        showDetails(data);message('passportUploadStatus','Hujjat almashtirildi. Pasport qayta tayyorlanmoqda.','ok');
+      }catch(error){if(!error.stale&&selection===selected)message('passportUploadStatus',error.message,'bad');}
+      finally{uploading=false;if(selection===selected)renderGallery();document.querySelectorAll('[data-saved-edit], [data-saved-delete]').forEach(button=>button.disabled=false);}
+    };
+    input.click();
   }
 
   async function api(path,options={},expected=workspaceId()){
@@ -124,6 +218,11 @@
     summaries.set(key,passport);
     for(const card of document.querySelectorAll('[data-passport-key]')){
       if(card.dataset.passportKey!==key)continue;
+      const state=!passport?'missing':passport.status==='completed'?'ready':passport.status?.startsWith('failed')?'failed':'pending';
+      card.dataset.passportState=state;
+      let badge=card.querySelector('.passport-state-badge');
+      if(!badge){badge=document.createElement('div');badge.className='passport-state-badge';card.querySelector('.card-body')?.prepend(badge);}
+      badge.textContent={ready:'✓ Pasport yuklangan',missing:'○ Pasport yuklanmagan',pending:'◷ Pasport tayyorlanmoqda',failed:'! Pasportni yangilashda xatolik'}[state];
       const status=card.querySelector('.passport-card-status');if(status)status.textContent=statusText(passport);
       const upload=card.querySelector('[data-passport-upload]');if(upload)upload.disabled=folderContext?.canUpload===false || !key;
     }
@@ -148,6 +247,14 @@
     if(historySignature!==nextHistory){historySignature=nextHistory;savedDocuments=data.documents;
     $('passportHistory').innerHTML=data.documents.length?`<ol>${data.documents.map(doc=>`<li>${esc(repairFilename(doc.filename))} — ${doc.page_count} sahifa<small>${esc(new Date(doc.created_at).toLocaleString('uz-UZ',{timeZone:'Asia/Tashkent'}))}${doc.sequence===1?' · Asosiy pasport':''}</small><button class="passport-action" type="button" data-saved-view="${data.documents.indexOf(doc)}">Sahifalarni ko‘rish</button></li>`).join('')}</ol>`:'Hujjatlar hali yo‘q.';
     }
+    $('passportHistory').querySelectorAll('[data-saved-view]').forEach(view=>{
+      let remove=view.parentElement.querySelector('[data-saved-delete]');
+      if(!remove){remove=document.createElement('button');remove.type='button';remove.className='passport-action danger';remove.dataset.savedDelete=view.dataset.savedView;remove.textContent='O‘chirish';view.after(remove);}
+      remove.hidden=!data.canUpload;remove.disabled=uploading;
+      let edit=view.parentElement.querySelector('[data-saved-edit]');
+      if(!edit){edit=document.createElement('button');edit.type='button';edit.className='passport-action passport-edit';edit.dataset.savedEdit=view.dataset.savedView;edit.textContent='Tahrirlash';edit.onclick=()=>editSaved(Number(edit.dataset.savedEdit));remove.after(edit);}
+      edit.hidden=!data.canUpload;edit.disabled=uploading;
+    });
     $('passportSubmit').disabled=uploading || !data.canUpload;
     $('passportFile').disabled=uploading || !data.canUpload;
     $('passportRetry').hidden=!data.canUpload || !['failed_retryable','failed_permanent'].includes(passport?.status);
@@ -178,7 +285,8 @@
     clearGallery();canUpload=false;importing=false;$('passportMediaViewer').hidden=true;
     $('passportFile').value='';$('passportSelectedFiles').textContent='';$('passportHistory').textContent='';$('passportSubmit').disabled=true;$('passportPreview').disabled=true;$('passportRetry').hidden=true;
     $('passportUploadModal').classList.add('open');
-    if(chooseFiles){canUpload=true;$('passportFile').disabled=false;$('passportFile').click();}
+    const hasSavedDocuments=Boolean(instrument.passport||summaries.get(key));
+    if(chooseFiles&&!hasSavedDocuments){canUpload=true;$('passportFile').disabled=false;$('passportFile').click();}
     message('passportUploadStatus','Hujjatlar tarixi yuklanmoqda...');
     try{
       const data=await api(passportPath(key),{},selected.wid);
@@ -316,7 +424,7 @@
       else if(order>=0){const next=button.dataset.galleryFirst!==undefined?0:order+Number(button.dataset.offset);if(next>=0&&next<chosen.length){chosen.splice(order,1);chosen.splice(next,0,item.id);}}
       renderGallery();
     };
-    $('passportHistory').onclick=event=>{const button=event.target.closest('[data-saved-view]');if(button)viewSaved(Number(button.dataset.savedView));};
+    $('passportHistory').onclick=event=>{const remove=event.target.closest('[data-saved-delete]');if(remove){deleteSaved(Number(remove.dataset.savedDelete));return;}const button=event.target.closest('[data-saved-view]');if(button)viewSaved(Number(button.dataset.savedView));};
     $('passportFinalDocumentsButton').onclick=openFolder;$('passportSubmit').onclick=upload;$('passportPreview').onclick=()=>selection&&preview(selection.key);$('passportRetry').onclick=retry;
     $('passportSaveFolder').onclick=saveFolder;$('passportTestFolder').onclick=testFolder;$('passportSaveConnection').onclick=saveConnection;
     document.addEventListener('click',event=>{
