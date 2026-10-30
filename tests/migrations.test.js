@@ -23,12 +23,12 @@ test('migration checksums are stable across operating-system line endings', () =
   assert.equal(migrationChecksum(crlf), migrationChecksum(lf));
 });
 
-test('migration runner has a dedicated timeout and restores the pooled connection setting', async () => {
+test('migration runner uses a transaction-local timeout and lock', async () => {
   const source = await fs.readFile(new URL('../db/migrate.js', import.meta.url), 'utf8');
   assert.match(source, /MIGRATION_STATEMENT_TIMEOUT_MS\s*=\s*180_000/);
-  assert.match(source, /current_setting\('statement_timeout'\)/);
-  assert.match(source, /set_config\('statement_timeout', \$1, false\)/);
-  assert.match(source, /previousStatementTimeout/);
+  assert.match(source, /set_config\('statement_timeout', \$1, true\)/);
+  assert.match(source, /pg_advisory_xact_lock/);
+  assert.doesNotMatch(source, /pg_advisory_lock\(/);
 });
 
 test('core migration contains tenant identity tables', async () => {

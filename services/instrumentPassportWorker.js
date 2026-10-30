@@ -22,7 +22,15 @@ export async function processNextPassportJob() {
           try {return await fn();} finally {await client.query('SELECT pg_advisory_unlock(hashtextextended($1,0))',[key]);}
         };
         await buildPassportJob(job,{folderLock});
-      } catch(error) { await repo.failPassportJob(job,error,passportFailureRetryable(error)); }
+      } catch(error) {
+        console.error('[passport-worker-job]', JSON.stringify({
+          jobId: job.id,
+          errorCode: /^[A-Z][A-Z0-9_]{0,79}$/.test(String(error.code || '')) ? error.code : 'PASSPORT_MERGE_FAILED',
+          driveRequestId: error.driveRequestId || '',
+          driveRequestAction: error.driveRequestAction || '',
+        }));
+        await repo.failPassportJob(job,error,passportFailureRetryable(error));
+      }
       return true;
     } finally {
       if (locked) await client.query('SELECT pg_advisory_unlock(hashtextextended($1,0))',[lockKey]).catch(()=>{});

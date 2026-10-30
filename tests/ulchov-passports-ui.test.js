@@ -24,10 +24,18 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
     if(passport?.status==='processing' && ++pendingReads>1)passport={...passport,status:'completed',publishedVersion:passport.version};
     res.json({passport,documents,canUpload:true});
   });
+  app.get('/api/ulchov/passports/:key/documents/:id/pdf',(_req,res)=>res.type('application/pdf').send(sources[0].pdf));
+  app.delete('/api/ulchov/passports/:key/documents/:id',(_req,res)=>{documents=[];sources=[];passport=null;res.json({passport,documents,canUpload:true});});
+  app.put('/api/ulchov/passports/:key/documents/:id',multer({storage:multer.memoryStorage()}).single('file'),async(req,res)=>{
+    const parsed=await preparePassportUpload([req.file]);
+    documents[0]={...documents[0],filename:req.file.originalname,page_count:parsed.pageCount};
+    sources[0]={pdf:parsed.bytes,checksum:parsed.checksum};
+    res.status(202).json({passport,documents,canUpload:true});
+  });
   app.post('/api/ulchov/passports/:key/documents',multer({storage:multer.memoryStorage()}).array('file',20),async(req,res)=>{
     assert.equal(req.body.sheetName,'Манометр');
     assert.equal(req.get('x-workspace-id'),'00000000-0000-4000-8000-000000000001');
-    const parsed=await preparePassportUpload(req.files);
+    const parsed=await preparePassportUpload(req.files,{pageOrder:req.body.pageOrder?JSON.parse(req.body.pageOrder):undefined});
     const duplicate=sources.some(source=>source.checksum===parsed.checksum);
     if(!duplicate){
       sources.push({pdf:parsed.bytes,checksum:parsed.checksum});
@@ -37,6 +45,7 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
     }
     res.status(duplicate?200:202).json({ok:true,duplicate,passport});
   });
+  app.get('/vendor/pdf-lib.min.js',(_req,res)=>res.sendFile(path.resolve('node_modules/pdf-lib/dist/pdf-lib.min.js')));
   app.use(express.static(new URL('../public/',import.meta.url).pathname.replace(/^\/(?=[A-Z]:)/,'')));
   const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
   t.after(()=>new Promise(resolve=>server.close(resolve)));
@@ -53,6 +62,8 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
   await page.goto(`http://127.0.0.1:${server.address().port}/modules/ulchov.html`,{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>Boolean(window.UlchovSheets));
   await page.evaluate(()=>window.UlchovSheets.loadSheet(true));
+  assert.equal(await page.$eval('[data-passport-key]',card=>card.dataset.passportState),'missing');
+  assert.match(await page.$eval('.passport-state-badge',badge=>badge.textContent),/Pasport yuklanmagan/);
   assert.equal(await page.$$eval('.instrument-card',cards=>cards.every(card=>card.querySelector('[data-passport-upload]')?.textContent==='📎 Ҳужжат қўшиш')),true);
   await page.click('#passportFinalDocumentsButton');
   await page.waitForFunction(()=>!document.getElementById('passportSaveFolder').disabled);
@@ -70,10 +81,23 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
   t.after(()=>{if(fs.existsSync(filename))fs.unlinkSync(filename);});
   const pdf=await PDFDocument.create();pdf.addPage([200,300]);fs.writeFileSync(filename,await pdf.save());
   await (await page.$('#passportFile')).uploadFile(filename);
-  await page.click('#passportSubmit');
+  await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled && document.getElementById('passportSelectedFiles').children.length>0);await page.click('#passportSubmit');
   await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('Pasport yangilandi'));
   assert.equal(await page.$$eval('#passportHistory li',items=>items.length),1);
-  await (await page.$('#passportFile')).uploadFile(filename);await page.click('#passportSubmit');
+  assert.equal(await page.$eval('[data-passport-key]',card=>card.dataset.passportState),'ready');
+  assert.match(await page.$eval('.passport-state-badge',badge=>badge.textContent),/Pasport yuklangan/);
+  await page.click('[data-passport-close="passportUploadModal"]');
+  let unexpectedChooser=false;
+  const observeChooser=()=>{unexpectedChooser=true;};
+  page.on('filechooser',observeChooser);
+  await page.click('[data-passport-upload]');
+  await page.waitForFunction(()=>document.querySelector('#passportUploadModal.open')&&document.querySelectorAll('#passportHistory li').length===1);
+  assert.equal(unexpectedChooser,false,'Existing documents open history without choosing a file');
+  page.off('filechooser',observeChooser);
+  const [additionalChooser]=await Promise.all([page.waitForFileChooser(),page.click('#passportChooseFiles')]);
+  assert.equal(additionalChooser.isMultiple(),true);
+  await additionalChooser.cancel();
+  await (await page.$('#passportFile')).uploadFile(filename);await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled && document.getElementById('passportSelectedFiles').children.length>0);await page.click('#passportSubmit');
   await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('avval yuklangan'));
   assert.equal(documents.length,1);
   const jpgFilename=path.join(os.tmpdir(),`passport-ui-${process.pid}.jpg`);
@@ -82,14 +106,14 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
   const jpg=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=20;canvas.height=30;const context=canvas.getContext('2d');context.fillStyle='orange';context.fillRect(0,0,20,30);return canvas.toDataURL('image/jpeg').split(',')[1];});
   fs.writeFileSync(jpgFilename,Buffer.from(jpg,'base64'));
   const extra=await PDFDocument.create();extra.addPage([220,300]);extra.addPage([230,300]);fs.writeFileSync(extraFilename,await extra.save());
-  await (await page.$('#passportFile')).uploadFile(jpgFilename,extraFilename);await page.click('#passportSubmit');
+  await (await page.$('#passportFile')).uploadFile(jpgFilename,extraFilename);await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled && document.getElementById('passportSelectedFiles').children.length>0);await page.click('#passportSubmit');
   await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('Pasport yangilandi') && document.getElementById('passportHistory').querySelectorAll('li').length===2);
   assert.equal(passport.pageCount,4);
   const merged=await mergePassportPdfs(sources);
   const mergedPdf=await PDFDocument.load(merged.bytes);
   assert.deepEqual(mergedPdf.getPages().map(page=>Math.round(page.getWidth())),[200,595,220,230]);
   assert.equal(mergedPdf.getPage(1).node.Resources().lookup(PDFName.of('XObject')).keys().length,1);
-  await (await page.$('#passportFile')).uploadFile(jpgFilename,extraFilename);await page.click('#passportSubmit');
+  await (await page.$('#passportFile')).uploadFile(jpgFilename,extraFilename);await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled && document.getElementById('passportSelectedFiles').children.length>0);await page.click('#passportSubmit');
   await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('avval yuklangan'));
   assert.equal(documents.length,2);
   assert.equal(errors.length,0,errors.join('\n'));
@@ -108,12 +132,75 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
   t.after(()=>{if(fs.existsSync(viewerFilename))fs.unlinkSync(viewerFilename);});
   const viewerPdf=await PDFDocument.create();viewerPdf.addPage([240,300]);fs.writeFileSync(viewerFilename,await viewerPdf.save());
   await (await page.$('#passportFile')).uploadFile(viewerFilename);
-  await page.click('#passportSubmit');
+  await page.waitForFunction(()=>!document.getElementById('passportSubmit').disabled && document.getElementById('passportSelectedFiles').children.length>0);await page.click('#passportSubmit');
   await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('Pasport yangilandi'));
   assert.equal(documents.length,3);
   await page.setViewport({width:390,height:844});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
   if(process.env.PASSPORT_UI_PREVIEW)await page.screenshot({path:'tmp/ulchov-passport-mobile.png',fullPage:true});
+  assert.equal(await page.$$eval('[data-saved-delete]',buttons=>buttons.length),3);
+  assert.equal(await page.$$eval('[data-saved-edit]',buttons=>buttons.length),3);
+  const [editChooser]=await Promise.all([page.waitForFileChooser(),page.click('[data-saved-edit]')]);
+  page.once('dialog',dialog=>dialog.accept());
+  await editChooser.accept([extraFilename]);
+  await page.waitForFunction(()=>document.getElementById('passportUploadStatus').textContent.includes('Hujjat almashtirildi'));
+  assert.equal(documents.length,3);
+  assert.equal(documents[0].page_count,2);
+  assert.equal(documents[0].filename,path.basename(extraFilename));
+  await page.setViewport({width:1280,height:900});
+  await page.$eval('[data-saved-view]',button=>button.click());
+  assert.equal(await page.$eval('[data-saved-view]',button=>button.dataset.savedView),'0');
+  await page.waitForSelector('#passportMediaViewer .danger');
+  assert.equal(await page.evaluate(()=>{
+    const viewer=document.getElementById('passportMediaViewer');
+    const history=document.querySelector('.passport-history');
+    return viewer.classList.contains('maximized')&&viewer.getBoundingClientRect().left>=history.getBoundingClientRect().right;
+  }),true);
+  await page.$eval('[aria-label="Oynani yig‘ish"]',button=>button.click());
+  assert.equal(await page.$eval('#passportMediaViewer',el=>el.classList.contains('minimized')),true);
+  assert.equal(await page.$eval('#passportMediaViewer iframe',el=>getComputedStyle(el).display),'none');
+  await page.$eval('[aria-label="Oynani tiklash"]',button=>button.click());
+  assert.equal(await page.$eval('#passportMediaViewer',el=>el.classList.contains('maximized')),true);
+  await page.$eval('[aria-label="Oyna o‘lchamini tiklash"]',button=>button.click());
+  await page.$eval('[aria-label="Oynani kengaytirish"]',button=>button.click());
+  assert.equal(await page.$eval('#passportMediaViewer',el=>el.classList.contains('maximized')),true);
+  assert.equal(await page.evaluate(()=>{
+    const viewer=document.getElementById('passportMediaViewer');
+    const history=document.querySelector('.passport-history');
+    const a=viewer.getBoundingClientRect(),b=history.getBoundingClientRect();
+    return getComputedStyle(viewer).position!=='fixed' && a.left>=b.right && Math.abs(a.top-b.top)<2 && a.right<=document.documentElement.clientWidth;
+  }),true);
+  await page.$eval('[aria-label="Oyna o‘lchamini tiklash"]',button=>button.click());
+  assert.equal(await page.$eval('#passportMediaViewer',el=>el.classList.contains('maximized')),false);
+  await page.$eval('#passportCloseMedia',button=>button.click());
+  assert.equal(await page.$eval('#passportMediaViewer',el=>el.hidden),true);
+  await page.$eval('[data-saved-view]',button=>button.click());
+  await page.waitForSelector('#passportMediaViewer .danger');
+  await page.$eval('#passportMediaViewer [aria-expanded]',button=>button.click());
+  await page.$eval('[data-saved-view="1"]',button=>button.click());
+  await page.waitForFunction(()=>document.querySelectorAll('.passport-media-viewer:not([hidden])').length===2);
+  await page.$eval('#passportMediaViewer [aria-expanded]',button=>button.click());
+  assert.equal(await page.$$eval('#passportMinimizedWindows .minimized',panels=>panels.length),2);
+  assert.equal(await page.evaluate(()=>{
+    const dock=document.getElementById('passportMinimizedWindows');
+    const dialog=document.querySelector('#passportUploadModal .passport-gallery-dialog');
+    const before=dock.getBoundingClientRect();dialog.scrollTop=dialog.scrollHeight;
+    const after=dock.getBoundingClientRect();
+    return getComputedStyle(dock).position==='fixed'&&Math.abs(before.top-after.top)<1&&after.top>=0&&after.bottom<=innerHeight;
+  }),true);
+  await page.$eval('#passportMinimizedWindows .passport-media-viewer [aria-expanded]',button=>button.click());
+  assert.equal(await page.$$eval('#passportMinimizedWindows .minimized',panels=>panels.length),1);
+  await page.$eval('.passport-media-viewer:not(#passportMediaViewer) .passport-window-close',button=>button.click());
+  assert.equal(await page.$$eval('.passport-media-viewer:not([hidden])',panels=>panels.length),1);
+  await page.$eval('#passportMediaViewer [aria-expanded]',button=>button.click());
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.$eval('#passportMediaViewer .danger',button=>button.click());
+  assert.equal(documents.length,3);
+  page.once('dialog',dialog=>dialog.accept());
+  await page.$eval('#passportMediaViewer .danger',button=>button.click());
+  await page.waitForFunction(()=>document.querySelector('[data-passport-key]').dataset.passportState==='missing');
+  assert.equal(await page.$eval('#passportMediaViewer',viewer=>viewer.hidden),true);
+  assert.equal(await page.$$eval('[data-saved-delete]',buttons=>buttons.length),0);
 });
 
 

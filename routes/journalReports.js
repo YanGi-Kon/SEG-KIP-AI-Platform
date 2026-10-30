@@ -4,12 +4,16 @@ import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess
 import {
   appendJournalReportRows,
   getJournalReport,
+  deleteJournalReport,
   listJournalReportFolders,
   normalizeJournalReportPeriod,
 } from '../services/journalReportService.js';
 
+import { exportJournalReportPdf } from '../services/journalReportPdfService.js';
+
 const router = express.Router();
 const requireWorkspaceRead = requireWorkspaceRequestPermission('workspace:read');
+const requireJournalDelete = requireWorkspaceRequestPermission('documents:cancel');
 const requireJournalSave = requireWorkspaceRequestPermission('documents:create');
 
 function classifyJournalReportError(error, fallbackCode) {
@@ -25,7 +29,7 @@ function classifyJournalReportError(error, fallbackCode) {
     statusCode: Number(error?.statusCode) || 500,
     code: error?.code || fallbackCode,
     error: error?.message || 'ЖУРНАЛ УЧЕТА ҳисобот хатоси.',
-    recommendedFix: '',
+    recommendedFix: error?.recommendedFix || '',
   };
 }
 
@@ -73,6 +77,26 @@ router.post('/:year/:month/append', requireJournalSave, async (req, res) => {
     return res.json({ ok: true, ...result });
   } catch (error) {
     const classified = classifyJournalReportError(error, 'JOURNAL_REPORT_APPEND_FAILED');
+    return res.status(classified.statusCode).json({ ok: false, ...classified });
+  }
+});
+
+router.post('/:year/:month/pdf', requireJournalSave, async (req, res) => {
+  try {
+    const result = await exportJournalReportPdf(req.workspace, req.params.year, req.params.month);
+    return res.json({ ok: true, result });
+  } catch (error) {
+    const classified = classifyJournalReportError(error, 'JOURNAL_REPORT_PDF_FAILED');
+    return res.status(classified.statusCode).json({ ok: false, ...classified });
+  }
+});
+
+router.delete('/:year/:month', requireJournalDelete, async (req, res) => {
+  try {
+    const result = await deleteJournalReport(req.workspace.id, req.params.year, req.params.month);
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    const classified = classifyJournalReportError(error, 'JOURNAL_REPORT_DELETE_FAILED');
     return res.status(classified.statusCode).json({ ok: false, ...classified });
   }
 });

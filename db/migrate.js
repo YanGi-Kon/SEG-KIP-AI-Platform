@@ -8,7 +8,8 @@ import { closePool, getPool } from './pool.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
-const LOCK_KEY = 732451987;
+// New transaction-only lock namespace avoids legacy leaked session locks.
+const LOCK_KEY = 732451988;
 const MIGRATION_STATEMENT_TIMEOUT_MS = 180_000;
 
 export function migrationChecksum(content) {
@@ -39,56 +40,44 @@ async function loadMigrationFiles() {
   }));
 }
 
-export async function runMigrations({ dryRun = false } = {}) {
-  const pool = getPool();
+export async function runMigrations({ dryRun = false, pool = getPool(), loadFiles = loadMigrationFiles } = {}) {
   const client = await pool.connect();
   const report = { dryRun, applied: [], skipped: [], pending: [] };
-  let previousStatementTimeout = '';
-
+  let inTransaction = false;
   try {
-    previousStatementTimeout = (await client.query("SELECT current_setting('statement_timeout') AS value")).rows[0]?.value || '';
-    await client.query("SELECT set_config('statement_timeout', $1, false)", [`${MIGRATION_STATEMENT_TIMEOUT_MS}ms`]);
-    await client.query('SELECT pg_advisory_lock($1)', [LOCK_KEY]);
+    await client.query('BEGIN');
+    inTransaction = true;
+    await client.query("SELECT set_config('statement_timeout', $1, true)", [`${MIGRATION_STATEMENT_TIMEOUT_MS}ms`]);
+    // Transaction-scoped locks are released on COMMIT/ROLLBACK, including through a transaction pooler.
+    await client.query('SELECT pg_advisory_xact_lock($1)', [LOCK_KEY]);
     await ensureMigrationTable(client);
-
     const result = await client.query('SELECT filename, checksum FROM schema_migrations ORDER BY filename');
-    const applied = new Map(result.rows.map((row) => [row.filename, row.checksum]));
-    const migrations = await loadMigrationFiles();
-
+    const applied = new Map(result.rows.map(row => [row.filename, row.checksum]));
+    const migrations = await loadFiles();
     for (const migration of migrations) {
       const previousChecksum = applied.get(migration.filename);
       if (previousChecksum) {
-        if (previousChecksum !== migration.checksum) {
-          throw new Error(`Applied migration checksum mismatch: ${migration.filename}`);
-        }
+        if (previousChecksum !== migration.checksum) throw new Error(`Applied migration checksum mismatch: ${migration.filename}`);
         report.skipped.push(migration.filename);
         continue;
       }
-
       report.pending.push(migration.filename);
       if (dryRun) continue;
-
-      await client.query('BEGIN');
       try {
         await client.query(migration.sql);
-        await client.query(
-          'INSERT INTO schema_migrations (filename, checksum) VALUES ($1, $2)',
-          [migration.filename, migration.checksum],
-        );
-        await client.query('COMMIT');
+        await client.query('INSERT INTO schema_migrations (filename, checksum) VALUES ($1, $2)', [migration.filename, migration.checksum]);
         report.applied.push(migration.filename);
       } catch (error) {
-        await client.query('ROLLBACK').catch(() => {});
         throw new Error(`Migration failed (${migration.filename}): ${error.message}`);
       }
     }
-
+    await client.query('COMMIT');
+    inTransaction = false;
     return report;
+  } catch (error) {
+    if (inTransaction) await client.query('ROLLBACK').catch(() => {});
+    throw error;
   } finally {
-    await client.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => {});
-    if (previousStatementTimeout) {
-      await client.query("SELECT set_config('statement_timeout', $1, false)", [previousStatementTimeout]).catch(() => {});
-    }
     client.release();
   }
 }

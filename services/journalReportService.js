@@ -1,6 +1,7 @@
 import {
   appendJournalReportRows as appendJournalReportRowsRecord,
   getJournalReportBundle,
+  deleteJournalReport as deleteJournalReportRecord,
   listJournalReports as listJournalReportRecords,
 } from '../repositories/journalReportRepository.js';
 
@@ -116,4 +117,9 @@ export async function appendJournalReportRows(input = {}) {
     rows,
     createdBy: input.createdBy || null,
   });
+}
+
+export async function deleteJournalReport(workspaceId, yearRaw, monthRaw) {
+  const { year, month } = normalizeJournalReportPeriod(yearRaw, monthRaw);
+  return deleteJournalReportRecord(workspaceId, year, month);
 }

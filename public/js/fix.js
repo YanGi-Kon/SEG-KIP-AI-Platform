@@ -197,7 +197,7 @@ function isSanegLoginActive(){
   document.querySelectorAll('#segEntryLoginScript,#sanegLoginGateScript').forEach((node) => node.remove());
   const script = document.createElement('script');
   script.id = 'sanegLoginGateScript';
-  script.src = 'js/saneg-login-gate.js?v=stage1f';
+  script.src = 'js/saneg-login-gate.js?v=20261009-login-loader';
   script.async = false;
   script.defer = true;
   document.head.appendChild(script);

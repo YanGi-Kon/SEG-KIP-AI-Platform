@@ -69,7 +69,7 @@ export async function mergePassportPdfs(documents) {
   return { bytes, pageCount: verified.pageCount, checksum: verified.checksum };
 }
 
-export async function preparePassportUpload(files) {
+export async function preparePassportUpload(files, { pageOrder } = {}) {
   if (!files?.length || files.length > MAX_PASSPORT_UPLOAD_FILES) throw passportError('1–20 ta JPG yoki PDF tanlang.', 'PASSPORT_FILES_REQUIRED');
   if (files.reduce((sum,file)=>sum+file.buffer.length,0)>MAX_PASSPORT_TOTAL_BYTES) throw passportError('Tanlangan fayllar jami 60 MBdan oshmasin.', 'PASSPORT_TOTAL_SIZE_LIMIT',413);
   const documents=[];
@@ -94,6 +94,22 @@ export async function preparePassportUpload(files) {
         documents.push({pdf:Buffer.from(await pdf.save())});
       } catch {throw passportError('JPG ochilmadi. Buzilmagan JPG tanlang.', 'PASSPORT_JPG_INVALID');}
     } else throw passportError('Faqat JPG va PDF fayllar tanlang.', 'PASSPORT_FILE_TYPE_INVALID');
+  }
+  if (pageOrder !== undefined) {
+    if (!Array.isArray(pageOrder) || !pageOrder.length || pageOrder.length > MAX_PASSPORT_PAGES) throw passportError('1–500 ta sahifa tanlang.', 'PASSPORT_PAGE_ORDER_INVALID');
+    const sources = await Promise.all(documents.map(doc => readPassportPdf(doc.pdf, MAX_PASSPORT_TOTAL_BYTES)));
+    const output = await PDFDocument.create();
+    output.setCreationDate(new Date(0)); output.setModificationDate(new Date(0));
+    const seen = new Set();
+    for (const entry of pageOrder) {
+      const index = entry?.fileIndex, page = entry?.pageIndex;
+      const key = index + ':' + page;
+      if (!Number.isInteger(index) || !Number.isInteger(page) || index < 0 || page < 0 || !sources[index] || page >= sources[index].pageCount || seen.has(key)) throw passportError('Sahifa tartibi noto‘g‘ri yoki takrorlangan.', 'PASSPORT_PAGE_ORDER_INVALID');
+      seen.add(key);
+      const [copied] = await output.copyPages(sources[index].pdf, [page]);
+      output.addPage(copied);
+    }
+    return readPassportPdf(Buffer.from(await output.save()), MAX_PASSPORT_TOTAL_BYTES);
   }
   const merged=await mergePassportPdfs(documents);
   return readPassportPdf(merged.bytes,MAX_PASSPORT_TOTAL_BYTES);

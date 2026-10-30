@@ -57,11 +57,19 @@ function readLocalSheetUrl() {
 }
 
 async function readServerSheetUrl() {
+  const token = sessionStorage.getItem('seg_kip_workspace_access_token') || '';
+  const workspaceId = localStorage.getItem('seg_kip_selected_workspace_id') || '';
+  if (!token || !workspaceId || document.getElementById('sanegLoginGate')) return '';
   if (lastServerSheetUrl) return lastServerSheetUrl;
   const candidates = ['/api/kuduk/state?sexId=sex_4', '/api/kuduk/state?sexId=sex_default'];
   for (const endpoint of candidates) {
     try {
-      const res = await fetch(endpoint);
+      const res = await fetch(endpoint, {
+        headers: { Authorization: `Bearer ${token}`, 'x-workspace-id': workspaceId },
+        credentials: 'include'
+      });
+      if (res.status === 401 || res.status === 403) return '';
+      if (!res.ok) continue;
       const data = await res.json().catch(() => ({}));
       const url = normalizeSpreadsheetUrl(data.spreadsheetUrl || data.spreadsheetId || data.url);
       if (url) { lastServerSheetUrl = url; return url; }
@@ -594,6 +602,7 @@ window.toggleSidebar = function() {
 
 
 window.addEventListener('seg-kip:workspace-change', (e) => {
+  lastServerSheetUrl = '';
   const wsName = e.detail?.workspace?.name;
   if (wsName) {
     const sidebarName = document.getElementById('activeWorkspaceNameSidebar');

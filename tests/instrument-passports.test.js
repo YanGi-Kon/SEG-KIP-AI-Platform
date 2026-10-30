@@ -124,6 +124,38 @@ test('passport migration and durable queue work with PostgreSQL, including crash
     assert.equal(currentWrites,before);
     assert.equal((await repo.getPassport(workspace,key)).published_version,2);
   });
+  await t.test('deletion respects workspace boundaries, rebuilds remaining pages and clears the last document',async()=>{
+    const docs=(await repo.passportDetails(workspace,key)).documents;
+    await assert.rejects(repo.deletePassportDocument({workspaceId:other,key,documentId:docs[0].id,rootFolderId:'target-folder-id'}),{code:'PASSPORT_DOCUMENT_NOT_FOUND'});
+    await repo.deletePassportDocument({workspaceId:workspace,key,documentId:docs[0].id,rootFolderId:'target-folder-id'});
+    assert.equal((await repo.passportDetails(workspace,key)).documents.length,1);
+    assert.equal((await repo.getPassport(workspace,key)).merged_pdf,null);
+    const job=(await repo.duePassportJobs()).find(job=>job.payload.passportId===firstJob.payload.passportId);
+    await buildPassportJob(await repo.claimPassportJob(job.id,{query}),options);
+    const remaining=await repo.getPassport(workspace,key);
+    assert.equal(remaining.page_count,1);
+    assert.equal((await PDFDocument.load(remaining.merged_pdf)).getPages()[0].getWidth(),120);
+    await repo.deletePassportDocument({workspaceId:workspace,key,documentId:docs[1].id,rootFolderId:'target-folder-id'});
+    assert.deepEqual(await repo.passportDetails(workspace,key),{passport:null,documents:[]});
+  });
+  await t.test('replacement preserves document order and rolls back invalid replacements',async()=>{
+    const saved=await repo.savePassportDocument(input);
+    const second=await repo.savePassportDocument({...input,filename:'second.pdf',parsed:await readPassportPdf(await makePdf([180]))});
+    const replacement=await readPassportPdf(await makePdf([150,160]));
+    const args={workspaceId:workspace,key,documentId:saved.documentId,rootFolderId:'target-folder-id',filename:'new.pdf',parsed:replacement,userId:user};
+    await assert.rejects(repo.replacePassportDocument({...args,workspaceId:other}),{code:'PASSPORT_DOCUMENT_NOT_FOUND'});
+    await repo.replacePassportDocument(args);
+    const details=await repo.passportDetails(workspace,key);
+    assert.deepEqual(details.documents.map(doc=>doc.id),[saved.documentId,second.documentId]);
+    assert.equal(details.documents[0].filename,'new.pdf');
+    assert.equal(details.documents[0].page_count,2);
+    await assert.rejects(repo.replacePassportDocument({...args,documentId:second.documentId}),{code:'PASSPORT_DOCUMENT_DUPLICATE'});
+    assert.equal((await repo.passportDetails(workspace,key)).documents[1].filename,'second.pdf');
+    const job=(await repo.duePassportJobs()).find(job=>job.payload.passportId===details.passport.id);
+    await buildPassportJob(await repo.claimPassportJob(job.id,{query}),options);
+    const current=await repo.getPassport(workspace,key);
+    assert.deepEqual((await PDFDocument.load(current.merged_pdf)).getPages().map(page=>page.getWidth()),[150,160,180]);
+  });
   await t.test('row claiming and stale-job recovery prevent duplicate claims',async()=>{
     const input2={...input,key:instrumentPassportKey('Second',instrument)};
     const saved=await repo.savePassportDocument(input2);

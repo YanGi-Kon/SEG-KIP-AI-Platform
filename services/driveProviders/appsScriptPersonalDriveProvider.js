@@ -61,11 +61,24 @@ function classifyPassportAdapterError(error) {
   return error;
 }
 
+function diagnosticHost(value) {
+  try { return new URL(value).hostname; } catch (_) { return ''; }
+}
+function diagnosticCode(value) {
+  return /^[A-Z][A-Z0-9_]{0,79}$/.test(String(value || '')) ? String(value) : 'UNKNOWN';
+}
+const SAFE_RETRY_ACTIONS = new Set(['passport_capabilities', 'validate_folder', 'ensure_subfolder', 'save_passport_pdf']);
+const TRANSIENT_REQUEST_ERRORS = new Set(['DRIVE_APPS_SCRIPT_TIMEOUT', 'DRIVE_APPS_SCRIPT_REDIRECT_FAILED', 'DRIVE_APPS_SCRIPT_INVALID_RESPONSE', 'DRIVE_UPLOAD_FAILED']);
+const DIAGNOSTIC_ACTIONS = new Set(['validate_folder', 'ensure_subfolder', 'upload_pdf_base64', 'passport_capabilities', 'save_passport_pdf']);
+
 export class AppsScriptPersonalDriveProvider {
-  constructor({ url, secret, fetchImpl = globalThis.fetch, timeoutMs = 30000 }) {
+  constructor({ url, secret, fetchImpl = globalThis.fetch, timeoutMs = 30000, maxRequestAttempts = 3, retryDelayMs = 500, diagnosticsLogger = entry => console.info('[apps-script-drive]', JSON.stringify(entry)) }) {
     this.url = clean(url);
     this.secret = clean(secret);
     this.fetchImpl = fetchImpl;
+    this.maxRequestAttempts = Math.min(3, Math.max(1, Number(maxRequestAttempts) || 1));
+    this.retryDelayMs = Math.min(2000, Math.max(0, Number(retryDelayMs) || 0));
+    this.diagnosticsLogger = diagnosticsLogger;
     this.timeoutMs = Math.max(1000, Number(timeoutMs || 30000));
     this.providerName = 'apps_script_personal_drive';
     if (!this.url || !this.secret) {
@@ -80,23 +93,66 @@ export class AppsScriptPersonalDriveProvider {
   }
 
   async request(action, payload = {}) {
+    const attempts = SAFE_RETRY_ACTIONS.has(action) ? this.maxRequestAttempts : 1;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try { return await this.requestOnce(action, payload, attempt); }
+      catch (error) {
+        if (attempt === attempts || !TRANSIENT_REQUEST_ERRORS.has(error.code)) throw error;
+        await new Promise(resolve => setTimeout(resolve, this.retryDelayMs * attempt));
+      }
+    }
+  }
+
+  async requestOnce(action, payload = {}, attempt = 1) {
     const timestamp = Date.now();
     const nonce = crypto.randomUUID();
     const envelope = { action, payload, timestamp, nonce };
     const signature = signAppsScriptRequest(envelope, this.secret);
+    const requestBody = JSON.stringify({ ...envelope, signature });
+    const startedAt = Date.now();
+    const diagnostic = {
+      requestId: nonce,
+      attempt,
+      action: DIAGNOSTIC_ACTIONS.has(action) ? action : 'other',
+      requestHost: diagnosticHost(this.url),
+      requestBytes: Buffer.byteLength(requestBody),
+      httpStatus: null,
+      responseHost: '',
+      redirected: false,
+      responseType: '',
+      responseFormat: 'unavailable',
+      outcome: 'error',
+    };
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const response = await this.fetchImpl(this.url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...envelope, signature }),
+        body: requestBody,
         redirect: 'follow',
         signal: controller.signal,
       });
+      diagnostic.httpStatus = response.status;
+      diagnostic.responseHost = diagnosticHost(response.url || this.url);
+      diagnostic.redirected = Boolean(response.redirected);
+      const mimeType = clean(response.headers?.get?.('content-type')).split(';')[0].toLowerCase();
+      diagnostic.responseType = ['application/json', 'text/html', 'text/plain'].includes(mimeType) ? mimeType : 'other';
       const text = await response.text();
       let data = {};
-      try { data = text ? JSON.parse(text) : {}; } catch (_) {
+      try { data = text ? JSON.parse(text) : {}; diagnostic.responseFormat = text ? 'json' : 'empty'; } catch (_) {
+        diagnostic.responseFormat = 'non-json';
+        if (response.status === 404 && response.redirected === true
+          && diagnostic.responseHost === 'script.googleusercontent.com'
+          && SAFE_RETRY_ACTIONS.has(action)) {
+          // The Apps Script entrypoint ran, but its redirected response was unavailable.
+          // Durable workers retry these actions; legacy uploads are excluded because they create new files.
+          throw providerError(
+            'Google Apps Script javobini olishda vaqtinchalik xato yuz berdi.',
+            'DRIVE_APPS_SCRIPT_REDIRECT_FAILED',
+            502,
+          );
+        }
         if (response.status === 404) {
           throw providerError(
             'Apps Script /exec deployment topilmadi yoki faol emas.',
@@ -119,11 +175,19 @@ export class AppsScriptPersonalDriveProvider {
           Number(data.statusCode || response.status || 400),
         );
       }
+      diagnostic.outcome = 'success';
       return data;
     } catch (error) {
-      throw classifyAppsScriptDriveError(error);
+      const classified = classifyAppsScriptDriveError(error);
+      diagnostic.errorCode = diagnosticCode(classified.code);
+      classified.driveRequestId = nonce;
+      classified.driveRequestAction = diagnostic.action;
+      throw classified;
     } finally {
       clearTimeout(timer);
+      diagnostic.durationMs = Date.now() - startedAt;
+      // Never log payloads, signatures, secrets, full URLs, response bodies or remote messages.
+      try { this.diagnosticsLogger?.(diagnostic); } catch (_) { /* Logging cannot change a Drive operation. */ }
     }
   }
 

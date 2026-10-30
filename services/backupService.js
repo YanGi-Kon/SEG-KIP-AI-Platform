@@ -5,7 +5,8 @@ import { promisify } from 'util';
 import cron from 'node-cron';
 import TelegramBot from 'node-telegram-bot-api';
 import { getAppConfig } from '../config/env.js';
-import { query } from '../db/pool.js';
+import { query, getPool } from '../db/pool.js';
+import { writeDatabaseBackup } from './databaseBackupWriter.js';
 import { resolveEnvServiceAccount } from './googleCredentialService.js';
 import { google } from 'googleapis';
 
@@ -188,36 +189,7 @@ async function performDatabaseBackup() {
   try {
     // Instead of using pg_dump (which fails due to Neon's Postgres 18 version),
     // we use pure Node.js to export all tables as JSON.
-    const tablesResult = await query(`
-      SELECT tablename
-      FROM pg_tables
-      WHERE schemaname = 'public'
-      ORDER BY tablename
-    `);
-
-    const tables = tablesResult.rows.map(r => r.tablename);
-    const backupData = {
-      createdAt: new Date().toISOString(),
-      database: 'neondb',
-      tables: {},
-      meta: { totalTables: tables.length, exportedBy: 'telegram-bot' },
-    };
-
-    for (const table of tables) {
-      try {
-        const result = await query(`SELECT * FROM "${table}"`);
-        backupData.tables[table] = {
-          rowCount: result.rowCount,
-          columns: result.fields.map(f => f.name),
-          rows: result.rows,
-        };
-      } catch (err) {
-        backupData.tables[table] = { error: err.message };
-      }
-    }
-
-    // Write to file
-    fs.writeFileSync(filepath, JSON.stringify(backupData, null, 2));
+    await writeDatabaseBackup(getPool(), filepath);
     console.log(`[BackupWorker] DB exported to JSON at ${filepath}`);
 
     // Send to Telegram

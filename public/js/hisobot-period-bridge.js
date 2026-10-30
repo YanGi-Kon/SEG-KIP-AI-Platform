@@ -116,12 +116,20 @@
     }
   }
 
+  function cachePrincipal() {
+    try {
+      const payload = JSON.parse(atob(authToken().split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return clean(payload.sub || payload.userId || payload.id);
+    } catch (_) { return ''; }
+  }
+
   function periodCacheKey(workspaceId = workspaceIdValue(), year = periodYear, month = periodMonth) {
     const wid = clean(workspaceId);
     const safeYear = Number(year);
     const safeMonth = Number(month);
     if (!wid || !Number.isInteger(safeYear) || !Number.isInteger(safeMonth)) return '';
-    return `${wid}|${safeYear}-${String(safeMonth).padStart(2, '0')}`;
+    if (!cachePrincipal()) return '';
+    return `${wid}|${cachePrincipal()}|${safeYear}-${String(safeMonth).padStart(2, '0')}`;
   }
 
   function stateSignature() {
@@ -219,6 +227,7 @@
       workspaceId: workspaceIdValue(),
       data,
       stateSignature: stateSignature(),
+      snapshot: { ...state, sheets: canonicalSheets, routes: canonicalRoutes, __hisobotPeriodApplied: false },
     };
     if (cache) cache[key] = entry;
     void writePersistentPeriod(entry);
@@ -518,6 +527,31 @@
       const originalFetchState = fetchState;
       rawFetchState = originalFetchState;
       const wrapped = async function(...args) {
+        // The authenticated revision request confirms workspace access before restoring rows.
+        if (typeof sessionReady === 'function' && sessionReady() && restoreSavedPeriod()) {
+          const wid = workspaceIdValue();
+          const key = periodCacheKey();
+          const cached = key ? (periodCache()?.[key] || await readPersistentPeriod(key)) : null;
+          if (cached?.snapshot && cached?.data && !forceNextPeriodRequest) {
+            try {
+              const response = await fetch('/api/kuduk/revision?sexId=' + encodeURIComponent(typeof sexId === 'function' ? sexId() : 'sex_default'), {
+                credentials: 'include',
+                headers: { Authorization: 'Bearer ' + authToken(), 'x-workspace-id': wid },
+              });
+              const revision = response.ok ? await response.json() : null;
+              if (wid !== workspaceIdValue()) return;
+              const signature = revision ? clean(revision.spreadsheetId) + '|' + Number(revision.version || 0) + '|' + clean(revision.updatedAt) : '';
+              if (revision && !revision.validating && signature === cached.stateSignature) {
+                state = { ...state, ...cached.snapshot };
+                captureCanonical(true);
+                applyPeriodData(cached.data);
+                if (typeof hydrateFromState === 'function') hydrateFromState();
+                setPeriodStatus('✓ ' + periodLabel(), 'ok');
+                return;
+              }
+            } catch (_) { /* Fall back to the normal authenticated state request. */ }
+          }
+        }
         const result = await originalFetchState(...args);
         if (typeof state === 'undefined' || !state?.connected) {
           setPeriodStatus('Workspace sessiyasi kutilmoqda...', 'sync');
@@ -554,7 +588,7 @@
         const currentWorkspaceId = typeof activeWorkspaceId !== 'undefined'
           ? clean(activeWorkspaceId)
           : workspaceIdValue();
-        const workspaceChanged = Boolean(nextWorkspaceId && nextWorkspaceId !== currentWorkspaceId);
+        const workspaceChanged = Boolean(currentWorkspaceId && nextWorkspaceId && nextWorkspaceId !== currentWorkspaceId);
         if (workspaceChanged) {
           clearPeriodCache(nextWorkspaceId);
           forceNextPeriodRequest = true;

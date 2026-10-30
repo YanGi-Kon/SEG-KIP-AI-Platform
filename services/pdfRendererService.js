@@ -231,7 +231,7 @@ export async function renderHtmlToA4Pdf(html, options = {}) {
     if (!options.allowMultiPage) await fitSingleA4Page(page);
     const value = await page.pdf({
       format: 'A4',
-      landscape: false,
+      landscape: Boolean(options.landscape),
       printBackground: true,
       preferCSSPageSize: true,
       displayHeaderFooter: false,
@@ -247,7 +247,9 @@ export async function renderHtmlToA4Pdf(html, options = {}) {
         { inspection },
       );
     }
-    if (Math.abs(inspection.width - A4_WIDTH_PT) > 2 || Math.abs(inspection.height - A4_HEIGHT_PT) > 2) {
+    const expectedWidth = options.landscape ? A4_HEIGHT_PT : A4_WIDTH_PT;
+    const expectedHeight = options.landscape ? A4_WIDTH_PT : A4_HEIGHT_PT;
+    if (Math.abs(inspection.width - expectedWidth) > 2 || Math.abs(inspection.height - expectedHeight) > 2) {
       throw rendererError(
         'Yakuniy PDF MediaBox o\u2018lchami A4 emas.',
         'FINAL_PDF_PAGE_SIZE_INVALID',
