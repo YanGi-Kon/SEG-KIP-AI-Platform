@@ -16,6 +16,7 @@
   const state={credential:null,credentialName:'',instruments:[],loaded:false,loadedSheet:'',activeMenu:'ПАСПОРТ МАНОМЕТР'};
   let activeWorkspaceId='';
   let workspaceLoadVersion=0;
+  let sheetLoadVersion=0;
   const $=id=>document.getElementById(id);
   const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   function parentStorage(name,key){try{return parent?.[name]?.getItem(key)||'';}catch(_){return'';}}
@@ -40,7 +41,7 @@
     }
     return d;
   }
-  function setStatus(text,tone='info'){let b=$('ulchovSheetStatus');if(!b){b=document.createElement('div');b.id='ulchovSheetStatus';document.querySelector('.header')?.insertAdjacentElement('afterend',b)}b.className=`ulchov-sheet-status ${tone}`;b.textContent=text}
+  function setStatus(text,tone='info'){let b=$('ulchovSheetStatus');if(!b){b=document.createElement('div');b.id='ulchovSheetStatus';document.querySelector('.header')?.insertAdjacentElement('afterend',b)}b.className=`ulchov-sheet-status ${tone}`;b.textContent=text;b.removeAttribute('aria-busy')}
   function injectStyle(){if($('ulchovSheetsStyle'))return;const s=document.createElement('style');s.id='ulchovSheetsStyle';s.textContent=`.ulchov-sheet-status{position:relative;z-index:2;margin:14px auto 0;max-width:1180px;border:1px solid rgba(0,212,255,.24);background:rgba(5,13,26,.78);color:#bfefff;border-radius:16px;padding:12px 16px;font-size:13px}.ulchov-sheet-status.ok{border-color:rgba(0,204,102,.42);color:#c8ffe1;background:rgba(0,80,52,.18)}.ulchov-sheet-status.warn{border-color:rgba(255,170,0,.42);color:#ffe6a3;background:rgba(120,80,0,.16)}.ulchov-sheet-status.bad{border-color:rgba(255,68,68,.45);color:#ffcaca;background:rgba(120,0,0,.16)}.ulchov-settings-btn{border:1px solid rgba(0,212,255,.32);background:rgba(0,212,255,.10);color:#dffaff;border-radius:12px;padding:9px 13px;font-weight:800;cursor:pointer;font-family:'Exo 2',sans-serif}.ulchov-nav-card{min-height:174px;justify-content:center;border-color:rgba(0,212,255,.25);background:linear-gradient(145deg,rgba(13,31,53,.96),rgba(9,23,42,.96))}.ulchov-nav-card .sub-icon{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;background:rgba(0,212,255,.10);border:1px solid rgba(0,212,255,.24)}.ulchov-modal-overlay{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.72);padding:18px}.ulchov-modal-overlay.open{display:flex}.ulchov-modal{width:min(900px,100%);background:#061629;border:1px solid rgba(0,212,255,.42);border-radius:24px;padding:24px;box-shadow:0 28px 80px rgba(0,0,0,.55),0 0 36px rgba(0,212,255,.12)}.ulchov-modal-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}.ulchov-modal h2{margin:0;color:#eaffff;font-size:25px}.ulchov-modal p{margin:6px 0 0;color:#a6c8d7;font-size:13px}.ulchov-close{width:42px;height:42px;border-radius:14px;border:1px solid rgba(0,212,255,.34);background:rgba(255,255,255,.04);color:#eaffff;font-size:22px;cursor:pointer}.ulchov-grid{display:grid;gap:14px;margin-top:16px}.ulchov-field,.ulchov-menu-row{display:grid;gap:8px}.ulchov-field label,.ulchov-menu-title,.ulchov-menu-columns{font-size:13px;font-weight:900;color:#d7f7ff;text-transform:uppercase}.ulchov-input{width:100%;border:1px solid rgba(0,212,255,.24);background:#050d1a;color:#fff;border-radius:15px;padding:13px 14px;outline:none;font-weight:700}.ulchov-note{margin-top:12px;color:#a6c8d7;font-size:12px}.ulchov-menu-block{border:1px solid rgba(0,212,255,.18);border-radius:18px;padding:14px;background:rgba(0,0,0,.16)}.ulchov-menu-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.ulchov-menu-columns,.ulchov-menu-row{display:grid;grid-template-columns:1fr 1fr 42px;gap:10px}.ulchov-menu-columns{color:#95c7d8;font-size:12px;margin-bottom:6px}.ulchov-plus,.ulchov-row-delete{border:1px solid rgba(0,212,255,.32);background:rgba(0,212,255,.12);color:#eaffff;border-radius:12px;cursor:pointer;font-weight:900}.ulchov-plus{width:38px;height:38px;font-size:22px}.ulchov-row-delete{width:38px;height:38px;color:#ffd5d5;border-color:rgba(255,68,68,.38);background:rgba(255,68,68,.10)}.ulchov-msg{margin-top:14px;min-height:44px;border:1px dashed rgba(0,212,255,.28);border-radius:16px;padding:12px;color:#dffaff;background:rgba(0,0,0,.20);white-space:pre-wrap}.ulchov-msg.ok{border-color:rgba(0,204,102,.42);color:#c8ffe1}.ulchov-msg.bad{border-color:rgba(255,68,68,.42);color:#ffcaca}.ulchov-msg.warn{border-color:rgba(255,170,0,.42);color:#ffe6a3}.ulchov-actions{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-top:16px}.ulchov-actions-right{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px}.ulchov-action{border:1px solid rgba(0,212,255,.28);background:rgba(255,255,255,.045);color:#eafcff;padding:12px 16px;border-radius:16px;font-weight:900;cursor:pointer}.ulchov-action.primary{background:linear-gradient(135deg,#00d4ff,#00cc66);color:#001018;border:0}.ulchov-action.danger{background:rgba(255,68,68,.12);border-color:rgba(255,68,68,.36);color:#ffd5d5}.ulchov-file-label{border:1px solid rgba(0,212,255,.28);background:rgba(0,212,255,.08);color:#eafcff;padding:12px 16px;border-radius:16px;font-weight:900;cursor:pointer}.ulchov-file-label input{display:none}.ulchov-file-name{font-size:12px;color:#a6c8d7;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:680px){.ulchov-menu-columns,.ulchov-menu-row{grid-template-columns:1fr}.ulchov-row-delete{width:100%}}`;document.head.appendChild(s)}
   function setMsg(text,tone=''){const el=$('ulchovSettingsMsg');if(el){el.className=`ulchov-msg ${tone}`;el.textContent=text}}
   function renderMenuRows(rows){const wrap=$('ulchovMenuRows');if(!wrap)return;const data=rows.length?rows:[{menuName:'',sheetName:''}];wrap.innerHTML=data.map(row=>`<div class="ulchov-menu-row" data-menu-row><input class="ulchov-input" data-menu-name placeholder="Menyu nomi" value="${esc(row.menuName||'')}"><input class="ulchov-input" data-menu-sheet placeholder="ASOSIY VAROQ" value="${esc(row.sheetName||'')}"><button class="ulchov-row-delete" type="button" data-delete-row title="Qatorni o'chirish">×</button></div>`).join('');wrap.querySelectorAll('[data-delete-row]').forEach(btn=>{btn.onclick=()=>{const row=btn.closest('[data-menu-row]');if(wrap.querySelectorAll('[data-menu-row]').length>1)row.remove();else row.querySelectorAll('input').forEach(i=>i.value='')}})}
@@ -108,6 +109,7 @@
   }
   function filterCards(){const q=($('search-input')?.value||'').toLowerCase(),b=$('filter-brand')?.value||'',l=$('filter-location')?.value||'';const data=state.instruments.filter(x=>{const h=`${x.pos} ${x.name} ${x.brand} ${x.serial} ${x.range} ${x.location} ${x.work}`.toLowerCase();return(!q||h.includes(q))&&(!b||x.brand===b)&&(!l||x.location===l)});renderSummary(data);renderCards(data)}
   async function loadSheet(openAfter=false,expectedWorkspaceId=workspaceId()){
+    const requestVersion=++sheetLoadVersion;
     const s=settings();
     if(!hasSettings()){
       clearCards('Созламалар киритилмаган.');
@@ -117,6 +119,7 @@
     }
     try{
       setStatus(`${state.activeMenu}: ASOSIY VAROQ маълумотлари юкланмоқда...`,'warn');
+      $('ulchovSheetStatus')?.setAttribute('aria-busy','true');
       const d=await post('/api/ulchov/instruments',s,expectedWorkspaceId);
       if(expectedWorkspaceId&&expectedWorkspaceId!==workspaceId())return false;
       state.instruments=d.instruments||[];
@@ -136,6 +139,11 @@
       clearCards(e.message);
       setStatus(e.message,'bad');
       return false;
+    }finally{
+      const status=$('ulchovSheetStatus');
+      if(requestVersion===sheetLoadVersion&&status?.getAttribute('aria-busy')==='true'){
+        setStatus('Workspace ўзгарди. Эски маълумот юкланиши бекор қилинди.','info');
+      }
     }
   }
   function showConfiguredPage(){if(typeof window.goPage==='function')window.goPage('pasport');setPageTitle();renderSummary(state.instruments);renderCards(state.instruments)}
@@ -185,13 +193,15 @@
     if(workspaceMenus.length&&!workspaceMenus.some(item=>item.menuName===state.activeMenu)){
       state.activeMenu=workspaceMenus[0].menuName;
     }
-    clearCards('Yangi Workspace ma’lumotlari yuklanmoqda...');
+    clearCards('Joriy Workspace uchun asboblar ro‘yxati yangilanadi.');
     
     if (!hasSettings()) {
       if (isAdmin) {
+        clearCards('Ushbu Workspace uchun ASOSIY VAROQ sozlanmagan.');
         openSettings();
         setStatus('Google Sheets созламалари киритилмаган.', 'warn');
       } else {
+        clearCards('Ushbu Workspace uchun ASOSIY VAROQ sozlanmagan.');
         setStatus('Google Sheets созламалари киритилмаган. Администраторга мурожаат қилинг.', 'warn');
       }
     } else {

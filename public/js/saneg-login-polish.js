@@ -10,7 +10,7 @@
     style.id = 'sanegLoginPolishStyle';
     style.textContent = `
       #sanegLoginGate .saneg-login-right{padding:32px !important;background:#020817 !important;}
-      #sanegLoginGate .saneg-login-right-bg{background-image:url('/assets/login/saneg-login-hero.svg?v=hero1a') !important;background-size:cover !important;background-position:center !important;transform:scale(1.02) !important;filter:saturate(1.08) contrast(1.08) brightness(.82) !important;}
+      #sanegLoginGate .saneg-login-right-bg{background-image:none !important;background-color:#020817 !important;transform:scale(1.02) !important;filter:saturate(1.08) contrast(1.08) brightness(.82) !important;}
       #sanegLoginGate .saneg-login-right-overlay{background:linear-gradient(180deg,rgba(2,8,23,.06),rgba(2,8,23,.10)),radial-gradient(circle at 50% 50%,rgba(34,211,238,.05),transparent 44%) !important;}
       #sanegLoginGate .saneg-login-right-content{width:min(1040px,100%) !important;min-height:790px !important;position:relative !important;justify-content:flex-start !important;gap:0 !important;padding-top:42px !important;}
       #sanegLoginGate .saneg-login-right-content>div:first-child{width:100% !important;text-align:center !important;margin-bottom:22px !important;}

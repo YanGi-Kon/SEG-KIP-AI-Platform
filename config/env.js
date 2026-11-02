@@ -32,6 +32,23 @@ function requireMinimumSecret(value, name, enabled, minimum = 32) {
   return secret;
 }
 
+export function isLocalPgliteMode(env = process.env) {
+  const enabled = parseBoolean(env.LOCAL_DEV_PGLITE, false);
+  const nodeEnv = String(env.NODE_ENV || 'development').trim().toLowerCase();
+  const railwayEnvironment = String(env.RAILWAY_ENVIRONMENT_NAME || env.RAILWAY_ENVIRONMENT || '').trim().toLowerCase();
+  const isProduction = nodeEnv === 'production' || railwayEnvironment === 'production';
+  const isDevelopment = nodeEnv === 'development' || nodeEnv === 'test';
+  const usesPglite = /^pglite:\/\//i.test(String(env.DATABASE_URL || '').trim());
+
+  if (enabled && (!isDevelopment || isProduction || !usesPglite)) {
+    throw new Error('LOCAL_DEV_PGLITE is allowed only outside production with a pglite:// DATABASE_URL');
+  }
+  if (usesPglite && !enabled) {
+    throw new Error('pglite:// DATABASE_URL requires LOCAL_DEV_PGLITE=true');
+  }
+  return enabled;
+}
+
 export function getAppConfig(env = process.env) {
   const nodeEnv = String(env.NODE_ENV || 'development').trim().toLowerCase();
   const isProduction = nodeEnv === 'production';
@@ -50,6 +67,7 @@ export function getAppConfig(env = process.env) {
   });
 
   const databaseUrl = String(env.DATABASE_URL || '').trim();
+  const localPgliteMode = isLocalPgliteMode({ ...env, DATABASE_URL: databaseUrl });
   if (features.workspaceModeEnabled && !databaseUrl) {
     throw new Error('DATABASE_URL is required when WORKSPACE_MODE_ENABLED=true');
   }
@@ -90,7 +108,12 @@ export function getAppConfig(env = process.env) {
     telegram,
   };
 
-  if (features.workspaceModeEnabled && !config.google.serviceAccountJson && !config.google.serviceAccountBase64) {
+  if (
+    features.workspaceModeEnabled
+    && !config.google.serviceAccountJson
+    && !config.google.serviceAccountBase64
+    && !localPgliteMode
+  ) {
     throw new Error('A platform Google Service Account is required when WORKSPACE_MODE_ENABLED=true');
   }
 

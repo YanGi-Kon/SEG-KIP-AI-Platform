@@ -36,6 +36,46 @@ test('workspace mode requires platform Google credentials', () => {
   );
 });
 
+test('local PGlite mode requires an explicit non-production PGlite database', () => {
+  const local = getAppConfig({
+    NODE_ENV: 'development',
+    LOCAL_DEV_PGLITE: 'true',
+    DATABASE_URL: 'pglite://local-development',
+    WORKSPACE_MODE_ENABLED: 'true',
+    APPROVAL_JWT_SECRET: 'a'.repeat(32),
+  });
+  assert.equal(local.database.url, 'pglite://local-development');
+
+  assert.throws(
+    () => getAppConfig({
+      NODE_ENV: 'production',
+      LOCAL_DEV_PGLITE: 'true',
+      DATABASE_URL: 'pglite://local-development',
+    }),
+    /LOCAL_DEV_PGLITE is allowed only outside production/,
+  );
+  assert.throws(
+    () => getAppConfig({
+      NODE_ENV: 'development',
+      RAILWAY_ENVIRONMENT_NAME: 'production',
+      LOCAL_DEV_PGLITE: 'true',
+      DATABASE_URL: 'pglite://local-development',
+    }),
+    /LOCAL_DEV_PGLITE is allowed only outside production/,
+  );
+  assert.throws(
+    () => getAppConfig({
+      LOCAL_DEV_PGLITE: 'true',
+      DATABASE_URL: 'postgres://localhost/db',
+    }),
+    /LOCAL_DEV_PGLITE is allowed only outside production/,
+  );
+  assert.throws(
+    () => getAppConfig({ DATABASE_URL: 'pglite://local-development' }),
+    /pglite:\/\/ DATABASE_URL requires LOCAL_DEV_PGLITE=true/,
+  );
+});
+
 test('production workspace auth requires strong access and refresh secrets', () => {
   assert.throws(
     () => getAppConfig({

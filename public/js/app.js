@@ -7,7 +7,6 @@ const MODULES = {
   openai: 'modules/openai.html',
   users: 'modules/users.html',
   settings: 'modules/settings.html?v=20260924-backup-schedule3-runtime',
-  kuduk: 'modules/kuduk.html'
 };
 
 const SHEET_LINK_KEYS = [
@@ -182,6 +181,31 @@ function openUlchovVositalari() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function moduleFrameId(moduleName) {
+  if (moduleName === 'journal') return 'hisobotModuleFrame';
+  if (moduleName === 'faults') return 'faultsModuleFrame';
+  if (moduleName === 'acts') return 'genericModuleFrame';
+  return `${moduleName}ModuleFrame`;
+}
+
+function getOrCreateModuleFrame(moduleName, page = document.getElementById('genericModulePage')) {
+  if (!page) return null;
+  const id = moduleFrameId(moduleName);
+  let frame = document.getElementById(id);
+  if (frame) {
+    frame.dataset.moduleFrame = moduleName;
+    return frame;
+  }
+
+  frame = document.createElement('iframe');
+  frame.id = id;
+  frame.dataset.moduleFrame = moduleName;
+  frame.title = moduleName;
+  frame.hidden = true;
+  page.appendChild(frame);
+  return frame;
+}
+
 function closeUlchovVositalari() {
   openDashboard();
 }
@@ -196,29 +220,14 @@ function openModulePage(moduleName, title) {
   
   hideAllPages();
   const page = document.getElementById('genericModulePage');
-  const journalFrame = document.getElementById('hisobotModuleFrame');
-  const faultsFrame = document.getElementById('faultsModuleFrame');
-  const genericFrame = document.getElementById('genericModuleFrame');
-  const isJournal = moduleName === 'journal';
-  const isFaults = moduleName === 'faults';
-  const isTo = moduleName === 'to';
-  if (journalFrame) journalFrame.hidden = !isJournal;
-  if (faultsFrame) faultsFrame.hidden = !isFaults;
-  if (genericFrame) genericFrame.hidden = isJournal || isFaults;
-  const frame = isJournal ? journalFrame : (isFaults ? faultsFrame : genericFrame);
-  const frameNeedsLoad = Boolean(frame && frame.getAttribute('src') !== src);
+  const frame = getOrCreateModuleFrame(moduleName, page);
+  page?.querySelectorAll('iframe').forEach((moduleFrame) => {
+    moduleFrame.hidden = moduleFrame !== frame;
+  });
+  const frameNeedsLoad = Boolean(frame && (frame.getAttribute('src') !== src || frame.dataset.workspaceStale === 'true'));
   if (frameNeedsLoad) {
-    if (isFaults || isTo) {
-      const openMessage = isFaults ? 'SEG_KIP_FAULTS_OPEN' : 'SEG_KIP_TO_OPEN';
-      frame.addEventListener('load', () => {
-        frame.contentWindow?.postMessage({ type: openMessage }, '*');
-      }, { once: true });
-    }
+    if (frame.dataset) frame.dataset.workspaceStale = 'false';
     frame.src = src;
-  } else if (isFaults && frame?.contentWindow) {
-    frame.contentWindow.postMessage({ type: 'SEG_KIP_FAULTS_OPEN' }, '*');
-  } else if (isTo && frame?.contentWindow) {
-    frame.contentWindow.postMessage({ type: 'SEG_KIP_TO_OPEN' }, '*');
   }
   if (page) page.classList.add('active');
   const menuLabels = { journal:'ЖУРНАЛ УЧЕТА', acts:'АКТЛАР ЖУРНАЛИ', faults:'НОСОЗЛИКЛАР ЖУРНАЛИ', to:'АКТ ВЫПОЛНЕННЫХ РАБОТ', users:'ПОЛЬЗОВАТЕЛИ', roles:'РОЛИ', settings:'НАСТРОЙКИ' };
@@ -398,11 +407,7 @@ function getVisibleFrame() {
   const genericPage = document.getElementById('genericModulePage');
   const ulchovPage = document.getElementById('ulchovIntegratedPage');
   if (genericPage?.classList.contains('active')) {
-    const journalFrame = document.getElementById('hisobotModuleFrame');
-    const faultsFrame = document.getElementById('faultsModuleFrame');
-    if (activeModuleName === 'journal' && journalFrame && !journalFrame.hidden) return journalFrame;
-    if (activeModuleName === 'faults' && faultsFrame && !faultsFrame.hidden) return faultsFrame;
-    return document.getElementById('genericModuleFrame');
+    return document.getElementById(moduleFrameId(activeModuleName));
   }
   if (ulchovPage?.classList.contains('active')) return document.getElementById('claUlchovFrame');
   return null;
@@ -610,23 +615,16 @@ window.addEventListener('seg-kip:workspace-change', (e) => {
   }
   
   const genericPage = document.getElementById('genericModulePage');
-  if (genericPage?.classList.contains('active') && !['journal','acts','faults','to'].includes(activeModuleName)) {
-    const frame = document.getElementById('genericModuleFrame');
-    if (frame && frame.src) {
-      const currentSrc = frame.src;
-      frame.src = 'about:blank';
-      setTimeout(() => { frame.src = currentSrc; }, 50);
+  const refreshOnWorkspaceChange = ['openai','users','settings'];
+  refreshOnWorkspaceChange.forEach((moduleName) => {
+    const frame = document.getElementById(moduleFrameId(moduleName));
+    if (!frame?.getAttribute('src')) return;
+    if (activeModuleName === moduleName && genericPage?.classList.contains('active')) {
+      frame.dataset.workspaceStale = 'false';
+      frame.src = MODULES[moduleName];
+    } else {
+      frame.dataset.workspaceStale = 'true';
     }
-  }
-
-  const ulchovPage = document.getElementById('ulchovIntegratedPage');
-  if (ulchovPage?.classList.contains('active') && activeModuleName !== 'ulchov') {
-    const frame = document.getElementById('claUlchovFrame');
-    if (frame && frame.src) {
-      const currentSrc = frame.src;
-      frame.src = 'about:blank';
-      setTimeout(() => { frame.src = currentSrc; }, 50);
-    }
-  }
+  });
 });
 

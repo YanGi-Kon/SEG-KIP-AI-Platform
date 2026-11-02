@@ -7,6 +7,7 @@
   const ACCESS_TOKEN_KEY = 'seg_kip_workspace_access_token';
   const SELECTED_WORKSPACE_KEY = 'seg_kip_selected_workspace_id';
   const LOGIN_EMAIL_KEY = 'seg_kip_last_login_email';
+  const SESSION_RESTORE_TIMEOUT_MS = 6500;
   const state = { accessToken: '', user: null, workspaces: [] };
 
   function qs(selector, root = document){ return root.querySelector(selector); }
@@ -46,8 +47,8 @@
     return data;
   }
 
-  async function loadWorkspaces(){
-    const data = await api('/api/workspaces', { method: 'GET' });
+  async function loadWorkspaces(signal){
+    const data = await api('/api/workspaces', { method: 'GET', signal });
     state.workspaces = Array.isArray(data.rows) ? data.rows : [];
     const saved = localStorage.getItem(SELECTED_WORKSPACE_KEY) || '';
     const selected = state.workspaces.find((item) => item.id === saved)
@@ -99,7 +100,7 @@
       .saneg-note-icon{width:36px;height:36px;border-radius:13px;display:grid;place-items:center;border:1px dashed rgba(14,165,233,.45);color:#0ea5e9;background:rgba(14,165,233,.06);font-size:17px;}
       .saneg-copy{margin-top:18px;text-align:center;color:#94a3b8;font-size:12px;}
       .saneg-login-right{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:42px;background:#020817;}
-      .saneg-login-right-bg{position:absolute;inset:0;background-image:url('/assets/login/saneg-login-hero.svg?v=hero1a');background-size:cover;background-position:center;background-repeat:no-repeat;transform:scale(1.015);filter:saturate(1.05) contrast(1.05);}
+      .saneg-login-right-bg{position:absolute;inset:0;background:#020817;transform:scale(1.015);filter:saturate(1.05) contrast(1.05);}
       .saneg-login-right-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(2,8,23,.22),rgba(2,8,23,.08) 48%,rgba(2,8,23,.32)),radial-gradient(circle at 20% 20%,rgba(14,165,233,.12),transparent 30%),radial-gradient(circle at 80% 42%,rgba(16,185,129,.10),transparent 28%);}
       .saneg-login-right-content{position:relative;z-index:2;width:min(960px,100%);min-height:650px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:20px;}
       .saneg-servers,.saneg-server{display:none !important;}
@@ -232,13 +233,14 @@
     }
   }
 
-  async function tryAutoLogin(){
+  async function tryAutoLogin(signal){
     // Try to restore session via refresh token (cookie-based)
     try {
       const res = await fetch('/api/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include'
+        credentials: 'include',
+        signal
       });
       if (!res.ok) throw new Error('refresh failed');
       const data = await res.json();
@@ -249,8 +251,10 @@
       else document.body.removeAttribute('data-platform-role');
       // Also load workspaces silently so workspace-ui works
       try { 
-        await loadWorkspaces();
-      } catch (_) {}
+        await loadWorkspaces(signal);
+      } catch (error) {
+        if (signal?.aborted) throw error;
+      }
       // Session restored — don't show login screen
       releaseAuthBootGuard();
       return true;
@@ -263,7 +267,14 @@
   }
 
   async function boot(){
-    const restored = await tryAutoLogin();
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), SESSION_RESTORE_TIMEOUT_MS);
+    let restored = false;
+    try {
+      restored = await tryAutoLogin(controller.signal);
+    } finally {
+      window.clearTimeout(timeout);
+    }
     if (!restored) render();
   }
 

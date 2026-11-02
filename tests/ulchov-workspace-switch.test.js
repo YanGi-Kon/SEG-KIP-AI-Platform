@@ -6,11 +6,14 @@ import vm from 'node:vm';
 test('O‘lchov module handles Workspace changes without iframe reload or manual save', () => {
   const source = fs.readFileSync(new URL('../public/js/ulchov-sheets.js', import.meta.url), 'utf8');
   const app = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  const workspaceUi = fs.readFileSync(new URL('../public/js/workspace-ui.js', import.meta.url), 'utf8');
 
   assert.match(source, /loadSheet\(false,nextId\)/);
   assert.match(source, /STALE_WORKSPACE_RESPONSE/);
   assert.match(source, /e\.data\.workspaceId/);
-  assert.match(app, /activeModuleName !== 'ulchov'/);
+  assert.doesNotMatch(app, /frame\.src = 'about:blank'/);
+  assert.match(workspaceUi, /querySelectorAll\('iframe'\)/);
+  assert.match(workspaceUi, /SEG_KIP_WORKSPACE_CHANGE/);
 });
 
 test('latest Workspace response wins when O‘lchov workspaces switch quickly', async () => {
@@ -36,6 +39,9 @@ test('latest Workspace response wins when O‘lchov workspaces switch quickly', 
         textContent: '',
         className: '',
         style: {},
+        setAttribute() {},
+        getAttribute() { return null; },
+        removeAttribute() {},
         classList: { add() {}, remove() {} },
       });
     }

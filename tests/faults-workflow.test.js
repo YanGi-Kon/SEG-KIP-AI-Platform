@@ -45,13 +45,10 @@ test('FAULTS workflow script is syntactically valid and exposes all panels', () 
   assert.match(workflow, /window\.FaultsWorkflow/);
 });
 
-test('FAULTS opens monthly analysis automatically on every module entry', () => {
+test('FAULTS opens monthly analysis once per cached module lifecycle', () => {
   assert.match(workflow, /function autoOpenMonthlyAnalysis\(\)/);
   assert.match(workflow, /window\.setTimeout\(autoOpenMonthlyAnalysis, 120\)/);
-  assert.match(workflow, /event\.data\?\.type === 'SEG_KIP_FAULTS_OPEN'/);
-  assert.match(workflow, /window\.setTimeout\(autoOpenMonthlyAnalysis, 0\)/);
-  assert.match(app, /postMessage\(\{ type: 'SEG_KIP_FAULTS_OPEN' \}, '\*'\)/);
-  assert.match(app, /const isFaults = moduleName === 'faults'/);
+  assert.doesNotMatch(app, /SEG_KIP_FAULTS_OPEN/);
   assert.match(app, /faults: 'modules\/faults\.html\?v=20260925-official-analysis-table1'/);
 });
 

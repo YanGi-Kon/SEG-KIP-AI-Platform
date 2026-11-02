@@ -15,6 +15,7 @@ import {
 } from '../services/toPeriodService.js';
 import {
   ensureToPeriodSheet,
+  mergeDuplicateToPeriodSheets,
   readToPeriodSheetRows,
   syncToPeriodSheet,
 } from '../services/toPeriodSheetsService.js';
@@ -28,6 +29,7 @@ function workspaceGuards(permission) {
 
 router.use(workspaceGuards('workspace:read'));
 const requireToWrite = requireWorkspaceRequestPermission('documents:create');
+const requireToManageSheets = requireWorkspaceRequestPermission('workspace:update');
 
 function clean(value) {
   return String(value ?? '').trim();
@@ -567,6 +569,24 @@ router.post('/periods/:year/:month/sync-from-sheet', requireToWrite, async (req,
     const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month).catch(() => null);
     if (bundle?.period?.id) await setPeriodSyncError(req.workspace.id, bundle.period.id, error);
     return apiError(res, error, 'TO_PERIOD_SYNC_FROM_SHEET_FAILED');
+  }
+});
+
+router.post('/periods/:year/:month/dedup-sheets', requireToManageSheets, async (req, res) => {
+  try {
+    const { year, month } = normalizeToPeriod(req.params.year, req.params.month);
+    const config = resolveConfig(req);
+    const apply = ['1', 'true', 'yes', 'on'].includes(String(req.body?.apply ?? '').toLowerCase());
+    const report = await mergeDuplicateToPeriodSheets({
+      spreadsheetUrl: config.spreadsheetUrl,
+      serviceAccount: config.serviceAccount,
+      year,
+      month,
+      apply,
+    });
+    return res.json({ ok: true, ...report });
+  } catch (error) {
+    return apiError(res, error, 'TO_PERIOD_DEDUP_FAILED');
   }
 });
 

@@ -114,6 +114,9 @@ for (const module of [
 }
 
 test('Workspace-aware ikkilamchi jurnallar iframe qayta yuklanishisiz ishlaydi', () => {
+  const workspaceUi = read('../public/js/workspace-ui.js');
   const app = read('../public/js/app.js');
-  assert.match(app, /\['journal','acts','faults','to'\]\.includes\(activeModuleName\)/);
+  assert.match(workspaceUi, /document\.querySelectorAll\('iframe'\)\.forEach\(\(frame\) =>/);
+  assert.match(workspaceUi, /SEG_KIP_WORKSPACE_CHANGE/);
+  assert.match(app, /page\?\.querySelectorAll\('iframe'\)/);
 });

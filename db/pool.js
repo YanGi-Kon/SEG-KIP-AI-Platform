@@ -16,6 +16,24 @@ export function getPool() {
     throw new Error('DATABASE_URL is not configured');
   }
 
+  if (/^pglite:\/\//i.test(config.database.url)) {
+    let localPoolPromise;
+    const loadLocalPool = () => {
+      if (!localPoolPromise) {
+        localPoolPromise = import('./localPglitePool.js').then(({ createLocalPglitePool }) => createLocalPglitePool());
+      }
+      return localPoolPromise;
+    };
+    pool = {
+      isLocalPGlite: true,
+      query: async (...args) => (await loadLocalPool()).query(...args),
+      connect: async (...args) => (await loadLocalPool()).connect(...args),
+      on() { return this; },
+      end: async () => (await loadLocalPool()).end(),
+    };
+    return pool;
+  }
+
   pool = new Pool({
     connectionString: config.database.url,
     max: config.database.maxConnections,

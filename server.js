@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import http from "http";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -33,6 +34,7 @@ import { runMigrations } from "./db/migrate.js";
 import { startFinalPdfExportWorker } from "./services/finalPdfExportWorker.js";
 import { startInstrumentPassportWorker } from "./services/instrumentPassportWorker.js";
 import { initBackupWorker } from "./services/backupService.js";
+import { isLocalPgliteMode } from "./config/env.js";
 
 dotenv.config();
 
@@ -59,6 +61,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 const PORT = process.env.PORT || 3000;
+const LOCAL_PGLITE_MODE = isLocalPgliteMode(process.env);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const publicDir = join(__dirname, "public");
@@ -107,6 +110,7 @@ const authBootGuard = `
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors());
+app.use(compression());
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ extended: false, limit: "2mb" }));
 
@@ -238,7 +242,11 @@ app.use((error, req, res, next) => {
   });
 });
 
-initKudukRealtime(io);
+if (LOCAL_PGLITE_MODE) {
+  console.log('[local-dev] Kuduk realtime and external startup sync are disabled.');
+} else {
+  initKudukRealtime(io);
+}
 
 async function startServer() {
   if (isDatabaseConfigured()) {
@@ -254,15 +262,21 @@ async function startServer() {
     }
   }
 
-  startFinalPdfExportWorker();
-  startInstrumentPassportWorker();
+  if (!LOCAL_PGLITE_MODE) {
+    startFinalPdfExportWorker();
+    startInstrumentPassportWorker();
+  } else {
+    console.log('[local-dev] Background workers are disabled.');
+  }
   initBackupWorker();
 
-  server.listen(PORT, () => {
+  const onListening = () => {
     const aiReady = Boolean(process.env.OPENAI_API_KEY);
     console.log(`Sanegplatform integrated: http://localhost:${PORT}`);
     console.log(aiReady ? "AI rejim: ulangan" : "AI rejim: demo");
-  });
+  };
+  if (LOCAL_PGLITE_MODE) server.listen(PORT, '127.0.0.1', onListening);
+  else server.listen(PORT, onListening);
 }
 
 startServer().catch((error) => {

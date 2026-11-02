@@ -32,8 +32,7 @@ test('TO main workspace shows only monthly analysis on every menu entry', () => 
   assert.match(panel, /id="toAnalysisFinalBtn"/);
   assert.match(panel, /id="toAnalysisSettingsBtn"/);
   assert.match(panel, /event\.data\?\.type === 'SEG_KIP_TO_OPEN'/);
-  assert.match(app, /const isTo = moduleName === 'to'/);
-  assert.match(app, /postMessage\(\{ type: 'SEG_KIP_TO_OPEN' \}, '\*'\)/);
+  assert.doesNotMatch(app, /SEG_KIP_TO_OPEN/);
 });
 
 test('TO monthly analysis reads selected month from ASOSIY VAROQ', () => {

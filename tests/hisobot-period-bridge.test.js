@@ -106,9 +106,10 @@ test('HISOBOT restores the last successful period without syncing again after me
 
 test('HISOBOT iframe remains alive while another top-level menu is used', () => {
   assert.match(indexSource, /id="hisobotModuleFrame"/);
-  assert.match(appSource, /const isJournal = moduleName === 'journal'/);
+  assert.match(appSource, /if \(moduleName === 'journal'\) return 'hisobotModuleFrame'/);
   assert.match(appSource, /frame\.getAttribute\('src'\) !== src/);
-  assert.match(appSource, /journalFrame\.hidden = !isJournal/);
+  assert.match(appSource, /moduleFrame\.hidden = moduleFrame !== frame/);
+  assert.match(appSource, /frame\.src = src/);
 });
 
 test('HISOBOT retries the same Workspace after the parent session finishes restoring', () => {

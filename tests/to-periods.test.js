@@ -6,7 +6,10 @@ import {
   deriveToDocumentDate,
 } from '../services/toPeriodService.js';
 import {
+  findPeriodSheets,
   formatToPeriodDocumentDate,
+  normalizeSheetTitle,
+  planDuplicatePeriodSheetMerge,
   periodSheetTitle,
 } from '../services/toPeriodSheetsService.js';
 
@@ -74,4 +77,66 @@ test('TO optional period lookup returns an empty successful bundle instead of ex
   assert.match(route, /req\.query\.optional/);
   assert.match(route, /exists:\s*false,\s*period:\s*null,\s*items:\s*\[\]/);
   assert.match(route, /exists:\s*true/);
+});
+
+test('davr varaqasi nomi dash, register va nusxa belgilariga chidamli normallashadi', () => {
+  const canonical = normalizeSheetTitle('ТО — Октябрь 2026');
+  assert.equal(canonical, normalizeSheetTitle('ТО - Октябрь 2026'));
+  assert.equal(canonical, normalizeSheetTitle('ТО – Октябрь 2026 '));
+  assert.equal(canonical, normalizeSheetTitle('то — октябрь 2026'));
+  assert.equal(canonical, normalizeSheetTitle('ТО —  Октябрь  2026'));
+  assert.equal(canonical, normalizeSheetTitle('Копия: ТО — Октябрь 2026'));
+  assert.equal(canonical, normalizeSheetTitle('ТО — Октябрь 2026 (копия)'));
+  assert.equal(canonical, normalizeSheetTitle('Copy of ТО — Октябрь 2026'));
+  assert.notEqual(canonical, normalizeSheetTitle('ТО — Ноябрь 2026'));
+});
+
+test('findPeriodSheets aniq nomni afzal ko radi va dublikatlarni ro yxatlaydi', () => {
+  const sheets = [
+    { properties: { sheetId: 1, title: 'ТО - Октябрь 2026' } },
+    { properties: { sheetId: 2, title: 'ТО — Октябрь 2026' } },
+    { properties: { sheetId: 3, title: 'ТО — Октябрь 2026 (копия)' } },
+    { properties: { sheetId: 4, title: 'База' } },
+  ];
+  const { preferred, matches } = findPeriodSheets(sheets, 'ТО — Октябрь 2026');
+  assert.equal(preferred.properties.sheetId, 2);
+  assert.equal(matches.length, 3);
+
+  const withoutExact = findPeriodSheets(sheets.filter((s) => s.properties.sheetId !== 2), 'ТО — Октябрь 2026');
+  assert.equal(withoutExact.preferred.properties.sheetId, 1);
+  assert.equal(withoutExact.matches.length, 2);
+
+  const none = findPeriodSheets(sheets, 'ТО — Январь 2026');
+  assert.equal(none.preferred, null);
+  assert.equal(none.matches.length, 0);
+});
+
+test('TO API dublikat varaqalarni birlashtirish endpointini beradi', () => {
+  assert.match(route, /router\.post\('\/periods\/:year\/:month\/dedup-sheets'/);
+  assert.match(route, /mergeDuplicateToPeriodSheets/);
+  assert.match(route, /requireToManageSheets\s*=\s*requireWorkspaceRequestPermission\('workspace:update'\)/);
+});
+
+test('duplicate sheet merge copies only missing F:H cells when other data matches', () => {
+  const canonical = [['Asset 1', 'Tag 1', '', '', 'Type', 'OK', '', '']];
+  const duplicate = [['Asset 1', 'Tag 1', '', '', 'Type', '', 'Repair', 'Note']];
+  const plan = planDuplicatePeriodSheetMerge(canonical, duplicate, 'Copy of period');
+
+  assert.deepEqual(plan.conflicts, []);
+  assert.deepEqual(plan.copiedCells, [{
+    sheet: 'Copy of period',
+    row: 1,
+    values: ['OK', 'Repair', 'Note'],
+  }]);
+});
+
+test('duplicate sheet merge blocks deletion when any values conflict', () => {
+  const canonical = [['Asset 1', '', '', '', '', 'OK', '', '']];
+  const duplicate = [['Asset 2', '', '', '', '', 'Other', '', '']];
+  const plan = planDuplicatePeriodSheetMerge(canonical, duplicate, 'Copy of period');
+
+  assert.deepEqual(plan.conflicts, [
+    { sheet: 'Copy of period', row: 1, column: 'A', reason: 'other-data-differs' },
+    { sheet: 'Copy of period', row: 1, column: 'F', reason: 'conflicting-edit' },
+  ]);
 });

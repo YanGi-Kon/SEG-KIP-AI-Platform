@@ -61,16 +61,14 @@ test('faults frontend links the first column to Acts reports without local journ
 
 test('faults journal keeps a dedicated persistent iframe across menu navigation', () => {
   assert.match(indexSource, /id="faultsModuleFrame"/);
-  assert.match(indexSource, /js\/app\.js\?v=20261009-auth-sheet/);
-  assert.match(indexSource, /css\/style\.css\?v=5/);
-  assert.match(styleSource, /#faultsModuleFrame\{/);
-  assert.match(styleSource, /#faultsModuleFrame\[hidden\]/);
-  assert.match(appSource, /const faultsFrame = document\.getElementById\('faultsModuleFrame'\)/);
-  assert.match(appSource, /const isFaults = moduleName === 'faults'/);
-  assert.match(appSource, /faultsFrame\.hidden = !isFaults/);
-  assert.match(appSource, /genericFrame\.hidden = isJournal \|\| isFaults/);
-  assert.match(appSource, /isFaults \? faultsFrame : genericFrame/);
-  assert.match(appSource, /activeModuleName === 'faults'.*return faultsFrame/s);
+  assert.match(indexSource, /js\/app\.js\?v=20261102-persistent-module-frames/);
+  assert.match(indexSource, /css\/style\.css\?v=20261102-persistent-module-frames/);
+  assert.match(styleSource, /#faultsModuleFrame,/);
+  assert.match(styleSource, /\.generic-module-page \[data-module-frame\]\[hidden\]/);
+  assert.match(appSource, /if \(moduleName === 'faults'\) return 'faultsModuleFrame'/);
+  assert.match(appSource, /getOrCreateModuleFrame\(moduleName, page\)/);
+  assert.match(appSource, /moduleFrame\.hidden = moduleFrame !== frame/);
+  assert.match(appSource, /function getVisibleFrame\(\)/);
 });
 
 test('faults frontend inserts all 22 editable rows when the page loads', () => {

@@ -33,6 +33,57 @@ export function periodSheetTitle(year, month) {
   return `ТО — ${RU_MONTHS[m]} ${y}`;
 }
 
+export function normalizeSheetTitle(title) {
+  return String(title || '')
+    .replace(/^(копия|copy)(\s+of)?\s*[:\-]?\s*/i, '')
+    .replace(/\((копия|copy)\s*\d*\)\s*$/i, '')
+    .replace(/[‐-―−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+export function findPeriodSheets(allSheets = [], targetName = '') {
+  const sheets = (allSheets || []).filter((sheet) => sheet?.properties);
+  const wanted = normalizeSheetTitle(targetName);
+  const matches = sheets.filter((sheet) => normalizeSheetTitle(sheet.properties.title) === wanted);
+  const preferred = matches.find((sheet) => sheet.properties.title === targetName) || matches[0] || null;
+  return { preferred, matches };
+}
+
+export function planDuplicatePeriodSheetMerge(canonicalRows = [], duplicateRows = [], sheetName = '') {
+  const rowCount = Math.max(canonicalRows.length, duplicateRows.length);
+  const copiedCells = [];
+  const conflicts = [];
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const canonicalRow = canonicalRows[rowIndex] || [];
+    const duplicateRow = duplicateRows[rowIndex] || [];
+    const merged = [];
+    let added = 0;
+
+    for (let column = 0; column < 26; column += 1) {
+      const current = String(canonicalRow[column] ?? '').trim();
+      const incoming = String(duplicateRow[column] ?? '').trim();
+      if (column >= 5 && column <= 7) {
+        if (current && incoming && current !== incoming) {
+          conflicts.push({ sheet: sheetName, row: rowIndex + 1, column: colLetter(column + 1), reason: 'conflicting-edit' });
+        }
+        merged.push(current || incoming);
+        if (!current && incoming) added += 1;
+      } else {
+        if (current !== incoming) {
+          conflicts.push({ sheet: sheetName, row: rowIndex + 1, column: colLetter(column + 1), reason: 'other-data-differs' });
+        }
+      }
+    }
+
+    if (added) copiedCells.push({ sheet: sheetName, row: rowIndex + 1, values: merged.slice(0, 3) });
+  }
+
+  return { copiedCells, conflicts };
+}
+
 export function formatToPeriodDocumentDate(documentDate) {
   const match = String(documentDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) throw new Error('TO hujjat sanasi noto‘g‘ri');
@@ -123,8 +174,10 @@ export async function ensureToPeriodSheet({
   }
 
   const targetName = periodSheetTitle(year, month);
-  let target = allSheets.find((sheet) => sheet.properties?.title === targetName);
+  const { preferred, matches } = findPeriodSheets(allSheets, targetName);
+  let target = preferred;
   let created = false;
+  let renamedFrom = '';
 
   if (!target) {
     const duplicated = await sheets.spreadsheets.batchUpdate({
@@ -140,7 +193,25 @@ export async function ensureToPeriodSheet({
     });
     target = duplicated.data.replies?.[0]?.duplicateSheet || null;
     created = true;
+  } else if (target.properties?.title !== targetName) {
+    renamedFrom = target.properties.title;
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{
+          updateSheetProperties: {
+            properties: { sheetId: target.properties.sheetId, title: targetName },
+            fields: 'title',
+          },
+        }],
+      },
+    });
+    target = { ...target, properties: { ...target.properties, title: targetName } };
   }
+
+  const duplicates = matches
+    .filter((sheet) => sheet !== preferred)
+    .map((sheet) => ({ title: sheet.properties.title, sheetId: sheet.properties.sheetId }));
 
   if (created) {
     await clearMonthlyEditableFields({
@@ -162,6 +233,8 @@ export async function ensureToPeriodSheet({
     sheetName: targetName,
     sheetId: target?.properties?.sheetId ?? target?.sheetId ?? null,
     created,
+    renamedFrom,
+    duplicates,
     dateUpdated,
   };
 }
@@ -208,4 +281,110 @@ export async function readToPeriodSheetRows({
     sheetName,
     range: 'A:H',
   });
+}
+
+export async function mergeDuplicateToPeriodSheets({
+  spreadsheetUrl,
+  serviceAccount,
+  year,
+  month,
+  apply = false,
+}) {
+  const targetName = periodSheetTitle(year, month);
+  const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
+  const sheets = await getSheetsClient(serviceAccount);
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  const allSheets = meta.data.sheets || [];
+  const { preferred, matches } = findPeriodSheets(allSheets, targetName);
+  const duplicateSheets = matches.filter((sheet) => sheet !== preferred);
+
+  if (!preferred || !duplicateSheets.length) {
+    return {
+      canonical: preferred?.properties?.title || null,
+      duplicates: [],
+      copiedCells: [],
+      deleted: [],
+      applied: false,
+    };
+  }
+
+  const canonicalName = preferred.properties.title;
+  const canonicalRows = await readSheetRows({
+    spreadsheetUrl,
+    serviceAccount,
+    sheetName: canonicalName,
+    range: 'A:Z',
+  });
+
+  const copiedCells = [];
+  const conflicts = [];
+  for (const duplicate of duplicateSheets) {
+    const duplicateRows = await readSheetRows({
+      spreadsheetUrl,
+      serviceAccount,
+      sheetName: duplicate.properties.title,
+      range: 'A:Z',
+    });
+    const plan = planDuplicatePeriodSheetMerge(canonicalRows, duplicateRows, duplicate.properties.title);
+    copiedCells.push(...plan.copiedCells);
+    conflicts.push(...plan.conflicts);
+  }
+
+  if (conflicts.length) {
+    return {
+      canonical: canonicalName,
+      duplicates: duplicateSheets.map((sheet) => sheet.properties.title),
+      copiedCells: copiedCells.map((cell) => ({ sheet: cell.sheet, row: cell.row })),
+      conflicts,
+      deleted: [],
+      applied: false,
+    };
+  }
+
+  const deleted = [];
+  if (apply) {
+    if (copiedCells.length) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          valueInputOption: 'USER_ENTERED',
+          data: copiedCells.map((cell) => ({
+            range: `${q(canonicalName)}!F${cell.row}:H${cell.row}`,
+            values: [cell.values],
+          })),
+        },
+      });
+    }
+    for (const duplicate of duplicateSheets) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{ deleteSheet: { sheetId: duplicate.properties.sheetId } }],
+        },
+      });
+      deleted.push(duplicate.properties.title);
+    }
+    if (canonicalName !== targetName) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{
+            updateSheetProperties: {
+              properties: { sheetId: preferred.properties.sheetId, title: targetName },
+              fields: 'title',
+            },
+          }],
+        },
+      });
+    }
+  }
+
+  return {
+    canonical: canonicalName,
+    duplicates: duplicateSheets.map((sheet) => sheet.properties.title),
+    copiedCells: copiedCells.map((cell) => ({ sheet: cell.sheet, row: cell.row })),
+    conflicts: [],
+    deleted,
+    applied: Boolean(apply),
+  };
 }

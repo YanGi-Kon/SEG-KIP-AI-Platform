@@ -20,13 +20,14 @@ test('legacy tenant id remains available only when Workspace context is absent',
 
 test('journal reacts to Workspace change without requiring Save & Connect', () => {
   const html = fs.readFileSync(new URL('../public/modules/kuduk-journal.html', import.meta.url), 'utf8');
-  const app = fs.readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  const workspaceUi = fs.readFileSync(new URL('../public/js/workspace-ui.js', import.meta.url), 'utf8');
   const route = fs.readFileSync(new URL('../routes/kuduk.js', import.meta.url), 'utf8');
 
   assert.match(html, /SEG_KIP_WORKSPACE_CHANGE/);
   assert.match(html, /activateWorkspace\(event\.data\.workspaceId\)/);
   assert.match(html, /query:\{ workspaceId: workspaceId\(\), sexId: sexId\(\) \}/);
-  assert.match(app, /\['journal','acts','faults','to'\]\.includes\(activeModuleName\)/);
+  assert.match(workspaceUi, /document\.querySelectorAll\('iframe'\)\.forEach\(\(frame\) =>/);
+  assert.match(workspaceUi, /SEG_KIP_WORKSPACE_CHANGE/);
   assert.match(route, /applyConfig\(tenantId, config, false\)/);
   assert.match(route, /applyConfig\(tenantId, body, !req\.workspace\)/);
 });

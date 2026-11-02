@@ -56,6 +56,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     <span id="toPeriodStatus" class="period-pill period-status">Июнь 2026 · источник</span>
     <button id="toSyncFromSheetBtn" class="btn" type="button" disabled>↓ Из Sheets</button>
     <button id="toSyncToSheetBtn" class="btn" type="button" disabled>↑ В Sheets</button>
+    <button id="toDedupSheetsBtn" class="btn" type="button" disabled title="Davr uchun dublikat varaqalarni topish va birlashtirish">⧉ Дубликаты</button>
   </div>
 </div>
 
@@ -318,7 +319,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   function updatePeriodButtons(){
     const hasPeriod=Boolean(state.period);
     const busy=Boolean(state.periodBusy);
-    const create=$('toCreatePeriodBtn'),open=$('toOpenPeriodBtn'),from=$('toSyncFromSheetBtn'),to=$('toSyncToSheetBtn');
+    const create=$('toCreatePeriodBtn'),open=$('toOpenPeriodBtn'),from=$('toSyncFromSheetBtn'),to=$('toSyncToSheetBtn'),dedup=$('toDedupSheetsBtn');
     if(create){
       create.disabled=busy||hasPeriod||!state.workspaceId;
       create.textContent=hasPeriod?'✓ Период создан':'＋ Создать период';
@@ -326,6 +327,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if(open)open.disabled=busy||!state.workspaceId;
     if(from)from.disabled=busy||!hasPeriod||!state.period?.monthlySheetName;
     if(to)to.disabled=busy||!hasPeriod;
+    if(dedup)dedup.disabled=busy||!hasPeriod||!state.workspaceId;
   }
 
   function renderPeriodBundle(bundle){
@@ -479,6 +481,40 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
       await openSelectedPeriod({fallbackToSource:false});
     }catch(error){
       setPeriodStatus(`${selectedPeriodLabel()} · ${error.message}`,'bad');
+    }finally{
+      state.periodBusy=false;updatePeriodButtons();
+    }
+  }
+
+  async function dedupPeriodSheets(){
+    if(!state.period||!state.workspaceId)return;
+    state.periodBusy=true;updatePeriodButtons();
+    const base=`/api/to/periods/${state.periodYear}/${state.periodMonth}/dedup-sheets`;
+    try{
+      setPeriodStatus(`${selectedPeriodLabel()} · dublikat varaqalar tekshirilmoqda...`,'sync');
+      const preview=await apiRequest(base,{method:'POST',body:{apply:false},expectedWsId:state.workspaceId});
+      const duplicates=Array.isArray(preview.duplicates)?preview.duplicates:[];
+      const conflicts=Array.isArray(preview.conflicts)?preview.conflicts:[];
+      if(conflicts.length){
+        const first=conflicts[0];
+        const more=conflicts.length>1?` (+${conflicts.length-1})`:'';
+        setPeriodStatus(`${selectedPeriodLabel()} · differences found (${first.sheet}, row ${first.row} ${first.column}${more}); merge canceled to preserve data.`,'warn');
+        return;
+      }
+      if(!duplicates.length){
+        setPeriodStatus(`${selectedPeriodLabel()} · dublikat varaqalar topilmadi`,'ok');
+        return;
+      }
+      const confirmed=window.confirm(`${selectedPeriodLabel()} uchun dublikat varaqalar topildi:\n${duplicates.join('\n')}\n\nAsosiy varaq: ${preview.canonical}\nDublikatlardagi bo‘sh emas F:H kataklar asosiy varaqqa ko‘chiriladi va dublikatlar o‘chiriladi. Davom etasizmi?`);
+      if(!confirmed){
+        setPeriodStatus(`${selectedPeriodLabel()} · dublikatlar: ${duplicates.length} ta (o‘zgartirilmadi)`,'warn');
+        return;
+      }
+      const applied=await apiRequest(base,{method:'POST',body:{apply:true},expectedWsId:state.workspaceId});
+      setPeriodStatus(`${selectedPeriodLabel()} · birlashtirildi: ${preview.canonical}; o‘chirildi: ${(applied.deleted||[]).join(', ')||'-'}`,'ok');
+      await openSelectedPeriod({fallbackToSource:false});
+    }catch(error){
+      setPeriodStatus(`${selectedPeriodLabel()} · dublikat xatosi: ${error.message}`,'bad');
     }finally{
       state.periodBusy=false;updatePeriodButtons();
     }
@@ -826,6 +862,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     $('toNextPeriodBtn')?.addEventListener('click',()=>void navigatePeriod(1));
     $('toSyncFromSheetBtn')?.addEventListener('click',()=>void syncPeriod('from'));
     $('toSyncToSheetBtn')?.addEventListener('click',()=>void syncPeriod('to'));
+    $('toDedupSheetsBtn')?.addEventListener('click',()=>void dedupPeriodSheets());
     $('tableBody')?.addEventListener('change',event=>{
       const target=event.target;
       if(target instanceof HTMLElement&&target.dataset.periodField)void savePeriodItemField(target);

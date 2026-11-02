@@ -33,6 +33,7 @@ Thumbs.db
 .idea/
 
 # Local database/export artifacts
+data/local-dev-pglite/
 *.sql.gz
 *.dump
 *.backup

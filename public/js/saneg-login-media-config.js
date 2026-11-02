@@ -1,10 +1,10 @@
-// Sanegplatform login media config
-// Uses the uploaded login image when available and keeps the SVG hero as fallback.
+﻿// Sanegplatform login media config
+// Uses MP4 video as primary and the existing local PNG as fallback.
 (function configureSanegLoginMedia(){
-  const IMAGE_URL = '/assets/login/slides/slide-1.webp?v=loginimage3';
-  const FALLBACK_URL = '/assets/login/saneg-login-hero.svg?v=hero1a';
-  const WAIT_TIMEOUT_MS = 12000;
-  const PROBE_TIMEOUT_MS = 6000;
+  const VIDEO_URL = '/assets/login/slides/slide-1.mp4?v=loginvideo1';
+  const IMAGE_URL = '/assets/images/saneg-industrial-background.png?v=1';
+  const WAIT_TIMEOUT_MS = 5000;
+  const PROBE_TIMEOUT_MS = 3000;
   let startPromise = null;
 
   function stage(){
@@ -45,15 +45,15 @@
     try {
       const response = await fetch(url, {
         method:'HEAD',
-        cache:'no-store',
+        cache:'default',
         credentials:'same-origin',
         signal:controller.signal
       });
       const contentType = String(response.headers.get('content-type') || '').toLowerCase();
       const contentLength = Number(response.headers.get('content-length') || 0);
       if (!response.ok) throw new Error(`${url} HTTP ${response.status}`);
-      if (!contentType.startsWith(expectedType)) throw new Error(`${url} noto‘g‘ri Content-Type: ${contentType || 'yo‘q'}`);
-      if (!Number.isFinite(contentLength) || contentLength <= 0) throw new Error(`${url} bo‘sh media fayl`);
+      if (!contentType.startsWith(expectedType)) throw new Error(`${url} noto'g'ri Content-Type: ${contentType || null}`);
+      if (!Number.isFinite(contentLength) || contentLength <= 0) throw new Error(`${url} bo'sh media fayl`);
       return { contentType, contentLength };
     } finally {
       clearTimeout(timeout);
@@ -64,29 +64,34 @@
     const { api } = await waitForStage();
     api.setup();
 
+    // 1. MP4 video - asosiy media
     try {
-      const imageMeta = await probe(IMAGE_URL, 'image/webp');
+      await probe(VIDEO_URL, 'video/');
+      await api.setVideo(VIDEO_URL, {
+        autoplay: true,
+        muted: true,
+        loop: true,
+        fit: 'cover'
+      });
+      console.info('[login-media] MP4 video yuklandi.');
+      return { type:'video', source:'mp4' };
+    } catch (videoError) {
+      console.warn('[login-media] MP4 ishlamadi, PNG rasm ishlatiladi.', videoError);
+    }
+
+    // 2. Existing local PNG image - fallback
+    try {
+      await probe(IMAGE_URL, 'image/png');
       await api.setImage(IMAGE_URL, {
         fit:'cover',
         alt:'Sanegplatform login banner'
       });
-      console.info('[login-media] WEBP yuklandi.', imageMeta);
-      return { type:'image', source:'webp', ...imageMeta };
+      console.info('[login-media] PNG fallback yuklandi.');
+      return { type:'image', source:'png' };
     } catch (imageError) {
-      console.warn('[login-media] WEBP ishlamadi, SVG fallback ishlatiladi.', imageError);
-    }
-
-    try {
-      await api.setImage(FALLBACK_URL, {
-        fit:'cover',
-        alt:'Sanegplatform KIP automation banner'
-      });
-      console.info('[login-media] SVG fallback yuklandi.');
-      return { type:'image', source:'svg-fallback' };
-    } catch (fallbackError) {
       api.clearMedia();
-      console.warn('[login-media] Hech bir media yuklanmadi. Mavjud login hero fallback ko‘rsatiladi.', fallbackError);
-      return { type:'fallback', error:fallbackError.message };
+      console.warn('[login-media] Hech bir media yuklanmadi.', imageError);
+      return { type:'fallback', error:imageError.message };
     }
   }
 
@@ -97,15 +102,16 @@
       if (!gateActive && error?.message === 'Login media stage vaqtida yaratilmadi') {
         return { type:'skipped', reason:'login-inactive' };
       }
-      console.warn('[login-media] Ishga tushirish xatosi. SVG fallback saqlandi.', error);
+      console.warn('[login-media] Ishga tushirish xatosi.', error);
       return { type:'fallback', error:error.message };
     });
     return startPromise;
   }
 
   window.sanegLoginMediaConfig = {
+    videoUrl: VIDEO_URL,
     imageUrl: IMAGE_URL,
-    fallbackUrl: FALLBACK_URL,
+    fallbackUrl: IMAGE_URL,
     start,
     showCurrent:start,
     loadMedia
