@@ -1,7 +1,7 @@
 // SEG KIP modular frontend controller
 const MODULES = {
   journal: 'modules/hisobot-journal.html?v=20260912-hide-source1',
-  acts: 'modules/acts.html?v=20260901-email-approval-signatures-4',
+  acts: 'modules/acts.html?v=20261102-acts-reports-daily-only',
   faults: 'modules/faults.html?v=20260925-official-analysis-table1',
   to: 'modules/to.html?v=20260925-analysis-home1',
   openai: 'modules/openai.html',

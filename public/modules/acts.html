@@ -32,12 +32,11 @@
   <div class="acts-card">
     <div class="acts-top">
       <div class="tabs">
-        <button id="tab-analysis" class="active" onclick="ActsUI.showView('analysis',this)">1. Ойлик анализ</button>
-        <button id="tab-create" onclick="ActsUI.showView('create',this)">2. Хужат яратиш</button>
-        <button id="tab-reports" onclick="ActsUI.showView('reports',this)">3. Хисоботлар</button>
-        <button onclick="ActsUI.openExcel()">4. Excel</button>
-        <button onclick="ActsUI.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
-        <button id="finalDocumentsFolderSettingsBtn" onclick="ActsUI.openFinalDocumentsFolderSettings()" data-i18n="6. ЯКУНИЙ ҲУЖЖАТЛАР">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
+        <button id="tab-analysis" class="active" onclick="ActsUI.showView('analysis',this)" data-i18n="Ойлик анализ">Ойлик анализ</button>
+        <button id="tab-create" onclick="ActsUI.showView('create',this)" data-i18n="Хужат яратиш">Хужат яратиш</button>
+        <button id="tab-reports" onclick="ActsUI.showView('reports',this)" data-i18n="Хисоботлар">Хисоботлар</button>
+        <button onclick="ActsUI.openSigners()" data-i18n="ИМЗО ЧЕКУВЧИЛАР">ИМЗО ЧЕКУВЧИЛАР</button>
+        <button id="finalDocumentsFolderSettingsBtn" onclick="ActsUI.openFinalDocumentsFolderSettings()" data-i18n="ЯКУНИЙ ҲУЖЖАТЛАР">ЯКУНИЙ ҲУЖЖАТЛАР</button>
         <button class="btn ghost workspace-admin-only" id="actsSettingsBtn" onclick="ActsUI.openSettings()">⚙ Созламалар</button>
       </div>
     </div>
@@ -76,9 +75,7 @@
 
     <div id="reports" class="view">
       <h2>📚 Хисоботлар</h2><p class="note">Сақланган ҳужжатлар кунлик рўйхатга тушади. “Хужатни юбориш” барча рўйхатдан ўтган имзоловчиларга Gmail юборади.</p>
-      <div class="subtabs"><button class="active" onclick="ActsUI.showReport('daily',this)">Кунлик</button><button onclick="ActsUI.showReport('monthly',this)">Ойлик</button></div>
       <div id="daily" class="report-view active"><div class="tablewrap"><table><thead><tr><th>№</th><th>Акт рақами</th><th>Сана</th><th>Асбоб номи</th><th>Завод рақами</th><th>Жой</th><th>Ижрочи</th><th>Ҳолат</th><th>Амал</th></tr></thead><tbody id="dailyRows"><tr><td colspan="9">Маълумот юкланмаган.</td></tr></tbody></table></div></div>
-      <div id="monthly" class="report-view"><div class="empty-month"><h3>Ойлик ҳисоботлар</h3><p class="note">Ойлик ҳисоботлар модули ҳозирча тайёр эмас.</p><button class="btn ghost">Тез кунда</button></div></div>
     </div>
   </div>
 </div>

@@ -9,7 +9,7 @@ test('acts journal menu is renamed to defect act without changing module route',
   assert.match(index, /openModulePage\('acts', 'SEG KIP AI Platform — Дефектный акт'\)/);
   assert.match(index, /data-i18n="3\. ДЕФЕКТНЫЙ АКТ">3\. ДЕФЕКТНЫЙ АКТ</);
   assert.match(index, /data-i18n="Дефектный акт">Дефектный акт</);
-  assert.match(index, /js\/i18n\.js\?v=20261003-defect-act1/);
+  assert.match(index, /js\/i18n\.js\?v=20261102-acts-tabs-clean/);
   assert.doesNotMatch(index, /data-i18n="3\. АКТЛАР ЖУРНАЛИ"/);
   assert.doesNotMatch(index, /data-i18n="Актлар архиви"/);
 });

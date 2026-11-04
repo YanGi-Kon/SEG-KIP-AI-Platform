@@ -15,10 +15,10 @@ const workspacesRoute = fs.readFileSync(
   'utf8',
 );
 
-test('acts journal exposes the sixth final documents button and modal', () => {
+test('acts journal exposes the final documents button and modal', () => {
   assert.match(actsHtml, /id="finalDocumentsFolderSettingsBtn"/);
   assert.match(actsHtml, /ActsUI\.openFinalDocumentsFolderSettings\(\)/);
-  assert.match(actsHtml, />6\. ЯКУНИЙ ҲУЖЖАТЛАР<\/button>/);
+  assert.match(actsHtml, /data-i18n="ЯКУНИЙ ҲУЖЖАТЛАР">ЯКУНИЙ ҲУЖЖАТЛАР<\/button>/);
   assert.match(actsHtml, /id="finalDocumentsFolderModal"/);
   assert.match(actsHtml, /id="finalDocumentsFolderPanel"/);
 });
@@ -35,7 +35,7 @@ test('final documents dependencies load in a functional order', () => {
   assert.ok(personalDrive > finalDocuments, 'personal Drive controls must mount after the final documents panel');
 });
 
-test('the sixth button opens its modal and has working folder endpoints', () => {
+test('the final documents button opens its modal and has working folder endpoints', () => {
   assert.match(finalDocumentsScript, /window\.ActsUI\.openFinalDocumentsFolderSettings = openFinalDocumentsFolderSettings/);
   assert.match(finalDocumentsScript, /finalDocumentsFolderModal'\)\?\.classList\.add\('show'\)/);
   assert.match(finalDocumentsScript, /documentsPath\(\)\}\/final-folder/);
