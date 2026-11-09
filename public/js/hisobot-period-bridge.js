@@ -233,6 +233,30 @@
     void writePersistentPeriod(entry);
   }
 
+  async function refreshCachedPeriodAfterSave(baseRowNumber) {
+    const rowNumber = Number(baseRowNumber || 0);
+    if (!rowNumber || !canonicalSheets || !periodBaseSheet) return false;
+    const key = periodCacheKey();
+    const cache = periodCache();
+    const entry = key ? (cache?.[key] || await readPersistentPeriod(key)) : null;
+    if (!entry?.data || !Array.isArray(entry.data.rows)) return false;
+    const freshRow = (canonicalSheets[periodBaseSheet] || []).find((row) =>
+      Number(row._rowNumber) === rowNumber || Number(row._periodBaseRowNumber) === rowNumber,
+    );
+    const periodRow = entry.data.rows.find((row) =>
+      Number(row._periodBaseRowNumber || row._rowNumber) === rowNumber,
+    );
+    if (!freshRow || !periodRow) return false;
+    Object.assign(periodRow, freshRow, { _rowNumber: rowNumber, _periodBaseRowNumber: rowNumber });
+    entry.stateSignature = stateSignature();
+    entry.snapshot = { ...state, sheets: canonicalSheets, routes: canonicalRoutes, __hisobotPeriodApplied: false };
+    if (cache) cache[key] = entry;
+    await writePersistentPeriod(entry);
+    applyPeriodData(entry.data);
+    setPeriodStatus(`✓ ${entry.data.selector?.monthName || MONTHS[periodMonth - 1]} ${entry.data.selector?.year || periodYear}`, 'ok');
+    return true;
+  }
+
   async function restoreCachedPeriod() {
     const key = periodCacheKey();
     const memoryCache = periodCache();
@@ -428,7 +452,7 @@
 
   async function requestPeriod({ fromSheet = false, forceRefresh = false } = {}) {
     if (busy) return;
-    const token = authToken();
+    let token = authToken();
     const wid = workspaceIdValue();
     if (!token || !wid) {
       setPeriodStatus('Workspace sessiyasi kutilmoqda...', 'sync');
@@ -449,7 +473,7 @@
         ...(fromSheet ? {} : { year: periodYear, month: periodMonth }),
         ...(forceRefresh ? { forceRefresh: true } : {}),
       };
-      const response = await fetch(API_PATH, {
+      const requestOptions = {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -459,7 +483,15 @@
         },
         body: JSON.stringify(requestBody),
         signal: controller.signal,
-      });
+      };
+      let response = await fetch(API_PATH, requestOptions);
+      if(response.status === 401 && typeof window.refreshWorkspaceAccessToken === 'function'){
+        token = await window.refreshWorkspaceAccessToken();
+        response = await fetch(API_PATH, {
+          ...requestOptions,
+          headers: { ...requestOptions.headers, Authorization: `Bearer ${token}` },
+        });
+      }
       const data = await response.json().catch(() => ({}));
       if (currentVersion !== requestVersion) return;
       if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
@@ -623,7 +655,9 @@
         }
         if (rawFetchState) await rawFetchState(workspaceIdValue());
         captureCanonical(true);
-        await requestPeriod({ fromSheet: false });
+        if (baseRow && !await refreshCachedPeriodAfterSave(baseRow)) {
+          await requestPeriod({ fromSheet: false });
+        }
       };
       wrapped.__hisobotPeriodWrapped = true;
       saveRow = wrapped;

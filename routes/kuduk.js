@@ -36,6 +36,7 @@ const ALIASES = {
 // Endi data-varoq deb tanish uchun kamida 2 ta asosiy ustun topilishi kifoya.
 const DATA_REQUIRED_MIN_SCORE = 2;
 const FIELD_ORDER = ["date", "pos", "name", "brand", "serial", "range", "location", "skv", "work", "executor", "signature"];
+const TENANT_METADATA_TTL_MS = 5 * 60 * 1000;
 const BASE_SHEET_CANDIDATES = ["База", "ОБШИЕ", "Общие", "OBSHIE", "Baza"];
 
 // Frontend menyusi faqat ushbu aniq blokdan quriladi.
@@ -442,7 +443,15 @@ async function loadMultipleSheets(t, routes) {
 async function syncTenant(sexId, reason = "manual") {
   const t = await loadTenant(sexId);
   if (!t.sheetsApi) throw new Error("Backend konfiguratsiya qilinmagan.");
-  if (t.syncRunning) return publicState(t);
+  if (t.syncPromise) {
+    const pendingSync = t.syncPromise;
+    if (reason.startsWith("base-row-")) {
+      await pendingSync.catch(() => {});
+      return syncTenant(sexId, reason);
+    }
+    return pendingSync;
+  }
+  const syncPromise = (async () => {
   t.syncRunning = true;
   const beforeRevision = sha({ spreadsheetId: t.spreadsheetId, menuSheet: t.menuSheet, hashes: t.hashes, connected: t.connected });
   try {
@@ -463,6 +472,10 @@ async function syncTenant(sexId, reason = "manual") {
     if (changed) IO?.to(`sex:${t.sexId}`).emit("kuduk-data-update", publicState(t));
     return publicState(t);
   } finally { t.syncRunning = false; }
+  })();
+  t.syncPromise = syncPromise;
+  try { return await syncPromise; }
+  finally { if (t.syncPromise === syncPromise) t.syncPromise = null; }
 }
 
 async function applyConfig(sexId, input, persist = true) {
@@ -570,19 +583,43 @@ function sameRowIdentity(row, id) {
 }
 async function findBaseRowNumber(t, sourceSheet, rowNumber, values = {}) {
   const baseSheet = await getBaseSheetName(t);
-  if (hardNorm(sourceSheet) === hardNorm(baseSheet)) return { baseSheet, rowNumber };
+  const sourceRow = (t.sheets[sourceSheet] || []).find(r => Number(r._rowNumber) === Number(rowNumber)) || null;
+  if (hardNorm(sourceSheet) === hardNorm(baseSheet)) return { baseSheet, rowNumber, sourceSheet, sourceRow };
   if (!Array.isArray(t.sheets[sourceSheet])) await loadSheet(t, { sheet: sourceSheet });
-  const sourceRow = (t.sheets[sourceSheet] || []).find(r => Number(r._rowNumber) === Number(rowNumber)) || values;
-  const id = makeRowIdentity({ ...sourceRow, ...values });
+  const resolvedSourceRow = sourceRow || (t.sheets[sourceSheet] || []).find(r => Number(r._rowNumber) === Number(rowNumber)) || values;
+  const hasSourceIdentity = Boolean(resolvedSourceRow?.pos || resolvedSourceRow?.serial || resolvedSourceRow?.name);
+  const id = makeRowIdentity(hasSourceIdentity ? resolvedSourceRow : values);
   if (!Array.isArray(t.sheets[baseSheet])) await loadSheet(t, { sheet: baseSheet });
   const baseRow = (t.sheets[baseSheet] || []).find(r => sameRowIdentity(r, id));
-  if (!baseRow) throw new Error(`База ichida mos yozuv topilmadi. Poz=${sourceRow.pos || values.pos || ''}, Zavod=${sourceRow.serial || values.serial || ''}`);
-  return { baseSheet, rowNumber: Number(baseRow._rowNumber) };
+  if (!baseRow) throw new Error(`База ichida mos yozuv topilmadi. Poz=${resolvedSourceRow.pos || values.pos || ''}, Zavod=${resolvedSourceRow.serial || values.serial || ''}`);
+  return { baseSheet, rowNumber: Number(baseRow._rowNumber), sourceSheet, sourceRow: resolvedSourceRow };
+}
+
+function applyRowValuesToTenantCache(t, sheet, rowNumber, sourceSheet, sourceRow, values) {
+  const cachedBaseRow = (t.sheets[sheet] || []).find(row => Number(row._rowNumber) === Number(rowNumber));
+  const identitySource = sourceRow || cachedBaseRow || values;
+  const identity = makeRowIdentity(identitySource);
+  for (const [cachedSheet, rows] of Object.entries(t.sheets || {})) {
+    if (!Array.isArray(rows)) continue;
+    const cachedRow = rows.find(row => cachedSheet === sheet
+      ? Number(row._rowNumber) === Number(rowNumber)
+      : (cachedSheet === sourceSheet && Number(row._rowNumber) === Number(sourceRow?._rowNumber))
+        || sameRowIdentity(row, identity));
+    if (cachedRow) Object.assign(cachedRow, values);
+  }
+  t.version = Number(t.version || 0) + 1;
+  t.updatedAt = new Date().toISOString();
+  IO?.to(`sex:${t.sexId}`).emit("kuduk-data-update", publicState(t));
 }
 
 async function updateRow(sexId, sheet, rowNumber, values) {
   const t = await loadTenant(sexId);
   if (!t.sheetsApi) throw new Error("Sex konfiguratsiyasi topilmadi.");
+  if (!Number.isSafeInteger(rowNumber) || rowNumber < 1) throw new Error("Tahrirlanayotgan qator raqami noto'g'ri.");
+  const fields = Object.keys(values || {});
+  if (!fields.length) throw new Error("Saqlash uchun o'zgargan maydon topilmadi.");
+  const unsupportedFields = fields.filter(field => !FIELD_ORDER.includes(field));
+  if (unsupportedFields.length) throw new Error(`Noma'lum maydon(lar): ${unsupportedFields.join(', ')}`);
   await validateRowValues(t, values);
   const target = await findBaseRowNumber(t, sheet, rowNumber, values);
   sheet = target.baseSheet;
@@ -591,11 +628,16 @@ async function updateRow(sexId, sheet, rowNumber, values) {
   if (!status?.indexMap) await loadSheet(t, { sheet });
   const idx = t.statuses[sheet]?.indexMap;
   if (!idx) throw new Error("База ustun xaritasi topilmadi.");
+  const missingFields = fields.filter(field => !Number.isInteger(idx[field]) || idx[field] < 0);
+  if (missingFields.length) throw new Error(`Google Sheets'da ushbu maydon ustuni topilmadi: ${missingFields.join(', ')}`);
   const updates = [];
-  for (const f of FIELD_ORDER) if (idx[f] >= 0 && Object.prototype.hasOwnProperty.call(values, f)) updates.push({ range: rangeA1(sheet, rowNumber - 1, idx[f]), values: [[values[f] ?? ""]] });
-  if (!updates.length) return;
+  for (const f of fields) updates.push({ range: rangeA1(sheet, rowNumber - 1, idx[f]), values: [[values[f] ?? ""]] });
+  if (!updates.length) throw new Error("Google Sheets'ga yoziladigan maydon topilmadi.");
   await t.sheetsApi.spreadsheets.values.batchUpdate({ spreadsheetId: t.spreadsheetId, requestBody: { valueInputOption: "USER_ENTERED", data: updates } });
-  await syncTenant(sexId, "base-row-update");
+  applyRowValuesToTenantCache(t, sheet, rowNumber, target.sourceSheet, target.sourceRow, values);
+  setTimeout(() => {
+    void syncTenant(sexId, "base-row-update").catch(error => log(t, "error", "Yozuv saqlangandan keyingi sinxronlash xatosi: " + error.message, { sheet }));
+  }, 0);
 }
 async function appendRow(sexId, sheet, values) {
   const t = await loadTenant(sexId);
@@ -717,7 +759,7 @@ async function loadMetadata(t) {
   return result;
 }
 async function getTenantMetadata(t) {
-  if (!t.metadata || (Date.now() - Date.parse(t.metadata.updatedAt || 0)) > 60_000) return await loadMetadata(t);
+  if (!t.metadata || (Date.now() - Date.parse(t.metadata.updatedAt || 0)) > TENANT_METADATA_TTL_MS) return await loadMetadata(t);
   return t.metadata;
 }
 async function validateRowValues(t, values = {}) {

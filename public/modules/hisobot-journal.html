@@ -71,6 +71,8 @@ let metadataLoadedFor = '';
 let socket = null;
 let currentSheet = '';
 let editing = null;
+let savingRow = false;
+let accessTokenRefreshPromise = null;
 let activeWorkspaceId = '';
 let workspaceReloading = false;
 let workspaceReloadPending = false;
@@ -110,17 +112,43 @@ function connectSocket(){
   socket.on('kuduk-log', l => msg(l.message || '', l.level === 'error' ? 'err' : 'ok'));
 }
 async function request(path, opts={}){
-  const headers = new Headers({'Content-Type':'application/json'});
   const wid = workspaceId();
-  if(wid) headers.set('x-workspace-id', wid);
-  const globalToken = sessionStorage.getItem('seg_kip_workspace_access_token') || parentStorage('sessionStorage', 'seg_kip_workspace_access_token');
-  if(globalToken) headers.set('Authorization', 'Bearer ' + globalToken);
-  
-  const res = await fetch(api(path), { headers, ...opts });
+  const send = token => {
+    const headers = new Headers(opts.headers || {});
+    if(!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+    if(wid) headers.set('x-workspace-id', wid);
+    if(token) headers.set('Authorization', 'Bearer ' + token);
+    return fetch(api(path), { ...opts, headers, credentials:'include' });
+  };
+  const currentToken = sessionStorage.getItem('seg_kip_workspace_access_token') || parentStorage('sessionStorage', 'seg_kip_workspace_access_token');
+  let res = await send(currentToken);
+  if(res.status === 401){
+    const renewedToken = await refreshWorkspaceAccessToken();
+    res = await send(renewedToken);
+  }
   const data = await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(data.error || data.message || ('HTTP ' + res.status));
   return data;
 }
+async function refreshWorkspaceAccessToken(){
+  if(!accessTokenRefreshPromise){
+    accessTokenRefreshPromise = (async()=>{
+      const response = await fetch('/api/auth/refresh', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'} });
+      const data = await response.json().catch(()=>({}));
+      if(!response.ok || !data.accessToken) throw new Error(data.error || 'Sessiya yangilanmadi. Qayta tizimga kiring.');
+      sessionStorage.setItem('seg_kip_workspace_access_token', data.accessToken);
+      try{
+        parent.sessionStorage.setItem('seg_kip_workspace_access_token', data.accessToken);
+        if(parent.sanegLoginGate?.state) parent.sanegLoginGate.state.accessToken = data.accessToken;
+      }catch(_){}
+      return data.accessToken;
+    })();
+  }
+  try { return await accessTokenRefreshPromise; }
+  catch(error){ try{ parent.sanegLoginGate?.render?.(); }catch(_){} throw error; }
+  finally { accessTokenRefreshPromise = null; }
+}
+window.refreshWorkspaceAccessToken = refreshWorkspaceAccessToken;
 function rememberSheetUrl(url){
   const clean = String(url || '').trim();
   if(!clean) return;
@@ -152,15 +180,16 @@ function optionsForField(key){
   if(key === 'work') return state.metadata?.workTypes || [];
   return [];
 }
+function optionKey(value){ return String(value ?? '').trim().normalize('NFKC').toLocaleLowerCase(); }
 function renderFieldEditor(key, label, value=''){
   const options = optionsForField(key);
   if(['location','brand','work'].includes(key) && options.length){
     const current = String(value || '').trim();
-    const hasCurrent = !current || options.some(o => String(o).trim().toLowerCase() === current.toLowerCase());
+    const hasCurrent = !current || options.some(o => optionKey(o) === optionKey(current));
     const opts = [
       '<option value="">Tanlang...</option>',
       ...(!hasCurrent ? [`<option value="${esc(current)}" selected>${esc(current)} (Sheets ro‘yxatida yo‘q)</option>`] : []),
-      ...options.map(o => `<option value="${esc(o)}" ${String(o)===current?'selected':''}>${esc(o)}</option>`)
+      ...options.map(o => `<option value="${esc(o)}" ${optionKey(o)===optionKey(current)?'selected':''}>${esc(o)}</option>`)
     ].join('');
     return `<div><label class="label">${esc(label)}</label><select class="input" id="f_${key}" required>${opts}</select></div>`;
   }
@@ -172,7 +201,7 @@ async function fetchState(expectedWorkspaceId = workspaceId()){
     const nextState = await request('/state?sexId=' + encodeURIComponent(sexId()));
     if(expectedWorkspaceId && expectedWorkspaceId !== workspaceId()) return;
     state = { ...state, ...nextState };
-    if(state.connected) await loadMetadata(true);
+    if(state.connected) await loadMetadata(false);
     hydrateFromState(); renderAll();
   }
   catch(e){ setStatus('ERROR','error','Failed to fetch'); msg('Backend bilan aloqa yo‘q: ' + e.message, 'err'); }
@@ -293,12 +322,30 @@ async function openEditor(mode, row=null){
 function closeEditor(){ $('modal').classList.remove('show'); editing=null; }
 function formValues(){ const v={}; for(const [k] of FIELDS) v[k] = $('f_'+k).value; return v; }
 async function saveRow(){
+  if(savingRow) return;
+  const currentEdit = editing;
+  if(!currentEdit) return;
+  const saveButton = $('modal').querySelector('.btn.green');
+  savingRow = true;
+  if(saveButton){ saveButton.disabled = true; saveButton.dataset.originalLabel ||= saveButton.textContent; saveButton.textContent = 'Saqlanmoqda...'; }
   try{
     const values = formValues();
-    if(editing.mode === 'add') state = { ...state, ...(await request('/rows', { method:'POST', body:JSON.stringify({ sexId:sexId(), sheet:currentSheet, values }) })) };
-    else state = { ...state, ...(await request('/rows', { method:'PUT', body:JSON.stringify({ sexId:sexId(), sheet:currentSheet, rowNumber:editing.row._rowNumber, values }) })) };
+    if(currentEdit.mode === 'add') state = { ...state, ...(await request('/rows', { method:'POST', body:JSON.stringify({ sexId:sexId(), sheet:currentSheet, values }) })) };
+    else {
+      const changedValues = Object.fromEntries(FIELDS
+        .map(([key]) => [key, values[key]])
+        .filter(([key, value]) => String(value ?? '') !== String(currentEdit.row?.[key] ?? '')));
+      if(!Object.keys(changedValues).length){ msg('O\'zgartirish topilmadi. Qiymatni o\'zgartirib, qayta saqlang.', 'info'); return; }
+      const rowNumber = Number(currentEdit.row?._periodBaseRowNumber || currentEdit.row?._rowNumber);
+      if(!Number.isSafeInteger(rowNumber) || rowNumber < 1) throw new Error('Tahrirlanayotgan qator raqami aniqlanmadi. Jurnalni yangilab, qayta urinib ko\'ring.');
+      state = { ...state, ...(await request('/rows', { method:'PUT', body:JSON.stringify({ sexId:sexId(), sheet:currentSheet, rowNumber, values:changedValues }) })) };
+    }
     closeEditor(); hydrateFromState(); renderAll(); msg('Yozuv База varog‘ida saqlandi va live sync qilindi.', 'ok');
-  }catch(e){ msg(e.message, 'err'); }
+  }catch(e){ msg('Saqlanmadi: ' + e.message, 'err'); }
+  finally{
+    savingRow = false;
+    if(saveButton){ saveButton.disabled = false; saveButton.textContent = saveButton.dataset.originalLabel || 'Saqlash'; }
+  }
 }
 async function removeRow(rowNumber){
   if(!confirm('Ushbu qator База manbasidan o‘chiriladi. Davom etasizmi?')) return;
