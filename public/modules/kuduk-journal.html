@@ -90,7 +90,7 @@ function sessionReady(){
   return true;
 }
 function sexId(){ return String(state.sexId || 'sex_4').trim().replace(/[^a-zA-Z0-9_-]+/g,'_') || 'sex_4'; }
-function msg(text, type='info'){ $('message').innerHTML = esc(text); $('message').className = 'msg ' + type; }
+function msg(text, type='info'){ const el = $('message'); el.innerHTML = esc(text); el.className = 'msg ' + type; el.style.display = 'block'; el.setAttribute('aria-hidden','false'); }
 function setStatus(text, type='offline', sub=''){ $('statusText').textContent = text; $('statusText').className = type; $('statusSub').textContent = sub || ''; }
 function currentRoute(){ return (state.routes||[]).find(r => r.sheet === currentSheet) || state.selectedRoute || null; }
 function isMasterRoute(route){ return Boolean(route?.isMasterJournal || route?.kind === 'master-journal' || String(route?.title||'').trim().toLowerCase() === 'журнал'); }

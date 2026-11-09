@@ -240,3 +240,15 @@ test('HISOBOT reselects August after September by writing the real Sheets select
 test('HISOBOT menu reuses the server metadata cache instead of rereading validation grids on every return', () => {
   assert.match(kudukRouteSource, /router\.get\("\/metadata"[\s\S]*?getTenantMetadata\(t\)/);
 });
+
+test('HISOBOT journal surfaces save feedback in the message bar instead of a permanently hidden node', () => {
+  for (const source of [hisobotHtmlSource, kudukHtmlSource]) {
+    assert.match(source, /function msg\(text, type='info'\)\{ const el = \$\('message'\);.*el\.style\.display = 'block'/);
+  }
+});
+
+test('HISOBOT row save skips Base columns missing in Sheets instead of rejecting the whole edit', () => {
+  assert.match(kudukRouteSource, /const writableFields = fields\.filter\(field => Number\.isInteger\(idx\[field\]\) && idx\[field\] >= 0\);/);
+  assert.match(kudukRouteSource, /if \(missingFields\.length\) log\(t, "warn"/);
+  assert.match(kudukRouteSource, /makeRowIdentity\(\{ \.\.\.resolvedSourceRow, \.\.\.values \}\)/);
+});

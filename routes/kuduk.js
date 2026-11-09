@@ -587,8 +587,7 @@ async function findBaseRowNumber(t, sourceSheet, rowNumber, values = {}) {
   if (hardNorm(sourceSheet) === hardNorm(baseSheet)) return { baseSheet, rowNumber, sourceSheet, sourceRow };
   if (!Array.isArray(t.sheets[sourceSheet])) await loadSheet(t, { sheet: sourceSheet });
   const resolvedSourceRow = sourceRow || (t.sheets[sourceSheet] || []).find(r => Number(r._rowNumber) === Number(rowNumber)) || values;
-  const hasSourceIdentity = Boolean(resolvedSourceRow?.pos || resolvedSourceRow?.serial || resolvedSourceRow?.name);
-  const id = makeRowIdentity(hasSourceIdentity ? resolvedSourceRow : values);
+  const id = makeRowIdentity({ ...resolvedSourceRow, ...values });
   if (!Array.isArray(t.sheets[baseSheet])) await loadSheet(t, { sheet: baseSheet });
   const baseRow = (t.sheets[baseSheet] || []).find(r => sameRowIdentity(r, id));
   if (!baseRow) throw new Error(`База ichida mos yozuv topilmadi. Poz=${resolvedSourceRow.pos || values.pos || ''}, Zavod=${resolvedSourceRow.serial || values.serial || ''}`);
@@ -628,11 +627,12 @@ async function updateRow(sexId, sheet, rowNumber, values) {
   if (!status?.indexMap) await loadSheet(t, { sheet });
   const idx = t.statuses[sheet]?.indexMap;
   if (!idx) throw new Error("База ustun xaritasi topilmadi.");
-  const missingFields = fields.filter(field => !Number.isInteger(idx[field]) || idx[field] < 0);
-  if (missingFields.length) throw new Error(`Google Sheets'da ushbu maydon ustuni topilmadi: ${missingFields.join(', ')}`);
+  const writableFields = fields.filter(field => Number.isInteger(idx[field]) && idx[field] >= 0);
+  const missingFields = fields.filter(field => !writableFields.includes(field));
+  if (missingFields.length) log(t, "warn", `Google Sheets'da ustun topilmadi, yozilmaydi: ${missingFields.join(', ')}`, { sheet });
   const updates = [];
-  for (const f of fields) updates.push({ range: rangeA1(sheet, rowNumber - 1, idx[f]), values: [[values[f] ?? ""]] });
-  if (!updates.length) throw new Error("Google Sheets'ga yoziladigan maydon topilmadi.");
+  for (const f of writableFields) updates.push({ range: rangeA1(sheet, rowNumber - 1, idx[f]), values: [[values[f] ?? ""]] });
+  if (!updates.length) throw new Error(`Google Sheets'da ushbu maydon ustuni topilmadi: ${fields.join(', ')}`);
   await t.sheetsApi.spreadsheets.values.batchUpdate({ spreadsheetId: t.spreadsheetId, requestBody: { valueInputOption: "USER_ENTERED", data: updates } });
   applyRowValuesToTenantCache(t, sheet, rowNumber, target.sourceSheet, target.sourceRow, values);
   setTimeout(() => {
