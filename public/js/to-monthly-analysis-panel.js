@@ -188,7 +188,7 @@
             <div class="to-analysis-donutbox"><h4>Ойлик хужжат тайёрлиги</h4><div id="toAnalysisDonut" class="to-analysis-donut" style="--p:0"><span>0%</span></div><p class="to-analysis-note">Яратилган хужжат / танланган ой</p></div>
           </div>
           <div class="to-analysis-tablewrap">
-            <table class="to-analysis-table"><thead><tr><th>№</th><th>Бўлим</th><th>Зав. №</th><th>Наименование оборудования</th><th>Поз.</th><th>Кол-во</th><th>Техническое состояние</th><th>Вид работ</th><th>Примечание</th></tr></thead><tbody id="toAnalysisRows"><tr><td colspan="9">Ойлик маълумот юкланмоқда...</td></tr></tbody></table>
+            <table class="to-analysis-table"><thead><tr><th>№</th><th>Зав. №</th><th>Наименование оборудования</th><th>Поз.</th><th>Кол-во</th><th>Техническое состояние</th><th>Вид работ</th><th>Примечание</th></tr></thead><tbody id="toAnalysisRows"><tr><td colspan="8">Ойлик маълумот юкланмоқда...</td></tr></tbody></table>
           </div>
           <div class="to-analysis-footer"><div id="toAnalysisMessage" class="to-analysis-message">Танланган ой маълумотлари ASOSIY VAROQ дан юкланади.</div><button id="toAnalysisDocumentBtn" class="btn primary" type="button" disabled>Хужатни очиш</button></div>
         </div>
@@ -294,17 +294,17 @@
     if (!body) return;
     const rows = flattenSections(source?.sections || []);
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="9">Танланган ой учун TO қаторлари топилмади.</td></tr>';
+      body.innerHTML = '<tr><td colspan="8">Танланган ой учун TO қаторлари топилмади.</td></tr>';
       return;
     }
     let previousSection = '';
     body.innerHTML = rows.map((row, index) => {
       const section = clean(row.sectionName) || 'ASOSIY';
       const sectionRow = section !== previousSection
-        ? `<tr class="to-analysis-section"><td colspan="9">${esc(section)}</td></tr>`
+        ? `<tr class="to-analysis-section"><td colspan="8">${esc(section)}</td></tr>`
         : '';
       previousSection = section;
-      return `${sectionRow}<tr><td>${index + 1}</td><td>${esc(section)}</td><td>${esc(row.serialNo || '')}</td><td>${esc(row.equipmentName || '')}</td><td>${esc(row.positionNo || '')}</td><td>${esc(row.quantity || '')}</td><td>${esc(row.technicalState || '')}</td><td>${esc(row.workType || '')}</td><td>${esc(row.note || '')}</td></tr>`;
+      return `${sectionRow}<tr><td>${index + 1}</td><td>${esc(row.serialNo || '')}</td><td>${esc(row.equipmentName || '')}</td><td>${esc(row.positionNo || '')}</td><td>${esc(row.quantity || '')}</td><td>${esc(row.technicalState || '')}</td><td>${esc(row.workType || '')}</td><td>${esc(row.note || '')}</td></tr>`;
     }).join('');
   }
 
