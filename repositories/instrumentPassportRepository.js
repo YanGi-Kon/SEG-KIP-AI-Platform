@@ -7,6 +7,7 @@ export function publicPassport(row) {
     id: row.id, instrumentKey: row.instrument_key, version: row.source_version,
     publishedVersion: row.published_version, pageCount: row.page_count,
     fileId: row.current_file_id, url: row.current_file_url,
+    folderId: row.output_folder_id || '',
     status: row.source_version <= row.published_version ? 'completed' : row.job_status || 'pending',
     error: row.last_error || '', errorCode: row.last_error_code || '',
     updatedAt: row.updated_at,

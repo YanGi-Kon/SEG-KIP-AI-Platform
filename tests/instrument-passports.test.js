@@ -6,7 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { citext } from '@electric-sql/pglite/contrib/citext';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 import { instrumentPassportKey, normalizePassportFilename, readPassportPdf, mergePassportPdfs, preparePassportUpload } from '../domain/instrumentPassport.js';
-import { createInstrumentPassportRepository } from '../repositories/instrumentPassportRepository.js';
+import { createInstrumentPassportRepository, publicPassport } from '../repositories/instrumentPassportRepository.js';
 import { buildPassportJob, passportFailureRetryable } from '../services/instrumentPassportService.js';
 import { SharedDriveServiceAccountProvider, resolveDriveCredentials } from '../services/driveProviders/sharedDriveServiceAccountProvider.js';
 import { AppsScriptPersonalDriveProvider } from '../services/driveProviders/appsScriptPersonalDriveProvider.js';
@@ -22,6 +22,13 @@ test('instrument identity survives row and location changes and remains sheet-sp
 test('passport filenames repair UTF-8 names decoded as latin1 by multipart parsers',()=>{
   assert.equal(normalizePassportFilename('ÐœÐ°Ð½Ð¾Ð¼ÐµÑ‚Ñ€.pdf'),'Манометр.pdf');
   assert.equal(normalizePassportFilename('passport.pdf'),'passport.pdf');
+});
+
+test('publicPassport exposes the Drive output folder id for the open-folder button',()=>{
+  assert.equal(publicPassport({output_folder_id:'folder-123'}).folderId,'folder-123');
+  assert.equal(publicPassport({output_folder_id:null}).folderId,'');
+  assert.equal(publicPassport({}).folderId,'');
+  assert.equal(publicPassport(null),null);
 });
 
 test('PDF merge keeps all source pages in order and rejects invalid input',async()=>{

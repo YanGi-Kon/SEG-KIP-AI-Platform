@@ -212,3 +212,12 @@ test('passport UI gives actionable Personal Drive secret guidance and repairs le
   assert.match(source,/repairFilename\(doc\.filename\)/);
   assert.match(source,/needsReconfiguration/);
 });
+
+test('passport UI offers an open-folder button that opens the Drive output folder',async()=>{
+  const source=await fs.promises.readFile(new URL('../public/js/ulchov-passports.js',import.meta.url),'utf8');
+  assert.match(source,/id="passportOpenFolder"/);
+  assert.match(source,/Faylni ochish/);
+  assert.match(source,/drive\.google\.com\/drive\/folders/);
+  assert.match(source,/currentFolderId=passport\?\.folderId\|\|''/);
+  assert.match(source,/\$\('passportOpenFolder'\)\.disabled=!currentFolderId/);
+});

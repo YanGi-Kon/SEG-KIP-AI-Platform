@@ -261,7 +261,7 @@
         const isDraft = clean(period.status || 'draft') === 'draft';
         const actionsHtml = isDraft
           ? `<span class="to-reports-folder-actions"><button class="to-reports-folder-action edit" type="button" data-report-edit="${esc(period.year)}-${esc(period.month)}" title="Таҳрирлаш" aria-label="${esc(folderLabel(period))} hujjatini tahrirlash">✏️</button><button class="to-reports-folder-action delete" type="button" data-report-delete="${esc(period.year)}-${esc(period.month)}" title="Ўчириш" aria-label="${esc(folderLabel(period))} hujjatini o‘chirish">🗑️</button></span>`
-          : `<span class="to-reports-folder-state">final</span>`;
+          : `<span class="to-reports-folder-actions"><span class="to-reports-folder-state">final</span><button class="to-reports-folder-action delete" type="button" data-report-delete="${esc(period.year)}-${esc(period.month)}" title="O'chirish" aria-label="${esc(folderLabel(period))} hujjatini o'chirish">🗑️</button></span>`;
         return `<div class="to-reports-folder${active ? ' active' : ''}" role="button" tabindex="0" data-report-year="${esc(period.year)}" data-report-month="${esc(period.month)}"><span class="to-reports-folder-icon">📁</span><span><span class="to-reports-folder-name">${esc(folderLabel(period))}</span><span class="to-reports-folder-meta">${esc(period.monthlySheetName || period.sourceSheetName || 'TO hujjati')}</span></span>${actionsHtml}</div>`;
       }).join('')}
     `).join('');
