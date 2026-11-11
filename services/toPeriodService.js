@@ -157,12 +157,7 @@ export async function deleteToPeriod(workspaceId, year, month) {
     error.statusCode = 404;
     throw error;
   }
-  if (bundle.period.status !== 'draft') {
-    const error = new Error('Faqat draft holatdagi TO hujjatini o‘chirish mumkin');
-    error.code = 'TO_PERIOD_DELETE_LOCKED';
-    error.statusCode = 409;
-    throw error;
-  }
+
   const deleted = await deleteToPeriodByKey(workspaceId, periodKey.year, periodKey.month);
   if (!deleted) {
     const error = new Error('TO hujjatini o‘chirib bo‘lmadi');

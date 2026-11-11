@@ -3,7 +3,7 @@ const I18N_LANG_KEY = 'seg_kip_lang';
 const TRANSLATIONS = {
   ru: {
     // Menu Titles
-    '1. ЖУРНАЛ УЧЕТА': '1. ЖУРНАЛ УЧЕТА',
+    '1. ХИСОБОТ ЖУРНАЛИ': '1. ХИСОБОТ ЖУРНАЛИ',
     '2. УЛЧОВ ВОСИТАЛАРИ': '2. ИЗМЕРИТЕЛЬНЫЕ ПРИБОРЫ',
     '3. ДЕФЕКТНЫЙ АКТ': '3. ДЕФЕКТНЫЙ АКТ',
     '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. ЖУРНАЛ НЕИСПРАВНОСТЕЙ',
@@ -258,8 +258,8 @@ const TRANSLATIONS = {
     '⚙️ Созламалар': '⚙️ Созламалар',
     'Сақлаш ва кириш': 'Сақлаш ва кириш',
     '← Ўлчов воситаларига қайтиш': '← Ўлчов воситаларига қайтиш',
-    'ЖУРНАЛ УЧЕТА': 'ЖУРНАЛ УЧЕТА',
-    '📍 ЖУРНАЛ УЧЕТА': '📍 ЖУРНАЛ УЧЕТА',
+    'ХИСОБОТ ЖУРНАЛИ': 'ХИСОБОТ ЖУРНАЛИ',
+    '📍 ХИСОБОТ ЖУРНАЛИ': '📍 ХИСОБОТ ЖУРНАЛИ',
     'КИП бўйича umumiy hisob, pozitsiyalar va hududlar nazorati.': 'КИП бўйича umumiy hisob, pozitsiyalar va hududlar nazorati.',
     'SEG KIP — Quduqlar ro‘yxati jurnali': 'SEG KIP — Quduqlar ro‘yxati jurnali',
     '📍 ҚУДУҚЛАР РЎЙХАТИ ЖУРНАЛИ': '📍 ҚУДУҚЛАР РЎЙХАТИ ЖУРНАЛИ',
@@ -381,7 +381,7 @@ const TRANSLATIONS = {
   },
   uz: {
     // Menu Titles
-    '1. ЖУРНАЛ УЧЕТА': '1. HISOBOT JURNALI',
+    '1. ХИСОБОТ ЖУРНАЛИ': '1. ХИСОБОТ ЖУРНАЛИ',
     '2. УЛЧОВ ВОСИТАЛАРИ': '2. O\'LCHOV VOSITALARI',
     '3. ДЕФЕКТНЫЙ АКТ': '3. DEFEKT AKTI',
     '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. NOSOZLIKLAR JURNALI',
@@ -635,8 +635,8 @@ const TRANSLATIONS = {
     '⚙️ Созламалар': '⚙️ Sozlamalar',
     'Сақлаш ва кириш': 'Saqlash va kirish',
     '← Ўлчов воситаларига қайтиш': '← O\'lchov vositalariga qaytish',
-    'ЖУРНАЛ УЧЕТА': 'JURNAL UChETA',
-    '📍 ЖУРНАЛ УЧЕТА': '📍 JURNAL UChETA',
+    'ХИСОБОТ ЖУРНАЛИ': 'JURNAL UChETA',
+    '📍 ХИСОБОТ ЖУРНАЛИ': '📍 JURNAL UChETA',
     'КИП бўйича umumiy hisob, pozitsiyalar va hududlar nazorati.': 'KIP bo\'yicha umumiy hisob, pozitsiyalar va hududlar nazorati.',
     'SEG KIP — Quduqlar ro‘yxati jurnali': 'SEG KIP — Quduqlar ro‘yxati jurnali',
     '📍 ҚУДУҚЛАР РЎЙХАТИ ЖУРНАЛИ': '📍 QUDUQLAR RO\'YXATI JURNALI',
@@ -758,7 +758,7 @@ const TRANSLATIONS = {
   },
   en: {
     // Menu Titles
-    '1. ЖУРНАЛ УЧЕТА': '1. ACCOUNTING JOURNAL',
+    '1. ХИСОБОТ ЖУРНАЛИ': '1. ХИСОБОТ ЖУРНАЛИ',
     '2. УЛЧОВ ВОСИТАЛАРИ': '2. MEASURING INSTRUMENTS',
     '3. ДЕФЕКТНЫЙ АКТ': '3. DEFECT REPORT',
     '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. FAULTS JOURNAL',
@@ -1012,8 +1012,8 @@ const TRANSLATIONS = {
     '⚙️ Созламалар': '⚙️ Созламалар',
     'Сақлаш ва кириш': 'Сақлаш ва кириш',
     '← Ўлчов воситаларига қайтиш': '← Ўлчов воситаларига қайтиш',
-    'ЖУРНАЛ УЧЕТА': 'ЖУРНАЛ УЧЕТА',
-    '📍 ЖУРНАЛ УЧЕТА': '📍 ЖУРНАЛ УЧЕТА',
+    'ХИСОБОТ ЖУРНАЛИ': 'ХИСОБОТ ЖУРНАЛИ',
+    '📍 ХИСОБОТ ЖУРНАЛИ': '📍 ХИСОБОТ ЖУРНАЛИ',
     'КИП бўйича umumiy hisob, pozitsiyalar va hududlar nazorati.': 'КИП бўйича umumiy hisob, pozitsiyalar va hududlar nazorati.',
     'SEG KIP — Quduqlar ro‘yxati jurnali': 'SEG KIP — Quduqlar ro‘yxati jurnali',
     '📍 ҚУДУҚЛАР РЎЙХАТИ ЖУРНАЛИ': '📍 ҚУДУҚЛАР РЎЙХАТИ ЖУРНАЛИ',
@@ -1135,7 +1135,7 @@ const TRANSLATIONS = {
   },
   uz_cyrl: {
     // Menu Titles
-    '1. ЖУРНАЛ УЧЕТА': '1. ҲИСОБОТ ЖУРНАЛИ',
+    '1. ХИСОБОТ ЖУРНАЛИ': '1. ҲИСОБОТ ЖУРНАЛИ',
     '2. УЛЧОВ ВОСИТАЛАРИ': '2. ЎЛЧОВ ВОСИТАЛАРИ',
     '3. ДЕФЕКТНЫЙ АКТ': '3. ДЕФЕКТ АКТИ',
     '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. НОСОЗЛИКЛАР ЖУРНАЛИ',
@@ -1390,8 +1390,8 @@ const TRANSLATIONS = {
     '⚙️ Созламалар': '⚙️ Созламалар',
     'Сақлаш ва кириш': 'Сақлаш ва кириш',
     '← Ўлчов воситаларига қайтиш': '← Ўлчов воситаларига қайтиш',
-    'ЖУРНАЛ УЧЕТА': 'ЖУРНАЛ УЧЕТА',
-    '📍 ЖУРНАЛ УЧЕТА': '📍 ЖУРНАЛ УЧЕТА',
+    'ХИСОБОТ ЖУРНАЛИ': 'ХИСОБОТ ЖУРНАЛИ',
+    '📍 ХИСОБОТ ЖУРНАЛИ': '📍 ХИСОБОТ ЖУРНАЛИ',
     'КИП бўйича umumiy hisob, pozitsiyalar va hududlar nazorati.': 'КИП бўйича umumiy hisob, pozitsiyalar va hududlar nazorati.',
     'SEG KIP — Quduqlar ro‘yxati jurnali': 'SEG KIP — Quduqlar ro‘yxati jurnali',
     '📍 ҚУДУҚЛАР РЎЙХАТИ ЖУРНАЛИ': '📍 ҚУДУҚЛАР РЎЙХАТИ ЖУРНАЛИ',
