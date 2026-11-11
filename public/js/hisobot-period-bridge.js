@@ -541,7 +541,7 @@
     const selectedSheet = typeof currentSheet !== 'undefined' ? currentSheet : '';
     el.innerHTML = routes.map((route) => {
       const master = isMasterRouteLocal(route);
-      const title = master ? '📘 ЖУРНАЛ' : route.title;
+      const title = master ? '📘 ХИСОБОТ ЖУРНАЛИ' : route.title;
       return `<div class="card ${route.sheet === selectedSheet ? 'active' : ''}" onclick="selectRoute('${escHtml(route.sheet)}')"><h3>${escHtml(title)}</h3><div style="margin-top:10px"><span class="badge">${Number(route.count) || 0} ta yozuv</span></div><div class="small" style="margin-top:8px">${escHtml(route.status || '')}</div></div>`;
     }).join('');
   }
