@@ -44,7 +44,7 @@
   let selection=null, folderContext=null, pollTimer=null, polling=false, uploading=false;
 
   const candidates=[], chosen=[], previewUrls=new Set();
-  let importing=false, galleryEpoch=0, galleryNextId=0, canUpload=false, historySignature='', savedDocuments=[], currentFolderId='';
+  let importing=false, galleryEpoch=0, galleryNextId=0, canUpload=false, canEdit=false, canDelete=false, historySignature='', savedDocuments=[], currentFolderId='';
   function objectUrl(blob){const url=URL.createObjectURL(blob);previewUrls.add(url);return url;}
   function clearMediaWindows(){
     const active=$('passportMediaViewer'),layout=document.querySelector('.passport-document-layout');
@@ -152,14 +152,14 @@
         doc.previewUrl=objectUrl(blob);
       }
       const panel=showMedia(doc.previewUrl,false,repairFilename(doc.filename));
-      if(canUpload&&!panel.querySelector('.danger')){const remove=document.createElement('button');remove.type='button';remove.className='passport-action danger';remove.textContent='O‘chirish';remove.onclick=()=>deleteSaved(index);panel.append(remove);}
+      if(canDelete&&!panel.querySelector('.danger')){const remove=document.createElement('button');remove.type='button';remove.className='passport-action danger';remove.textContent='O‘chirish';remove.onclick=()=>deleteSaved(index);panel.append(remove);}
     }catch(error){if(selection===selected)message('passportUploadStatus',error.message||'Hujjat ochilmadi.','bad');}
     finally{if(button)button.disabled=false;}
   }
 
   async function deleteSaved(index){
     const doc=savedDocuments[index],selected=selection;
-    if(!doc||!selected||!canUpload||uploading)return;
+    if(!doc||!selected||!canDelete||uploading)return;
     if(!window.confirm('“'+repairFilename(doc.filename)+'” hujjati va uning barcha sahifalari pasportdan o‘chirilsinmi?'))return;
     uploading=true;
     document.querySelectorAll('[data-saved-delete], .passport-media-viewer .danger').forEach(button=>button.disabled=true);
@@ -176,7 +176,7 @@
   }
   function editSaved(index){
     const doc=savedDocuments[index],selected=selection;
-    if(!doc||!selected||!canUpload||uploading||importing)return;
+    if(!doc||!selected||!canEdit||uploading||importing)return;
     const input=document.createElement('input');input.type='file';input.accept='image/jpeg,application/pdf,.jpg,.jpeg,.pdf';
     input.onchange=async()=>{
       const file=input.files[0];if(!file||selection!==selected||selected.wid!==workspaceId())return;
@@ -243,6 +243,8 @@
     const hasDocs=data.documents.length>0;
     $('passportUploadHelp').textContent=hasDocs?'Avval saqlangan sahifalar pastdagi tarixda ko‘rinadi. Yangi tanlangan sahifalar raqamlar tartibida pasport oxiriga qo‘shiladi.':'Surat yoki PDF qo‘shing. Sahifalarni belgilang: 1 — birinchi, 2 — keyingi sahifa. Belgilanmagan sahifalar saqlanmaydi.';
     canUpload=data.canUpload;
+    canEdit=Boolean(data.canEdit);
+    canDelete=Boolean(data.canDelete);
     const nextHistory=JSON.stringify(data.documents);
     if(historySignature!==nextHistory){historySignature=nextHistory;savedDocuments=data.documents;
     $('passportHistory').innerHTML=data.documents.length?`<ol>${data.documents.map(doc=>`<li>${esc(repairFilename(doc.filename))} — ${doc.page_count} sahifa<small>${esc(new Date(doc.created_at).toLocaleString('uz-UZ',{timeZone:'Asia/Tashkent'}))}${doc.sequence===1?' · Asosiy pasport':''}</small><button class="passport-action" type="button" data-saved-view="${data.documents.indexOf(doc)}">Sahifalarni ko‘rish</button></li>`).join('')}</ol>`:'Hujjatlar hali yo‘q.';
@@ -250,14 +252,14 @@
     $('passportHistory').querySelectorAll('[data-saved-view]').forEach(view=>{
       let remove=view.parentElement.querySelector('[data-saved-delete]');
       if(!remove){remove=document.createElement('button');remove.type='button';remove.className='passport-action danger';remove.dataset.savedDelete=view.dataset.savedView;remove.textContent='O‘chirish';view.after(remove);}
-      remove.hidden=!data.canUpload;remove.disabled=uploading;
+      remove.hidden=!data.canDelete;remove.disabled=uploading;
       let edit=view.parentElement.querySelector('[data-saved-edit]');
       if(!edit){edit=document.createElement('button');edit.type='button';edit.className='passport-action passport-edit';edit.dataset.savedEdit=view.dataset.savedView;edit.textContent='Tahrirlash';edit.onclick=()=>editSaved(Number(edit.dataset.savedEdit));remove.after(edit);}
-      edit.hidden=!data.canUpload;edit.disabled=uploading;
+      edit.hidden=!data.canEdit;edit.disabled=uploading;
     });
     $('passportSubmit').disabled=uploading || !data.canUpload;
     $('passportFile').disabled=uploading || !data.canUpload;
-    $('passportRetry').hidden=!data.canUpload || !['failed_retryable','failed_permanent'].includes(passport?.status);
+    $('passportRetry').hidden=!data.canEdit || !['failed_retryable','failed_permanent'].includes(passport?.status);
     $('passportPreview').disabled=!passport?.publishedVersion;
     currentFolderId=passport?.folderId||'';
     $('passportOpenFolder').disabled=!currentFolderId;
@@ -284,7 +286,7 @@
     if(!instrument)return;
     const selected={key,wid:workspaceId(),sheetName:window.UlchovSheets.state.loadedSheet};selection=selected;
     $('passportUploadTitle').textContent=`${instrument.name} · ${instrument.serial || instrument.pos}`;
-    clearGallery();canUpload=false;importing=false;$('passportMediaViewer').hidden=true;
+    clearGallery();canUpload=false;canEdit=false;canDelete=false;importing=false;$('passportMediaViewer').hidden=true;
     $('passportFile').value='';$('passportSelectedFiles').textContent='';$('passportHistory').textContent='';$('passportSubmit').disabled=true;$('passportPreview').disabled=true;$('passportRetry').hidden=true;currentFolderId='';$('passportOpenFolder').disabled=true;
     $('passportUploadModal').classList.add('open');
     const hasSavedDocuments=Boolean(instrument.passport||summaries.get(key));
@@ -403,7 +405,7 @@
     finally{button.disabled=!folderContext?.canConfigure;}
   }
   function reset(){
-    clearGallery();importing=false;canUpload=false;selection=null;folderContext=null;currentFolderId='';tracked.clear();summaries.clear();clearTimeout(pollTimer);pollTimer=null;
+    clearGallery();importing=false;canUpload=false;canEdit=false;canDelete=false;selection=null;folderContext=null;currentFolderId='';tracked.clear();summaries.clear();clearTimeout(pollTimer);pollTimer=null;
     $('passportUploadModal')?.classList.remove('open');$('passportFolderModal')?.classList.remove('open');
     if($('passportFile'))$('passportFile').value='';if($('passportConnectionSecret'))$('passportConnectionSecret').value='';
   }

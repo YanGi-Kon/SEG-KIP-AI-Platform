@@ -1,8 +1,10 @@
 import express from "express";
 import OpenAI from "openai";
 import { buildProjectContext, listSafeProjectFiles, readSafeFile } from "../services/projectContextService.js";
+import { requireAccessToken, requirePlatformRole } from "../middleware/auth.js";
 
 const router = express.Router();
+router.use(requireAccessToken, requirePlatformRole('admin', 'super_admin'));
 
 function getApiKey() {
   return String(

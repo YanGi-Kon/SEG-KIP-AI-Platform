@@ -15,22 +15,22 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
   const key=instrumentPassportKey('Манометр',instrument);
   let passport=null,documents=[],sources=[],pendingReads=0,viewer=false,folder='';
   const app=express();app.use(express.json());
-  app.get('/api/ulchov/final-folder',(_req,res)=>res.json({folderId:folder,folderUrl:folder?`https://drive.google.com/drive/folders/${folder}`:'',canConfigure:!viewer,canUpload:true}));
+  app.get('/api/ulchov/final-folder',(_req,res)=>res.json({folderId:folder,folderUrl:folder?`https://drive.google.com/drive/folders/${folder}`:'',canConfigure:!viewer,canUpload:true,canEdit:true,canDelete:true}));
   app.put('/api/ulchov/final-folder',(req,res)=>{folder=req.body.folderUrl.split('/').pop();res.json({ok:true});});
   app.post('/api/ulchov/final-folder/test',(_req,res)=>res.json({result:{folderName:'Asbob passportlari'}}));
   app.get('/api/workspaces/:workspaceId/documents/personal-drive',(_req,res)=>res.json({result:{configured:false}}));
   app.post('/api/ulchov/instruments',(_req,res)=>res.json({ok:true,sheetName:'Манометр',instruments:[{...instrument,passportKey:key,passport}]}));
   app.get('/api/ulchov/passports/:key',(_req,res)=>{
     if(passport?.status==='processing' && ++pendingReads>1)passport={...passport,status:'completed',publishedVersion:passport.version};
-    res.json({passport,documents,canUpload:true});
+    res.json({passport,documents,canUpload:true,canEdit:true,canDelete:true});
   });
   app.get('/api/ulchov/passports/:key/documents/:id/pdf',(_req,res)=>res.type('application/pdf').send(sources[0].pdf));
-  app.delete('/api/ulchov/passports/:key/documents/:id',(_req,res)=>{documents=[];sources=[];passport=null;res.json({passport,documents,canUpload:true});});
+  app.delete('/api/ulchov/passports/:key/documents/:id',(_req,res)=>{documents=[];sources=[];passport=null;res.json({passport,documents,canUpload:true,canEdit:true,canDelete:true});});
   app.put('/api/ulchov/passports/:key/documents/:id',multer({storage:multer.memoryStorage()}).single('file'),async(req,res)=>{
     const parsed=await preparePassportUpload([req.file]);
     documents[0]={...documents[0],filename:req.file.originalname,page_count:parsed.pageCount};
     sources[0]={pdf:parsed.bytes,checksum:parsed.checksum};
-    res.status(202).json({passport,documents,canUpload:true});
+    res.status(202).json({passport,documents,canUpload:true,canEdit:true,canDelete:true});
   });
   app.post('/api/ulchov/passports/:key/documents',multer({storage:multer.memoryStorage()}).array('file',20),async(req,res)=>{
     assert.equal(req.body.sheetName,'Манометр');
@@ -43,7 +43,7 @@ test('actual instrument cards allow workspace members to upload PDFs and restric
       const merged=await mergePassportPdfs(sources);
       passport={version:documents.length,publishedVersion:documents.length-1,pageCount:merged.pageCount,status:'processing'};pendingReads=0;
     }
-    res.status(duplicate?200:202).json({ok:true,duplicate,passport});
+    res.status(duplicate?200:202).json({ok:true,duplicate,passport,canUpload:true,canEdit:true,canDelete:true});
   });
   app.get('/vendor/pdf-lib.min.js',(_req,res)=>res.sendFile(path.resolve('node_modules/pdf-lib/dist/pdf-lib.min.js')));
   app.use(express.static(new URL('../public/',import.meta.url).pathname.replace(/^\/(?=[A-Z]:)/,'')));

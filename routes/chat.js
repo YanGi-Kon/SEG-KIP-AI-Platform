@@ -1,13 +1,44 @@
 import express from "express";
 import OpenAI from "openai";
 import { buildProjectContext } from "../services/projectContextService.js";
-import { getSheetsClient, getSpreadsheetId } from "../config/google.js";
+import { extractSpreadsheetId, getSheetsClient } from "../services/googleSheetsService.js";
+import { resolveWorkspaceGoogleConfig } from "../services/workspaceGoogleService.js";
+import { requireAccessToken } from "../middleware/auth.js";
+import { requireWorkspaceRequestPermission } from "../middleware/workspaceAccess.js";
 
 const router = express.Router();
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_VISIBLE_TEXT_LENGTH = 10000;
 const AI_TIMEOUT_MS = 35000;
+const AI_RATE_LIMIT_WINDOW_MS = 60_000;
+const AI_RATE_LIMIT_MAX = 30;
+const aiRateLimitBuckets = new Map();
+const requireWorkspaceRead = requireWorkspaceRequestPermission('workspace:read');
+
+router.use((req, res, next) => requireAccessToken(req, res, () => requireWorkspaceRead(req, res, next)));
+
+function requireAiRateLimit(req, res, next) {
+  const now = Date.now();
+  const userId = req.auth.userId;
+  let bucket = aiRateLimitBuckets.get(userId);
+  if (!bucket || now - bucket.startedAt >= AI_RATE_LIMIT_WINDOW_MS) {
+    bucket = { startedAt: now, count: 0 };
+    aiRateLimitBuckets.set(userId, bucket);
+  }
+  if (bucket.count >= AI_RATE_LIMIT_MAX) {
+    const retryAfter = Math.max(1, Math.ceil((AI_RATE_LIMIT_WINDOW_MS - (now - bucket.startedAt)) / 1000));
+    res.set('Retry-After', String(retryAfter));
+    return res.status(429).json({ ok: false, code: 'AI_REQUEST_RATE_LIMITED', error: 'AI so‘rovlari vaqtincha cheklangan. Birozdan keyin qayta urinib ko‘ring.' });
+  }
+  bucket.count += 1;
+  if (aiRateLimitBuckets.size > 5000) {
+    for (const [id, value] of aiRateLimitBuckets) {
+      if (now - value.startedAt >= AI_RATE_LIMIT_WINDOW_MS) aiRateLimitBuckets.delete(id);
+    }
+  }
+  next();
+}
 
 function getApiKey() {
   return String(
@@ -92,13 +123,14 @@ function shouldAttachSheetContext(text, body) {
   ].some((x) => q.includes(x));
 }
 
-async function sheetsContextMessage(text, body) {
+async function sheetsContextMessage(text, body, workspace) {
   if (!shouldAttachSheetContext(text, body)) return null;
   try {
     const page = body?.currentPage || {};
     const terms = getQuestionTerms(text);
-    const sheets = await getSheetsClient();
-    const spreadsheetId = getSpreadsheetId();
+    const config = resolveWorkspaceGoogleConfig(workspace);
+    const sheets = await getSheetsClient(config.serviceAccount);
+    const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
     const meta = await sheets.spreadsheets.get({ spreadsheetId, includeGridData: false });
     const names = (meta.data.sheets || []).map((s) => s.properties.title);
     const selected = names
@@ -291,10 +323,10 @@ router.get("/", (_req, res) => {
   });
 });
 
-router.post("/", async (req, res) => {
+router.post("/", requireAiRateLimit, async (req, res) => {
   const userText = String(req.body?.message || "").trim();
   const pageContext = currentPageMessage(req.body);
-  const sheetContext = await sheetsContextMessage(userText, req.body);
+  const sheetContext = await sheetsContextMessage(userText, req.body, req.workspace);
   const projectContext = await projectContextMessage(userText, req.body);
   const { messages, lastUserMessage, contextMessages, projectContextAttached, pageContextAttached, sheetsContextAttached } = buildConversationMessages(req.body, [pageContext, sheetContext, projectContext]);
 

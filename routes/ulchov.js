@@ -53,7 +53,9 @@ function folderInfo(req) {
   return {folderId:id,folderUrl:id?`https://drive.google.com/drive/folders/${id}`:'',
     inherited:!req.workspace.moduleSettings?.ulchov_final_documents_folder_id,
     canConfigure:hasWorkspacePermission(req.workspaceRole,'workspace:update'),
-    canUpload:true};
+    canUpload:hasWorkspacePermission(req.workspaceRole,'passports:manage'),
+    canEdit:hasWorkspacePermission(req.workspaceRole,'passports:manage'),
+    canDelete:hasWorkspacePermission(req.workspaceRole,'passports:manage')};
 }
 router.get('/final-folder',(req,res)=>res.json({ok:true,...folderInfo(req)}));
 router.put('/final-folder',workspaceGuards('workspace:update'),async(req,res)=>{
@@ -84,7 +86,10 @@ router.post('/final-folder/test',workspaceGuards('workspace:test'),async(req,res
   }catch(error){passportResponseError(res,error);}
 });
 router.get('/passports/:key',workspaceGuards('documents:read'),async(req,res)=>{
-  try {res.json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),canUpload:true});}
+  try {res.json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),
+    canUpload:hasWorkspacePermission(req.workspaceRole,'passports:manage'),
+    canEdit:hasWorkspacePermission(req.workspaceRole,'passports:manage'),
+    canDelete:hasWorkspacePermission(req.workspaceRole,'passports:manage')});}
   catch(error){passportResponseError(res,error);}
 });
 router.get('/passports/:key/pdf',workspaceGuards('documents:read'),async(req,res)=>{
@@ -94,10 +99,10 @@ router.get('/passports/:key/pdf',workspaceGuards('documents:read'),async(req,res
     res.type('application/pdf').set('Cache-Control','private, no-store').set('Content-Disposition','inline; filename="pasport.pdf"').send(passport.merged_pdf);
   }catch(error){passportResponseError(res,error);}
 });
-router.delete('/passports/:key/documents/:documentId',workspaceGuards('workspace:read'),async(req,res)=>{
+router.delete('/passports/:key/documents/:documentId',workspaceGuards('passports:manage'),async(req,res)=>{
   try {
     await passports.deletePassportDocument({workspaceId:req.workspace.id,key:req.params.key,documentId:req.params.documentId,rootFolderId:ulchovFolderId(req.workspace)});
-    res.json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),canUpload:true});
+    res.json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),canUpload:true,canEdit:true,canDelete:true});
   }catch(error){passportResponseError(res,error);}
 });
 router.get('/passports/:key/documents/:documentId/pdf',workspaceGuards('documents:read'),async(req,res)=>{
@@ -107,7 +112,7 @@ router.get('/passports/:key/documents/:documentId/pdf',workspaceGuards('document
     res.type('application/pdf').set('Cache-Control','private, no-store').set('Content-Disposition','inline; filename="hujjat.pdf"').send(document.pdf);
   }catch(error){passportResponseError(res,error);}
 });
-router.put('/passports/:key/documents/:documentId',workspaceGuards('workspace:read'),(req,res)=>{
+router.put('/passports/:key/documents/:documentId',workspaceGuards('passports:manage'),(req,res)=>{
   passportUpload.single('file')(req,res,async uploadError=>{
     try{
       if(uploadError)throw uploadError;
@@ -117,18 +122,20 @@ router.put('/passports/:key/documents/:documentId',workspaceGuards('workspace:re
       const parsed=await preparePassportUpload([req.file]);
       const filename=normalizePassportFilename(req.file.originalname).replace(/[\\/\x00-\x1f]/g,'-').slice(0,180)||'hujjat.pdf';
       await passports.replacePassportDocument({workspaceId:req.workspace.id,key:req.params.key,documentId:req.params.documentId,rootFolderId,filename,parsed,userId:req.auth.userId});
-      res.status(202).json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),canUpload:true});
+      res.status(202).json({ok:true,...await passports.passportDetails(req.workspace.id,req.params.key),canUpload:true,
+        canEdit:hasWorkspacePermission(req.workspaceRole,'passports:manage'),
+        canDelete:hasWorkspacePermission(req.workspaceRole,'passports:manage')});
     }catch(error){passportResponseError(res,error);}
   });
 });
-router.post('/passports/:key/retry',workspaceGuards('workspace:read'),async(req,res)=>{
+router.post('/passports/:key/retry',workspaceGuards('passports:manage'),async(req,res)=>{
   try {
     const job=await passports.retryPassport(req.workspace.id,req.params.key,ulchovFolderId(req.workspace));
     if(!job)throw passportError('Qayta bajariladigan vazifa topilmadi.','PASSPORT_RETRY_NOT_FOUND',404);
     res.json({ok:true,jobId:job.id});
   }catch(error){passportResponseError(res,error);}
 });
-router.post('/passports/:key/documents',workspaceGuards('workspace:read'),(req,res)=>{
+router.post('/passports/:key/documents',workspaceGuards('passports:manage'),(req,res)=>{
   passportUpload.array('file',MAX_PASSPORT_UPLOAD_FILES)(req,res,async uploadError=>{
     try {
       if(uploadError)throw uploadError;

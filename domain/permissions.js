@@ -3,25 +3,25 @@ const ROLE_PERMISSIONS = Object.freeze({
     'workspace:read', 'workspace:update', 'workspace:archive', 'workspace:test',
     'members:read', 'members:create', 'members:update', 'members:delete',
     'signers:read', 'signers:create', 'signers:update', 'signers:delete',
-    'documents:read', 'documents:create', 'documents:send', 'documents:cancel',
+    'documents:read', 'passports:manage', 'documents:create', 'documents:send', 'documents:cancel',
     'audit:read',
   ]),
   administrator: new Set([
     'workspace:read', 'workspace:update', 'workspace:test',
     'members:read', 'members:create', 'members:update', 'members:delete',
     'signers:read', 'signers:create', 'signers:update', 'signers:delete',
-    'documents:read', 'documents:create', 'documents:send', 'documents:cancel',
+    'documents:read', 'passports:manage', 'documents:create', 'documents:send', 'documents:cancel',
     'audit:read',
   ]),
   operator: new Set([
     'workspace:read',
     'signers:read',
-    'documents:read', 'documents:create', 'documents:send',
+    'documents:read', 'passports:manage', 'documents:create', 'documents:send',
   ]),
   viewer: new Set([
     'workspace:read',
     'signers:read',
-    'documents:read',
+    'documents:read', 'passports:manage',
   ]),
 });
 

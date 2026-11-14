@@ -451,9 +451,46 @@ async function readJsonResponse(res) {
   try { return JSON.parse(text); } catch (_) { return { error: text }; }
 }
 
+function getAiAuthContext() {
+  const token = sessionStorage.getItem('seg_kip_workspace_access_token') || '';
+  const workspaceId = localStorage.getItem('seg_kip_selected_workspace_id') || '';
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (workspaceId) headers['x-workspace-id'] = workspaceId;
+  return { token, workspaceId, headers };
+}
+
+async function fetchAiApi(path, options = {}) {
+  const send = () => {
+    const auth = getAiAuthContext();
+    return fetch(path, {
+      ...options,
+      headers: { ...(options.headers || {}), ...auth.headers },
+      credentials: 'include',
+    });
+  };
+  let response = await send();
+  if (response.status !== 401) return response;
+
+  const refresh = await fetch('/api/auth/refresh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  const session = await readJsonResponse(refresh);
+  if (!refresh.ok || !session.accessToken) return response;
+  sessionStorage.setItem('seg_kip_workspace_access_token', session.accessToken);
+  return send();
+}
+
 async function sendAiMessage(message) {
   const text = String(message || '').trim();
   if (!text || aiRequestInFlight) return;
+  const auth = getAiAuthContext();
+  if (!auth.token || !auth.workspaceId) {
+    setAiMessage('AI yordamchidan foydalanish uchun tizimga kiring va Workspace tanlang.');
+    return;
+  }
   removeAiAnalysisUi();
   aiRequestInFlight = true;
   pushAiHistory('user', text);
@@ -461,9 +498,9 @@ async function sendAiMessage(message) {
   renderAiMessage('assistant', 'AI javob tayyorlayapti...', { loading: true });
   setAiInputDisabled(true);
   try {
-    const res = await fetch('/api/chat', {
+    const res = await fetchAiApi('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: auth.headers,
       body: JSON.stringify({ message: text, messages: aiHistory.slice(-AI_MAX_HISTORY_MESSAGES), currentPage: getCurrentPageContext() }),
     });
     const data = await readJsonResponse(res);
@@ -494,8 +531,15 @@ async function sendAiMessage(message) {
 }
 
 async function checkAiStatus() {
+  const auth = getAiAuthContext();
+  if (!auth.token || !auth.workspaceId) {
+    aiStatus = { ai: 'error', code: 'LOGIN_REQUIRED', model: '' };
+    updateAiStatusBadge();
+    setAiMessage('AI yordamchidan foydalanish uchun tizimga kiring va Workspace tanlang.');
+    return;
+  }
   try {
-    const res = await fetch('/api/chat');
+    const res = await fetchAiApi('/api/chat', { headers: auth.headers });
     const data = await readJsonResponse(res);
     aiStatus = { ai: data.ai || 'unknown', model: data.model || '', code: data.code || '' };
     updateAiStatusBadge();
@@ -570,6 +614,7 @@ function bindAiUi() {
 document.addEventListener('DOMContentLoaded', () => {
   bindAiUi();
   checkAiStatus();
+  window.addEventListener('seg:session-ready', checkAiStatus);
   if (localStorage.getItem('sidebarCollapsed') === 'true') {
     const app = document.querySelector('.app');
     if (app) app.classList.add('sidebar-collapsed');

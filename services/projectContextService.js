@@ -43,6 +43,17 @@ function redactSecrets(text) {
   return output;
 }
 
+export function isPathWithinRoot(rootPath, targetPath) {
+  const root = path.resolve(rootPath);
+  const target = path.resolve(targetPath);
+  const relative = path.relative(root, target);
+  return relative === '' || (
+    relative !== '..'
+    && !relative.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relative)
+  );
+}
+
 async function walk(dir, files = []) {
   let entries = [];
   try {
@@ -105,7 +116,7 @@ export async function readSafeFile(relativePath, maxChars = 6000) {
   }
 
   const targetPath = path.resolve(repoRoot, normalized);
-  if (!targetPath.startsWith(repoRoot)) {
+  if (!isPathWithinRoot(repoRoot, targetPath)) {
     throw new Error("Noto‘g‘ri fayl yo‘li.");
   }
 

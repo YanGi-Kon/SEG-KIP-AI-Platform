@@ -6,7 +6,9 @@ test('workspace roles have explicit access rules', () => {
   assert.equal(hasWorkspacePermission('owner', 'workspace:archive'), true);
   assert.equal(hasWorkspacePermission('administrator', 'workspace:archive'), false);
   assert.equal(hasWorkspacePermission('viewer', 'documents:read'), true);
+  assert.equal(hasWorkspacePermission('viewer', 'passports:manage'), true);
   assert.equal(hasWorkspacePermission('viewer', 'documents:create'), false);
+  assert.equal(hasWorkspacePermission('viewer', 'documents:cancel'), false);
 });
 
 test('workspace owner role cannot be reassigned by lower roles', () => {

@@ -59,7 +59,19 @@ disableKudukBackgroundWorkerTimer();
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const corsAllowedOrigins = new Set(
+  String(process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => {
+      try { return new URL(origin.trim()).origin; } catch (_) { return ''; }
+    })
+    .filter(Boolean),
+);
+if (process.env.PUBLIC_BASE_URL) {
+  try { corsAllowedOrigins.add(new URL(process.env.PUBLIC_BASE_URL).origin); } catch (_) {}
+}
+const corsOriginList = [...corsAllowedOrigins];
+const io = new Server(server, { cors: { origin: corsOriginList, credentials: true } });
 const PORT = process.env.PORT || 3000;
 const LOCAL_PGLITE_MODE = isLocalPgliteMode(process.env);
 const __filename = fileURLToPath(import.meta.url);
@@ -109,9 +121,36 @@ const authBootGuard = `
 
 app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors());
+app.use((_req, res, next) => {
+  res.setHeader('Content-Security-Policy-Report-Only', [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data: https:",
+    "connect-src 'self' https: wss:",
+    "frame-src 'self' https: blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'self'",
+    "form-action 'self' https:",
+  ].join('; '));
+  next();
+});
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || corsAllowedOrigins.has(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  credentials: true,
+}));
 app.use(compression());
-app.use(express.json({ limit: "30mb" }));
+app.use(express.json({
+  limit: "30mb",
+  verify(req, _res, buffer) {
+    if (req.originalUrl?.startsWith('/api/webhook/cicd')) req.rawBody = Buffer.from(buffer);
+  },
+}));
 app.use(express.urlencoded({ extended: false, limit: "2mb" }));
 
 app.use((req, res, next) => {

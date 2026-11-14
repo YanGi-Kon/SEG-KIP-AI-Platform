@@ -214,6 +214,7 @@
         return;
       }
       setMessage(`Kirish muvaffaqiyatli. Workspace: ${workspace.name}`, 'ok');
+      window.dispatchEvent(new CustomEvent('seg:session-ready'));
       window.segWorkspaceUi?.refresh();
       setTimeout(() => {
         document.documentElement.classList.remove('saneg-login-active');
@@ -255,6 +256,7 @@
       } catch (error) {
         if (signal?.aborted) throw error;
       }
+      window.dispatchEvent(new CustomEvent('seg:session-ready'));
       // Session restored — don't show login screen
       releaseAuthBootGuard();
       return true;

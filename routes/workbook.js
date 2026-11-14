@@ -1,7 +1,9 @@
 import express from "express";
 import { getSheetsClient, getSpreadsheetId } from "../config/google.js";
+import { requireAccessToken, requirePlatformRole } from "../middleware/auth.js";
 
 const router = express.Router();
+router.use(requireAccessToken, requirePlatformRole('admin', 'super_admin'));
 
 router.get("/", async (req, res) => {
   try {
