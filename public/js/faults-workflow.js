@@ -969,7 +969,10 @@
     if (event.data?.type === 'SEG_KIP_WORKSPACE_CHANGE') {
       uiState.reports = [];
       uiState.signers = [];
-      window.setTimeout(syncWorkspace, 0);
+      window.setTimeout(() => {
+        syncWorkspace();
+        void loadMonthlyAnalysis();
+      }, 0);
     }
     if (event.data?.type === 'SEG_KIP_FAULTS_OPEN') {
       window.setTimeout(autoOpenMonthlyAnalysis, 0);
