@@ -382,7 +382,7 @@ const TRANSLATIONS = {
   uz: {
     // Menu Titles
     '1. HISOBOT JURNALI': '1. HISOBOT JURNALI',
-    '2. УЛЧОВ ВОСИТАЛАРИ': '2. \u00D6L\u00C7OV VOSITALARI',
+    '2. УЛЧОВ ВОСИТАЛАРИ': '2. O\'LCHOV VOSITALARI',
     '3. ДЕФЕКТНЫЙ АКТ': '3. DEFEKT AKTI',
     '4. НОСОЗЛИКЛАР ЖУРНАЛИ': '4. NOSOZLIKLAR JURNALI',
     '5. АКТ ВЫПОЛНЕННЫХ РАБОТ': '5. BAJARILGAN ISHLAR DALOLATNOMASI',
