@@ -181,7 +181,7 @@ test('FAULTS reports panel mirrors TO report folders, A4 preview and completed P
   assert.match(workflow, /faults-report-a4/);
   assert.match(route, /buildFaultReportHtml/);
   assert.doesNotMatch(repository, /AND status = 'draft'/);
-  assert.match(workflow, /Yakuniy A4 PDF Drive'da/);
+  assert.match(workflow, /Yakuniy A4 PDF \(Drive\)/);
   assert.match(workflow, /editSavedReport/);
   assert.match(workflow, /deleteSavedReport/);
 });

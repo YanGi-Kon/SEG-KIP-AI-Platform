@@ -688,7 +688,7 @@
         ? '<button class="btn" type="button" id="faultReportEditBtn">✏️ Tahrirlash</button><button class="btn red" type="button" id="faultReportDeleteBtn">🗑️ O‘chirish</button>'
         : '<span class="faults-wf-status ok">✓ Yakunlangan</span><button class="btn red" type="button" id="faultReportDeleteBtn">🗑️ O‘chirish</button>';
       if (preview) {
-        preview.innerHTML = '<div class="faults-report-card"><h3 style="margin:0 0 6px">' + esc(periodLabel(year, month)) + '</h3><div class="faults-wf-status">Holat: ' + esc(report.status) + ' · ' + esc(report.rows?.length || 0) + ' ta qator</div><div class="faults-report-actions">' + actions + (finalUrl ? '<a class="faults-final-link" href="' + esc(finalUrl) + '" target="_blank" rel="noopener">✅ Yakuniy A4 PDF Drive\'da</a>' : '') + '</div></div><div id="faultsReportA4Host"></div>';
+        preview.innerHTML = '<div class="faults-report-card"><h3 style="margin:0 0 6px">' + esc(periodLabel(year, month)) + '</h3><div class="faults-wf-status">Holat: ' + esc(report.status) + ' · ' + esc(report.rows?.length || 0) + ' ta qator</div><div class="faults-report-actions">' + actions + (finalUrl ? '<a class="faults-final-link" href="' + esc(finalUrl) + '" target="_blank" rel="noopener">✅ Yakuniy A4 PDF (Drive)</a>' : '') + '</div></div><div id="faultsReportA4Host"></div>';
         const a4Host = $('faultsReportA4Host');
         if (a4Host && report.a4Html) {
           const frame = document.createElement('iframe');
