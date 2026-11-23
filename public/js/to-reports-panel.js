@@ -66,7 +66,8 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
     try {
-      const response = await fetch(`${API_ROOT}${path}`, {
+      const requestUrl = path.startsWith('/api/') ? path : `${API_ROOT}${path}`;
+      const response = await fetch(requestUrl, {
         ...options,
         headers,
         credentials: 'include',
@@ -155,8 +156,8 @@
     modal.innerHTML = `
       <div class="to-reports-shell">
         <div class="to-reports-head">
-          <div><h2>3. Хисоботлар</h2><div style="font-size:11px;color:#9fb7c7;margin-top:3px">TO hujjatlari oylar bo‘yicha alohida papkalarda</div></div>
-          <div class="to-reports-head-actions"><button id="toReportsRefreshBtn" class="btn" type="button">↻ Yangilash</button><button id="toReportsCloseBtn" class="btn" type="button">✕</button></div>
+          <div><h2>3. Хисоботлар</h2><div style="font-size:11px;color:#9fb7c7;margin-top:3px">TO davrlari bitta TO HISOBOT varag‘ida jamlanadi</div></div>
+          <div class="to-reports-head-actions"><button id="toReportsConsolidateBtn" class="btn primary" type="button">TO HISOBOT’ga birlashtirish</button><button id="toReportsRefreshBtn" class="btn" type="button">↻ Yangilash</button><button id="toReportsCloseBtn" class="btn" type="button">✕</button></div>
         </div>
         <div class="to-reports-content">
           <aside id="toReportsFolders" class="to-reports-folders"><div class="to-reports-empty">Papkalar yuklanmoqda...</div></aside>
@@ -166,6 +167,7 @@
     document.body.appendChild(modal);
     $('toReportsCloseBtn')?.addEventListener('click', close);
     $('toReportsRefreshBtn')?.addEventListener('click', () => void loadFolders());
+    $('toReportsConsolidateBtn')?.addEventListener('click', () => void consolidateLegacyReports());
     modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
   }
 
@@ -363,6 +365,47 @@
       $('toReportsFolders').innerHTML = `<div class="to-reports-empty">${esc(error.message)}</div>`;
     } finally {
       state.busy = false;
+    }
+  }
+
+  async function consolidateLegacyReports() {
+    if (state.busy) return;
+    const legacy = state.periods.filter((period) => clean(period.monthlySheetName).toUpperCase() !== 'TO HISOBOT');
+    const button = $('toReportsConsolidateBtn');
+    if (!legacy.length) {
+      if ($('toReportsPreview')) $('toReportsPreview').innerHTML = '<div class="to-reports-empty">Barcha davrlar TO HISOBOT varag‘iga ulangan.</div>';
+      return;
+    }
+
+    state.busy = true;
+    const failed = [];
+    if (button) { button.disabled = true; button.textContent = `Birlashtirilmoqda: 0 / ${legacy.length}`; }
+    const preview = $('toReportsPreview');
+    if (preview) preview.innerHTML = '<div class="to-reports-empty">Eski oy varaqlari TO HISOBOT’ga ko‘chirilmoqda. Bu oynani yopmang.</div>';
+
+    try {
+      for (let index = 0; index < legacy.length; index += 1) {
+        const period = legacy[index];
+        try {
+          await api(`/api/to/periods/${Number(period.year)}/${Number(period.month)}/sync-to-sheet`, {
+            method: 'POST',
+            body: JSON.stringify({}),
+          });
+        } catch (error) {
+          failed.push(`${folderLabel(period)}: ${error.message}`);
+        }
+        if (button) button.textContent = `Birlashtirilmoqda: ${index + 1} / ${legacy.length}`;
+      }
+    } finally {
+      state.busy = false;
+      if (button) { button.disabled = false; button.textContent = 'TO HISOBOT’ga birlashtirish'; }
+    }
+
+    await loadFolders();
+    if (preview) {
+      preview.innerHTML = failed.length
+        ? `<div class="to-reports-empty">${legacy.length - failed.length} / ${legacy.length} davr ko‘chirildi.<br>${failed.map((message) => esc(message)).join('<br>')}</div>`
+        : `<div class="to-reports-empty">${legacy.length} ta eski davr TO HISOBOT varag‘iga ko‘chirildi. Eski varaqlar ma’lumot saqlanishi uchun o‘chirilmagan.</div>`;
     }
   }
 
