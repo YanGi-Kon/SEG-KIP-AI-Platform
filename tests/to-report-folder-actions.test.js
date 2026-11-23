@@ -26,16 +26,17 @@ test('TO report tahrirlash shu oy hujjatini asosiy oynada ochadi', () => {
   assert.match(ui, /applySignerSelectionsForCurrentPeriod/);
 });
 
-test('TO report o‘chirish tasdiqdan keyin draft hujjatni o‘chiradi', () => {
+test('TO report o‘chirish barcha holatlarda ruxsat etiladi', () => {
   assert.match(ui, /async function deleteFolder\(year, month\)/);
   assert.match(ui, /window\.confirm/);
   assert.match(ui, /method: 'DELETE'/);
   assert.match(route, /router\.delete\('\/reports\/:year\/:month'/);
   assert.match(route, /requireToCreate/);
   assert.match(service, /export async function deleteToPeriod/);
-  assert.match(service, /Faqat draft holatdagi TO hujjatini o‘chirish mumkin/);
+  const deleteService = service.slice(service.indexOf('export async function deleteToPeriod'), service.indexOf('export async function patchToPeriodItem'));
+  assert.doesNotMatch(deleteService, /TO_PERIOD_LOCKED/);
   assert.match(repo, /DELETE FROM to_periods/);
-  assert.match(repo, /AND status = 'draft'/);
+  assert.doesNotMatch(repo, /AND status = 'draft'/);
 });
 
 test('TO report o‘chirilganda eski approval qatorlari ham tozalanadi', () => {
