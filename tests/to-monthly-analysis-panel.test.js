@@ -60,9 +60,11 @@ test('TO monthly analysis adapts Acts flow to one monthly TO document', () => {
   assert.doesNotMatch(panel, /action\.textContent = created \? 'Хужатни очиш'/);
 });
 
-test('TO monthly analysis opens a draft and does not create a report before Save', () => {
+test('TO monthly analysis creates or opens the selected monthly report', () => {
   assert.match(panel, /openSelectedPeriod\?\.\(\{ fallbackToSource: true \}\)/);
-  assert.doesNotMatch(panel, /createSelectedPeriod\?\.\(/);
+  assert.match(panel, /createSelectedPeriod\?\.\(/);
+  assert.match(panel, /Number\(createdPeriod\.year\) !== state\.year/);
+  assert.match(panel, /Number\(createdPeriod\.month\) !== state\.month/);
   assert.match(panel, /state\.sections = Array\.isArray\(state\.source\?\.sections\)/);
   assert.match(panel, /state\.totalItems = Number\(state\.source\?\.totalItems\)/);
   assert.match(panel, /applySignerSelectionsForCurrentPeriod/);
