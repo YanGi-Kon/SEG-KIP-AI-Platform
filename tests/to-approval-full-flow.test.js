@@ -134,6 +134,6 @@ test('TO frontend provider qabul qilgan xabarni aniq ko‘rsatadi va cache yangi
   assert.match(ui, /faqat avtomatik\/tasdiqlangan imzosi yo‘q/);
   assert.match(ui, /JSON\.stringify\(\{ assignedApprovers \}\)/);
   assert.match(ui, /unsignedApprovers/);
-  assert.match(bridge, /to-reports8-master-sheet/);
+  assert.match(bridge, /to-reports9-final-delete-guard/);
   assert.match(server, /to-period-bridge13-analysis-home/);
 });
