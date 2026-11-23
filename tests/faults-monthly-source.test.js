@@ -40,5 +40,5 @@ test('faults distinguishes partial source failures from genuine zero rows', () =
 });
 
 test('faults module cache is refreshed', () => {
-  assert.match(app, /faults: 'modules\/faults\.html\?v=20260925-official-analysis-table1'/);
+  assert.match(app, /faults: 'modules\/faults\.html\?v=20261124-to-style-reports'/);
 });

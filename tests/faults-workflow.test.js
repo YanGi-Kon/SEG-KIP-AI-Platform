@@ -28,7 +28,7 @@ test('FAULTS toolbar mirrors TO workflow sections', () => {
   assert.match(html, /5\. ИМЗО ЧЕКУВЧИЛАР/);
   assert.match(html, /6\. ЯКУНИЙ ҲУЖЖАТЛАР/);
   assert.match(html, /⚙ Созламалар/);
-  assert.match(html, /faults-workflow\.js\?v=faults-workflow7-official-analysis-table/);
+  assert.match(html, /faults-workflow\.js\?v=faults-workflow8-to-style-reports/);
 });
 
 test('FAULTS workflow script is syntactically valid and exposes all panels', () => {
@@ -49,7 +49,7 @@ test('FAULTS opens monthly analysis once per cached module lifecycle', () => {
   assert.match(workflow, /function autoOpenMonthlyAnalysis\(\)/);
   assert.match(workflow, /window\.setTimeout\(autoOpenMonthlyAnalysis, 120\)/);
   assert.doesNotMatch(app, /SEG_KIP_FAULTS_OPEN/);
-  assert.match(app, /faults: 'modules\/faults\.html\?v=20260925-official-analysis-table1'/);
+  assert.match(app, /faults: 'modules\/faults\.html\?v=20261124-to-style-reports'/);
 });
 
 test('FAULTS main workspace shows only monthly analysis while legacy journal stays hidden', () => {
@@ -173,10 +173,14 @@ test('FAULTS save captures editable journal fields into reports', () => {
   assert.match(service, /actionTime: clean\(row\.actionTime\)/);
 });
 
-test('FAULTS reports panel supports draft edit delete and completed PDF link', () => {
+test('FAULTS reports panel mirrors TO report folders, A4 preview and completed PDF actions', () => {
   assert.match(workflow, /3\. Хисоботлар/);
   assert.match(workflow, /Tahrirlash/);
-  assert.match(workflow, /O‘chirish/);
+  assert.match(workflow, /data-fault-report-delete/);
+  assert.match(workflow, /faults-report-year/);
+  assert.match(workflow, /faults-report-a4/);
+  assert.match(route, /buildFaultReportHtml/);
+  assert.doesNotMatch(repository, /AND status = 'draft'/);
   assert.match(workflow, /Yakuniy A4 PDF Drive'da/);
   assert.match(workflow, /editSavedReport/);
   assert.match(workflow, /deleteSavedReport/);

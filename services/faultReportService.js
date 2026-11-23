@@ -123,19 +123,11 @@ export async function deleteFaultReport(workspaceId, yearRaw, monthRaw) {
   const { year, month } = normalizeFaultPeriod(yearRaw, monthRaw);
   const deleted = await deleteFaultReportRecord(workspaceId, year, month);
   if (deleted) return deleted;
-  const existing = await getFaultReportRecord(workspaceId, year, month);
-  if (!existing) {
-    const error = new Error('Nosozliklar jurnali hisoboti topilmadi.');
-    error.code = 'FAULT_REPORT_NOT_FOUND';
-    error.statusCode = 404;
-    throw error;
-  }
-  const error = new Error('Faqat draft holatdagi nosozliklar jurnalini o‘chirish mumkin.');
-  error.code = 'FAULT_REPORT_DELETE_FORBIDDEN';
-  error.statusCode = 409;
+  const error = new Error('Nosozliklar jurnali hisoboti topilmadi.');
+  error.code = 'FAULT_REPORT_NOT_FOUND';
+  error.statusCode = 404;
   throw error;
 }
-
 async function signerImageDataUri(signer = {}) {
   const fileId = clean(signer.signatureFileId);
   const internalId = fileId.match(/^db:([0-9a-f-]{36})$/i)?.[1] || '';

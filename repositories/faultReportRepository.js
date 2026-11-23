@@ -89,7 +89,6 @@ export async function deleteFaultReport(workspaceId, year, month) {
      WHERE workspace_id = $1::uuid
        AND period_year = $2::smallint
        AND period_month = $3::smallint
-       AND status = 'draft'
      RETURNING ${COLUMNS}`,
     [workspaceId, Number(year), Number(month)],
   );

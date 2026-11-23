@@ -6,7 +6,7 @@
   const ADMIN_TOKEN_KEY = 'seg_kip_admin_jwt';
   const MODULE_SHEET_KEY = 'faults_sheet_name';
   const MONTHS = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-  const uiState = { analysisYear: 0, analysisMonth: 0, analysisRows: [], reports: [], signers: [], documentDraft: null, busy: false };
+  const uiState = { analysisYear: 0, analysisMonth: 0, analysisRows: [], reports: [], activeReportKey: '', signers: [], documentDraft: null, busy: false };
 
   const $ = (id) => document.getElementById(id);
   const clean = (value) => String(value ?? '').trim();
@@ -115,7 +115,7 @@
       body.faults-analysis-home #faultsMonthlyModal .faults-wf-shell{width:100%;max-width:none;max-height:none;min-height:calc(100vh - 24px);box-shadow:none}
       body.faults-analysis-home #faultsMonthlyClose{display:none!important}
       .faults-home-nav{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-      .faults-wf-shell.small{width:min(760px,100%)}.faults-wf-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.09)}
+      .faults-wf-shell.small{width:min(760px,100%)}.faults-reports-shell{width:min(1320px,100%);height:min(94vh,980px);display:flex;flex-direction:column}.faults-wf-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.09)}
       .faults-wf-head h2{margin:0;font-size:20px}.faults-wf-head-actions,.faults-wf-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.faults-wf-body{padding:16px;overflow:auto;min-height:0}
       .faults-wf-period{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.faults-wf-period select,.faults-wf-input{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px}
       .faults-wf-status{font-size:12px;color:#cdeeff;line-height:1.5}.faults-wf-status.ok{color:#86efac}.faults-wf-status.bad{color:#fca5a5}.faults-wf-status.sync{color:#fde68a}
@@ -124,9 +124,9 @@
       .faults-wf-tablewrap{overflow:auto;border:1px solid rgba(255,255,255,.12);border-radius:13px}.faults-wf-table{width:100%;min-width:900px;border-collapse:collapse;background:rgba(1,12,24,.55)}
       .faults-wf-table th,.faults-wf-table td{padding:9px;border-bottom:1px solid rgba(255,255,255,.09);font-size:11px;text-align:left;vertical-align:top}.faults-wf-table th{position:sticky;top:0;background:#0a3848;color:#dffbff}
       .faults-monthly-official-table{table-layout:fixed;min-width:1180px}.faults-monthly-official-table th{text-align:center;vertical-align:middle;line-height:1.08}.faults-monthly-official-table td{vertical-align:middle}.faults-monthly-official-table .pre{white-space:pre-wrap}.faults-monthly-official-table .faults-signer-preview{justify-content:center}.faults-monthly-official-table .faults-signer-preview img{max-width:78px;max-height:32px;object-fit:contain}
-      .faults-wf-empty{padding:22px;text-align:center;color:#9fb7c7}.faults-reports-grid{display:grid;grid-template-columns:270px 1fr;min-height:560px}.faults-report-folders{overflow:auto;border-right:1px solid rgba(255,255,255,.09);padding:12px}
-      .faults-report-folder{display:block;width:100%;margin-bottom:7px;padding:10px;border:1px solid rgba(34,211,238,.22);border-radius:10px;background:rgba(4,22,39,.8);color:#eaf7ff;text-align:left;cursor:pointer}.faults-report-folder.active{border-color:#22d3ee;background:rgba(34,211,238,.11)}
-      .faults-report-preview{overflow:auto;padding:14px}.faults-wf-card{padding:13px;border:1px solid rgba(34,211,238,.22);border-radius:13px;background:rgba(2,15,28,.7);margin-bottom:12px}
+      .faults-wf-empty{padding:22px;text-align:center;color:#9fb7c7}.faults-reports-grid{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:0;flex:1;overflow:hidden}.faults-report-folders{overflow:auto;border-right:1px solid rgba(255,255,255,.09);padding:14px;background:rgba(2,13,25,.5)}
+      .faults-report-year{margin:10px 0 7px;color:#a5f3fc;font-weight:900;font-size:13px}.faults-report-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;align-items:center;margin-bottom:8px}.faults-report-folder{display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:center;width:100%;min-width:0;padding:11px;border:1px solid rgba(255,255,255,.10);border-radius:13px;background:rgba(255,255,255,.045);color:#eaf7ff;text-align:left;cursor:pointer}.faults-report-folder:hover,.faults-report-folder.active{border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.10)}.faults-report-folder-icon{font-size:24px}.faults-report-folder-name{display:block;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.faults-report-folder-meta{display:block;margin-top:3px;color:#9fb7c7;font-size:10px}.faults-report-folder-state{font-size:10px;color:#fde68a}.faults-report-folder-actions{display:flex;align-items:center;gap:5px}.faults-report-folder-action{width:28px;height:28px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.13);border-radius:8px;background:rgba(255,255,255,.06);color:#eaf7ff;cursor:pointer}.faults-report-folder-action:hover{border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.13)}.faults-report-folder-action.delete:hover{border-color:rgba(248,113,113,.65);background:rgba(127,29,29,.34);color:#fecaca}
+      .faults-report-preview{overflow:auto;padding:18px;background:#101827}.faults-report-card{padding:13px;border:1px solid rgba(34,211,238,.22);border-radius:13px;background:#071427;margin-bottom:12px}.faults-report-a4{display:block;width:100%;height:min(72vh,760px);border:0;border-radius:8px;background:#fff}.faults-report-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
       .faults-wf-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.faults-wf-form label{display:grid;gap:5px;font-size:11px;color:#b9d6e4}.faults-wf-form input{width:100%}
       .faults-signer-preview{display:flex;align-items:center;gap:8px}.faults-signer-preview img{width:92px;height:42px;object-fit:contain;background:#fff;border-radius:5px}
       .faults-final-link{display:inline-block;margin-top:7px;color:#67e8f9;font-weight:800;text-decoration:none}
@@ -144,7 +144,7 @@
       .faults-document-table tbody td{height:5.96mm;line-height:1.05}
       .faults-document-table .pre{white-space:pre-wrap}.faults-document-signer{text-align:center}
       .faults-document-signer img{max-width:28mm;max-height:5mm;object-fit:contain;display:block;margin:auto}
-      @media(max-width:820px){.faults-wf-kpis{grid-template-columns:repeat(2,1fr)}.faults-reports-grid{grid-template-columns:1fr}.faults-report-folders{max-height:220px;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.faults-wf-form{grid-template-columns:1fr}}
+      @media(max-width:820px){.faults-wf-kpis{grid-template-columns:repeat(2,1fr)}.faults-reports-grid{grid-template-columns:1fr;grid-template-rows:minmax(150px,220px) minmax(0,1fr)}.faults-report-folders{max-height:none;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.faults-report-preview{padding:10px}.faults-report-a4{height:65vh}.faults-wf-form{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
   }
@@ -190,7 +190,7 @@
         </div>
       </div></div>
 
-      <div id="faultsReportsModal" class="faults-wf-modal"><div class="faults-wf-shell">
+      <div id="faultsReportsModal" class="faults-wf-modal"><div class="faults-wf-shell faults-reports-shell">
         <div class="faults-wf-head"><h2>3. Хисоботлар</h2><div class="faults-wf-head-actions"><button id="faultsReportsRefresh" class="btn" type="button">↻ Янгилаш</button><button id="faultsReportsClose" class="btn" type="button">✕</button></div></div>
         <div class="faults-reports-grid"><aside id="faultsReportFolders" class="faults-report-folders"></aside><main id="faultsReportPreview" class="faults-report-preview"><div class="faults-wf-empty">Oy hisobotini tanlang.</div></main></div>
       </div></div>
@@ -607,11 +607,45 @@
       host.innerHTML = '<div class="faults-wf-empty">Hali hisobot saqlanmagan.</div>';
       return;
     }
-    host.innerHTML = uiState.reports.map((report) => `<button class="faults-report-folder" type="button" data-fault-report="${report.year}-${report.month}"><b>${esc(report.label || periodLabel(report.year, report.month))}</b><br><small>${esc(report.rowCount)} ta qator · ${esc(report.status)}</small></button>`).join('');
+    const grouped = new Map();
+    for (const report of uiState.reports) {
+      const year = Number(report.year);
+      if (!grouped.has(year)) grouped.set(year, []);
+      grouped.get(year).push(report);
+    }
+    host.innerHTML = [...grouped.entries()].sort((a, b) => b[0] - a[0]).map(([year, reports]) => {
+      const rows = reports.sort((a, b) => Number(b.month) - Number(a.month)).map((report) => {
+        const key = String(report.year) + '-' + String(report.month);
+        const draft = clean(report.status || 'draft') === 'draft';
+        const actions = draft
+          ? '<button class="faults-report-folder-action" type="button" data-fault-report-edit="' + esc(key) + '" title="Tahrirlash" aria-label="' + esc(report.label) + ' hisobotini tahrirlash">✏️</button><button class="faults-report-folder-action delete" type="button" data-fault-report-delete="' + esc(key) + '" title="O‘chirish" aria-label="' + esc(report.label) + ' hisobotini o‘chirish">🗑️</button>'
+          : '<span class="faults-report-folder-state">Yakunlangan</span><button class="faults-report-folder-action delete" type="button" data-fault-report-delete="' + esc(key) + '" title="O‘chirish" aria-label="' + esc(report.label) + ' hisobotini o‘chirish">🗑️</button>';
+        const active = uiState.activeReportKey === key ? ' active' : '';
+        return '<div class="faults-report-entry"><button class="faults-report-folder' + active + '" type="button" data-fault-report="' + esc(key) + '"><span class="faults-report-folder-icon">📁</span><span><span class="faults-report-folder-name">' + esc(report.label || periodLabel(report.year, report.month)) + '</span><span class="faults-report-folder-meta">' + esc(report.rowCount) + ' ta qator · ' + esc(report.status || 'draft') + '</span></span></button><span class="faults-report-folder-actions">' + actions + '</span></div>';
+      }).join('');
+      return '<div class="faults-report-year">' + esc(year) + '</div>' + rows;
+    }).join('');
+
     host.querySelectorAll('[data-fault-report]').forEach((button) => {
       button.addEventListener('click', () => {
         const [year, month] = button.dataset.faultReport.split('-').map(Number);
-        void openReport(year, month, button);
+        void openReport(year, month);
+      });
+    });
+    host.querySelectorAll('[data-fault-report-edit]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const [year, month] = button.dataset.faultReportEdit.split('-').map(Number);
+        const report = uiState.reports.find((item) => Number(item.year) === year && Number(item.month) === month);
+        if (report) void editSavedReport(report);
+      });
+    });
+    host.querySelectorAll('[data-fault-report-delete]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const [year, month] = button.dataset.faultReportDelete.split('-').map(Number);
+        const report = uiState.reports.find((item) => Number(item.year) === year && Number(item.month) === month);
+        if (report) void deleteSavedReport(report);
       });
     });
   }
@@ -623,9 +657,13 @@
       const data = await api('/api/faults/reports');
       uiState.reports = Array.isArray(data.reports) ? data.reports : [];
       renderReportFolders();
+      if (uiState.activeReportKey && !uiState.reports.some((report) => String(report.year) + '-' + String(report.month) === uiState.activeReportKey)) {
+        uiState.activeReportKey = '';
+        if ($('faultsReportPreview')) $('faultsReportPreview').innerHTML = '<div class="faults-wf-empty">Kerakli oy hisobotini tanlang.</div>';
+      }
       return uiState.reports;
     } catch (error) {
-      if (host) host.innerHTML = `<div class="faults-wf-empty">${esc(error.message)}</div>`;
+      if (host) host.innerHTML = '<div class="faults-wf-empty">' + esc(error.message) + '</div>';
       return [];
     }
   }
@@ -633,26 +671,40 @@
   function reportRowsTable(report) {
     const rows = Array.isArray(report?.rows) ? report.rows : [];
     if (!rows.length) return '<div class="faults-wf-empty">Hisobot qatorlari yo‘q.</div>';
-    return `<div class="faults-wf-tablewrap"><table class="faults-wf-table"><thead><tr><th>№</th><th>Sana</th><th>Uskuna</th><th>Nosozlik</th><th>Ko‘rilgan choralar</th><th>Bartaraf sana</th></tr></thead><tbody>${rows.map((row, index) => `<tr><td>${esc(row.actNo || index + 1)}</td><td>${esc(row.date)}</td><td>${esc([row.deviceName, row.place, row.positionNo ? `poz. №${row.positionNo}` : ''].filter(Boolean).join(', '))}</td><td>${esc([row.serialNo ? `Zavod №: ${row.serialNo}` : '', row.measureRange ? `Chegara: ${row.measureRange}` : '', row.reasonText].filter(Boolean).join(' · '))}</td><td>${esc(row.actionText)}</td><td>${esc([row.actionDate, row.actionTime].filter(Boolean).join(' '))}</td></tr>`).join('')}</tbody></table></div>`;
+    return '<div class="faults-wf-tablewrap"><table class="faults-wf-table"><thead><tr><th>№</th><th>Sana</th><th>Uskuna</th><th>Nosozlik</th><th>Ko‘rilgan choralar</th><th>Bartaraf sana</th></tr></thead><tbody>' + rows.map((row, index) => '<tr><td>' + esc(row.actNo || index + 1) + '</td><td>' + esc(row.date) + '</td><td>' + esc([row.deviceName, row.place, row.positionNo ? 'poz. №' + row.positionNo : ''].filter(Boolean).join(', ')) + '</td><td>' + esc([row.serialNo ? 'Zavod №: ' + row.serialNo : '', row.measureRange ? 'Chegara: ' + row.measureRange : '', row.reasonText].filter(Boolean).join(' · ')) + '</td><td>' + esc(row.actionText) + '</td><td>' + esc([row.actionDate, row.actionTime].filter(Boolean).join(' ')) + '</td></tr>').join('') + '</tbody></table></div>';
   }
 
-  async function openReport(year, month, button = null) {
-    $('faultsReportFolders')?.querySelectorAll?.('.faults-report-folder').forEach((item) => item.classList.remove('active'));
-    button?.classList.add('active');
+  async function openReport(year, month) {
+    uiState.activeReportKey = String(Number(year)) + '-' + String(Number(month));
+    renderReportFolders();
     const preview = $('faultsReportPreview');
     if (preview) preview.innerHTML = '<div class="faults-wf-empty">Hisobot ochilmoqda...</div>';
     try {
-      const data = await api(`/api/faults/reports/${year}/${month}`);
+      const data = await api('/api/faults/reports/' + Number(year) + '/' + Number(month));
       const report = data.report;
       const finalUrl = clean(report.finalPdf?.url);
-      const actions = report.status === 'draft'
-        ? `<button class="btn" type="button" id="faultReportEditBtn">✏️ Tahrirlash</button><button class="btn" type="button" id="faultReportDeleteBtn">🗑️ O‘chirish</button>`
-        : '<span class="faults-wf-status ok">✅ Yakunlangan</span>';
-      if (preview) preview.innerHTML = `<div class="faults-wf-card"><h3 style="margin:0 0 6px">${esc(periodLabel(year, month))}</h3><div class="faults-wf-status">Holat: ${esc(report.status)} · ${esc(report.rows?.length || 0)} ta qator</div><div class="faults-wf-actions" style="margin-top:10px">${actions}</div>${finalUrl ? `<a class="faults-final-link" href="${esc(finalUrl)}" target="_blank" rel="noopener">✅ Yakuniy A4 PDF Drive'da</a>` : ''}</div>${reportRowsTable(report)}`;
+      const draft = clean(report.status || 'draft') === 'draft';
+      const actions = draft
+        ? '<button class="btn" type="button" id="faultReportEditBtn">✏️ Tahrirlash</button><button class="btn red" type="button" id="faultReportDeleteBtn">🗑️ O‘chirish</button>'
+        : '<span class="faults-wf-status ok">✓ Yakunlangan</span><button class="btn red" type="button" id="faultReportDeleteBtn">🗑️ O‘chirish</button>';
+      if (preview) {
+        preview.innerHTML = '<div class="faults-report-card"><h3 style="margin:0 0 6px">' + esc(periodLabel(year, month)) + '</h3><div class="faults-wf-status">Holat: ' + esc(report.status) + ' · ' + esc(report.rows?.length || 0) + ' ta qator</div><div class="faults-report-actions">' + actions + (finalUrl ? '<a class="faults-final-link" href="' + esc(finalUrl) + '" target="_blank" rel="noopener">✅ Yakuniy A4 PDF Drive\'da</a>' : '') + '</div></div><div id="faultsReportA4Host"></div>';
+        const a4Host = $('faultsReportA4Host');
+        if (a4Host && report.a4Html) {
+          const frame = document.createElement('iframe');
+          frame.className = 'faults-report-a4';
+          frame.title = periodLabel(year, month) + ' nosozliklar hisoboti';
+          frame.setAttribute('sandbox', 'allow-same-origin');
+          frame.srcdoc = report.a4Html;
+          a4Host.appendChild(frame);
+        } else if (a4Host) {
+          a4Host.innerHTML = reportRowsTable(report);
+        }
+      }
       $('faultReportEditBtn')?.addEventListener('click', () => void editSavedReport(report));
       $('faultReportDeleteBtn')?.addEventListener('click', () => void deleteSavedReport(report));
     } catch (error) {
-      if (preview) preview.innerHTML = `<div class="faults-wf-empty">${esc(error.message)}</div>`;
+      if (preview) preview.innerHTML = '<div class="faults-wf-empty">' + esc(error.message) + '</div>';
     }
   }
 
@@ -669,11 +721,15 @@
   }
 
   async function deleteSavedReport(report) {
-    if (!confirm(`${periodLabel(report.year, report.month)} draft hisobotini o‘chirasizmi?`)) return;
+    const label = periodLabel(report.year, report.month);
+    const hasDrivePdf = Boolean(clean(report.finalPdf?.url || report.finalPdf?.fileId));
+    const driveNote = hasDrivePdf ? ' Google Drive dagi yakuniy PDF fayli alohida qoladi.' : '';
+    if (!confirm(label + ' nosozliklar hisobotini va tasdiqlash holatini o‘chirasizmi?' + driveNote)) return;
     try {
-      await api(`/api/faults/reports/${report.year}/${report.month}`, { method: 'DELETE' });
+      await api('/api/faults/reports/' + Number(report.year) + '/' + Number(report.month), { method: 'DELETE' });
+      uiState.activeReportKey = '';
       await loadReports();
-      if ($('faultsReportPreview')) $('faultsReportPreview').innerHTML = '<div class="faults-wf-empty">Hisobot o‘chirildi.</div>';
+      if ($('faultsReportPreview')) $('faultsReportPreview').innerHTML = '<div class="faults-wf-empty">Hisobot o‘chirildi. Boshqa oyni tanlang.</div>';
     } catch (error) {
       alert(error.message);
     }
@@ -683,7 +739,6 @@
     $('faultsReportsModal')?.classList.add('show');
     void loadReports();
   }
-
   async function loadSigners() {
     const status = $('faultsSignersStatus');
     const body = $('faultsSignerRows');

@@ -3,6 +3,7 @@ import { requireAccessToken } from '../middleware/auth.js';
 import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
 import {
   deleteFaultReport,
+  buildFaultReportHtml,
   finalizeFaultReport,
   getFaultReport,
   listFaultReportFolders,
@@ -56,7 +57,8 @@ router.get('/reports/:year/:month', async (req, res) => {
         error: 'Nosozliklar jurnali hisoboti topilmadi.',
       });
     }
-    return res.json({ ok: true, report });
+    const a4Html = await buildFaultReportHtml(report, req.workspace);
+    return res.json({ ok: true, report: { ...report, a4Html } });
   } catch (error) {
     const classified = classifyFaultStorageError(error, 'FAULT_REPORT_READ_FAILED');
     return res.status(classified.statusCode).json({ ok: false, ...classified });
