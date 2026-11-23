@@ -135,5 +135,5 @@ test('TO frontend provider qabul qilgan xabarni aniq ko‘rsatadi va cache yangi
   assert.match(ui, /JSON\.stringify\(\{ assignedApprovers \}\)/);
   assert.match(ui, /unsignedApprovers/);
   assert.match(bridge, /to-reports10-final-delete-enabled/);
-  assert.match(server, /to-period-bridge13-analysis-home/);
+  assert.match(server, /to-period-bridge14-sticky-create/);
 });

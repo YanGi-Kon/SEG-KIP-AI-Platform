@@ -152,7 +152,7 @@
     if (document.getElementById('toMonthlyAnalysisPanelScript')) return;
     const script = document.createElement('script');
     script.id = 'toMonthlyAnalysisPanelScript';
-    script.src = '/js/to-monthly-analysis-panel.js?v=to-analysis6-master-report';
+    script.src = '/js/to-monthly-analysis-panel.js?v=to-analysis7-sticky-create';
     script.defer = true;
     document.head.appendChild(script);
   }

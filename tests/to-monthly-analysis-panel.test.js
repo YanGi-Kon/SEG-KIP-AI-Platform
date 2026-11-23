@@ -13,10 +13,10 @@ test('TO monthly analysis panel is loaded as section 1', () => {
   assert.match(toModule, />1\. Ойлик анализ<\/button>/);
   assert.ok(toModule.indexOf('toMonthlyAnalysisBtn') < toModule.indexOf('toSettingsBtn'));
   assert.match(bridge, /loadMonthlyAnalysisPanel/);
-  assert.match(bridge, /to-monthly-analysis-panel\.js\?v=to-analysis6-master-report/);
+  assert.match(bridge, /to-monthly-analysis-panel\.js\?v=to-analysis7-sticky-create/);
   assert.match(panel, /button\.textContent = '1\. Ойлик анализ'/);
   assert.match(panel, /<h2>1\. Ойлик анализ<\/h2>/);
-  assert.match(app, /modules\/to\.html\?v=20261123-master-report1/);
+  assert.match(app, /modules\/to\.html\?v=20261124-sticky-create-button/);
 });
 
 test('TO main workspace shows only monthly analysis on every menu entry', () => {
@@ -24,7 +24,8 @@ test('TO main workspace shows only monthly analysis on every menu entry', () => 
   assert.match(panel, /body\.to-analysis-home>\.top-bar/);
   assert.match(panel, /body\.to-analysis-home>\.period-bar/);
   assert.match(panel, /body\.to-analysis-home>\.document-container/);
-  assert.match(panel, /body\.to-analysis-home #toMonthlyAnalysisModal\{position:relative/);
+  assert.match(panel, /body\.to-analysis-home #toMonthlyAnalysisModal\{position:fixed/);
+  assert.match(panel, /\.to-analysis-footer\{[^}]*position:sticky/);
   assert.match(panel, /document\.body\.classList\.add\('to-analysis-home'\)/);
   assert.match(panel, /document\.body\.classList\.remove\('to-analysis-home'\)/);
   assert.match(panel, /id="toAnalysisReportsBtn"/);
