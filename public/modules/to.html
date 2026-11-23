@@ -111,6 +111,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     periodYear:DEFAULT_PERIOD_YEAR,periodMonth:DEFAULT_PERIOD_MONTH,
     period:null,periodItems:[],periods:[],periodRequestVersion:0,periodBusy:false
   };
+  let workspaceRefreshPromise=null;
 
   const $=id=>document.getElementById(id);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -120,6 +121,36 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
   function selectedWorkspaceId(){return localStorage.getItem(WORKSPACE_ID_KEY)||parentStorage('localStorage',WORKSPACE_ID_KEY)||''}
   function sessionValue(key){try{return sessionStorage.getItem(key)||parentStorage('sessionStorage',key)||''}catch(_){return parentStorage('sessionStorage',key)}}
   function token(){return sessionValue(WORKSPACE_TOKEN_KEY)||sessionValue(ADMIN_TOKEN_KEY)}
+
+  async function refreshWorkspaceToken(){
+    if(!workspaceRefreshPromise){
+      workspaceRefreshPromise=(async()=>{
+        const response=await fetch('/api/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include'});
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok||!data.accessToken)throw new Error(data.error||'Workspace sessiyasi yangilanmadi');
+        sessionStorage.setItem(WORKSPACE_TOKEN_KEY,data.accessToken);
+        try{parent.sessionStorage.setItem(WORKSPACE_TOKEN_KEY,data.accessToken)}catch(_){}
+        return data.accessToken;
+      })().finally(()=>{workspaceRefreshPromise=null});
+    }
+    return workspaceRefreshPromise;
+  }
+
+  async function authorizedWorkspaceFetch(path,expectedWsId=state.workspaceId){
+    const send=()=>{
+      const headers={};
+      const accessToken=token();
+      if(accessToken)headers.Authorization=`Bearer ${accessToken}`;
+      if(expectedWsId)headers['x-workspace-id']=expectedWsId;
+      return fetch(path,{headers,credentials:'include'});
+    };
+    let response=await send();
+    if(response.status===401){
+      await refreshWorkspaceToken();
+      response=await send();
+    }
+    return response;
+  }
 
   function periodStorageKey(workspaceId=state.workspaceId||selectedWorkspaceId()){
     const id=clean(workspaceId);
@@ -633,7 +664,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     if(!sourceUrl)return'';
     if(!/^\/api\/workspaces\//i.test(sourceUrl))return /^(?:https?:\/\/|data:image\/png)/i.test(sourceUrl)?sourceUrl:'';
     const auth=token(); if(!auth)return'';
-    const response=await fetch(sourceUrl,{headers:{Authorization:`Bearer ${auth}`},credentials:'include'});
+    const response=await authorizedWorkspaceFetch(sourceUrl,expectedWsId);
     if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId||!response.ok)return'';
     const blob=await response.blob();
     if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return'';
@@ -769,7 +800,7 @@ body{background:#061427;color:var(--ink);font-family:'Times New Roman',Times,ser
     populateAllSignerSelects();
     const auth=token(); if(!expectedWsId||!auth)return[];
     try{
-      const response=await fetch(`/api/workspaces/${encodeURIComponent(expectedWsId)}/signers?includeInactive=true`,{headers:{Authorization:`Bearer ${auth}`},credentials:'include'});
+      const response=await authorizedWorkspaceFetch(`/api/workspaces/${encodeURIComponent(expectedWsId)}/signers?includeInactive=true`,expectedWsId);
       if(requestVersion!==state.signerRequestVersion||expectedWsId!==state.workspaceId)return[];
       const data=await response.json().catch(()=>({}));
       if(!response.ok||data.error)return[];

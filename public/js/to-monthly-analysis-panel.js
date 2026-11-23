@@ -421,6 +421,13 @@
     const action = $('toAnalysisDocumentBtn');
     if (action) action.disabled = true;
     try {
+      const journal = window.ToJournalWorkspace;
+      await journal?.createSelectedPeriod?.();
+      const createdPeriod = journal?.state?.period;
+      if (!createdPeriod || Number(createdPeriod.year) !== state.year || Number(createdPeriod.month) !== state.month) {
+        setMessage('TO HISOBOT varag\u2018ini yaratib/ochib bo\u2018lmadi. Davr holati va sinxronlash xabarini tekshiring.', 'bad');
+        return;
+      }
       await window.ToJournalWorkspace?.openSelectedPeriod?.({ fallbackToSource: true });
       await window.ToJournalWorkspace?.applySignerSelectionsForCurrentPeriod?.();
       close();

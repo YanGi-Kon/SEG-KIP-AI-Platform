@@ -100,9 +100,9 @@ export function buildToPeriodItems(parsed = {}) {
         equipmentName: String(item.equipmentName || '').trim(),
         positionNo: String(item.positionNo || '').trim(),
         quantity: String(item.quantity || '').trim(),
-        technicalState: '',
-        workType: '',
-        note: '',
+        technicalState: String(item.technicalState || '').trim(),
+        workType: String(item.workType || '').trim(),
+        note: String(item.note || '').trim(),
       });
     }
   }

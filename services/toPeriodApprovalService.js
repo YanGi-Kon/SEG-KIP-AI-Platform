@@ -421,7 +421,9 @@ async function ensureApprovalSheet(workspace) {
 }
 
 async function approvalRows(workspace, docKey) {
-  const { config, sheets, spreadsheetId } = await ensureApprovalSheet(workspace);
+  const config = resolveWorkspaceGoogleConfig(workspace);
+  const spreadsheetId = extractSpreadsheetId(config.spreadsheetUrl);
+  const sheets = await getSheetsClient(config.serviceAccount);
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range: `${q(APPROVALS_SHEET)}!A:O`,
@@ -462,6 +464,7 @@ export async function clearToPeriodApprovals(workspace, year, month) {
 }
 
 async function upsertApproval(workspace, input, { resetExisting = false } = {}) {
+  await ensureApprovalSheet(workspace);
   const current = await approvalRows(workspace, input.docKey);
   const existing = current.rows.find((row) => row.signerId === input.signerId);
   const approved = !resetExisting && existing?.status === 'Тасдиқланди';

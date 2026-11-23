@@ -8,6 +8,7 @@ const RU_MONTHS = [
   '', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 ];
+const MASTER_REPORT_SHEET = 'TO HISOBOT';
 
 function q(sheetName) {
   return `'${String(sheetName || '').replace(/'/g, "''")}'`;
@@ -142,17 +143,6 @@ async function updatePeriodDateCell({ sheets, spreadsheetId, sheetName, document
   return false;
 }
 
-async function clearMonthlyEditableFields({ sheets, spreadsheetId, sheetName, sourceRows }) {
-  const ranges = contiguousRanges(sourceRows).map(([start, end]) => (
-    `${q(sheetName)}!F${start}:H${end}`
-  ));
-  if (!ranges.length) return;
-  await sheets.spreadsheets.values.batchClear({
-    spreadsheetId,
-    requestBody: { ranges },
-  });
-}
-
 export async function ensureToPeriodSheet({
   spreadsheetUrl,
   serviceAccount,
@@ -161,6 +151,7 @@ export async function ensureToPeriodSheet({
   month,
   documentDate,
   sourceRows = [],
+  items = [],
 }) {
   const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
   const sheets = await getSheetsClient(serviceAccount);
@@ -173,11 +164,9 @@ export async function ensureToPeriodSheet({
     throw error;
   }
 
-  const targetName = periodSheetTitle(year, month);
-  const { preferred, matches } = findPeriodSheets(allSheets, targetName);
-  let target = preferred;
+  const targetName = MASTER_REPORT_SHEET;
+  let target = allSheets.find((sheet) => normalizeSheetTitle(sheet.properties?.title) === normalizeSheetTitle(targetName));
   let created = false;
-  let renamedFrom = '';
 
   if (!target) {
     const duplicated = await sheets.spreadsheets.batchUpdate({
@@ -192,49 +181,85 @@ export async function ensureToPeriodSheet({
       },
     });
     target = duplicated.data.replies?.[0]?.duplicateSheet || null;
+    if (!target) throw new Error('TO HISOBOT varag\u2018ini yaratib bo\u2018lmadi');
     created = true;
-  } else if (target.properties?.title !== targetName) {
-    renamedFrom = target.properties.title;
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        requests: [{
-          updateSheetProperties: {
-            properties: { sheetId: target.properties.sheetId, title: targetName },
-            fields: 'title',
-          },
-        }],
-      },
-    });
-    target = { ...target, properties: { ...target.properties, title: targetName } };
   }
 
-  const duplicates = matches
-    .filter((sheet) => sheet !== preferred)
-    .map((sheet) => ({ title: sheet.properties.title, sheetId: sheet.properties.sheetId }));
-
-  if (created) {
-    await clearMonthlyEditableFields({
-      sheets,
-      spreadsheetId,
-      sheetName: targetName,
-      sourceRows,
-    });
-  }
-
-  const dateUpdated = await updatePeriodDateCell({
-    sheets,
+  const marker = `TO_PERIOD|${Number(year)}-${String(month).padStart(2, '0')}`;
+  const existing = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    sheetName: targetName,
-    documentDate,
-  });
+    range: `${q(targetName)}!A:I`,
+    valueRenderOption: 'FORMATTED_VALUE',
+  }).catch(() => ({ data: { values: [] } }));
+  const values = existing.data.values || [];
+  const markerIndex = values.findIndex((row) => String(row?.[8] || '').trim().startsWith(marker));
+  let sourceLayout = false;
+  let dataStartRow = 0;
+  const reportRowMap = {};
+
+  if (markerIndex >= 0) {
+    const markerValue = String(values[markerIndex]?.[8] || '');
+    sourceLayout = markerValue.endsWith('|SOURCE');
+    if (sourceLayout) {
+      for (const item of items) reportRowMap[Number(item.sourceRowNumber)] = Number(item.sourceRowNumber);
+    } else {
+      dataStartRow = markerIndex + 3;
+      for (let index = markerIndex + 2; index < values.length; index += 1) {
+        const row = values[index] || [];
+        const sourceRow = Number(row[8]);
+        if (!sourceRow) break;
+        reportRowMap[sourceRow] = index + 1;
+      }
+    }
+  } else if (created) {
+    const markerRange = `${q(targetName)}!I1`;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId, range: markerRange, valueInputOption: 'RAW',
+      requestBody: { values: [[`${marker}|SOURCE`]] },
+    });
+    sourceLayout = true;
+    for (const item of items) reportRowMap[Number(item.sourceRowNumber)] = Number(item.sourceRowNumber);
+  } else {
+    const lastRow = values.reduce((last, row, index) => row?.some((cell) => String(cell || '').trim()) ? index + 1 : last, 0);
+    const markerRow = lastRow + 2;
+    dataStartRow = markerRow + 2;
+    const rows = [
+      [periodSheetTitle(year, month)],
+      ['№', 'Зав. №', 'Наименование оборудования', 'Поз.', 'кол-во, шт.', 'Техническое состояние', 'Вид работ', 'Примечание'],
+      ...[...items].sort((a, b) => Number(a.sourceRowNumber) - Number(b.sourceRowNumber)).map((item) => [
+        String(item.no || ''), String(item.serialNo || ''), String(item.equipmentName || ''), String(item.positionNo || ''),
+        String(item.quantity || ''), String(item.technicalState || ''), String(item.workType || ''), String(item.note || ''),
+      ]),
+    ];
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${q(targetName)}!A${markerRow}:I${markerRow + rows.length - 1}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [
+        [rows[0][0], '', '', '', '', '', '', '', marker],
+        rows[1],
+        ...rows.slice(2).map((row, index) => {
+          const item = [...items].sort((a, b) => Number(a.sourceRowNumber) - Number(b.sourceRowNumber))[index];
+          const outputRow = markerRow + 2 + index;
+          reportRowMap[Number(item.sourceRowNumber)] = outputRow;
+          return [...row, Number(item.sourceRowNumber)];
+        }),
+      ] },
+    });
+  }
+
+  const dateUpdated = sourceLayout ? await updatePeriodDateCell({
+    sheets, spreadsheetId, sheetName: targetName, documentDate,
+  }) : false;
 
   return {
     sheetName: targetName,
     sheetId: target?.properties?.sheetId ?? target?.sheetId ?? null,
     created,
-    renamedFrom,
-    duplicates,
+    sourceLayout,
+    dataStartRow,
+    reportRowMap,
+    duplicates: [],
     dateUpdated,
   };
 }
@@ -244,20 +269,23 @@ export async function syncToPeriodSheet({
   serviceAccount,
   sheetName,
   items = [],
+  reportRowMap = {},
 }) {
   if (!sheetName) throw new Error('TO oylik Google Sheets varog‘i belgilanmagan');
   const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
   const sheets = await getSheetsClient(serviceAccount);
   const data = items
     .filter((item) => Number(item.sourceRowNumber) > 0)
-    .map((item) => ({
-      range: `${q(sheetName)}!F${Number(item.sourceRowNumber)}:H${Number(item.sourceRowNumber)}`,
+    .map((item) => {
+      const rowNumber = Number(reportRowMap[Number(item.sourceRowNumber)] || item.sourceRowNumber);
+      return {
+      range: `${q(sheetName)}!F${rowNumber}:H${rowNumber}`,
       values: [[
         String(item.technicalState || ''),
         String(item.workType || ''),
         String(item.note || ''),
       ]],
-    }));
+    }});
 
   if (!data.length) return { updatedRows: 0 };
   await sheets.spreadsheets.values.batchUpdate({
@@ -268,6 +296,29 @@ export async function syncToPeriodSheet({
     },
   });
   return { updatedRows: data.length };
+}
+
+export async function readToPeriodSheetEditableFields({
+  spreadsheetUrl, serviceAccount, sheetName, reportRowMap = {}, sourceRows = [],
+}) {
+  const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
+  const sheets = await getSheetsClient(serviceAccount);
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${q(sheetName)}!A:I`,
+    valueRenderOption: 'FORMATTED_VALUE',
+  });
+  const rows = result.data.values || [];
+  return sourceRows.map((sourceRowNumber) => {
+    const rowNumber = Number(reportRowMap[Number(sourceRowNumber)] || sourceRowNumber);
+    const row = rows[rowNumber - 1] || [];
+    return {
+      sourceRowNumber: Number(sourceRowNumber),
+      technicalState: row[5] || '',
+      workType: row[6] || '',
+      note: row[7] || '',
+    };
+  });
 }
 
 export async function readToPeriodSheetRows({

@@ -16,6 +16,7 @@ import {
 import {
   ensureToPeriodSheet,
   mergeDuplicateToPeriodSheets,
+  readToPeriodSheetEditableFields,
   readToPeriodSheetRows,
   syncToPeriodSheet,
 } from '../services/toPeriodSheetsService.js';
@@ -272,6 +273,19 @@ async function setPeriodSyncError(workspaceId, periodId, error) {
   } catch (_) {}
 }
 
+async function importLegacyPeriodSheet(config, bundle) {
+  const legacyName = clean(bundle?.period?.monthlySheetName);
+  if (!legacyName || legacyName.toUpperCase() === 'TO HISOBOT' || bundle.period.status !== 'draft') return bundle;
+  const rows = await readToPeriodSheetRows({
+    spreadsheetUrl: config.spreadsheetUrl,
+    serviceAccount: config.serviceAccount,
+    sheetName: legacyName,
+  });
+  const parsed = parseToSheetRows(rows);
+  await applyToPeriodSheetParsed(bundle.period.workspaceId, bundle.period.year, bundle.period.month, parsed);
+  return await getToPeriod(bundle.period.workspaceId, bundle.period.year, bundle.period.month) || bundle;
+}
+
 router.post('/settings/test', async (req, res) => {
   try {
     const config = resolveConfig(req);
@@ -387,6 +401,10 @@ router.post('/periods', requireToWrite, async (req, res) => {
     let sheet = null;
     let warning = '';
     try {
+      if (!result.created) {
+        const refreshed = await importLegacyPeriodSheet(config, { period: result.period, items: result.items });
+        result.items = refreshed.items;
+      }
       const ensured = await ensureToPeriodSheet({
         spreadsheetUrl: config.spreadsheetUrl,
         serviceAccount: config.serviceAccount,
@@ -395,29 +413,16 @@ router.post('/periods', requireToWrite, async (req, res) => {
         month: result.period.month,
         documentDate: String(result.period.documentDate),
         sourceRows: result.items.map((item) => item.sourceRowNumber),
+        items: result.items,
       });
 
-      if (!ensured.created && !result.period.monthlySheetName && result.period.status === 'draft') {
-        const existingRows = await readToPeriodSheetRows({
-          spreadsheetUrl: config.spreadsheetUrl,
-          serviceAccount: config.serviceAccount,
-          sheetName: ensured.sheetName,
-        });
-        const parsedExisting = parseToSheetRows(existingRows);
-        await applyToPeriodSheetParsed(
-          req.workspace.id,
-          result.period.year,
-          result.period.month,
-          parsedExisting,
-        );
-      } else {
-        await syncToPeriodSheet({
-          spreadsheetUrl: config.spreadsheetUrl,
-          serviceAccount: config.serviceAccount,
-          sheetName: ensured.sheetName,
-          items: result.items,
-        });
-      }
+      await syncToPeriodSheet({
+        spreadsheetUrl: config.spreadsheetUrl,
+        serviceAccount: config.serviceAccount,
+        sheetName: ensured.sheetName,
+        items: result.items,
+        reportRowMap: ensured.reportRowMap,
+      });
 
       await updateToPeriodSheetState(req.workspace.id, result.period.id, {
         monthlySheetName: ensured.sheetName,
@@ -455,16 +460,29 @@ router.patch('/periods/:year/:month/items/:itemId', requireToWrite, async (req, 
     );
 
     let warning = '';
-    if (result.period.monthlySheetName && req.body?.syncSheet !== false) {
+    if (req.body?.syncSheet !== false) {
       try {
         const config = resolveConfig(req);
+        const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month);
+        const ensured = await ensureToPeriodSheet({
+          spreadsheetUrl: config.spreadsheetUrl,
+          serviceAccount: config.serviceAccount,
+          sourceSheetName: result.period.sourceSheetName,
+          year: result.period.year,
+          month: result.period.month,
+          documentDate: String(result.period.documentDate),
+          sourceRows: bundle.items.map((item) => item.sourceRowNumber),
+          items: bundle.items,
+        });
         await syncToPeriodSheet({
           spreadsheetUrl: config.spreadsheetUrl,
           serviceAccount: config.serviceAccount,
-          sheetName: result.period.monthlySheetName,
-          items: [result.item],
+          sheetName: ensured.sheetName,
+          items: bundle.items,
+          reportRowMap: ensured.reportRowMap,
         });
         await updateToPeriodSheetState(req.workspace.id, result.period.id, {
+          monthlySheetName: ensured.sheetName,
           syncStatus: 'synced',
           syncError: '',
           touchSyncTime: true,
@@ -483,16 +501,14 @@ router.patch('/periods/:year/:month/items/:itemId', requireToWrite, async (req, 
 
 router.post('/periods/:year/:month/sync-to-sheet', requireToWrite, async (req, res) => {
   try {
-    const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month);
+    let bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month);
     if (!bundle) {
       return res.status(404).json({ ok: false, error: 'TO davri topilmadi', code: 'TO_PERIOD_NOT_FOUND' });
     }
     const config = resolveConfig(req);
+    bundle = await importLegacyPeriodSheet(config, bundle);
     let sheetName = bundle.period.monthlySheetName;
-    let ensured = null;
-
-    if (!sheetName) {
-      ensured = await ensureToPeriodSheet({
+    const ensured = await ensureToPeriodSheet({
         spreadsheetUrl: config.spreadsheetUrl,
         serviceAccount: config.serviceAccount,
         sourceSheetName: bundle.period.sourceSheetName,
@@ -500,15 +516,16 @@ router.post('/periods/:year/:month/sync-to-sheet', requireToWrite, async (req, r
         month: bundle.period.month,
         documentDate: String(bundle.period.documentDate),
         sourceRows: bundle.items.map((item) => item.sourceRowNumber),
+        items: bundle.items,
       });
-      sheetName = ensured.sheetName;
-    }
+    sheetName = ensured.sheetName;
 
     const sync = await syncToPeriodSheet({
       spreadsheetUrl: config.spreadsheetUrl,
       serviceAccount: config.serviceAccount,
       sheetName,
       items: bundle.items,
+      reportRowMap: ensured.reportRowMap,
     });
     await updateToPeriodSheetState(req.workspace.id, bundle.period.id, {
       monthlySheetName: sheetName,
@@ -534,7 +551,7 @@ router.post('/periods/:year/:month/sync-to-sheet', requireToWrite, async (req, r
 
 router.post('/periods/:year/:month/sync-from-sheet', requireToWrite, async (req, res) => {
   try {
-    const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month);
+    let bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month);
     if (!bundle) {
       return res.status(404).json({ ok: false, error: 'TO davri topilmadi', code: 'TO_PERIOD_NOT_FOUND' });
     }
@@ -546,19 +563,32 @@ router.post('/periods/:year/:month/sync-from-sheet', requireToWrite, async (req,
     }
 
     const config = resolveConfig(req);
-    const rows = await readToPeriodSheetRows({
+    bundle = await importLegacyPeriodSheet(config, bundle);
+    const ensured = await ensureToPeriodSheet({
       spreadsheetUrl: config.spreadsheetUrl,
       serviceAccount: config.serviceAccount,
-      sheetName: bundle.period.monthlySheetName,
+      sourceSheetName: bundle.period.sourceSheetName,
+      year: bundle.period.year,
+      month: bundle.period.month,
+      documentDate: String(bundle.period.documentDate),
+      sourceRows: bundle.items.map((item) => item.sourceRowNumber),
+      items: bundle.items,
     });
-    const parsed = parseToSheetRows(rows);
+    const rows = await readToPeriodSheetEditableFields({
+      spreadsheetUrl: config.spreadsheetUrl,
+      serviceAccount: config.serviceAccount,
+      sheetName: ensured.sheetName,
+      reportRowMap: ensured.reportRowMap,
+      sourceRows: bundle.items.map((item) => item.sourceRowNumber),
+    });
     const applied = await applyToPeriodSheetParsed(
       req.workspace.id,
       bundle.period.year,
       bundle.period.month,
-      parsed,
+      { sections: [{ items: rows }] },
     );
     await updateToPeriodSheetState(req.workspace.id, bundle.period.id, {
+      monthlySheetName: ensured.sheetName,
       syncStatus: 'synced',
       syncError: '',
       touchSyncTime: true,
