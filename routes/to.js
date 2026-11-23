@@ -2,7 +2,11 @@ import express from 'express';
 import { listSheets, readSheetRows, validateServiceAccount } from '../services/googleSheetsService.js';
 import { requireWorkspaceRequestPermission } from '../middleware/workspaceAccess.js';
 import { requireAccessToken } from '../middleware/auth.js';
-import { updateToPeriodApprovalAssignments, updateToPeriodSheetState } from '../repositories/toPeriodRepository.js';
+import {
+  backfillToPeriodEditableFields,
+  updateToPeriodApprovalAssignments,
+  updateToPeriodSheetState,
+} from '../repositories/toPeriodRepository.js';
 import {
   applyToPeriodSheetParsed,
   createToPeriodFromParsed,
@@ -273,7 +277,28 @@ async function setPeriodSyncError(workspaceId, periodId, error) {
   } catch (_) {}
 }
 
-async function importLegacyPeriodSheet(config, bundle) {
+async function restoreSnapshotEditableFields(bundle) {
+  if (!bundle?.period?.id) return bundle;
+  const snapshotItems = (bundle.period.sourceSnapshot?.sections || [])
+    .flatMap((section) => section?.items || []);
+  const sourceByRow = new Map(snapshotItems.map((item) => [Number(item.sourceRowNumber), item]));
+  const backfillRows = (bundle.items || []).map((item) => ({
+    sourceRowNumber: Number(item.sourceRowNumber),
+    technicalState: clean(sourceByRow.get(Number(item.sourceRowNumber))?.technicalState),
+    workType: clean(sourceByRow.get(Number(item.sourceRowNumber))?.workType),
+    note: clean(sourceByRow.get(Number(item.sourceRowNumber))?.note),
+  })).filter((row) => row.technicalState || row.workType || row.note);
+  await backfillToPeriodEditableFields(
+    bundle.period.workspaceId,
+    bundle.period.id,
+    backfillRows,
+  );
+  if (!snapshotItems.length) return bundle;
+  return await getToPeriod(bundle.period.workspaceId, bundle.period.year, bundle.period.month) || bundle;
+}
+
+async function importLegacyPeriodSheet(config, inputBundle) {
+  let bundle = await restoreSnapshotEditableFields(inputBundle);
   const legacyName = clean(bundle?.period?.monthlySheetName);
   if (!legacyName || legacyName.toUpperCase() === 'TO HISOBOT' || bundle.period.status !== 'draft') return bundle;
   const rows = await readToPeriodSheetRows({
@@ -282,7 +307,23 @@ async function importLegacyPeriodSheet(config, bundle) {
     sheetName: legacyName,
   });
   const parsed = parseToSheetRows(rows);
-  await applyToPeriodSheetParsed(bundle.period.workspaceId, bundle.period.year, bundle.period.month, parsed);
+  const currentByRow = new Map((bundle.items || []).map((item) => [Number(item.sourceRowNumber), item]));
+  const reconciled = {
+    ...parsed,
+    sections: (parsed.sections || []).map((section) => ({
+      ...section,
+      items: (section.items || []).map((row) => {
+        const current = currentByRow.get(Number(row.sourceRowNumber)) || {};
+        return {
+          ...row,
+          technicalState: clean(row.technicalState) || clean(current.technicalState),
+          workType: clean(row.workType) || clean(current.workType),
+          note: clean(row.note) || clean(current.note),
+        };
+      }),
+    })),
+  };
+  await applyToPeriodSheetParsed(bundle.period.workspaceId, bundle.period.year, bundle.period.month, reconciled);
   return await getToPeriod(bundle.period.workspaceId, bundle.period.year, bundle.period.month) || bundle;
 }
 
@@ -463,7 +504,9 @@ router.patch('/periods/:year/:month/items/:itemId', requireToWrite, async (req, 
     if (req.body?.syncSheet !== false) {
       try {
         const config = resolveConfig(req);
-        const bundle = await getToPeriod(req.workspace.id, req.params.year, req.params.month);
+        const bundle = await restoreSnapshotEditableFields(
+          await getToPeriod(req.workspace.id, req.params.year, req.params.month),
+        );
         const ensured = await ensureToPeriodSheet({
           spreadsheetUrl: config.spreadsheetUrl,
           serviceAccount: config.serviceAccount,
@@ -574,12 +617,29 @@ router.post('/periods/:year/:month/sync-from-sheet', requireToWrite, async (req,
       sourceRows: bundle.items.map((item) => item.sourceRowNumber),
       items: bundle.items,
     });
-    const rows = await readToPeriodSheetEditableFields({
+    const sheetRows = await readToPeriodSheetEditableFields({
       spreadsheetUrl: config.spreadsheetUrl,
       serviceAccount: config.serviceAccount,
       sheetName: ensured.sheetName,
       reportRowMap: ensured.reportRowMap,
       sourceRows: bundle.items.map((item) => item.sourceRowNumber),
+    });
+    const currentByRow = new Map(bundle.items.map((item) => [Number(item.sourceRowNumber), item]));
+    const rows = sheetRows.map((row) => {
+      const current = currentByRow.get(Number(row.sourceRowNumber)) || {};
+      return {
+        ...row,
+        technicalState: clean(row.technicalState) || clean(current.technicalState),
+        workType: clean(row.workType) || clean(current.workType),
+        note: clean(row.note) || clean(current.note),
+      };
+    });
+    await syncToPeriodSheet({
+      spreadsheetUrl: config.spreadsheetUrl,
+      serviceAccount: config.serviceAccount,
+      sheetName: ensured.sheetName,
+      items: rows,
+      reportRowMap: ensured.reportRowMap,
     });
     const applied = await applyToPeriodSheetParsed(
       req.workspace.id,

@@ -319,3 +319,26 @@ export async function replaceToPeriodEditableFields(workspaceId, periodId, rows 
     return { period, updated };
   });
 }
+
+export async function backfillToPeriodEditableFields(workspaceId, periodId, rows = []) {
+  if (!Array.isArray(rows) || !rows.length) return { updated: 0 };
+  const result = await query(
+    `UPDATE to_period_items AS i
+     SET technical_state = CASE WHEN BTRIM(COALESCE(i.technical_state, '')) = '' THEN COALESCE(x.technical_state, '') ELSE i.technical_state END,
+         work_type = CASE WHEN BTRIM(COALESCE(i.work_type, '')) = '' THEN COALESCE(x.work_type, '') ELSE i.work_type END,
+         note = CASE WHEN BTRIM(COALESCE(i.note, '')) = '' THEN COALESCE(x.note, '') ELSE i.note END
+     FROM to_periods AS p,
+          jsonb_to_recordset($3::jsonb) AS x(source_row_number integer, technical_state text, work_type text, note text)
+     WHERE p.id = i.period_id
+       AND p.workspace_id = $1::uuid
+       AND p.id = $2::uuid
+       AND i.source_row_number = x.source_row_number`,
+    [workspaceId, periodId, JSON.stringify(rows.map((row) => ({
+      source_row_number: Number(row.sourceRowNumber),
+      technical_state: String(row.technicalState || ''),
+      work_type: String(row.workType || ''),
+      note: String(row.note || ''),
+    })))],
+  );
+  return { updated: result.rowCount || 0 };
+}
