@@ -490,7 +490,7 @@
     }
   }
 
-  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0, executorDefault:'', executorDefaultWorkspaceId:'', searchQueries:[], searchResultIndexes:[], searchHasRun:false };
+  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0, lastDocumentDate:'', executorDefault:'', executorDefaultWorkspaceId:'', searchQueries:[], searchResultIndexes:[], searchHasRun:false };
 
   function setMonthlySearchStatus(message, type='') {
     const status = $('kudukSearchStatus');
@@ -793,11 +793,15 @@
   async function loadMonthlyReportState() {
     monthlyState.reportedKeys.clear();
     monthlyState.reportBatches = 0;
+    monthlyState.lastDocumentDate = '';
     try {
       const reportData = await api('/api/journal-reports/' + monthlyState.year + '/' + monthlyState.month);
       const items = Array.isArray(reportData.items) ? reportData.items : [];
       monthlyState.reportedKeys = new Set(items.map((item) => clean(item.sourceKey)).filter(Boolean));
-      monthlyState.reportBatches = Array.isArray(reportData.batches) ? reportData.batches.length : 0;
+      const batches = Array.isArray(reportData.batches) ? reportData.batches : [];
+      monthlyState.reportBatches = batches.length;
+      const lastBatch = batches.slice().sort((a,b) => clean(a.createdAt).localeCompare(clean(b.createdAt))).at(-1);
+      monthlyState.lastDocumentDate = clean(lastBatch?.documentDate).slice(0,10);
     } catch (error) {
       if (Number(error?.status) !== 404) throw error;
     }
@@ -1045,6 +1049,12 @@
   function documentDateDefault() {
     const year = Number(monthlyState.year);
     const month = Number(monthlyState.month);
+    const lastMatch = clean(monthlyState.lastDocumentDate).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (lastMatch && Number(lastMatch[1]) === year && Number(lastMatch[2]) === month) {
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const nextDay = Math.min(Number(lastMatch[3]) + 1, daysInMonth);
+      return year + '-' + String(month).padStart(2,'0') + '-' + String(nextDay).padStart(2,'0');
+    }
     const now = new Date();
     const day = now.getFullYear() === year && now.getMonth() + 1 === month ? now.getDate() : 1;
     return year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
@@ -1219,6 +1229,7 @@
           rows: rows.map(reportSourceRow)
         })
       });
+      if (Number(data.addedCount || 0) > 0) monthlyState.lastDocumentDate = date;
       monthlyState.selectedKeys.clear();
       await loadMonthlyReportState();
       renderMonthlyAnalysis();
