@@ -38,6 +38,10 @@
     releaseDocumentSignatures();
     syncFullPageLayout();
     window.scrollTo(0,documentPreviousScroll);
+    const activeReport = document.querySelector('#kudukReportFolders .kw-folder.active');
+    if (activeReport && document.body.classList.contains('kuduk-reports-home')) {
+      window.setTimeout(() => void renderReportPreview(Number(activeReport.dataset.year), Number(activeReport.dataset.month)), 0);
+    }
   }
   const SIGNER_TEXT = {
     ru: {title:'5. ПОДПИСАНТЫ',registry:'Общий реестр подписантов Workspace.',refresh:'↻ Обновить',position:'Должность',name:'Ф.И.О.',status:'Статус',add:'+ Добавить',master:'Мастер КИПиА'},
@@ -145,7 +149,7 @@
       .kw-report-delete{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;border:1px solid rgba(248,113,113,.25);border-radius:10px;background:rgba(248,113,113,.06);color:#fca5a5;cursor:pointer}
       .kw-report-delete:hover{background:rgba(248,113,113,.2);border-color:#f87171}.kw-report-delete:disabled{opacity:.45;cursor:default}
       .kw-preview{padding:16px;overflow:auto;background:#0b1628}.kw-empty{padding:28px;text-align:center;color:#9fb7c7}
-      .kw-report-a4-host{overflow:auto;padding:16px;background:#101827;border:1px solid rgba(255,255,255,.08);border-radius:12px}.kw-report-a4{width:297mm;min-height:210mm;margin:0 auto;padding:12mm;box-sizing:border-box;background:#fff;color:#111;font-family:"Times New Roman",Times,serif;box-shadow:0 12px 36px rgba(0,0,0,.32)}.kw-report-a4-title{text-align:center;font-size:16pt;font-weight:700;margin-bottom:4mm}.kw-report-a4-period{text-align:center;font-size:12pt;margin-bottom:5mm}.kw-report-a4 table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt}.kw-report-a4 th,.kw-report-a4 td{border:.25mm solid #000;padding:.8mm;vertical-align:middle;overflow-wrap:anywhere}.kw-report-a4 th{text-align:center}.kw-report-a4-empty{text-align:center;color:#555;padding:20px}
+      .kw-report-a4-host{overflow:auto;padding:16px;background:#101827;border:1px solid rgba(255,255,255,.08);border-radius:12px}.kw-report-a4-stack{display:grid;gap:18px}.kw-report-a4{width:297mm;min-height:210mm;margin:0 auto;padding:12mm;box-sizing:border-box;background:#fff;color:#111;font-family:"Times New Roman",Times,serif;box-shadow:0 12px 36px rgba(0,0,0,.32)}.kw-report-a4-title{text-align:center;font-size:16pt;font-weight:700;margin-bottom:4mm}.kw-report-a4-period{text-align:center;font-size:12pt;margin-bottom:5mm}.kw-report-a4 table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt}.kw-report-a4 th,.kw-report-a4 td{border:.25mm solid #000;padding:.8mm;vertical-align:middle;overflow-wrap:anywhere}.kw-report-a4 th{text-align:center}.kw-report-a4-empty{text-align:center;color:#555;padding:20px}.kw-report-page-number{text-align:right;margin-top:3mm;color:#444;font:8pt Arial,sans-serif}.kw-report-signature-status{margin:0 0 10px;color:#fde68a;font-size:11px}
       @media(max-width:900px){.kw-reports-grid{grid-template-columns:1fr}.kw-folders{max-height:230px;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.kw-report-a4{margin:0}}
       .kw-tablewrap{overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:12px}
       .kw-table{width:100%;min-width:980px;border-collapse:collapse}.kw-table th,.kw-table td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left;vertical-align:top}
@@ -788,13 +792,15 @@
     return m ? m[3] + '.' + m[2] + '.' + m[1] : raw;
   }
 
-  async function renderStoredDocument(bundle) {
+  async function renderStoredDocument(bundle, { show = true } = {}) {
     const paper = $('kudukDocumentPaper');
     if (!paper) return;
-    if (!document.body.classList.contains('kuduk-document-home')) documentPreviousScroll=window.scrollY;
-    document.body.classList.add('kuduk-document-home');
-    syncFullPageLayout();
-    window.scrollTo(0,0);
+    if (show) {
+      if (!document.body.classList.contains('kuduk-document-home')) documentPreviousScroll=window.scrollY;
+      document.body.classList.add('kuduk-document-home');
+      syncFullPageLayout();
+      window.scrollTo(0,0);
+    }
     releaseDocumentSignatures();
     const version = documentRenderVersion;
     const wid = workspaceId();
@@ -803,7 +809,8 @@
     if ($('kudukDocumentSavePdf')) $('kudukDocumentSavePdf').disabled = true;
     const signatureUrls = new Map();
     let masters = [], signatureError = '';
-    $('kudukDocumentModal')?.classList.add('show');
+    if (show) $('kudukDocumentModal')?.classList.add('show');
+    else $('kudukDocumentModal')?.classList.remove('show');
     paper.innerHTML = '<div class="kw-empty">Ҳужжат ва имзо юкланмоқда...</div>';
     try {
       const data = await api('/api/workspaces/' + encodeURIComponent(wid) + '/signers');
@@ -859,7 +866,7 @@
     currentDocument = { year:Number(report.year), month:Number(report.month), workspaceId:wid, saving:false };
     if ($('kudukDocumentPrint')) $('kudukDocumentPrint').disabled = false;
     if ($('kudukDocumentSavePdf')) $('kudukDocumentSavePdf').disabled = !items.length;
-    $('kudukDocumentModal')?.classList.add('show');
+    if (show) $('kudukDocumentModal')?.classList.add('show');
   }
 
   function printCurrentDocument() {
@@ -1012,20 +1019,30 @@
     host.innerHTML = '<div class="kw-empty">Hisobot yuklanmoqda...</div>';
     try {
       const data = await api('/api/journal-reports/' + year + '/' + month);
-      const report = data.report || {};
-      const batches = Array.isArray(data.batches) ? data.batches : [];
       const items = Array.isArray(data.items) ? data.items : [];
-      const batchMap = new Map(batches.map((batch) => [batch.id, batch]));
-      const columns = ['No', 'Sana', 'Poz. raqami', 'Uskuna nomi', 'Turi / markasi', 'Zavod raqami', 'Diapazon', 'Joylashuvi', 'SKV', 'Ish turi', 'Ijrochi', 'Imzo'];
-      const rows = items.map((row, index) => {
-        const batch = batchMap.get(row.batchId) || {};
-        const date = formatDocumentDate(batch.documentDate) || clean(row.date);
-        const values = [index + 1, date, row.pos, row.name, row.brand, row.serial, row.range, row.location, row.skv, row.work, row.executor, row.signature];
-        return '<tr>' + values.map((value) => '<td>' + esc(value) + '</td>').join('') + '</tr>';
-      }).join('');
-      host.innerHTML = '<div class="kw-actions" style="justify-content:space-between;margin-bottom:12px"><div><b>' + esc(MONTHS[month]) + ' ' + year + '</b> | ' + items.length + ' ta qator | ' + batches.length + ' ta hujjat | ' + (clean(report.status || 'draft') === 'draft' ? 'Qoralama' : 'Yakunlangan') + '</div><button id="kudukOpenStoredDocument" class="btn primary" type="button">A4 hujjatni ochish</button></div>' +
-        '<div class="kw-report-a4-host"><article class="kw-report-a4"><div class="kw-report-a4-title">JURNAL HISOBOTI</div><div class="kw-report-a4-period">' + esc(MONTHS[month]) + ' ' + year + '</div><table><thead><tr>' + columns.map((column) => '<th>' + esc(column) + '</th>').join('') + '</tr></thead><tbody>' + (rows || '<tr><td class="kw-report-a4-empty" colspan="12">Bu oy uchun yozuvlar yoq.</td></tr>') + '</tbody></table></article></div>';
-      $('kudukOpenStoredDocument')?.addEventListener('click', () => renderStoredDocument(data));
+      await renderStoredDocument(data, { show: false });
+      const paper = $('kudukDocumentPaper');
+      const sourceTable = paper?.querySelector('.kw-doc-table');
+      if (!sourceTable) throw new Error('A4 hujjat preview tayyorlanmadi.');
+      const title = paper.querySelector('.kw-doc-title')?.textContent || 'JURNAL HISOBOTI';
+      const period = paper.querySelector('.kw-doc-subtitle')?.textContent || '';
+      const head = sourceTable.querySelector('thead')?.outerHTML || '';
+      const sourceRows = Array.from(sourceTable.querySelectorAll('tbody tr'));
+      const pageSize = 14;
+      const pages = [];
+      for (let index = 0; index < sourceRows.length; index += pageSize) {
+        pages.push(sourceRows.slice(index, index + pageSize));
+      }
+      if (!pages.length) pages.push([]);
+      const signatureStatus = clean($('kudukDocumentStatus')?.textContent);
+      const signatureNotice = signatureStatus
+        ? '<div class="kw-report-signature-status">' + esc(signatureStatus) + '</div>'
+        : '';
+      const pageHtml = pages.map((rows, index) =>
+        '<article class="kw-report-a4"><div class="kw-report-a4-title">' + esc(title) + '</div><div class="kw-report-a4-period">' + esc(period) + '</div><table class="kw-doc-table">' + head + '<tbody>' + rows.map((row) => row.outerHTML).join('') + '</tbody></table><div class="kw-report-page-number">Page ' + (index + 1) + ' / ' + pages.length + '</div></article>'
+      ).join('');
+      host.innerHTML = '<div class="kw-actions" style="justify-content:space-between;margin-bottom:12px"><div><b>' + esc(MONTHS[month]) + ' ' + year + '</b> | ' + items.length + ' ta qator | ' + pages.length + ' ta A4 landscape sahifa</div><button id="kudukOpenStoredDocument" class="btn primary" type="button">A4 hujjatni ochish</button></div>' + signatureNotice + '<div class="kw-report-a4-host"><div class="kw-report-a4-stack">' + pageHtml + '</div></div>';
+      $('kudukOpenStoredDocument')?.addEventListener('click', () => void renderStoredDocument(data));
     } catch (error) {
       host.innerHTML = '<div class="kw-empty">' + esc(error.message) + '</div>';
     }

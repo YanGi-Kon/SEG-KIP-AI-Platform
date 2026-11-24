@@ -168,6 +168,10 @@ test('JOURNAL UCHETA Reports reads persisted monthly reports instead of reconstr
   assert.match(workflowSource, /Ҳужжат санаси/);
 });
 
+test('JOURNAL UCHETA report folder counts do not multiply rows by document batches', () => {
+  assert.match(repositorySource, /COUNT\(DISTINCT i\.id\)::int AS row_count/);
+});
+
 test('reports fill the parent main area and restore its layout on return', {skip:!chromePath}, async()=>{
   const browser=await puppeteer.launch({executablePath:chromePath,headless:true,pipe:true,args:process.platform==='linux'?['--no-sandbox']:[]});
   try {

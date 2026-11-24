@@ -1,6 +1,6 @@
 // SEG KIP modular frontend controller
 const MODULES = {
-  journal: 'modules/hisobot-journal.html?v=20261124-journal-reports-a4',
+  journal: 'modules/hisobot-journal.html?v=20261124-journal-reports-a4-signature-pages',
   acts: 'modules/acts.html?v=20261102-acts-reports-daily-only',
   faults: 'modules/faults.html?v=20261124-to-style-reports2',
   to: 'modules/to.html?v=20261124-sticky-create-button',

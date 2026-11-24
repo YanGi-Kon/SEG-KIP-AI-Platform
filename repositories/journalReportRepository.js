@@ -63,7 +63,7 @@ const REPORT_COLUMNS = `
 export async function listJournalReports(workspaceId) {
   const result = await query(
     `SELECT r.${REPORT_COLUMNS.replace(/\n/g,' ').replace(/\s+/g,' ').trim().split(', ').join(', r.')},
-            COUNT(i.id)::int AS row_count,
+            COUNT(DISTINCT i.id)::int AS row_count,
             COUNT(DISTINCT b.id)::int AS batch_count
      FROM journal_reports r
      LEFT JOIN journal_report_items i ON i.report_id = r.id
