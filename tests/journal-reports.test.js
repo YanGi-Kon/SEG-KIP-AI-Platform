@@ -102,7 +102,7 @@ test('journal places the active Uzbek KIP master PNG into rows and translates th
     });
     await page.addScriptTag({content:workflowSource});
     await page.evaluate(()=>window.KudukWorkflow.openReports());
-    await page.waitForSelector('#kudukOpenStoredDocument');
+    await page.waitForSelector('.kw-report-a4');
     const reportsLayout=await page.evaluate(()=>{
       const reports=document.getElementById('kudukReportsModal');
       const shell=reports.querySelector('.kw-shell');
@@ -111,25 +111,15 @@ test('journal places the active Uzbek KIP master PNG into rows and translates th
     assert.equal(reportsLayout.position,'relative');
     assert.ok(reportsLayout.width>=reportsLayout.viewport-26,JSON.stringify(reportsLayout));
     assert.ok(reportsLayout.height>=reportsLayout.viewportHeight-26,JSON.stringify(reportsLayout));
-    await page.click('#kudukOpenStoredDocument');
-    await page.waitForFunction(()=>document.querySelector('#kudukDocumentPaper td:last-child img')?.naturalWidth>0);
-    const documentLayout=await page.evaluate(()=>{
-      const rect=document.querySelector('#kudukDocumentModal>.kw-shell').getBoundingClientRect();
-      return {x:rect.x,y:rect.y,width:rect.width,height:rect.height,viewportWidth:innerWidth,viewportHeight:innerHeight,reportsHidden:getComputedStyle(document.getElementById('kudukReportsModal')).display==='none'};
-    });
-    assert.equal(documentLayout.x,0);
-    assert.equal(documentLayout.y,0);
-    assert.equal(documentLayout.width,documentLayout.viewportWidth);
-    assert.equal(documentLayout.height,documentLayout.viewportHeight);
-    assert.equal(documentLayout.reportsHidden,true);
-    assert.equal(await page.$eval('#kudukDocumentPaper td:last-child img',el=>el.title),'Test Master');
-    assert.equal(await page.$eval('#kudukDocumentPaper td:nth-last-child(2)',el=>el.textContent),'Test Master');
+    assert.equal(await page.$('#kudukOpenStoredDocument'),null);
+    await page.waitForFunction(()=>document.querySelector('.kw-report-a4 td:last-child img')?.naturalWidth>0);
+    assert.equal(await page.$eval('.kw-report-a4 td:last-child img',el=>el.title),'Test Master');
+    assert.equal(await page.$eval('.kw-report-a4 td:nth-last-child(2)',el=>el.textContent),'Test Master');
+    const pageShape=await page.$eval('.kw-report-a4',el=>{const rect=el.getBoundingClientRect();return {width:rect.width,height:rect.height};});
+    assert.ok(pageShape.width/pageShape.height>1.3,JSON.stringify(pageShape));
     const requests=await page.evaluate(()=>window.signatureRequests);
     assert.equal(requests.length,1);
     assert.match(requests[0],/11111111-1111-4111-8111-111111111111/);
-    await page.click('#kudukDocumentClose');
-    assert.equal(await page.evaluate(()=>document.body.classList.contains('kuduk-document-home')),false);
-    assert.equal(await page.$eval('#kudukReportsModal',el=>getComputedStyle(el).display),'flex');
     await page.evaluate(()=>window.KudukWorkflow.openSigners());
     await page.waitForFunction(()=>document.getElementById('kudukSignerRows').textContent.includes('Test Master'));
     await page.select('#kudukSignersLanguage','ru');
@@ -146,6 +136,13 @@ test('JOURNAL UCHETA mounts a workspace-protected report API', () => {
   assert.match(routeSource, /requireWorkspaceRequestPermission\('workspace:read'\)/);
   assert.match(routeSource, /requireWorkspaceRequestPermission\('documents:create'\)/);
   assert.match(routeSource, /router\.post\('\/:year\/:month\/append'/);
+});
+
+test('JOURNAL UCHETA report preview opens the configured final documents Drive folder', () => {
+  assert.match(workflowSource, /id="kudukReportOpenFinalFolder"[^>]*>Faylni ochish/);
+  assert.match(workflowSource, /openReportFinalDocumentsFolder/);
+  assert.match(workflowSource, /finalDocumentsFolderId/);
+  assert.match(workflowSource, /drive\.google\.com\/drive\/folders\//);
 });
 
 test('JOURNAL UCHETA document creation asks for a date inside the selected month', () => {

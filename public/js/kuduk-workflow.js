@@ -1041,8 +1041,8 @@
       const pageHtml = pages.map((rows, index) =>
         '<article class="kw-report-a4"><div class="kw-report-a4-title">' + esc(title) + '</div><div class="kw-report-a4-period">' + esc(period) + '</div><table class="kw-doc-table">' + head + '<tbody>' + rows.map((row) => row.outerHTML).join('') + '</tbody></table><div class="kw-report-page-number">Page ' + (index + 1) + ' / ' + pages.length + '</div></article>'
       ).join('');
-      host.innerHTML = '<div class="kw-actions" style="justify-content:space-between;margin-bottom:12px"><div><b>' + esc(MONTHS[month]) + ' ' + year + '</b> | ' + items.length + ' ta qator | ' + pages.length + ' ta A4 landscape sahifa</div><button id="kudukOpenStoredDocument" class="btn primary" type="button">A4 hujjatni ochish</button></div>' + signatureNotice + '<div class="kw-report-a4-host"><div class="kw-report-a4-stack">' + pageHtml + '</div></div>';
-      $('kudukOpenStoredDocument')?.addEventListener('click', () => void renderStoredDocument(data));
+      host.innerHTML = '<div class="kw-actions" style="justify-content:space-between;margin-bottom:12px"><div><b>' + esc(MONTHS[month]) + ' ' + year + '</b> | ' + items.length + ' ta qator | ' + pages.length + ' ta A4 landscape sahifa</div><button id="kudukReportOpenFinalFolder" class="btn" type="button">Faylni ochish</button></div><div id="kudukReportFinalFolderStatus" class="kw-report-signature-status" role="status" aria-live="polite"></div>' + signatureNotice + '<div class="kw-report-a4-host"><div class="kw-report-a4-stack">' + pageHtml + '</div></div>';
+      $('kudukReportOpenFinalFolder')?.addEventListener('click', openReportFinalDocumentsFolder);
     } catch (error) {
       host.innerHTML = '<div class="kw-empty">' + esc(error.message) + '</div>';
     }
@@ -1221,11 +1221,42 @@
     }
   }
 
+  async function openReportFinalDocumentsFolder() {
+    const status = $('kudukReportFinalFolderStatus');
+    const wid = workspaceId();
+    if (!wid) {
+      if (status) status.textContent = 'Workspace tanlanmagan. 6. ЯКУНИЙ ҲУЖЖАТЛАР sozlamasini tekshiring.';
+      return;
+    }
+    const popup = window.open('about:blank', '_blank');
+    if (!popup) {
+      if (status) status.textContent = 'Yangi oyna bloklandi. Brauzerda popup oynalarga ruxsat bering.';
+      return;
+    }
+    popup.opener = null;
+    if (status) status.textContent = 'Yakuniy hujjatlar papkasi ochilmoqda...';
+    try {
+      const data = await api('/api/workspaces/' + encodeURIComponent(wid));
+      if (wid !== workspaceId()) { popup.close(); return; }
+      const raw = clean(data.workspace?.finalDocumentsFolderId || data.finalDocumentsFolderId);
+      const folderId = raw.match(/folders\/([A-Za-z0-9_-]+)/)?.[1] || raw;
+      if (!folderId) throw new Error('Avval 6. ЯКУНИЙ ҲУЖЖАТЛАР bo‘limida Google Drive papkasini sozlang.');
+      popup.location.replace('https://drive.google.com/drive/folders/' + encodeURIComponent(folderId));
+      if (status) status.textContent = '6. ЯКУНИЙ ҲУЖЖАТЛАР papkasi ochildi.';
+    } catch (error) {
+      popup.close();
+      if (status) status.textContent = error.message || 'Yakuniy hujjatlar papkasi ochilmadi.';
+    }
+  }
+
   function openFinalFolder() {
     const raw = clean($('kudukFinalFolder')?.value);
-    if (!raw) return;
-    const match = raw.match(/folders\/([A-Za-z0-9_-]+)/);
-    const folderId = match ? match[1] : raw;
+    if (!raw) {
+      const status = $('kudukFinalStatus');
+      if (status) { status.textContent = 'Avval Google Drive papkasini kiriting va saqlang.'; status.className = 'kw-status bad'; }
+      return;
+    }
+    const folderId = raw.match(/folders\/([A-Za-z0-9_-]+)/)?.[1] || raw;
     window.open('https://drive.google.com/drive/folders/' + encodeURIComponent(folderId), '_blank', 'noopener,noreferrer');
   }
 
