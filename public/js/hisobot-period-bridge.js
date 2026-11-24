@@ -388,8 +388,12 @@
   }
 
   function routeLocationKeys(route) {
+    return new Set(routeLocationValues(route).map(hardNorm).filter(Boolean));
+  }
+
+  function routeLocationValues(route) {
     const sourceRows = canonicalSheets?.[route?.sheet] || [];
-    return new Set(sourceRows.map((row) => hardNorm(row?.location)).filter(Boolean));
+    return [...new Set(sourceRows.map((row) => clean(row?.location)).filter(Boolean))];
   }
 
   function fallbackRouteMatch(route, row) {
@@ -697,5 +701,9 @@
   window.HisobotPeriodBridge = {
     refresh: () => requestPeriod({ fromSheet: false, forceRefresh: true }),
     loadFromSheet: () => requestPeriod({ fromSheet: true }),
+    getRouteLocations: (sheet) => {
+      const route = (canonicalRoutes || []).find((item) => clean(item?.sheet) === clean(sheet));
+      return route ? routeLocationValues(route) : [];
+    },
   };
 })();

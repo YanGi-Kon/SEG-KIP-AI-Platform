@@ -538,12 +538,21 @@
 
   function monthlyRegionIndexes(sheet) {
     const state = window.KudukJournalWorkspace?.getState?.() || {};
+    const normalizeLocation = (value) => clean(value).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
     if (String(sheet).startsWith('__location__')) {
-      const location = clean(sheet.slice('__location__'.length)).normalize('NFKC').toLocaleLowerCase();
-      return monthlyRows().map((row,index) => ({row,index})).filter(({row}) => clean(row.location).normalize('NFKC').toLocaleLowerCase() === location).map(({index}) => index);
+      const location = normalizeLocation(sheet.slice('__location__'.length));
+      return monthlyRows().map((row,index) => ({row,index})).filter(({row}) => normalizeLocation(row.location) === location).map(({index}) => index);
     }
     const route = monthlySearchRegionRoutes().find((item) => clean(item.sheet) === clean(sheet));
-    const routeRows = Array.isArray(state.sheets?.[sheet]) ? state.sheets[sheet] : null;
+    const sourceLocations = window.HisobotPeriodBridge?.getRouteLocations?.(sheet) || [];
+    const normalizedLocations = new Set(sourceLocations.map(normalizeLocation).filter(Boolean));
+    if (normalizedLocations.size) {
+      return monthlyRows().map((row,index) => ({row,index}))
+        .filter(({row}) => normalizedLocations.has(normalizeLocation(row.location)))
+        .map(({index}) => index);
+    }
+    const samePeriod = Number(state.periodYear) === Number(monthlyState.year) && Number(state.periodMonth) === Number(monthlyState.month);
+    const routeRows = samePeriod && Array.isArray(state.sheets?.[sheet]) ? state.sheets[sheet] : null;
     if (routeRows) {
       const rowNumber = (row) => Number(row?._periodBaseRowNumber || row?._rowNumber || row?.rowNumber || 0);
       const ids = new Set(routeRows.map(rowNumber).filter(Boolean));
@@ -554,9 +563,9 @@
         return signatures.has([row.date,row.pos,row.name,row.brand,row.serial,row.range,row.location,row.skv,row.work].map(clean).join('|'));
       }).map(({index}) => index);
     }
-    const keys = [route?.sheet, route?.title].map((value) => clean(value).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,'')).filter(Boolean);
+    const keys = [route?.sheet, route?.title].map(normalizeLocation).filter(Boolean);
     return monthlyRows().map((row,index) => ({row,index})).filter(({row}) => {
-      const location = clean(row.location).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
+      const location = normalizeLocation(row.location);
       return location && keys.some((key) => location.includes(key) || key.includes(location));
     }).map(({index}) => index);
   }
