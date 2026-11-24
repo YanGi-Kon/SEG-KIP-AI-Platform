@@ -145,6 +145,22 @@ test('JOURNAL UCHETA report preview opens the configured final documents Drive f
   assert.match(workflowSource, /drive\.google\.com\/drive\/folders\//);
 });
 
+test('JOURNAL UCHETA report preview prints title and month only on the first A4 page', () => {
+  assert.match(workflowSource, /index === 0 \? '<div class="kw-report-a4-title">'/);
+});
+
+test('JOURNAL UCHETA monthly analysis back button returns to the module menu', () => {
+  assert.ok(workflowSource.includes('window.KudukJournalWorkspace.backToMenu()'));
+  assert.ok(!workflowSource.includes("parent.postMessage({type:'SEG_CLOSE_MODULE'}"));
+});
+
+test('JOURNAL UCHETA fills an empty executor from the sole active KIP master', () => {
+  assert.match(workflowSource, /async function loadMonthlyExecutorDefault\(\)/);
+  assert.match(workflowSource, /masters\.length === 1 \? clean\(masters\[0\]\.fullName \|\| masters\[0\]\.fio\) : ''/);
+  assert.match(workflowSource, /esc\(monthlyExecutor\(r\)\)/);
+  assert.match(workflowSource, /executor:monthlyExecutor\(row\)/);
+});
+
 test('JOURNAL UCHETA document creation asks for a date inside the selected month', () => {
   assert.match(workflowSource, /id="kudukDocumentDate"/);
   assert.match(workflowSource, /type="date"/);

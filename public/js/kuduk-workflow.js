@@ -253,7 +253,10 @@
         </div>`;
       document.body.appendChild(modal);
       $('kudukMonthlyClose')?.addEventListener('click', () => closeMonthlyAnalysis());
-      $('kudukMonthlyBack')?.addEventListener('click', () => { closeMonthlyAnalysis(); try { parent.postMessage({type:'SEG_CLOSE_MODULE'}, '*'); } catch (_) {} });
+      $('kudukMonthlyBack')?.addEventListener('click', () => {
+        closeMonthlyAnalysis();
+        if (typeof window.KudukJournalWorkspace?.backToMenu === 'function') window.KudukJournalWorkspace.backToMenu();
+      });
       $('kudukMonthlyRefresh')?.addEventListener('click', () => void loadMonthlyAnalysis({ forceRefresh:true }));
       $('kudukAnalysisPrev')?.addEventListener('click', () => void navigateMonthly(-1));
       $('kudukAnalysisNext')?.addEventListener('click', () => void navigateMonthly(1));
@@ -433,7 +436,24 @@
     }
   }
 
-  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0 };
+  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0, executorDefault:'', executorDefaultWorkspaceId:'' };
+
+  async function loadMonthlyExecutorDefault() {
+    const wid = workspaceId();
+    if (!wid || monthlyState.executorDefaultWorkspaceId === wid) return;
+    monthlyState.executorDefault = '';
+    try {
+      const data = await api('/api/workspaces/' + encodeURIComponent(wid) + '/signers');
+      if (wid !== workspaceId()) return;
+      const masters = (Array.isArray(data.rows) ? data.rows : []).filter((row) => clean(row.status || 'active') === 'active' && isKipMasterSigner(row));
+      monthlyState.executorDefault = masters.length === 1 ? clean(masters[0].fullName || masters[0].fio) : '';
+      monthlyState.executorDefaultWorkspaceId = wid;
+    } catch (_) {}
+  }
+
+  function monthlyExecutor(row = {}) {
+    return clean(row.executor) || monthlyState.executorDefault;
+  }
 
   function masterRows() {
     const state = window.KudukJournalWorkspace?.getState?.() || {};
@@ -569,6 +589,7 @@
       monthlyState.year = Number(data?.selector?.year || monthlyState.year);
       monthlyState.month = Number(data?.selector?.month || monthlyState.month);
       monthlyState.rows = Array.isArray(data?.rows) ? data.rows : [];
+      if (monthlyState.rows.some((row) => !clean(row.executor))) await loadMonthlyExecutorDefault();
       await loadMonthlyReportState();
       const availableKeys = new Set(monthlyState.rows.map((row,index) => monthlyRowKey(row,index)));
       monthlyState.selectedKeys = new Set([...monthlyState.selectedKeys].filter((key) => availableKeys.has(key)));
@@ -604,7 +625,7 @@
           ? '<span class="kw-row-reported-badge" title="Бу қатор аввал ҳисоботга қўшилган">✓ Ҳисоботда</span>'
           : '<label class="kw-row-select" title="Хужатга қўшиш"><input type="checkbox"' + checked + ' onchange="window.KudukWorkflow?.toggleMonthlyRow(' + index + ', this.checked)">✓</label>';
         return `<tr class="${rowClass}">
-        <td>${index+1}</td><td>${esc(r.date)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(r.executor)}</td><td>${esc(r.signature)}</td>
+        <td>${index+1}</td><td>${esc(r.date)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(monthlyExecutor(r))}</td><td>${esc(r.signature)}</td>
         <td class="actions">${selectControl}<button class="btn orange workspace-operator-only" type="button" title="Таҳрирлаш" onclick="window.KudukWorkflow?.editMonthlyRow(${index})">✏️</button><button class="btn red workspace-operator-only" type="button" title="Ўчириш" onclick="window.KudukWorkflow?.deleteMonthlyRow(${index})">🗑</button></td>
       </tr>`;
       }).join('') : '<tr><td colspan="13" class="kw-empty">Танланган ой учун 📘 ЖУРНАЛ ёзувлари топилмади.</td></tr>';
@@ -783,7 +804,7 @@
     const sourceKey = sourceRowNumber
       ? 'base:' + sourceRowNumber
       : 'data:' + [row?.date,row?.pos,row?.name,row?.brand,row?.serial,row?.range,row?.location,row?.skv,row?.work].map(clean).join('|');
-    return { ...row, sourceKey, sourceRowNumber };
+    return { ...row, executor:monthlyExecutor(row), sourceKey, sourceRowNumber };
   }
 
   function formatDocumentDate(value) {
@@ -1039,7 +1060,7 @@
         ? '<div class="kw-report-signature-status">' + esc(signatureStatus) + '</div>'
         : '';
       const pageHtml = pages.map((rows, index) =>
-        '<article class="kw-report-a4"><div class="kw-report-a4-title">' + esc(title) + '</div><div class="kw-report-a4-period">' + esc(period) + '</div><table class="kw-doc-table">' + head + '<tbody>' + rows.map((row) => row.outerHTML).join('') + '</tbody></table><div class="kw-report-page-number">Page ' + (index + 1) + ' / ' + pages.length + '</div></article>'
+        '<article class="kw-report-a4">' + (index === 0 ? '<div class="kw-report-a4-title">' + esc(title) + '</div><div class="kw-report-a4-period">' + esc(period) + '</div>' : '') + '<table class="kw-doc-table">' + head + '<tbody>' + rows.map((row) => row.outerHTML).join('') + '</tbody></table><div class="kw-report-page-number">Page ' + (index + 1) + ' / ' + pages.length + '</div></article>'
       ).join('');
       host.innerHTML = '<div class="kw-actions" style="justify-content:space-between;margin-bottom:12px"><div><b>' + esc(MONTHS[month]) + ' ' + year + '</b> | ' + items.length + ' ta qator | ' + pages.length + ' ta A4 landscape sahifa</div><button id="kudukReportOpenFinalFolder" class="btn" type="button">Faylni ochish</button></div><div id="kudukReportFinalFolderStatus" class="kw-report-signature-status" role="status" aria-live="polite"></div>' + signatureNotice + '<div class="kw-report-a4-host"><div class="kw-report-a4-stack">' + pageHtml + '</div></div>';
       $('kudukReportOpenFinalFolder')?.addEventListener('click', openReportFinalDocumentsFolder);
