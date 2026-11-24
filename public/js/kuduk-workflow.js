@@ -448,7 +448,8 @@
           <div class="kw-head"><div><h2>Қидирув</h2><p>Ойлик ҳисобот қаторларидан позиция ёки қудуқ рақами бўйича изланг.</p></div><button id="kudukSearchClose" class="btn" type="button">✕</button></div>
           <div class="kw-body">
             <div class="kw-search-toolbar">
-              <select id="kudukSearchField" aria-label="Қидирув тури"><option value="pos">Позиция рақами</option><option value="skv">Қудуқ рақами</option></select>
+              <select id="kudukSearchField" aria-label="Қидирув тури"><option value="pos">Позиция рақами</option><option value="skv">Қудуқ рақами</option><option value="region">Ҳудуд</option></select>
+              <select id="kudukSearchRegion" aria-label="Ҳудудни танланг" hidden><option value="">Ҳудудни танланг</option></select>
               <input id="kudukSearchValue" type="text" inputmode="search" autocomplete="off" placeholder="Рақамни киритинг ва Enter босинг">
               <button id="kudukSearchAdd" class="btn" type="button">+ Қўшиш</button>
             </div>
@@ -463,6 +464,8 @@
       $('kudukSearchClose')?.addEventListener('click', closeMonthlySearch);
       $('kudukSearchDone')?.addEventListener('click', closeMonthlySearch);
       $('kudukSearchAdd')?.addEventListener('click', addMonthlySearchQuery);
+      $('kudukSearchField')?.addEventListener('change', updateMonthlySearchField);
+      $('kudukSearchRegion')?.addEventListener('change', selectMonthlySearchRegion);
       $('kudukSearchValue')?.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') { event.preventDefault(); addMonthlySearchQuery(); }
       });
@@ -496,8 +499,90 @@
     status.className = 'kw-status' + (type ? ' ' + type : '');
   }
 
+  function monthlySearchRegionRoutes() {
+    const state = window.KudukJournalWorkspace?.getState?.() || {};
+    const routes = (Array.isArray(state.routes) ? state.routes : []).filter((route) => {
+      const title = clean(route?.title).toLocaleLowerCase();
+      return route?.sheet && !route?.isMasterJournal && route?.kind !== 'master-journal'
+        && clean(route.sheet) !== clean(state.periodBaseSheet)
+        && !title.includes('\u0436\u0443\u0440\u043d\u0430\u043b') && !title.includes('journal');
+    });
+    if (routes.length) return routes;
+    return [...new Set(monthlyRows().map((row) => clean(row.location)).filter(Boolean))]
+      .map((location) => ({ sheet:'__location__' + location, title:location }));
+  }
+
+  function populateMonthlySearchRegions() {
+    const select = $('kudukSearchRegion');
+    if (!select) return;
+    const routes = monthlySearchRegionRoutes();
+    select.innerHTML = '<option value="">Hududni tanlang</option>' + routes.map((route) =>
+      '<option value="' + esc(route.sheet) + '">' + esc(route.title || route.sheet) + '</option>'
+    ).join('');
+  }
+
+  function updateMonthlySearchField() {
+    const isRegion = $('kudukSearchField')?.value === 'region';
+    const region = $('kudukSearchRegion');
+    const input = $('kudukSearchValue');
+    const add = $('kudukSearchAdd');
+    if (region) region.hidden = !isRegion;
+    if (input) input.hidden = isRegion;
+    if (add) add.hidden = isRegion;
+    if (isRegion) {
+      populateMonthlySearchRegions();
+      setMonthlySearchStatus('Kerakli hududni tanlang. Uning barcha qatorlari avtomatik belgilanadi.');
+      region?.focus();
+    } else input?.focus();
+  }
+
+  function monthlyRegionIndexes(sheet) {
+    const state = window.KudukJournalWorkspace?.getState?.() || {};
+    if (String(sheet).startsWith('__location__')) {
+      const location = clean(sheet.slice('__location__'.length)).normalize('NFKC').toLocaleLowerCase();
+      return monthlyRows().map((row,index) => ({row,index})).filter(({row}) => clean(row.location).normalize('NFKC').toLocaleLowerCase() === location).map(({index}) => index);
+    }
+    const route = monthlySearchRegionRoutes().find((item) => clean(item.sheet) === clean(sheet));
+    const routeRows = Array.isArray(state.sheets?.[sheet]) ? state.sheets[sheet] : null;
+    if (routeRows) {
+      const rowNumber = (row) => Number(row?._periodBaseRowNumber || row?._rowNumber || row?.rowNumber || 0);
+      const ids = new Set(routeRows.map(rowNumber).filter(Boolean));
+      const signatures = new Set(routeRows.map((row) => [row.date,row.pos,row.name,row.brand,row.serial,row.range,row.location,row.skv,row.work].map(clean).join('|')));
+      return monthlyRows().map((row,index) => ({row,index})).filter(({row}) => {
+        const id = rowNumber(row);
+        if (id && ids.size) return ids.has(id);
+        return signatures.has([row.date,row.pos,row.name,row.brand,row.serial,row.range,row.location,row.skv,row.work].map(clean).join('|'));
+      }).map(({index}) => index);
+    }
+    const keys = [route?.sheet, route?.title].map((value) => clean(value).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,'')).filter(Boolean);
+    return monthlyRows().map((row,index) => ({row,index})).filter(({row}) => {
+      const location = clean(row.location).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
+      return location && keys.some((key) => location.includes(key) || key.includes(location));
+    }).map(({index}) => index);
+  }
+
+  function selectMonthlySearchRegion() {
+    const sheet = clean($('kudukSearchRegion')?.value);
+    if (!sheet) return;
+    const route = monthlySearchRegionRoutes().find((item) => clean(item.sheet) === sheet);
+    monthlyState.searchQueries = [{ field:'region', value:sheet, label:clean(route?.title || sheet) }];
+    monthlyState.searchResultIndexes = monthlyRegionIndexes(sheet);
+    monthlyState.searchHasRun = true;
+    monthlyState.searchResultIndexes.forEach((index) => {
+      const row = monthlyRows()[index];
+      if (row && !isReportedRow(row,index)) monthlyState.selectedKeys.add(monthlyRowKey(row,index));
+    });
+    renderMonthlySearchQueries();
+    renderMonthlyAnalysis();
+    renderMonthlySearchResults();
+    const selected = monthlyState.searchResultIndexes.filter((index) => !isReportedRow(monthlyRows()[index],index)).length;
+    const reported = monthlyState.searchResultIndexes.length - selected;
+    setMonthlySearchStatus('Hudud: ' + clean(route?.title || sheet) + '. ' + monthlyState.searchResultIndexes.length + ' ta qator topildi, ' + selected + ' tasi tanlandi.' + (reported ? ' Hisobotga kiritilgan ' + reported + ' ta qator qayta tanlanmaydi.' : ''), 'ok');
+  }
+
   function addMonthlySearchQuery() {
     const field = $('kudukSearchField')?.value === 'skv' ? 'skv' : 'pos';
+    if ($('kudukSearchField')?.value === 'region') { selectMonthlySearchRegion(); return; }
     const value = clean($('kudukSearchValue')?.value);
     if (!value) { setMonthlySearchStatus('Pozitsiya yoki quduq raqamini kiriting.', 'bad'); $('kudukSearchValue')?.focus(); return; }
     const exists = monthlyState.searchQueries.some((query) => query.field === field && query.value.toLocaleLowerCase() === value.toLocaleLowerCase());
@@ -515,7 +600,7 @@
     const box = $('kudukSearchQueries');
     if (!box) return;
     box.innerHTML = monthlyState.searchQueries.map((query,index) => {
-      const label = query.field === 'pos' ? 'Pozitsiya' : 'Quduq';
+      const label = query.field === 'pos' ? 'Pozitsiya' : query.field === 'skv' ? 'Quduq' : 'Hudud ' + (query.label || query.value);
       return '<span class="kw-search-chip">' + label + ': ' + esc(query.value) + ' <button type="button" data-search-query-remove="' + index + '" aria-label="Remove query">&times;</button></span>';
     }).join('');
   }
@@ -537,8 +622,10 @@
       $('kudukSearchValue')?.focus();
       return;
     }
-    monthlyState.searchResultIndexes = monthlyRows().map((row,index) => ({row,index})).filter(({row}) =>
-      monthlyState.searchQueries.some((query) => searchValueMatches(row[query.field], query))
+    monthlyState.searchResultIndexes = monthlyRows().map((row,index) => ({row,index})).filter(({row,index}) =>
+      monthlyState.searchQueries.some((query) => query.field === 'region'
+        ? monthlyRegionIndexes(query.value).includes(index)
+        : searchValueMatches(row[query.field], query))
     ).map(({index}) => index);
     monthlyState.searchHasRun = true;
     renderMonthlySearchResults();
@@ -572,7 +659,8 @@
     renderMonthlySearchQueries();
     renderMonthlySearchResults();
     $('kudukSearchModal')?.classList.add('show');
-    $('kudukSearchValue')?.focus();
+    if ($('kudukSearchField')?.value === 'region') $('kudukSearchRegion')?.focus();
+    else $('kudukSearchValue')?.focus();
   }
 
   function closeMonthlySearch() { $('kudukSearchModal')?.classList.remove('show'); }
@@ -585,6 +673,8 @@
     renderMonthlySearchResults();
     setMonthlySearchStatus('Pozitsiya yoki quduq raqamini kiriting.');
     if ($('kudukSearchValue')) $('kudukSearchValue').value = '';
+    if ($('kudukSearchRegion')) $('kudukSearchRegion').value = '';
+    updateMonthlySearchField();
   }
 
   async function loadMonthlyExecutorDefault() {
