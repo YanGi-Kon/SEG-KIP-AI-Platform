@@ -16,6 +16,7 @@
   let reportsPreviousScroll = 0;
   let documentPreviousScroll = 0;
   let currentDocument = null;
+  let floatingSearchButton = null;
   function syncFullPageLayout() {
     try {
       const frame = window.frameElement;
@@ -177,6 +178,7 @@
       body.kuduk-document-home #kudukDocumentModal .kw-head{flex-shrink:0}
       body.kuduk-document-home .kw-doc-body{flex:1;min-height:0}
       .kw-monthly-document-actions{min-height:48px;margin-top:12px}
+      .kw-search-toolbar{display:grid;grid-template-columns:minmax(180px,220px) minmax(180px,1fr) auto;gap:8px;align-items:center}.kw-search-toolbar select,.kw-search-toolbar input{height:40px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#061120;color:#eaf8ff;padding:8px 10px}.kw-search-help{margin:8px 0;color:#9fb7c7;font-size:11px}.kw-search-queries{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.kw-search-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid rgba(34,211,238,.28);border-radius:999px;background:rgba(34,211,238,.08);color:#dffbff;font-size:11px}.kw-search-chip button{border:0;background:transparent;color:#fca5a5;cursor:pointer;font-weight:900}.kw-search-results{max-height:48vh;overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:10px}.kw-search-results table{width:100%;min-width:700px;border-collapse:collapse}.kw-search-results th,.kw-search-results td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left}.kw-search-results th{position:sticky;top:0;background:#0a2538;color:#c9f7ff}.kw-search-results input{accent-color:#06b6d4}.kw-search-empty{padding:20px;text-align:center;color:#9fb7c7;font-size:12px}
       #kudukCreateMonthlyDocument{position:fixed;bottom:max(48px,env(safe-area-inset-bottom));right:154px;z-index:130;box-shadow:0 6px 24px rgba(0,0,0,.35)}
       .kw-monthly-shell{width:min(1380px,100%);max-height:96vh;display:flex;flex-direction:column;overflow:hidden}
       .kw-monthly-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}.kw-monthly-period select{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px}
@@ -219,6 +221,7 @@
               <div><h2>1. Ойлик анализ</h2><p>📘 ЖУРНАЛ маълумотлари танланган ой бўйича таҳлил қилинади.</p></div>
             </div>
             <div class="kw-actions">
+              <button id="kudukMonthlySearchInline" class="btn" type="button">&#1178;&#1080;&#1076;&#1080;&#1088;&#1091;&#1074;</button>
               <button class="btn" type="button" onclick="window.KudukWorkflow?.openReports()">3. Хисоботлар</button>
               <button class="btn" type="button" onclick="window.KudukWorkflow?.openSigners()">5. ИМЗО ЧЕКУВЧИЛАР</button>
               <button class="btn" type="button" onclick="window.KudukWorkflow?.openFinalDocuments()">6. ЯКУНИЙ ҲУЖЖАТЛАР</button>
@@ -253,6 +256,7 @@
         </div>`;
       document.body.appendChild(modal);
       $('kudukMonthlyClose')?.addEventListener('click', () => closeMonthlyAnalysis());
+      $('kudukMonthlySearchInline')?.addEventListener('click', openMonthlySearch);
       $('kudukMonthlyBack')?.addEventListener('click', () => {
         closeMonthlyAnalysis();
         if (typeof window.KudukJournalWorkspace?.backToMenu === 'function') window.KudukJournalWorkspace.backToMenu();
@@ -434,9 +438,154 @@
       $('kudukPersonalDriveSave')?.addEventListener('click', () => void savePersonalDrive());
       modal.addEventListener('click', (event) => { if (event.target === modal) modal.classList.remove('show'); });
     }
+
+    if (!$('kudukSearchModal')) {
+      const modal = document.createElement('div');
+      modal.id = 'kudukSearchModal';
+      modal.className = 'kw-modal';
+      modal.innerHTML = `
+        <div class="kw-shell" style="width:min(980px,100%)">
+          <div class="kw-head"><div><h2>Қидирув</h2><p>Ойлик ҳисобот қаторларидан позиция ёки қудуқ рақами бўйича изланг.</p></div><button id="kudukSearchClose" class="btn" type="button">✕</button></div>
+          <div class="kw-body">
+            <div class="kw-search-toolbar">
+              <select id="kudukSearchField" aria-label="Қидирув тури"><option value="pos">Позиция рақами</option><option value="skv">Қудуқ рақами</option></select>
+              <input id="kudukSearchValue" type="text" inputmode="search" autocomplete="off" placeholder="Рақамни киритинг ва Enter босинг">
+              <button id="kudukSearchAdd" class="btn" type="button">+ Қўшиш</button>
+            </div>
+            <p class="kw-search-help">Enter бир сўровни қўшади. Турини алмаштириб яна рақам киритишингиз мумкин. Барча сўровларга мос қаторлар топилади.</p>
+            <div id="kudukSearchQueries" class="kw-search-queries"></div>
+            <div class="kw-actions" style="justify-content:space-between;margin:10px 0"><span id="kudukSearchStatus" class="kw-status">Қидирув рақамларини киритинг.</span><div class="kw-actions"><button id="kudukSearchRun" class="btn primary" type="button">Излаш</button><button id="kudukSearchClear" class="btn" type="button">Тозалаш</button></div></div>
+            <div id="kudukSearchResults" class="kw-search-results"><div class="kw-search-empty">Ҳали қидирув бажарилмаган.</div></div>
+            <div class="kw-actions" style="justify-content:flex-end;margin-top:12px"><button id="kudukSearchDone" class="btn" type="button">Танловни қўллаш</button></div>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      $('kudukSearchClose')?.addEventListener('click', closeMonthlySearch);
+      $('kudukSearchDone')?.addEventListener('click', closeMonthlySearch);
+      $('kudukSearchAdd')?.addEventListener('click', addMonthlySearchQuery);
+      $('kudukSearchValue')?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') { event.preventDefault(); addMonthlySearchQuery(); }
+      });
+      $('kudukSearchRun')?.addEventListener('click', runMonthlySearch);
+      $('kudukSearchClear')?.addEventListener('click', clearMonthlySearch);
+      $('kudukSearchQueries')?.addEventListener('click', (event) => {
+        const remove = event.target.closest('[data-search-query-remove]');
+        if (!remove) return;
+        monthlyState.searchQueries.splice(Number(remove.dataset.searchQueryRemove), 1);
+        monthlyState.searchHasRun = false;
+        renderMonthlySearchQueries();
+        renderMonthlySearchResults();
+        setMonthlySearchStatus('Сўров ўзгарди. Натижаларни янгилаш учун «Излаш»ни босинг.');
+      });
+      $('kudukSearchResults')?.addEventListener('change', (event) => {
+        const checkbox = event.target.closest('[data-search-row-index]');
+        if (!checkbox) return;
+        toggleMonthlyRow(Number(checkbox.dataset.searchRowIndex), checkbox.checked);
+        renderMonthlySearchResults();
+      });
+      modal.addEventListener('click', (event) => { if (event.target === modal) closeMonthlySearch(); });
+    }
   }
 
-  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0, executorDefault:'', executorDefaultWorkspaceId:'' };
+  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0, executorDefault:'', executorDefaultWorkspaceId:'', searchQueries:[], searchResultIndexes:[], searchHasRun:false };
+
+  function setMonthlySearchStatus(message, type='') {
+    const status = $('kudukSearchStatus');
+    if (!status) return;
+    status.textContent = message;
+    status.className = 'kw-status' + (type ? ' ' + type : '');
+  }
+
+  function addMonthlySearchQuery() {
+    const field = $('kudukSearchField')?.value === 'skv' ? 'skv' : 'pos';
+    const value = clean($('kudukSearchValue')?.value);
+    if (!value) { setMonthlySearchStatus('Pozitsiya yoki quduq raqamini kiriting.', 'bad'); $('kudukSearchValue')?.focus(); return; }
+    const exists = monthlyState.searchQueries.some((query) => query.field === field && query.value.toLocaleLowerCase() === value.toLocaleLowerCase());
+    if (!exists) monthlyState.searchQueries.push({ field, value });
+    monthlyState.searchHasRun = false;
+    monthlyState.searchResultIndexes = [];
+    if ($('kudukSearchValue')) $('kudukSearchValue').value = '';
+    renderMonthlySearchQueries();
+    renderMonthlySearchResults();
+    setMonthlySearchStatus(exists ? 'Bu sorov oldin qoshilgan.' : 'Sorov qoshildi. Yana raqam kiritishingiz mumkin.', exists ? 'sync' : 'ok');
+    $('kudukSearchValue')?.focus();
+  }
+
+  function renderMonthlySearchQueries() {
+    const box = $('kudukSearchQueries');
+    if (!box) return;
+    box.innerHTML = monthlyState.searchQueries.map((query,index) => {
+      const label = query.field === 'pos' ? 'Pozitsiya' : 'Quduq';
+      return '<span class="kw-search-chip">' + label + ': ' + esc(query.value) + ' <button type="button" data-search-query-remove="' + index + '" aria-label="Remove query">&times;</button></span>';
+    }).join('');
+  }
+
+  function searchValueMatches(candidate, query) {
+    const target = clean(candidate).normalize('NFKC').toLocaleLowerCase();
+    const value = query.value.normalize('NFKC').toLocaleLowerCase();
+    if (!target || !value) return false;
+    if (/^\d+$/.test(value)) {
+      const normalizeNumber = (part) => part.replace(/^0+(?=\d)/, '');
+      return (target.match(/\d+/g) || []).some((part) => normalizeNumber(part) === normalizeNumber(value));
+    }
+    return target.includes(value);
+  }
+
+  function runMonthlySearch() {
+    if (!monthlyState.searchQueries.length) {
+      setMonthlySearchStatus('Avval pozitsiya yoki quduq raqamini kiriting va Enter bosing.', 'bad');
+      $('kudukSearchValue')?.focus();
+      return;
+    }
+    monthlyState.searchResultIndexes = monthlyRows().map((row,index) => ({row,index})).filter(({row}) =>
+      monthlyState.searchQueries.some((query) => searchValueMatches(row[query.field], query))
+    ).map(({index}) => index);
+    monthlyState.searchHasRun = true;
+    renderMonthlySearchResults();
+    const count = monthlyState.searchResultIndexes.length;
+    setMonthlySearchStatus(count ? 'Topildi: ' + count + ' qator. Keraklilarini belgilang.' : 'Mos qator topilmadi.', count ? 'ok' : 'bad');
+  }
+
+  function renderMonthlySearchResults() {
+    const box = $('kudukSearchResults');
+    if (!box) return;
+    if (!monthlyState.searchHasRun) {
+      box.innerHTML = '<div class="kw-search-empty">Sorovlarni kiriting, song Izlash tugmasini bosing.</div>';
+      return;
+    }
+    const indexes = monthlyState.searchResultIndexes;
+    if (!indexes.length) {
+      box.innerHTML = '<div class="kw-search-empty">Mos qatorlar topilmadi.</div>';
+      return;
+    }
+    box.innerHTML = '<table><thead><tr><th>Tanlash</th><th>Sana</th><th>Pozitsiya</th><th>Uskuna</th><th>Zavod raqami</th><th>Quduq raqami</th><th>Ish turi</th></tr></thead><tbody>' + indexes.map((index) => {
+      const row = monthlyRows()[index] || {};
+      const reported = isReportedRow(row,index);
+      const checked = !reported && monthlyState.selectedKeys.has(monthlyRowKey(row,index));
+      return '<tr><td><input type="checkbox" data-search-row-index="' + index + '"' + (checked ? ' checked' : '') + (reported ? ' disabled title="Hisobotga avval qoshilgan"' : '') + '></td><td>' + esc(row.date) + '</td><td>' + esc(row.pos) + '</td><td>' + esc(row.name) + '</td><td>' + esc(row.serial) + '</td><td>' + esc(row.skv) + '</td><td>' + esc(row.work) + '</td></tr>';
+    }).join('') + '</tbody></table>';
+  }
+
+  function openMonthlySearch() {
+    if (!document.body.classList.contains('kuduk-analysis-home')) return;
+    injectUi();
+    renderMonthlySearchQueries();
+    renderMonthlySearchResults();
+    $('kudukSearchModal')?.classList.add('show');
+    $('kudukSearchValue')?.focus();
+  }
+
+  function closeMonthlySearch() { $('kudukSearchModal')?.classList.remove('show'); }
+
+  function clearMonthlySearch() {
+    monthlyState.searchQueries = [];
+    monthlyState.searchResultIndexes = [];
+    monthlyState.searchHasRun = false;
+    renderMonthlySearchQueries();
+    renderMonthlySearchResults();
+    setMonthlySearchStatus('Pozitsiya yoki quduq raqamini kiriting.');
+    if ($('kudukSearchValue')) $('kudukSearchValue').value = '';
+  }
 
   async function loadMonthlyExecutorDefault() {
     const wid = workspaceId();
@@ -651,7 +800,7 @@
   async function readMonthlySelectors() {
     const nextMonth = Number($('kudukAnalysisMonth')?.value) || monthlyState.month;
     const nextYear = Number($('kudukAnalysisYear')?.value) || monthlyState.year;
-    if (nextMonth !== monthlyState.month || nextYear !== monthlyState.year) monthlyState.selectedKeys.clear();
+    if (nextMonth !== monthlyState.month || nextYear !== monthlyState.year) { monthlyState.selectedKeys.clear(); clearMonthlySearch(); }
     monthlyState.month = nextMonth;
     monthlyState.year = nextYear;
     await loadMonthlyAnalysis();
@@ -663,7 +812,7 @@
     let month = ((absolute % 12) + 12) % 12 + 1;
     if (year < 2026) { year = 2026; month = 1; }
     if (year > 2028) { year = 2028; month = 12; }
-    if (year !== monthlyState.year || month !== monthlyState.month) monthlyState.selectedKeys.clear();
+    if (year !== monthlyState.year || month !== monthlyState.month) { monthlyState.selectedKeys.clear(); clearMonthlySearch(); }
     monthlyState.year = year; monthlyState.month = month;
     await loadMonthlyAnalysis();
   }
@@ -671,17 +820,54 @@
   function openMonthlyAnalysis(route=null) {
     injectUi();
     monthlyState.route = route || window.KudukJournalWorkspace?.getState?.()?.selectedRoute || monthlyState.route;
-    monthlyState.year = 0; monthlyState.month = 0; monthlyState.rows = []; monthlyState.selectedKeys.clear(); monthlyState.reportedKeys.clear(); monthlyState.reportBatches = 0;
+    monthlyState.year = 0; monthlyState.month = 0; monthlyState.rows = []; monthlyState.selectedKeys.clear(); monthlyState.reportedKeys.clear(); monthlyState.reportBatches = 0; clearMonthlySearch();
     fillMonthlySelectors();
     document.body.classList.add('kuduk-analysis-home');
     $('kudukMonthlyModal')?.classList.add('show');
     mountFloatingDocumentButton();
+    mountFloatingSearchButton();
     void loadMonthlyAnalysis();
   }
 
   function closeMonthlyAnalysis() {
     document.body.classList.remove('kuduk-analysis-home');
     $('kudukMonthlyModal')?.classList.remove('show');
+    closeMonthlySearch();
+  }
+
+  function mountFloatingSearchButton() {
+    if (floatingSearchButton || window.parent === window) return;
+    try {
+      const frame = window.frameElement;
+      const host = parent.document;
+      const target = host.querySelector('.topbar .status');
+      if (!frame || !target) return;
+      const button = host.createElement('button');
+      button.id = 'kudukMonthlySearchLauncher';
+      button.type = 'button';
+      button.textContent = '\u049a\u0438\u0434\u0438\u0440\u0443\u0432';
+      button.title = '\u041e\u0439\u043b\u0438\u043a \u0436\u0443\u0440\u043d\u0430\u043b\u0438\u0434\u0430\u043d \u043f\u043e\u0437\u0438\u0446\u0438\u044f \u0451\u043a\u0438 \u049b\u0443\u0434\u0443\u049b \u0440\u0430\u049b\u0430\u043c\u0438 \u0431\u0443\u0439\u0438\u0447\u0430 \u049b\u0438\u0434\u0438\u0440\u0443\u0432';
+      button.style.cssText = 'border:1px solid rgba(34,211,238,.38);border-radius:10px;padding:8px 13px;background:#073247;color:#dffbff;font:800 12px Arial,sans-serif;cursor:pointer;margin-right:8px';
+      button.addEventListener('click', openMonthlySearch);
+      floatingSearchButton = button;
+      target.insertBefore(button, target.firstChild);
+      const syncVisibility = () => {
+        button.hidden = !document.body.classList.contains('kuduk-analysis-home') || !frame.getClientRects().length;
+      };
+      const observer = new MutationObserver(syncVisibility);
+      observer.observe(document.body, { attributes:true, subtree:true, attributeFilter:['class','style','hidden'] });
+      const hostObserver = new MutationObserver(syncVisibility);
+      for (let element = frame; element; element = element.parentElement) {
+        hostObserver.observe(element, { attributes:true, attributeFilter:['class','style','hidden'] });
+      }
+      parent.addEventListener('resize', syncVisibility);
+      window.addEventListener('pagehide', () => {
+        observer.disconnect(); hostObserver.disconnect();
+        parent.removeEventListener('resize', syncVisibility);
+        button.remove(); floatingSearchButton = null;
+      }, { once:true });
+      syncVisibility();
+    } catch (_) { /* Standalone embeds use the inline search button. */ }
   }
 
   function mountFloatingDocumentButton() {
