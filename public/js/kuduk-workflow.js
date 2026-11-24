@@ -134,15 +134,19 @@
       .kw-head h2{margin:0;font-size:20px}.kw-head p{margin:4px 0 0;font-size:11px;color:#9fb7c7}
       .kw-body{padding:16px}.kw-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
       .kw-reports-grid{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:520px}
+      .kw-report-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
       .kw-folders{padding:14px;border-right:1px solid rgba(255,255,255,.09);overflow:auto}
       .kw-year{margin:10px 0 7px;color:#a5f3fc;font-weight:900;font-size:13px}
-      .kw-folder{width:100%;display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;margin:0 0 8px;padding:11px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:#eaf7ff;border-radius:12px;cursor:pointer}
+      .kw-folder{width:100%;display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:9px;align-items:center;text-align:left;margin:0;padding:11px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:#eaf7ff;border-radius:12px;cursor:pointer}
       .kw-folder:hover,.kw-folder.active{border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.10)}
       .kw-folder-row{display:flex;align-items:stretch;gap:6px;margin-bottom:8px}
       .kw-folder-row .kw-folder{flex:1;min-width:0;margin:0}
+      .kw-folder-icon{font-size:25px}.kw-folder-name{display:block;font-weight:900}.kw-folder-meta{display:block;margin-top:3px;color:#9fb7c7;font-size:10px}.kw-folder-state{font-size:10px;color:#fde68a;white-space:nowrap}
       .kw-report-delete{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;border:1px solid rgba(248,113,113,.25);border-radius:10px;background:rgba(248,113,113,.06);color:#fca5a5;cursor:pointer}
       .kw-report-delete:hover{background:rgba(248,113,113,.2);border-color:#f87171}.kw-report-delete:disabled{opacity:.45;cursor:default}
       .kw-preview{padding:16px;overflow:auto;background:#0b1628}.kw-empty{padding:28px;text-align:center;color:#9fb7c7}
+      .kw-report-a4-host{overflow:auto;padding:16px;background:#101827;border:1px solid rgba(255,255,255,.08);border-radius:12px}.kw-report-a4{width:297mm;min-height:210mm;margin:0 auto;padding:12mm;box-sizing:border-box;background:#fff;color:#111;font-family:"Times New Roman",Times,serif;box-shadow:0 12px 36px rgba(0,0,0,.32)}.kw-report-a4-title{text-align:center;font-size:16pt;font-weight:700;margin-bottom:4mm}.kw-report-a4-period{text-align:center;font-size:12pt;margin-bottom:5mm}.kw-report-a4 table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt}.kw-report-a4 th,.kw-report-a4 td{border:.25mm solid #000;padding:.8mm;vertical-align:middle;overflow-wrap:anywhere}.kw-report-a4 th{text-align:center}.kw-report-a4-empty{text-align:center;color:#555;padding:20px}
+      @media(max-width:900px){.kw-reports-grid{grid-template-columns:1fr}.kw-folders{max-height:230px;border-right:0;border-bottom:1px solid rgba(255,255,255,.09)}.kw-report-a4{margin:0}}
       .kw-tablewrap{overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:12px}
       .kw-table{width:100%;min-width:980px;border-collapse:collapse}.kw-table th,.kw-table td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left;vertical-align:top}
       .kw-table th{background:#0a2538;color:#c9f7ff;position:sticky;top:0}.kw-status{font-size:12px;color:#cdeeff}.kw-status.ok{color:#86efac}.kw-status.bad{color:#fca5a5}.kw-status.sync{color:#fde68a}
@@ -318,6 +322,18 @@
         </div>`;
       document.body.appendChild(modal);
       $('kudukReportsClose')?.addEventListener('click', closeReports);
+      const refreshButton = document.createElement('button');
+      refreshButton.id = 'kudukReportsRefresh';
+      refreshButton.className = 'btn';
+      refreshButton.type = 'button';
+      refreshButton.textContent = 'Yangilash';
+      refreshButton.addEventListener('click', () => void renderReportFolders());
+      const closeButton = $('kudukReportsClose');
+      const actions = document.createElement('div');
+      actions.className = 'kw-report-head-actions';
+      closeButton?.replaceWith(actions);
+      actions.append(refreshButton);
+      if (closeButton) actions.append(closeButton);
     }
 
     if (!$('kudukSignersModal')) {
@@ -949,21 +965,26 @@
         if (preview) preview.innerHTML = '<div class="kw-empty">1. Ойлик анализда қаторларни танлаб, Хужат яратиш орқали биринчи ҳисоботни шакллантиринг.</div>';
         return;
       }
-      let html = '', currentYear = null;
-      reports.forEach((report) => {
-        if (report.year !== currentYear) {
-          currentYear = report.year;
-          html += '<div class="kw-year">' + report.year + '</div>';
-        }
-        html += '<div class="kw-folder-row"><button class="kw-folder" type="button" data-year="' + report.year + '" data-month="' + report.month + '"><span>📁 ' + esc(MONTHS[report.month]) + '</span><b>' + Number(report.rowCount || 0) + '</b></button><button class="kw-report-delete" type="button" data-year="' + report.year + '" data-month="' + report.month + '" title="Ҳисоботни ўчириш" aria-label="' + esc(MONTHS[report.month] + ' ' + report.year + ' ҳисоботини ўчириш') + '"' + (report.status !== 'draft' ? ' disabled' : '') + '><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg></button></div>';
-      });
-      host.innerHTML = html;
-      host.querySelectorAll('.kw-folder').forEach((btn) => btn.addEventListener('click', () => {
-        host.querySelectorAll('.kw-folder').forEach((x) => x.classList.remove('active'));
-        btn.classList.add('active');
-        void renderReportPreview(Number(btn.dataset.year), Number(btn.dataset.month));
+      const grouped = new Map();
+      for (const report of reports) {
+        const year = Number(report.year);
+        if (!grouped.has(year)) grouped.set(year, []);
+        grouped.get(year).push(report);
+      }
+      host.innerHTML = [...grouped.entries()].sort((a, b) => b[0] - a[0]).map(([year, yearReports]) =>
+        '<div class="kw-year">' + year + '</div>' + yearReports.sort((a, b) => Number(b.month) - Number(a.month)).map((report) => {
+          const isDraft = clean(report.status || 'draft') === 'draft';
+          const stateLabel = isDraft ? 'Qoralama' : (clean(report.status) === 'completed' ? 'Yakunlangan' : 'Arxivlangan');
+          return '<div class="kw-folder-row"><button class="kw-folder" type="button" data-year="' + esc(report.year) + '" data-month="' + esc(report.month) + '" aria-label="' + esc(MONTHS[report.month]) + ' ' + esc(year) + ' hisobotini ochish"><span class="kw-folder-icon">&#128193;</span><span><span class="kw-folder-name">' + esc(MONTHS[report.month]) + ' ' + esc(year) + '</span><span class="kw-folder-meta">' + Number(report.batchCount || 0) + ' ta hujjat | ' + Number(report.rowCount || 0) + ' ta qator</span></span><span class="kw-folder-state">' + stateLabel + '</span></button>' +
+            '<button class="kw-report-delete" type="button" data-year="' + esc(report.year) + '" data-month="' + esc(report.month) + '" title="Hisobotni ochirish" aria-label="' + esc(MONTHS[report.month]) + ' ' + esc(year) + ' hisobotini ochirish"' + (isDraft ? '' : ' disabled') + '><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg></button></div>';
+        }).join('')
+      ).join('');
+      host.querySelectorAll('.kw-folder').forEach((button) => button.addEventListener('click', () => {
+        host.querySelectorAll('.kw-folder').forEach((item) => item.classList.remove('active'));
+        button.classList.add('active');
+        void renderReportPreview(Number(button.dataset.year), Number(button.dataset.month));
       }));
-      host.querySelectorAll('.kw-report-delete').forEach(btn => btn.addEventListener('click', () => void deleteStoredReport(btn)));
+      host.querySelectorAll('.kw-report-delete').forEach((button) => button.addEventListener('click', () => void deleteStoredReport(button)));
       host.querySelector('.kw-folder')?.click();
     } catch (error) {
       host.innerHTML = '<div class="kw-empty">' + esc(error?.data?.recommendedFix ? error.message + ' · ' + error.data.recommendedFix : error.message) + '</div>';
@@ -988,24 +1009,22 @@
   async function renderReportPreview(year, month) {
     const host = $('kudukReportPreview');
     if (!host) return;
-    host.innerHTML = '<div class="kw-empty">Ҳисобот юкланмоқда...</div>';
+    host.innerHTML = '<div class="kw-empty">Hisobot yuklanmoqda...</div>';
     try {
       const data = await api('/api/journal-reports/' + year + '/' + month);
+      const report = data.report || {};
       const batches = Array.isArray(data.batches) ? data.batches : [];
       const items = Array.isArray(data.items) ? data.items : [];
       const batchMap = new Map(batches.map((batch) => [batch.id, batch]));
-      host.innerHTML = `
-        <div class="kw-actions" style="justify-content:space-between;margin-bottom:12px">
-          <div><b>${esc(MONTHS[month])} ${year}</b> · ${items.length} та ёзув · ${batches.length} та ҳужжат яратиш амали</div>
-          <button id="kudukOpenStoredDocument" class="btn primary" type="button">Хужатни очиш</button>
-        </div>
-        <div class="kw-tablewrap"><table class="kw-table"><thead><tr>
-          <th>Дата</th><th>Поз номер</th><th>Наименование СИ</th><th>Тип, марка</th><th>Заводской номер</th><th>Место установки</th>
-        </tr></thead><tbody>${items.map((r) => {
-          const batch = batchMap.get(r.batchId) || {};
-          const documentDate = formatDocumentDate(batch.documentDate) || r.date;
-          return `<tr><td>${esc(documentDate)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.location)}</td></tr>`;
-        }).join('')}</tbody></table></div>`;
+      const columns = ['No', 'Sana', 'Poz. raqami', 'Uskuna nomi', 'Turi / markasi', 'Zavod raqami', 'Diapazon', 'Joylashuvi', 'SKV', 'Ish turi', 'Ijrochi', 'Imzo'];
+      const rows = items.map((row, index) => {
+        const batch = batchMap.get(row.batchId) || {};
+        const date = formatDocumentDate(batch.documentDate) || clean(row.date);
+        const values = [index + 1, date, row.pos, row.name, row.brand, row.serial, row.range, row.location, row.skv, row.work, row.executor, row.signature];
+        return '<tr>' + values.map((value) => '<td>' + esc(value) + '</td>').join('') + '</tr>';
+      }).join('');
+      host.innerHTML = '<div class="kw-actions" style="justify-content:space-between;margin-bottom:12px"><div><b>' + esc(MONTHS[month]) + ' ' + year + '</b> | ' + items.length + ' ta qator | ' + batches.length + ' ta hujjat | ' + (clean(report.status || 'draft') === 'draft' ? 'Qoralama' : 'Yakunlangan') + '</div><button id="kudukOpenStoredDocument" class="btn primary" type="button">A4 hujjatni ochish</button></div>' +
+        '<div class="kw-report-a4-host"><article class="kw-report-a4"><div class="kw-report-a4-title">JURNAL HISOBOTI</div><div class="kw-report-a4-period">' + esc(MONTHS[month]) + ' ' + year + '</div><table><thead><tr>' + columns.map((column) => '<th>' + esc(column) + '</th>').join('') + '</tr></thead><tbody>' + (rows || '<tr><td class="kw-report-a4-empty" colspan="12">Bu oy uchun yozuvlar yoq.</td></tr>') + '</tbody></table></article></div>';
       $('kudukOpenStoredDocument')?.addEventListener('click', () => renderStoredDocument(data));
     } catch (error) {
       host.innerHTML = '<div class="kw-empty">' + esc(error.message) + '</div>';
