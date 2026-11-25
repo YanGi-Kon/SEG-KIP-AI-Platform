@@ -501,11 +501,13 @@
       $('kudukSearchResults')?.addEventListener('pointerdown', (event) => {
         const checkbox = event.target.closest('[data-search-row-index]');
         if (!checkbox || checkbox.disabled || event.button !== 0) return;
+        const index = Number(checkbox.dataset.searchRowIndex);
         event.preventDefault();
         monthlyState.searchKeyboardRange = null;
         monthlyState.searchDrag = { pointerId:event.pointerId, checked:!checkbox.checked, suppressClick:true };
         $('kudukSearchResults')?.classList.add('is-dragging');
-        setMonthlySearchRowSelection(Number(checkbox.dataset.searchRowIndex), monthlyState.searchDrag.checked);
+        setMonthlySearchRowSelection(index, monthlyState.searchDrag.checked);
+        focusMonthlySearchCheckbox(index);
       });
       $('kudukSearchResults')?.addEventListener('click', (event) => {
         if (!monthlyState.searchDrag?.suppressClick) return;
@@ -569,8 +571,10 @@
     const position = indexes.indexOf(currentIndex);
     if (position < 0) return;
 
-    if (event.code === 'Space' || event.key === ' ') {
+    if (event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar') {
       event.preventDefault();
+      event.stopPropagation();
+      if (event.repeat) return;
       monthlyState.searchKeyboardRange = null;
       setMonthlySearchRowSelection(currentIndex, !checkbox.checked);
       focusMonthlySearchCheckbox(currentIndex);
