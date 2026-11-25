@@ -179,6 +179,7 @@
       body.kuduk-document-home .kw-doc-body{flex:1;min-height:0}
       .kw-monthly-document-actions{min-height:48px;margin-top:12px}
       .kw-search-toolbar{display:grid;grid-template-columns:minmax(180px,220px) minmax(180px,1fr) auto;gap:8px;align-items:center}.kw-search-toolbar select,.kw-search-toolbar input{height:40px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#061120;color:#eaf8ff;padding:8px 10px}.kw-search-help{margin:8px 0;color:#9fb7c7;font-size:11px}.kw-search-queries{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.kw-search-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid rgba(34,211,238,.28);border-radius:999px;background:rgba(34,211,238,.08);color:#dffbff;font-size:11px}.kw-search-chip button{border:0;background:transparent;color:#fca5a5;cursor:pointer;font-weight:900}.kw-search-results{max-height:48vh;overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:10px}.kw-search-results.is-dragging{user-select:none;cursor:crosshair}.kw-search-results table{width:100%;min-width:700px;border-collapse:collapse}.kw-search-results th,.kw-search-results td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left}.kw-search-results th{position:sticky;top:0;background:#0a2538;color:#c9f7ff}.kw-search-results input{accent-color:#06b6d4;cursor:pointer}.kw-search-empty{padding:20px;text-align:center;color:#9fb7c7;font-size:12px}
+      #kudukSearchModal.kw-search-fullscreen{padding:0;background:rgba(0,0,0,.94)}#kudukSearchModal.kw-search-fullscreen>.kw-shell{width:100%!important;height:100vh;max-height:none;display:flex;flex-direction:column;border:0;border-radius:0}#kudukSearchModal.kw-search-fullscreen .kw-body{flex:1;min-height:0;display:flex;flex-direction:column}#kudukSearchModal.kw-search-fullscreen .kw-search-results{flex:1;min-height:0;max-height:none}
       #kudukCreateMonthlyDocument{position:fixed;bottom:max(48px,env(safe-area-inset-bottom));right:154px;z-index:130;box-shadow:0 6px 24px rgba(0,0,0,.35)}
       .kw-monthly-shell{width:min(1380px,100%);max-height:96vh;display:flex;flex-direction:column;overflow:hidden}
       .kw-monthly-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}.kw-monthly-period select{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px}
@@ -445,7 +446,7 @@
       modal.className = 'kw-modal';
       modal.innerHTML = `
         <div class="kw-shell" style="width:min(980px,100%)">
-          <div class="kw-head"><div><h2>Қидирув</h2><p>Ойлик ҳисобот қаторларидан позиция ёки қудуқ рақами бўйича изланг.</p></div><button id="kudukSearchClose" class="btn" type="button">✕</button></div>
+          <div class="kw-head"><div><h2>Қидирув</h2><p>Ойлик ҳисобот қаторларидан позиция ёки қудуқ рақами бўйича изланг.</p></div><div class="kw-actions"><button id="kudukSearchFullscreen" class="btn" type="button" title="Full screen" aria-label="Full screen">⛶</button><button id="kudukSearchClose" class="btn" type="button">✕</button></div></div>
           <div class="kw-body">
             <div class="kw-search-toolbar">
               <select id="kudukSearchField" aria-label="Қидирув тури"><option value="pos">Позиция рақами</option><option value="skv">Қудуқ рақами</option><option value="region">Ҳудуд</option></select>
@@ -461,6 +462,16 @@
           </div>
         </div>`;
       document.body.appendChild(modal);
+      $('kudukSearchFullscreen')?.addEventListener('click', () => {
+        const fullscreen = modal.classList.toggle('kw-search-fullscreen');
+        const button = $('kudukSearchFullscreen');
+        if (button) {
+          button.textContent = fullscreen ? '↙' : '⛶';
+          button.title = fullscreen ? 'To‘liq ekrandan chiqish' : 'To‘liq ekran';
+          button.setAttribute('aria-label', button.title);
+          button.setAttribute('aria-pressed', String(fullscreen));
+        }
+      });
       $('kudukSearchClose')?.addEventListener('click', closeMonthlySearch);
       $('kudukSearchDone')?.addEventListener('click', closeMonthlySearch);
       $('kudukSearchAdd')?.addEventListener('click', addMonthlySearchQuery);
@@ -486,10 +497,12 @@
         toggleMonthlyRow(Number(checkbox.dataset.searchRowIndex), checkbox.checked);
         renderMonthlySearchResults();
       });
+      $('kudukSearchResults')?.addEventListener('keydown', handleMonthlySearchKeyboard);
       $('kudukSearchResults')?.addEventListener('pointerdown', (event) => {
         const checkbox = event.target.closest('[data-search-row-index]');
         if (!checkbox || checkbox.disabled || event.button !== 0) return;
         event.preventDefault();
+        monthlyState.searchKeyboardRange = null;
         monthlyState.searchDrag = { pointerId:event.pointerId, checked:!checkbox.checked, suppressClick:true };
         $('kudukSearchResults')?.classList.add('is-dragging');
         setMonthlySearchRowSelection(Number(checkbox.dataset.searchRowIndex), monthlyState.searchDrag.checked);
@@ -506,7 +519,7 @@
     }
   }
 
-  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0, lastDocumentDate:'', executorDefault:'', executorDefaultWorkspaceId:'', searchQueries:[], searchResultIndexes:[], searchHasRun:false };
+  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0, lastDocumentDate:'', executorDefault:'', executorDefaultWorkspaceId:'', searchQueries:[], searchResultIndexes:[], searchHasRun:false, searchKeyboardRange:null };
 
   function setMonthlySearchStatus(message, type='') {
     const status = $('kudukSearchStatus');
@@ -541,6 +554,72 @@
       monthlyState.searchDrag = null;
       $('kudukSearchResults')?.classList.remove('is-dragging');
     }, 0);
+  }
+
+  function focusMonthlySearchCheckbox(index) {
+    const checkboxes = [...($('kudukSearchResults')?.querySelectorAll('[data-search-row-index]') || [])];
+    checkboxes.find((checkbox) => Number(checkbox.dataset.searchRowIndex) === Number(index))?.focus();
+  }
+
+  function handleMonthlySearchKeyboard(event) {
+    const checkbox = event.target.closest?.('[data-search-row-index]');
+    if (!checkbox || checkbox.disabled) return;
+    const indexes = monthlyState.searchResultIndexes;
+    const currentIndex = Number(checkbox.dataset.searchRowIndex);
+    const position = indexes.indexOf(currentIndex);
+    if (position < 0) return;
+
+    if (event.code === 'Space' || event.key === ' ') {
+      event.preventDefault();
+      monthlyState.searchKeyboardRange = null;
+      setMonthlySearchRowSelection(currentIndex, !checkbox.checked);
+      focusMonthlySearchCheckbox(currentIndex);
+      return;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    const direction = event.key === 'ArrowDown' ? 1 : -1;
+    let nextPosition = position + direction;
+    while (nextPosition >= 0 && nextPosition < indexes.length && isReportedRow(monthlyRows()[indexes[nextPosition]], indexes[nextPosition])) nextPosition += direction;
+    if (nextPosition < 0 || nextPosition >= indexes.length) return;
+    const nextIndex = indexes[nextPosition];
+
+    if (!event.shiftKey) {
+      monthlyState.searchKeyboardRange = null;
+      focusMonthlySearchCheckbox(nextIndex);
+      return;
+    }
+
+    let range = monthlyState.searchKeyboardRange;
+    if (!range || range.targetIndex !== currentIndex) {
+      const baseline = new Map();
+      indexes.forEach((index) => {
+        const row = monthlyRows()[index];
+        baseline.set(index, Boolean(row && monthlyState.selectedKeys.has(monthlyRowKey(row,index))));
+      });
+      range = { anchorPosition:position, targetIndex:currentIndex, checked:checkbox.checked, baseline };
+    }
+    range.targetIndex = nextIndex;
+    monthlyState.searchKeyboardRange = range;
+    indexes.forEach((index) => {
+      const row = monthlyRows()[index];
+      if (!row || isReportedRow(row,index)) return;
+      const key = monthlyRowKey(row,index);
+      if (range.baseline.get(index)) monthlyState.selectedKeys.add(key);
+      else monthlyState.selectedKeys.delete(key);
+    });
+    const low = Math.min(range.anchorPosition,nextPosition);
+    const high = Math.max(range.anchorPosition,nextPosition);
+    indexes.slice(low,high + 1).forEach((index) => {
+      const row = monthlyRows()[index];
+      if (!row || isReportedRow(row,index)) return;
+      const key = monthlyRowKey(row,index);
+      if (range.checked) monthlyState.selectedKeys.add(key);
+      else monthlyState.selectedKeys.delete(key);
+    });
+    renderMonthlyAnalysis();
+    renderMonthlySearchResults();
+    focusMonthlySearchCheckbox(nextIndex);
   }
 
   function monthlySearchRegionRoutes() {
