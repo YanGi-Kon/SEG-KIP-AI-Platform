@@ -178,7 +178,7 @@
       body.kuduk-document-home #kudukDocumentModal .kw-head{flex-shrink:0}
       body.kuduk-document-home .kw-doc-body{flex:1;min-height:0}
       .kw-monthly-document-actions{min-height:48px;margin-top:12px}
-      .kw-search-toolbar{display:grid;grid-template-columns:minmax(180px,220px) minmax(180px,1fr) auto;gap:8px;align-items:center}.kw-search-toolbar select,.kw-search-toolbar input{height:40px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#061120;color:#eaf8ff;padding:8px 10px}.kw-search-help{margin:8px 0;color:#9fb7c7;font-size:11px}.kw-search-queries{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.kw-search-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid rgba(34,211,238,.28);border-radius:999px;background:rgba(34,211,238,.08);color:#dffbff;font-size:11px}.kw-search-chip button{border:0;background:transparent;color:#fca5a5;cursor:pointer;font-weight:900}.kw-search-results{max-height:48vh;overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:10px}.kw-search-results.is-dragging{user-select:none;cursor:crosshair}.kw-search-results table{width:100%;min-width:700px;border-collapse:collapse}.kw-search-results th,.kw-search-results td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left}.kw-search-results th{position:sticky;top:0;background:#0a2538;color:#c9f7ff}.kw-search-results input{accent-color:#06b6d4;cursor:pointer}.kw-search-results td[tabindex="0"]:focus{outline:2px solid #22d3ee;outline-offset:-2px}.kw-search-empty{padding:20px;text-align:center;color:#9fb7c7;font-size:12px}
+      .kw-search-toolbar{display:grid;grid-template-columns:minmax(180px,220px) minmax(180px,1fr) auto;gap:8px;align-items:center}.kw-search-toolbar select,.kw-search-toolbar input{height:40px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#061120;color:#eaf8ff;padding:8px 10px}#kudukSearchRegion option.kw-region-already-selected{color:#86efac;background:#123329;font-weight:700}.kw-search-help{margin:8px 0;color:#9fb7c7;font-size:11px}.kw-search-queries{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.kw-search-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid rgba(34,211,238,.28);border-radius:999px;background:rgba(34,211,238,.08);color:#dffbff;font-size:11px}.kw-search-chip button{border:0;background:transparent;color:#fca5a5;cursor:pointer;font-weight:900}.kw-search-results{max-height:48vh;overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:10px}.kw-search-results.is-dragging{user-select:none;cursor:crosshair}.kw-search-results table{width:100%;min-width:700px;border-collapse:collapse}.kw-search-results th,.kw-search-results td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left}.kw-search-results th{position:sticky;top:0;background:#0a2538;color:#c9f7ff}.kw-search-results input{accent-color:#06b6d4;cursor:pointer}.kw-search-results td[tabindex="0"]:focus{outline:2px solid #22d3ee;outline-offset:-2px}.kw-search-empty{padding:20px;text-align:center;color:#9fb7c7;font-size:12px}
       #kudukSearchModal.kw-search-fullscreen{padding:0;background:rgba(0,0,0,.94)}#kudukSearchModal.kw-search-fullscreen>.kw-shell{width:100%!important;height:100vh;max-height:none;display:flex;flex-direction:column;border:0;border-radius:0}#kudukSearchModal.kw-search-fullscreen .kw-body{flex:1;min-height:0;display:flex;flex-direction:column}#kudukSearchModal.kw-search-fullscreen .kw-search-results{flex:1;min-height:0;max-height:none}
       #kudukCreateMonthlyDocument{position:fixed;bottom:max(48px,env(safe-area-inset-bottom));right:154px;z-index:130;box-shadow:0 6px 24px rgba(0,0,0,.35)}
       .kw-monthly-table tr[data-monthly-row-index] td[tabindex="0"]:focus{outline:2px solid #22d3ee;outline-offset:-2px}.kw-monthly-table tbody.is-dragging{user-select:none;cursor:crosshair}
@@ -515,6 +515,7 @@
         const remove = event.target.closest('[data-search-query-remove]');
         if (!remove) return;
         monthlyState.searchQueries.splice(Number(remove.dataset.searchQueryRemove), 1);
+        populateMonthlySearchRegions();
         monthlyState.searchHasRun = false;
         renderMonthlySearchQueries();
         renderMonthlySearchResults();
@@ -698,9 +699,13 @@
     const select = $('kudukSearchRegion');
     if (!select) return;
     const routes = monthlySearchRegionRoutes();
-    select.innerHTML = '<option value="">Hududni tanlang</option>' + routes.map((route) =>
-      '<option value="' + esc(route.sheet) + '">' + esc(route.title || route.sheet) + '</option>'
-    ).join('');
+    select.innerHTML = '<option value="">Hududni tanlang</option>' + routes.map((route) => {
+      const alreadySelected = monthlyState.searchQueries.some((query) => query.field === 'region' && clean(query.value) === clean(route.sheet));
+      const mark = alreadySelected ? '✓ Танланган — ' : '';
+      const style = alreadySelected ? ' class="kw-region-already-selected" disabled style="color:#86efac;background-color:#123329;font-weight:700"' : '';
+      return '<option value="' + esc(route.sheet) + '"' + style + '>' + mark + esc(route.title || route.sheet) + '</option>';
+    }).join('');
+    select.value = '';
   }
 
   function updateMonthlySearchField() {
@@ -755,20 +760,40 @@
   function selectMonthlySearchRegion() {
     const sheet = clean($('kudukSearchRegion')?.value);
     if (!sheet) return;
+    const alreadySelected = monthlyState.searchQueries.some((query) => query.field === 'region' && clean(query.value) === sheet);
+    if (alreadySelected) {
+      setMonthlySearchStatus('Bu hudud oldin tanlangan. Takroriy tanlash mumkin emas.', 'sync');
+      populateMonthlySearchRegions();
+      return;
+    }
     const route = monthlySearchRegionRoutes().find((item) => clean(item.sheet) === sheet);
-    monthlyState.searchQueries = [{ field:'region', value:sheet, label:clean(route?.title || sheet) }];
-    monthlyState.searchResultIndexes = monthlyRegionIndexes(sheet);
+    monthlyState.searchQueries.push({ field:'region', value:sheet, label:clean(route?.title || sheet) });
+    monthlyState.searchResultIndexes = monthlySearchIndexesForQueries(monthlyState.searchQueries);
     monthlyState.searchHasRun = true;
-    monthlyState.searchResultIndexes.forEach((index) => {
+    monthlyRegionIndexes(sheet).forEach((index) => {
       const row = monthlyRows()[index];
       if (row && !isReportedRow(row,index)) monthlyState.selectedKeys.add(monthlyRowKey(row,index));
     });
     renderMonthlySearchQueries();
+    populateMonthlySearchRegions();
     renderMonthlyAnalysis();
     renderMonthlySearchResults();
-    const selected = monthlyState.searchResultIndexes.filter((index) => !isReportedRow(monthlyRows()[index],index)).length;
+    const selected = monthlyState.searchResultIndexes.filter((index) => {
+      const row = monthlyRows()[index];
+      return row && !isReportedRow(row,index) && monthlyState.selectedKeys.has(monthlyRowKey(row,index));
+    }).length;
     const reported = monthlyState.searchResultIndexes.length - selected;
     setMonthlySearchStatus('Hudud: ' + clean(route?.title || sheet) + '. ' + monthlyState.searchResultIndexes.length + ' ta qator topildi, ' + selected + ' tasi tanlandi.' + (reported ? ' Hisobotga kiritilgan ' + reported + ' ta qator qayta tanlanmaydi.' : ''), 'ok');
+  }
+
+  function monthlySearchIndexesForQueries(queries) {
+    const regionIndexes = new Map(queries.filter((query) => query.field === 'region')
+      .map((query) => [clean(query.value), new Set(monthlyRegionIndexes(query.value))]));
+    return monthlyRows().map((row,index) => ({row,index})).filter(({row,index}) =>
+      queries.some((query) => query.field === 'region'
+        ? regionIndexes.get(clean(query.value))?.has(index)
+        : searchValueMatches(row[query.field], query))
+    ).map(({index}) => index);
   }
 
   function addMonthlySearchQuery() {
@@ -813,11 +838,7 @@
       $('kudukSearchValue')?.focus();
       return;
     }
-    monthlyState.searchResultIndexes = monthlyRows().map((row,index) => ({row,index})).filter(({row,index}) =>
-      monthlyState.searchQueries.some((query) => query.field === 'region'
-        ? monthlyRegionIndexes(query.value).includes(index)
-        : searchValueMatches(row[query.field], query))
-    ).map(({index}) => index);
+    monthlyState.searchResultIndexes = monthlySearchIndexesForQueries(monthlyState.searchQueries);
     monthlyState.searchHasRun = true;
     renderMonthlySearchResults();
     const count = monthlyState.searchResultIndexes.length;
@@ -867,6 +888,7 @@
     setMonthlySearchStatus('Pozitsiya yoki quduq raqamini kiriting.');
     if ($('kudukSearchValue')) $('kudukSearchValue').value = '';
     if ($('kudukSearchRegion')) $('kudukSearchRegion').value = '';
+    populateMonthlySearchRegions();
     updateMonthlySearchField();
   }
 

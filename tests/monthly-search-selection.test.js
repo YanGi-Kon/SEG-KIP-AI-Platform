@@ -54,3 +54,15 @@ test('monthly analysis grid supports row-cell drag and Shift arrow add/remove ra
   assert.match(drag, /elementFromPoint/);
   assert.match(source, /data-monthly-row-index/);
 });
+
+test('monthly search prevents selecting a region twice and marks chosen regions in the list', () => {
+  const populate = functionSource('populateMonthlySearchRegions', 'updateMonthlySearchField');
+  const selectRegion = functionSource('selectMonthlySearchRegion', 'monthlySearchIndexesForQueries');
+  assert.match(populate, /alreadySelected/);
+  assert.match(populate, /disabled/);
+  assert.match(populate, /kw-region-already-selected/);
+  assert.match(selectRegion, /alreadySelected/);
+  assert.match(selectRegion, /searchQueries\.push/);
+  assert.doesNotMatch(selectRegion, /searchQueries\s*=\s*\[/);
+  assert.match(source, /populateMonthlySearchRegions\(\);\s*monthlyState\.searchHasRun = false/);
+});
