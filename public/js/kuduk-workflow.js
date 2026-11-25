@@ -502,7 +502,7 @@
         }
       });
       $('kudukSearchClose')?.addEventListener('click', closeMonthlySearch);
-      $('kudukSearchDone')?.addEventListener('click', closeMonthlySearch);
+      $('kudukSearchDone')?.addEventListener('click', applyMonthlySearchSelection);
       $('kudukSearchAdd')?.addEventListener('click', addMonthlySearchQuery);
       $('kudukSearchField')?.addEventListener('change', updateMonthlySearchField);
       $('kudukSearchRegion')?.addEventListener('change', selectMonthlySearchRegion);
@@ -894,6 +894,15 @@
   }
 
   function closeMonthlySearch() { $('kudukSearchModal')?.classList.remove('show'); }
+
+  function applyMonthlySearchSelection() {
+    if (!selectedMonthlyRows().length) {
+      setMonthlySearchStatus('Avval hujjatga qo‘shiladigan qatorlarni belgilang.', 'bad');
+      return;
+    }
+    closeMonthlySearch();
+    openDocumentDateDialog();
+  }
 
   function clearMonthlySearch() {
     monthlyState.searchQueries = [];

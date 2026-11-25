@@ -74,3 +74,11 @@ test('monthly search prevents selecting a region twice and marks chosen regions 
   const rowSelection = functionSource('setMonthlyRowSelection', 'syncMonthlyRowSelection');
   assert.match(rowSelection, /kudukSearchModal.*classList\.contains\('show'\).*populateMonthlySearchRegions/);
 });
+
+test('applying selected monthly search rows opens the document date prompt', () => {
+  const applySelection = functionSource('applyMonthlySearchSelection', 'clearMonthlySearch');
+  assert.match(source, /kudukSearchDone.*addEventListener\('click', applyMonthlySearchSelection\)/);
+  assert.match(applySelection, /selectedMonthlyRows\(\)\.length/);
+  assert.match(applySelection, /closeMonthlySearch\(\);\s*openDocumentDateDialog\(\)/);
+  assert.match(applySelection, /setMonthlySearchStatus\(/);
+});
