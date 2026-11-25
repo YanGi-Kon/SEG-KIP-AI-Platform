@@ -500,15 +500,13 @@
   }
 
   function monthlySearchRegionRoutes() {
-    const state = window.KudukJournalWorkspace?.getState?.() || {};
-    const routes = (Array.isArray(state.routes) ? state.routes : []).filter((route) => {
-      const title = clean(route?.title).toLocaleLowerCase();
-      return route?.sheet && !route?.isMasterJournal && route?.kind !== 'master-journal'
-        && clean(route.sheet) !== clean(state.periodBaseSheet)
-        && !title.includes('\u0436\u0443\u0440\u043d\u0430\u043b') && !title.includes('journal');
+    const locations = new Map();
+    monthlyRows().forEach((row) => {
+      const location = clean(row.location);
+      const key = location.normalize('NFKC').toLocaleLowerCase();
+      if (key && !locations.has(key)) locations.set(key, location);
     });
-    if (routes.length) return routes;
-    return [...new Set(monthlyRows().map((row) => clean(row.location)).filter(Boolean))]
+    return [...locations.values()].sort((a,b) => a.localeCompare(b, 'ru'))
       .map((location) => ({ sheet:'__location__' + location, title:location }));
   }
 
