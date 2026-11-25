@@ -110,17 +110,35 @@ function uploadPdfBase64_(payload) {
   }
 
   var blob = Utilities.newBlob(bytes, 'application/pdf', name);
-  var file = target.createFile(blob);
-  var fileId = clean_(file.getId());
-  if (!fileId) throw new Error('DRIVE_PDF_UPLOAD_FAILED');
-  return {
-    ok: true,
-    fileId: fileId,
-    url: 'https://drive.google.com/file/d/' + fileId + '/view',
-    size: bytes.length,
-    parentFolderId: target.getId(),
-    createdAt: new Date().toISOString()
-  };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var previous = [];
+    var iterator = target.getFilesByName(name);
+    while (iterator.hasNext()) {
+      var oldFile = iterator.next();
+      if (clean_(oldFile.getMimeType()) !== 'application/pdf') throw new Error('DRIVE_PDF_MIME_TYPE_INVALID');
+      previous.push(oldFile);
+    }
+    var file = target.createFile(blob);
+    var fileId = clean_(file.getId());
+    if (!fileId) throw new Error('DRIVE_PDF_UPLOAD_FAILED');
+    previous.forEach(function (oldFile) {
+      if (clean_(oldFile.getId()) !== fileId) oldFile.setTrashed(true);
+    });
+    return {
+      ok: true,
+      fileId: fileId,
+      url: 'https://drive.google.com/file/d/' + fileId + '/view',
+      size: bytes.length,
+      parentFolderId: target.getId(),
+      createdAt: new Date().toISOString(),
+      replaced: previous.length > 0,
+      removedDuplicates: previous.length
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function doPost(e) {

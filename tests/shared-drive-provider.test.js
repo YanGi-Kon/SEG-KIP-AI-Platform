@@ -62,3 +62,25 @@ test('Ordinary My Drive folder is rejected with a stable permanent error', async
 test('Transient upload failure remains retryable', () => {
   assert.equal(isRetryableFinalPdfError({ code: 'DRIVE_UPLOAD_FAILED' }), true);
 });
+
+test('replacing a same-name PDF updates the current-month file and removes same-name duplicates', async () => {
+  const calls = [];
+  const files = [
+    { id:'old-current', mimeType:'application/pdf', parents:['folder-id'] },
+    { id:'old-duplicate', mimeType:'application/pdf', parents:['folder-id'] },
+  ];
+  const provider = new SharedDriveServiceAccountProvider({
+    drive:{files:{
+      list:async(options)=>{calls.push({type:'list',options});return{data:{files}};},
+      update:async(options)=>{calls.push({type:'update',options});return{data:{id:options.fileId,size:9,parents:['folder-id'],webViewLink:'https://drive.google.com/file/d/old-current/view'}};},
+      delete:async(options)=>{calls.push({type:'delete',options});},
+    }},
+  });
+  const result = await provider.replacePdf('folder-id','ЖУРНАЛ - 2026-10.pdf',Buffer.from('%PDF-test'));
+  assert.equal(result.fileId,'old-current');
+  assert.equal(result.replaced,true);
+  assert.equal(result.removedDuplicates,1);
+  assert.equal(calls.find(call=>call.type==='list').options.q.includes("name='ЖУРНАЛ - 2026-10.pdf'"),true);
+  assert.equal(calls.find(call=>call.type==='update').options.fileId,'old-current');
+  assert.deepEqual(calls.filter(call=>call.type==='delete').map(call=>call.options.fileId),['old-duplicate']);
+});

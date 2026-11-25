@@ -84,7 +84,9 @@ export async function exportJournalReportPdf(workspace, yearRaw, monthRaw, depen
     await provider.validateFolder(folderId, { writeTest: false });
     const pdf = assertPdfBuffer(await renderPdf(inlined.html, { landscape: true, allowMultiPage: true }));
     const fileName = 'ЖУРНАЛ УЧЕТА - ' + year + '-' + String(month).padStart(2, '0') + '.pdf';
-    const uploaded = await provider.uploadPdf(folderId, fileName, pdf);
+    const uploaded = typeof provider.replacePdf === 'function'
+      ? await provider.replacePdf(folderId, fileName, pdf)
+      : await provider.uploadPdf(folderId, fileName, pdf);
     if (!clean(uploaded.fileId) || !(Number(uploaded.size) > 0) || (uploaded.parentFolderId && uploaded.parentFolderId !== folderId)) throw reportError('Drive PDF сақланганини тасдиқламади.', 'DRIVE_UPLOAD_RESULT_INVALID', 502);
     return { ...uploaded, fileName, folderId, year, month, rowCount: bundle.items.length };
   } catch (error) {

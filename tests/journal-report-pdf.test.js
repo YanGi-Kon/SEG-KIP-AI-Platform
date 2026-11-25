@@ -12,6 +12,7 @@ function setup(overrides = {}) {
   const provider = {
     validateFolder:async(id,options)=>{calls.push({type:'validate',id,options});},
     uploadPdf:async(folderId,fileName,pdf)=>{calls.push({type:'upload',folderId,fileName,pdf});return{fileId:'file-a',url:'https://drive.google.com/file/d/file-a/view',size:pdf.length,parentFolderId:folderId};},
+    replacePdf:async(folderId,fileName,pdf)=>{calls.push({type:'replace',folderId,fileName,pdf});return{fileId:'file-a',url:'https://drive.google.com/file/d/file-a/view',size:pdf.length,parentFolderId:folderId,replaced:true};},
   };
   const dependencies = {
     getReport:async(id,year,month)=>{calls.push({type:'report',id,year,month});return bundle;},
@@ -37,7 +38,7 @@ test('journal PDF uses persisted selected-month data, scoped signatures and the 
   assert.match(render.html,/Октябрь 2026/);
   assert.doesNotMatch(render.html,/<script>/);
   assert.match(render.html,/&lt;script&gt;/);
-  const upload = calls.find(c=>c.type==='upload');
+  const upload = calls.find(c=>c.type==='replace');
   assert.equal(upload.folderId,'configured-folder');
   assert.equal(upload.fileName,'ЖУРНАЛ УЧЕТА - 2026-10.pdf');
   assert.equal(result.fileId,'file-a');

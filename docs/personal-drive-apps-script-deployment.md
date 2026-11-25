@@ -57,5 +57,9 @@ for final-document folder operations and PDF storage.
 - Never put the webhook secret in GitHub, Sheets, frontend JavaScript, or logs.
 - Rotate both Script Property and Railway variable if exposure is suspected.
 - Redeploy Apps Script after code changes; the `/dev` URL is only for testing.
+- When updating `apps-script/Code.gs`, redeploy the `/exec` web app so
+  `upload_pdf_base64` replaces same-name PDFs in the target folder. The latest
+  PDF is created first; only after that succeeds are earlier same-name copies
+  moved to Trash. This keeps other months' PDFs unchanged.
 - The Apps Script owner account controls the stored files and consumes its Drive
   storage quota.

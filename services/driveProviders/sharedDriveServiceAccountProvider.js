@@ -184,6 +184,59 @@ export class SharedDriveServiceAccountProvider {
     };
   }
 
+  async replacePdf(parentFolderId, name, value) {
+    const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value || '');
+    if (!buffer.length) throw providerError('PDF buffer bo\u2018sh.', 'DRIVE_PDF_BYTES_EMPTY');
+    if (!buffer.subarray(0, 5).equals(Buffer.from('%PDF-', 'ascii'))) {
+      throw providerError('Yuklanayotgan fayl haqiqiy PDF emas.', 'DRIVE_PDF_SIGNATURE_INVALID');
+    }
+    try {
+      const listed = await this.drive.files.list({
+        q: `'${queryEscape(parentFolderId)}' in parents and trashed=false and name='${queryEscape(name)}'`,
+        fields: 'files(id,name,mimeType,parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+        corpora: 'allDrives',
+        pageSize: 1000,
+      });
+      const matches = listed.data?.files || [];
+      if (matches.some((file) => file.mimeType !== 'application/pdf')) {
+        throw providerError('Shu nomdagi Drive fayli PDF emas; eski fayl saqlab qolindi.', 'DRIVE_PDF_MIME_TYPE_INVALID');
+      }
+      if (!matches.length) return await this.uploadPdf(parentFolderId, name, buffer);
+
+      const canonical = matches[0];
+      const updated = await this.drive.files.update({
+        fileId: canonical.id,
+        requestBody: { name, mimeType: 'application/pdf' },
+        media: { mimeType: 'application/pdf', body: Readable.from(buffer) },
+        fields: 'id,name,size,createdTime,webViewLink,driveId,parents',
+        supportsAllDrives: true,
+      });
+      const fileId = clean(updated.data?.id);
+      const returnedParentId = clean(updated.data?.parents?.[0]) || clean(parentFolderId);
+      if (!fileId || returnedParentId !== clean(parentFolderId)) {
+        throw providerError('Drive PDF yangilangani tasdiqlanmadi.', 'DRIVE_UPLOAD_RESULT_INVALID', 502);
+      }
+      for (const duplicate of matches.slice(1)) {
+        if (clean(duplicate.id) && clean(duplicate.id) !== fileId) {
+          await this.drive.files.delete({ fileId: duplicate.id, supportsAllDrives: true });
+        }
+      }
+      return {
+        fileId,
+        url: clean(updated.data?.webViewLink) || `https://drive.google.com/file/d/${fileId}/view`,
+        size: Number(updated.data?.size || buffer.length),
+        createdAt: clean(updated.data?.createdTime),
+        parentFolderId: returnedParentId,
+        replaced: true,
+        removedDuplicates: Math.max(0, matches.length - 1),
+      };
+    } catch (error) {
+      throw classifySharedDriveError(error);
+    }
+  }
+
   async deleteTemporaryFile(fileId) {
     if (!clean(fileId)) return;
     await this.drive.files.delete({ fileId, supportsAllDrives: true }).catch(() => {});
