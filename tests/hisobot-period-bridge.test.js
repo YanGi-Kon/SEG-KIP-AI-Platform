@@ -32,7 +32,7 @@ test('HISOBOT cards do not expose internal Google Sheets source labels to users'
     assert.doesNotMatch(source, /Умумий журнал: База/);
     assert.doesNotMatch(source, /Варақ:\s*<b>/);
   }
-  assert.match(appSource, /modules\/hisobot-journal\.html\?v=20261125-location-values/);
+  assert.match(appSource, /modules\/hisobot-journal\.html\?v=20261125-location-drag-select/);
 });
 
 test('HISOBOT month and year changes automatically synchronize the selected Sheets period', () => {

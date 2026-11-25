@@ -178,7 +178,7 @@
       body.kuduk-document-home #kudukDocumentModal .kw-head{flex-shrink:0}
       body.kuduk-document-home .kw-doc-body{flex:1;min-height:0}
       .kw-monthly-document-actions{min-height:48px;margin-top:12px}
-      .kw-search-toolbar{display:grid;grid-template-columns:minmax(180px,220px) minmax(180px,1fr) auto;gap:8px;align-items:center}.kw-search-toolbar select,.kw-search-toolbar input{height:40px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#061120;color:#eaf8ff;padding:8px 10px}.kw-search-help{margin:8px 0;color:#9fb7c7;font-size:11px}.kw-search-queries{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.kw-search-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid rgba(34,211,238,.28);border-radius:999px;background:rgba(34,211,238,.08);color:#dffbff;font-size:11px}.kw-search-chip button{border:0;background:transparent;color:#fca5a5;cursor:pointer;font-weight:900}.kw-search-results{max-height:48vh;overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:10px}.kw-search-results table{width:100%;min-width:700px;border-collapse:collapse}.kw-search-results th,.kw-search-results td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left}.kw-search-results th{position:sticky;top:0;background:#0a2538;color:#c9f7ff}.kw-search-results input{accent-color:#06b6d4}.kw-search-empty{padding:20px;text-align:center;color:#9fb7c7;font-size:12px}
+      .kw-search-toolbar{display:grid;grid-template-columns:minmax(180px,220px) minmax(180px,1fr) auto;gap:8px;align-items:center}.kw-search-toolbar select,.kw-search-toolbar input{height:40px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#061120;color:#eaf8ff;padding:8px 10px}.kw-search-help{margin:8px 0;color:#9fb7c7;font-size:11px}.kw-search-queries{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.kw-search-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid rgba(34,211,238,.28);border-radius:999px;background:rgba(34,211,238,.08);color:#dffbff;font-size:11px}.kw-search-chip button{border:0;background:transparent;color:#fca5a5;cursor:pointer;font-weight:900}.kw-search-results{max-height:48vh;overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:10px}.kw-search-results.is-dragging{user-select:none;cursor:crosshair}.kw-search-results table{width:100%;min-width:700px;border-collapse:collapse}.kw-search-results th,.kw-search-results td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left}.kw-search-results th{position:sticky;top:0;background:#0a2538;color:#c9f7ff}.kw-search-results input{accent-color:#06b6d4;cursor:pointer}.kw-search-empty{padding:20px;text-align:center;color:#9fb7c7;font-size:12px}
       #kudukCreateMonthlyDocument{position:fixed;bottom:max(48px,env(safe-area-inset-bottom));right:154px;z-index:130;box-shadow:0 6px 24px rgba(0,0,0,.35)}
       .kw-monthly-shell{width:min(1380px,100%);max-height:96vh;display:flex;flex-direction:column;overflow:hidden}
       .kw-monthly-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}.kw-monthly-period select{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px}
@@ -486,6 +486,22 @@
         toggleMonthlyRow(Number(checkbox.dataset.searchRowIndex), checkbox.checked);
         renderMonthlySearchResults();
       });
+      $('kudukSearchResults')?.addEventListener('pointerdown', (event) => {
+        const checkbox = event.target.closest('[data-search-row-index]');
+        if (!checkbox || checkbox.disabled || event.button !== 0) return;
+        event.preventDefault();
+        monthlyState.searchDrag = { pointerId:event.pointerId, checked:!checkbox.checked, suppressClick:true };
+        $('kudukSearchResults')?.classList.add('is-dragging');
+        setMonthlySearchRowSelection(Number(checkbox.dataset.searchRowIndex), monthlyState.searchDrag.checked);
+      });
+      $('kudukSearchResults')?.addEventListener('click', (event) => {
+        if (!monthlyState.searchDrag?.suppressClick) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      });
+      document.addEventListener('pointermove', applyMonthlySearchDrag, { passive:true });
+      document.addEventListener('pointerup', endMonthlySearchDrag);
+      document.addEventListener('pointercancel', endMonthlySearchDrag);
       modal.addEventListener('click', (event) => { if (event.target === modal) closeMonthlySearch(); });
     }
   }
@@ -497,6 +513,34 @@
     if (!status) return;
     status.textContent = message;
     status.className = 'kw-status' + (type ? ' ' + type : '');
+  }
+
+  function setMonthlySearchRowSelection(index, checked) {
+    const row = monthlyRows()[Number(index)];
+    if (!row || isReportedRow(row, Number(index))) return;
+    const key = monthlyRowKey(row, Number(index));
+    if (monthlyState.selectedKeys.has(key) === checked) return;
+    toggleMonthlyRow(Number(index), checked);
+    renderMonthlySearchResults();
+  }
+
+  function applyMonthlySearchDrag(event) {
+    const drag = monthlyState.searchDrag;
+    if (!drag || event.pointerId !== drag.pointerId || !(event.buttons & 1)) return;
+    const element = document.elementFromPoint(event.clientX, event.clientY);
+    const checkbox = element?.closest?.('#kudukSearchResults [data-search-row-index]');
+    if (!checkbox || checkbox.disabled) return;
+    setMonthlySearchRowSelection(Number(checkbox.dataset.searchRowIndex), drag.checked);
+  }
+
+  function endMonthlySearchDrag(event) {
+    const drag = monthlyState.searchDrag;
+    if (!drag || (event.pointerId != null && event.pointerId !== drag.pointerId)) return;
+    window.setTimeout(() => {
+      if (monthlyState.searchDrag !== drag) return;
+      monthlyState.searchDrag = null;
+      $('kudukSearchResults')?.classList.remove('is-dragging');
+    }, 0);
   }
 
   function monthlySearchRegionRoutes() {
@@ -643,6 +687,7 @@
   function renderMonthlySearchResults() {
     const box = $('kudukSearchResults');
     if (!box) return;
+    const scrollTop = box.scrollTop;
     if (!monthlyState.searchHasRun) {
       box.innerHTML = '<div class="kw-search-empty">Sorovlarni kiriting, song Izlash tugmasini bosing.</div>';
       return;
@@ -658,6 +703,7 @@
       const checked = !reported && monthlyState.selectedKeys.has(monthlyRowKey(row,index));
       return '<tr><td><input type="checkbox" data-search-row-index="' + index + '"' + (checked ? ' checked' : '') + (reported ? ' disabled title="Hisobotga avval qoshilgan"' : '') + '></td><td>' + esc(row.date) + '</td><td>' + esc(row.pos) + '</td><td>' + esc(row.name) + '</td><td>' + esc(row.serial) + '</td><td>' + esc(row.skv) + '</td><td>' + esc(row.work) + '</td></tr>';
     }).join('') + '</tbody></table>';
+    box.scrollTop = scrollTop;
   }
 
   function openMonthlySearch() {
