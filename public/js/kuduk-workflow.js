@@ -178,7 +178,7 @@
       body.kuduk-document-home #kudukDocumentModal .kw-head{flex-shrink:0}
       body.kuduk-document-home .kw-doc-body{flex:1;min-height:0}
       .kw-monthly-document-actions{min-height:48px;margin-top:12px}
-      .kw-search-toolbar{display:grid;grid-template-columns:minmax(180px,220px) minmax(180px,1fr) auto;gap:8px;align-items:center}.kw-search-toolbar select,.kw-search-toolbar input{height:40px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#061120;color:#eaf8ff;padding:8px 10px}.kw-search-help{margin:8px 0;color:#9fb7c7;font-size:11px}.kw-search-queries{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.kw-search-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid rgba(34,211,238,.28);border-radius:999px;background:rgba(34,211,238,.08);color:#dffbff;font-size:11px}.kw-search-chip button{border:0;background:transparent;color:#fca5a5;cursor:pointer;font-weight:900}.kw-search-results{max-height:48vh;overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:10px}.kw-search-results.is-dragging{user-select:none;cursor:crosshair}.kw-search-results table{width:100%;min-width:700px;border-collapse:collapse}.kw-search-results th,.kw-search-results td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left}.kw-search-results th{position:sticky;top:0;background:#0a2538;color:#c9f7ff}.kw-search-results input{accent-color:#06b6d4;cursor:pointer}.kw-search-empty{padding:20px;text-align:center;color:#9fb7c7;font-size:12px}
+      .kw-search-toolbar{display:grid;grid-template-columns:minmax(180px,220px) minmax(180px,1fr) auto;gap:8px;align-items:center}.kw-search-toolbar select,.kw-search-toolbar input{height:40px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#061120;color:#eaf8ff;padding:8px 10px}.kw-search-help{margin:8px 0;color:#9fb7c7;font-size:11px}.kw-search-queries{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.kw-search-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid rgba(34,211,238,.28);border-radius:999px;background:rgba(34,211,238,.08);color:#dffbff;font-size:11px}.kw-search-chip button{border:0;background:transparent;color:#fca5a5;cursor:pointer;font-weight:900}.kw-search-results{max-height:48vh;overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:10px}.kw-search-results.is-dragging{user-select:none;cursor:crosshair}.kw-search-results table{width:100%;min-width:700px;border-collapse:collapse}.kw-search-results th,.kw-search-results td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left}.kw-search-results th{position:sticky;top:0;background:#0a2538;color:#c9f7ff}.kw-search-results input{accent-color:#06b6d4;cursor:pointer}.kw-search-results td[tabindex="0"]:focus{outline:2px solid #22d3ee;outline-offset:-2px}.kw-search-empty{padding:20px;text-align:center;color:#9fb7c7;font-size:12px}
       #kudukSearchModal.kw-search-fullscreen{padding:0;background:rgba(0,0,0,.94)}#kudukSearchModal.kw-search-fullscreen>.kw-shell{width:100%!important;height:100vh;max-height:none;display:flex;flex-direction:column;border:0;border-radius:0}#kudukSearchModal.kw-search-fullscreen .kw-body{flex:1;min-height:0;display:flex;flex-direction:column}#kudukSearchModal.kw-search-fullscreen .kw-search-results{flex:1;min-height:0;max-height:none}
       #kudukCreateMonthlyDocument{position:fixed;bottom:max(48px,env(safe-area-inset-bottom));right:154px;z-index:130;box-shadow:0 6px 24px rgba(0,0,0,.35)}
       .kw-monthly-shell{width:min(1380px,100%);max-height:96vh;display:flex;flex-direction:column;overflow:hidden}
@@ -499,15 +499,17 @@
       });
       $('kudukSearchResults')?.addEventListener('keydown', handleMonthlySearchKeyboard);
       $('kudukSearchResults')?.addEventListener('pointerdown', (event) => {
-        const checkbox = event.target.closest('input[type="checkbox"][data-search-row-index]');
-        if (!checkbox || checkbox.disabled || event.button !== 0) return;
-        const index = Number(checkbox.dataset.searchRowIndex);
+        const resultRow = event.target.closest('tr[data-search-row-index]');
+        const checkbox = resultRow?.querySelector('input[type="checkbox"][data-search-row-index]');
+        if (!resultRow || !checkbox || checkbox.disabled || event.button !== 0) return;
+        const index = Number(resultRow.dataset.searchRowIndex);
+        const cell = event.target.closest('td');
         event.preventDefault();
         monthlyState.searchKeyboardRange = null;
         monthlyState.searchDrag = { pointerId:event.pointerId, checked:!checkbox.checked, suppressClick:true };
         $('kudukSearchResults')?.classList.add('is-dragging');
         setMonthlySearchRowSelection(index, monthlyState.searchDrag.checked);
-        focusMonthlySearchCheckbox(index);
+        focusMonthlySearchCell(index, cell?.cellIndex || 0);
       });
       $('kudukSearchResults')?.addEventListener('click', (event) => {
         if (!monthlyState.searchDrag?.suppressClick) return;
@@ -566,6 +568,17 @@
     checkboxes.find((checkbox) => Number(checkbox.dataset.searchRowIndex) === Number(index))?.focus();
   }
 
+  function focusMonthlySearchCell(index, cellPosition = 0) {
+    const box = $('kudukSearchResults');
+    const row = [...(box?.querySelectorAll('tr[data-search-row-index]') || [])]
+      .find((item) => Number(item.dataset.searchRowIndex) === Number(index));
+    const cell = row?.cells?.[cellPosition] || row?.cells?.[0];
+    if (!cell) return;
+    box.querySelectorAll('td[tabindex="0"]').forEach((item) => { item.tabIndex = -1; });
+    cell.tabIndex = 0;
+    cell.focus({ preventScroll:true });
+  }
+
   function syncMonthlySearchCheckboxes() {
     $('kudukSearchResults')?.querySelectorAll('input[type="checkbox"][data-search-row-index]').forEach((checkbox) => {
       const index = Number(checkbox.dataset.searchRowIndex);
@@ -575,12 +588,15 @@
   }
 
   function handleMonthlySearchKeyboard(event) {
-    const checkbox = event.target.closest?.('[data-search-row-index]');
-    if (!checkbox || checkbox.disabled) return;
+    const resultRow = event.target.closest?.('tr[data-search-row-index]');
+    const checkbox = resultRow?.querySelector('input[type="checkbox"][data-search-row-index]');
+    if (!resultRow || !checkbox || checkbox.disabled) return;
     const indexes = monthlyState.searchResultIndexes;
-    const currentIndex = Number(checkbox.dataset.searchRowIndex);
+    const currentIndex = Number(resultRow.dataset.searchRowIndex);
     const position = indexes.indexOf(currentIndex);
     if (position < 0) return;
+    const currentCell = event.target.closest?.('td');
+    const cellPosition = currentCell?.cellIndex || 0;
 
     if (event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar') {
       event.preventDefault();
@@ -588,7 +604,8 @@
       if (event.repeat) return;
       monthlyState.searchKeyboardRange = null;
       setMonthlySearchRowSelection(currentIndex, !checkbox.checked);
-      focusMonthlySearchCheckbox(currentIndex);
+      if (currentCell) focusMonthlySearchCell(currentIndex, cellPosition);
+      else focusMonthlySearchCheckbox(currentIndex);
       return;
     }
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
@@ -601,7 +618,7 @@
 
     if (!event.shiftKey) {
       monthlyState.searchKeyboardRange = null;
-      focusMonthlySearchCheckbox(nextIndex);
+      focusMonthlySearchCell(nextIndex, cellPosition);
       return;
     }
 
@@ -612,7 +629,7 @@
         const row = monthlyRows()[index];
         baseline.set(index, Boolean(row && monthlyState.selectedKeys.has(monthlyRowKey(row,index))));
       });
-      range = { anchorPosition:position, targetIndex:currentIndex, checked:checkbox.checked, baseline };
+      range = { anchorPosition:position, targetIndex:currentIndex, checked:!checkbox.checked, baseline };
     }
     range.targetIndex = nextIndex;
     monthlyState.searchKeyboardRange = range;
@@ -634,7 +651,7 @@
     });
     renderMonthlyAnalysis();
     syncMonthlySearchCheckboxes();
-    focusMonthlySearchCheckbox(nextIndex);
+    focusMonthlySearchCell(nextIndex, cellPosition);
   }
 
   function monthlySearchRegionRoutes() {
@@ -795,7 +812,7 @@
       const row = monthlyRows()[index] || {};
       const reported = isReportedRow(row,index);
       const checked = !reported && monthlyState.selectedKeys.has(monthlyRowKey(row,index));
-      return '<tr data-search-row-index="' + index + '"><td><input type="checkbox" data-search-row-index="' + index + '"' + (checked ? ' checked' : '') + (reported ? ' disabled title="Hisobotga avval qoshilgan"' : '') + '></td><td>' + esc(row.date) + '</td><td>' + esc(row.pos) + '</td><td>' + esc(row.name) + '</td><td>' + esc(row.serial) + '</td><td>' + esc(row.skv) + '</td><td>' + esc(row.work) + '</td></tr>';
+      return '<tr data-search-row-index="' + index + '"><td tabindex="-1"><input type="checkbox" data-search-row-index="' + index + '"' + (checked ? ' checked' : '') + (reported ? ' disabled title="Hisobotga avval qoshilgan"' : '') + '></td><td tabindex="-1">' + esc(row.date) + '</td><td tabindex="-1">' + esc(row.pos) + '</td><td tabindex="-1">' + esc(row.name) + '</td><td tabindex="-1">' + esc(row.serial) + '</td><td tabindex="-1">' + esc(row.skv) + '</td><td tabindex="-1">' + esc(row.work) + '</td></tr>';
     }).join('') + '</tbody></table>';
     box.scrollTop = scrollTop;
   }

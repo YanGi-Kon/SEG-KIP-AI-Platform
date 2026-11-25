@@ -28,7 +28,10 @@ test('monthly search keyboard selection handles Space and Shift plus vertical ar
   assert.match(keyboard, /event\.code === 'Space'/);
   assert.match(keyboard, /event\.shiftKey/);
   assert.match(keyboard, /event\.key !== 'ArrowDown' && event\.key !== 'ArrowUp'/);
+  assert.match(keyboard, /checked:\!checkbox\.checked/);
+  assert.match(keyboard, /focusMonthlySearchCell\(nextIndex, cellPosition\)/);
   assert.match(keyboard, /syncMonthlySearchCheckboxes\(\)/);
+  assert.match(source, /event\.target\.closest\('tr\[data-search-row-index\]'\)/);
 });
 
 test('monthly search fullscreen button toggles the modal class and fullscreen layout', () => {
