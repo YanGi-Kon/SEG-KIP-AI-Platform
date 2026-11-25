@@ -544,24 +544,24 @@
       return monthlyRows().map((row,index) => ({row,index})).filter(({row}) => normalizeLocation(row.location) === location).map(({index}) => index);
     }
     const route = monthlySearchRegionRoutes().find((item) => clean(item.sheet) === clean(sheet));
+    const samePeriod = Number(state.periodYear) === Number(monthlyState.year) && Number(state.periodMonth) === Number(monthlyState.month);
+    const routeRows = samePeriod && Array.isArray(state.sheets?.[sheet]) ? state.sheets[sheet] : null;
+    if (routeRows?.length) {
+      const rowNumber = (row) => Number(row?._periodBaseRowNumber || row?._rowNumber || row?.rowNumber || 0);
+      const ids = new Set(routeRows.map(rowNumber).filter(Boolean));
+      const signature = (row) => [row.date,row.pos,row.name,row.brand,row.serial,row.range,row.location,row.skv,row.work].map(clean).join('|');
+      const signatures = new Set(routeRows.map(signature));
+      return monthlyRows().map((row,index) => ({row,index})).filter(({row}) => {
+        const id = rowNumber(row);
+        return (id && ids.has(id)) || signatures.has(signature(row));
+      }).map(({index}) => index);
+    }
     const sourceLocations = window.HisobotPeriodBridge?.getRouteLocations?.(sheet) || [];
     const normalizedLocations = new Set(sourceLocations.map(normalizeLocation).filter(Boolean));
     if (normalizedLocations.size) {
       return monthlyRows().map((row,index) => ({row,index}))
         .filter(({row}) => normalizedLocations.has(normalizeLocation(row.location)))
         .map(({index}) => index);
-    }
-    const samePeriod = Number(state.periodYear) === Number(monthlyState.year) && Number(state.periodMonth) === Number(monthlyState.month);
-    const routeRows = samePeriod && Array.isArray(state.sheets?.[sheet]) ? state.sheets[sheet] : null;
-    if (routeRows) {
-      const rowNumber = (row) => Number(row?._periodBaseRowNumber || row?._rowNumber || row?.rowNumber || 0);
-      const ids = new Set(routeRows.map(rowNumber).filter(Boolean));
-      const signatures = new Set(routeRows.map((row) => [row.date,row.pos,row.name,row.brand,row.serial,row.range,row.location,row.skv,row.work].map(clean).join('|')));
-      return monthlyRows().map((row,index) => ({row,index})).filter(({row}) => {
-        const id = rowNumber(row);
-        if (id && ids.size) return ids.has(id);
-        return signatures.has([row.date,row.pos,row.name,row.brand,row.serial,row.range,row.location,row.skv,row.work].map(clean).join('|'));
-      }).map(({index}) => index);
     }
     const keys = [route?.sheet, route?.title].map(normalizeLocation).filter(Boolean);
     return monthlyRows().map((row,index) => ({row,index})).filter(({row}) => {

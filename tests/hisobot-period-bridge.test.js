@@ -19,7 +19,7 @@ const {
 test('HISOBOT JURNALI removes legacy route dropdown and injects TO-style period bridge', () => {
   assert.match(serverSource, /app\.get\("\/modules\/kuduk-journal\.html"/);
   assert.match(serverSource, /html\.replace\(\/<select id="routeSelect"/);
-  assert.match(serverSource, /hisobot-period-bridge\.js\?v=hisobot-period8-refresh-cache/);
+  assert.match(serverSource, /hisobot-period-bridge\.js\?v=hisobot-period9-region-search/);
   assert.match(bridgeSource, /oldSelector\.remove\(\)/);
   assert.match(bridgeSource, /hisobotPrevPeriodBtn/);
   assert.match(bridgeSource, /hisobotPeriodMonth/);
@@ -32,7 +32,7 @@ test('HISOBOT cards do not expose internal Google Sheets source labels to users'
     assert.doesNotMatch(source, /Умумий журнал: База/);
     assert.doesNotMatch(source, /Варақ:\s*<b>/);
   }
-  assert.match(appSource, /modules\/hisobot-journal\.html\?v=20261125-sequential-doc-date/);
+  assert.match(appSource, /modules\/hisobot-journal\.html\?v=20261125-region-search-fix/);
 });
 
 test('HISOBOT month and year changes automatically synchronize the selected Sheets period', () => {
