@@ -39,3 +39,18 @@ test('monthly search fullscreen button toggles the modal class and fullscreen la
   assert.match(source, /modal\.classList\.toggle\('kw-search-fullscreen'\)/);
   assert.match(source, /#kudukSearchModal\.kw-search-fullscreen/);
 });
+
+test('monthly analysis grid supports row-cell drag and Shift arrow add/remove ranges', () => {
+  const select = functionSource('setMonthlyRowSelection', 'syncMonthlyRowSelection');
+  const keyboard = functionSource('handleMonthlyGridKeyboard', 'applyMonthlyGridDrag');
+  const drag = functionSource('applyMonthlyGridDrag', 'endMonthlyGridDrag');
+  assert.match(source, /rows\?\.addEventListener\('pointerdown'/);
+  assert.match(source, /rows\?\.addEventListener\('keydown', handleMonthlyGridKeyboard\)/);
+  assert.match(source, /setPointerCapture\(event\.pointerId\)/);
+  assert.match(select, /selectedKeys\.add\(key\)/);
+  assert.doesNotMatch(select, /renderMonthlyAnalysis\(/);
+  assert.match(keyboard, /checked:!checkbox\.checked/);
+  assert.match(keyboard, /focusMonthlyGridCell\(nextIndex,cellPosition\)/);
+  assert.match(drag, /elementFromPoint/);
+  assert.match(source, /data-monthly-row-index/);
+});

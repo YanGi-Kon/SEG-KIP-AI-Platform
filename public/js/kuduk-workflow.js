@@ -181,6 +181,7 @@
       .kw-search-toolbar{display:grid;grid-template-columns:minmax(180px,220px) minmax(180px,1fr) auto;gap:8px;align-items:center}.kw-search-toolbar select,.kw-search-toolbar input{height:40px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#061120;color:#eaf8ff;padding:8px 10px}.kw-search-help{margin:8px 0;color:#9fb7c7;font-size:11px}.kw-search-queries{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.kw-search-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 9px;border:1px solid rgba(34,211,238,.28);border-radius:999px;background:rgba(34,211,238,.08);color:#dffbff;font-size:11px}.kw-search-chip button{border:0;background:transparent;color:#fca5a5;cursor:pointer;font-weight:900}.kw-search-results{max-height:48vh;overflow:auto;border:1px solid rgba(255,255,255,.10);border-radius:10px}.kw-search-results.is-dragging{user-select:none;cursor:crosshair}.kw-search-results table{width:100%;min-width:700px;border-collapse:collapse}.kw-search-results th,.kw-search-results td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;text-align:left}.kw-search-results th{position:sticky;top:0;background:#0a2538;color:#c9f7ff}.kw-search-results input{accent-color:#06b6d4;cursor:pointer}.kw-search-results td[tabindex="0"]:focus{outline:2px solid #22d3ee;outline-offset:-2px}.kw-search-empty{padding:20px;text-align:center;color:#9fb7c7;font-size:12px}
       #kudukSearchModal.kw-search-fullscreen{padding:0;background:rgba(0,0,0,.94)}#kudukSearchModal.kw-search-fullscreen>.kw-shell{width:100%!important;height:100vh;max-height:none;display:flex;flex-direction:column;border:0;border-radius:0}#kudukSearchModal.kw-search-fullscreen .kw-body{flex:1;min-height:0;display:flex;flex-direction:column}#kudukSearchModal.kw-search-fullscreen .kw-search-results{flex:1;min-height:0;max-height:none}
       #kudukCreateMonthlyDocument{position:fixed;bottom:max(48px,env(safe-area-inset-bottom));right:154px;z-index:130;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+      .kw-monthly-table tr[data-monthly-row-index] td[tabindex="0"]:focus{outline:2px solid #22d3ee;outline-offset:-2px}.kw-monthly-table tbody.is-dragging{user-select:none;cursor:crosshair}
       .kw-monthly-shell{width:min(1380px,100%);max-height:96vh;display:flex;flex-direction:column;overflow:hidden}
       .kw-monthly-period{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}.kw-monthly-period select{background:#061120;color:#eaf8ff;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:8px 10px}
       .kw-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:10px}.kw-kpi{padding:12px;border:1px solid rgba(34,211,238,.22);border-radius:13px;background:rgba(2,15,28,.7)}.kw-kpi small{display:block;color:#9fb7c7;font-size:10px}.kw-kpi b{display:block;margin-top:5px;font-size:20px}
@@ -269,6 +270,34 @@
       $('kudukAnalysisYear')?.addEventListener('change', () => void readMonthlySelectors());
       $('kudukCreateMonthlyDocument')?.addEventListener('click', createMonthlyDocument);
       $('kudukSelectAllRows')?.addEventListener('change', (event) => toggleSelectAll(Boolean(event.target?.checked)));
+      const rows = $('kudukMonthlyRows');
+      rows?.addEventListener('change', (event) => {
+        const checkbox = event.target.closest('input[type="checkbox"][data-monthly-row-index]');
+        if (checkbox) toggleMonthlyRow(Number(checkbox.dataset.monthlyRowIndex), checkbox.checked);
+      });
+      rows?.addEventListener('keydown', handleMonthlyGridKeyboard);
+      rows?.addEventListener('pointerdown', (event) => {
+        const row = event.target.closest('tr[data-monthly-row-index]');
+        const checkbox = row?.querySelector('input[type="checkbox"][data-monthly-row-index]');
+        const cell = event.target.closest('td');
+        if (!row || !checkbox || checkbox.disabled || !cell || event.target.closest('button,a,select,textarea') || event.button !== 0) return;
+        event.preventDefault();
+        const index = Number(row.dataset.monthlyRowIndex);
+        monthlyState.monthlyGridRange = null;
+        monthlyState.monthlyGridDrag = { pointerId:event.pointerId, checked:!checkbox.checked, suppressClick:true };
+        try { rows.setPointerCapture(event.pointerId); } catch (_) {}
+        rows.classList.add('is-dragging');
+        setMonthlyRowSelection(index, monthlyState.monthlyGridDrag.checked);
+        focusMonthlyGridCell(index, cell.cellIndex);
+      });
+      rows?.addEventListener('click', (event) => {
+        if (!monthlyState.monthlyGridDrag?.suppressClick) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      });
+      document.addEventListener('pointermove', applyMonthlyGridDrag, { passive:true });
+      document.addEventListener('pointerup', endMonthlyGridDrag);
+      document.addEventListener('pointercancel', endMonthlyGridDrag);
       modal.addEventListener('click', (event) => { if (event.target === modal) closeMonthlyAnalysis(); });
     }
 
@@ -523,7 +552,7 @@
     }
   }
 
-  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0, lastDocumentDate:'', executorDefault:'', executorDefaultWorkspaceId:'', searchQueries:[], searchResultIndexes:[], searchHasRun:false, searchKeyboardRange:null };
+  const monthlyState = { year:0, month:0, route:null, rows:[], loading:false, selectedKeys:new Set(), reportedKeys:new Set(), reportBatches:0, lastDocumentDate:'', executorDefault:'', executorDefaultWorkspaceId:'', searchQueries:[], searchResultIndexes:[], searchHasRun:false, searchKeyboardRange:null, monthlyGridRange:null, monthlyGridDrag:null };
 
   function setMonthlySearchStatus(message, type='') {
     const status = $('kudukSearchStatus');
@@ -937,12 +966,131 @@
   }
 
   function toggleMonthlyRow(index, checked) {
+    setMonthlyRowSelection(index, checked);
+  }
+
+  function setMonthlyRowSelection(index, checked) {
     const row = monthlyRows()[Number(index)];
     if (!row || isReportedRow(row, Number(index))) return;
     const key = monthlyRowKey(row, Number(index));
     if (checked) monthlyState.selectedKeys.add(key);
     else monthlyState.selectedKeys.delete(key);
-    renderMonthlyAnalysis();
+    syncMonthlyRowSelection(Number(index));
+    refreshMonthlySelectionSummary();
+  }
+
+  function syncMonthlyRowSelection(index) {
+    const row = monthlyRows()[index];
+    const element = [...($('kudukMonthlyRows')?.querySelectorAll('tr[data-monthly-row-index]') || [])]
+      .find((item) => Number(item.dataset.monthlyRowIndex) === index);
+    if (!row || !element) return;
+    const reported = isReportedRow(row,index);
+    const selected = !reported && monthlyState.selectedKeys.has(monthlyRowKey(row,index));
+    element.classList.toggle('kw-row-reported', reported);
+    element.classList.toggle('kw-row-selected', selected);
+    element.classList.toggle('kw-row-unselected', !reported && !selected);
+    const checkbox = element.querySelector('input[type="checkbox"][data-monthly-row-index]');
+    if (checkbox) checkbox.checked = selected;
+  }
+
+  function refreshMonthlySelectionSummary() {
+    updateSelectionUi();
+    const selectedCount = selectedMonthlyRows().length;
+    if ($('kudukKpiSelected')) $('kudukKpiSelected').textContent = String(selectedCount);
+  }
+
+  function focusMonthlyGridCell(index, cellPosition = 0) {
+    const body = $('kudukMonthlyRows');
+    const row = [...(body?.querySelectorAll('tr[data-monthly-row-index]') || [])]
+      .find((item) => Number(item.dataset.monthlyRowIndex) === Number(index));
+    const cell = row?.cells?.[cellPosition] || row?.cells?.[0];
+    if (!cell) return;
+    body.querySelectorAll('td[tabindex="0"]').forEach((item) => { item.tabIndex = -1; });
+    cell.tabIndex = 0;
+    cell.focus({ preventScroll:true });
+  }
+
+  function syncMonthlyGridSelection() {
+    monthlyRows().forEach((_row,index) => syncMonthlyRowSelection(index));
+    refreshMonthlySelectionSummary();
+  }
+
+  function handleMonthlyGridKeyboard(event) {
+    const rowElement = event.target.closest?.('tr[data-monthly-row-index]');
+    const checkbox = rowElement?.querySelector('input[type="checkbox"][data-monthly-row-index]');
+    if (!rowElement || !checkbox || checkbox.disabled) return;
+    const index = Number(rowElement.dataset.monthlyRowIndex);
+    const currentCell = event.target.closest?.('td');
+    const cellPosition = currentCell?.cellIndex || 0;
+    const rows = monthlyRows();
+
+    if (event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.repeat) return;
+      monthlyState.monthlyGridRange = null;
+      setMonthlyRowSelection(index, !checkbox.checked);
+      if (currentCell) focusMonthlyGridCell(index,cellPosition);
+      return;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    const direction = event.key === 'ArrowDown' ? 1 : -1;
+    let nextIndex = index + direction;
+    while (nextIndex >= 0 && nextIndex < rows.length && isReportedRow(rows[nextIndex],nextIndex)) nextIndex += direction;
+    if (nextIndex < 0 || nextIndex >= rows.length) return;
+
+    if (!event.shiftKey) {
+      monthlyState.monthlyGridRange = null;
+      focusMonthlyGridCell(nextIndex,cellPosition);
+      return;
+    }
+
+    let range = monthlyState.monthlyGridRange;
+    if (!range || range.targetIndex !== index) {
+      const baseline = new Map();
+      rows.forEach((item,itemIndex) => baseline.set(itemIndex, monthlyState.selectedKeys.has(monthlyRowKey(item,itemIndex))));
+      range = { anchorIndex:index, targetIndex:index, checked:!checkbox.checked, baseline };
+    }
+    range.targetIndex = nextIndex;
+    monthlyState.monthlyGridRange = range;
+    rows.forEach((item,itemIndex) => {
+      if (isReportedRow(item,itemIndex)) return;
+      const key = monthlyRowKey(item,itemIndex);
+      if (range.baseline.get(itemIndex)) monthlyState.selectedKeys.add(key);
+      else monthlyState.selectedKeys.delete(key);
+    });
+    const low = Math.min(range.anchorIndex,nextIndex);
+    const high = Math.max(range.anchorIndex,nextIndex);
+    for (let itemIndex=low; itemIndex<=high; itemIndex++) {
+      const item = rows[itemIndex];
+      if (!item || isReportedRow(item,itemIndex)) continue;
+      const key = monthlyRowKey(item,itemIndex);
+      if (range.checked) monthlyState.selectedKeys.add(key);
+      else monthlyState.selectedKeys.delete(key);
+    }
+    syncMonthlyGridSelection();
+    focusMonthlyGridCell(nextIndex,cellPosition);
+  }
+
+  function applyMonthlyGridDrag(event) {
+    const drag = monthlyState.monthlyGridDrag;
+    if (!drag || event.pointerId !== drag.pointerId || !(event.buttons & 1)) return;
+    const target = document.elementFromPoint(event.clientX,event.clientY);
+    const row = target?.closest?.('#kudukMonthlyRows tr[data-monthly-row-index]');
+    const checkbox = row?.querySelector('input[type="checkbox"][data-monthly-row-index]');
+    if (!row || !checkbox || checkbox.disabled) return;
+    setMonthlyRowSelection(Number(row.dataset.monthlyRowIndex),drag.checked);
+  }
+
+  function endMonthlyGridDrag(event) {
+    const drag = monthlyState.monthlyGridDrag;
+    if (!drag || (event.pointerId != null && event.pointerId !== drag.pointerId)) return;
+    window.setTimeout(() => {
+      if (monthlyState.monthlyGridDrag !== drag) return;
+      monthlyState.monthlyGridDrag = null;
+      $('kudukMonthlyRows')?.classList.remove('is-dragging');
+    },0);
   }
 
   function toggleSelectAll(checked) {
@@ -1030,10 +1178,10 @@
         const rowClass = reported ? 'kw-row-reported' : (selected ? 'kw-row-selected' : 'kw-row-unselected');
         const selectControl = reported
           ? '<span class="kw-row-reported-badge" title="Бу қатор аввал ҳисоботга қўшилган">✓ Ҳисоботда</span>'
-          : '<label class="kw-row-select" title="Хужатга қўшиш"><input type="checkbox"' + checked + ' onchange="window.KudukWorkflow?.toggleMonthlyRow(' + index + ', this.checked)">✓</label>';
-        return `<tr class="${rowClass}">
-        <td>${index+1}</td><td>${esc(r.date)}</td><td>${esc(r.pos)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.serial)}</td><td>${esc(r.range)}</td><td>${esc(r.location)}</td><td>${esc(r.skv)}</td><td>${esc(r.work)}</td><td>${esc(monthlyExecutor(r))}</td><td>${esc(r.signature)}</td>
-        <td class="actions">${selectControl}<button class="btn orange workspace-operator-only" type="button" title="Таҳрирлаш" onclick="window.KudukWorkflow?.editMonthlyRow(${index})">✏️</button><button class="btn red workspace-operator-only" type="button" title="Ўчириш" onclick="window.KudukWorkflow?.deleteMonthlyRow(${index})">🗑</button></td>
+          : '<label class="kw-row-select" title="Хужатга қўшиш"><input type="checkbox" data-monthly-row-index="' + index + '"' + checked + '>✓</label>';
+        return `<tr data-monthly-row-index="${index}" class="${rowClass}">
+        <td tabindex="-1">${index+1}</td><td tabindex="-1">${esc(r.date)}</td><td tabindex="-1">${esc(r.pos)}</td><td tabindex="-1">${esc(r.name)}</td><td tabindex="-1">${esc(r.brand)}</td><td tabindex="-1">${esc(r.serial)}</td><td tabindex="-1">${esc(r.range)}</td><td tabindex="-1">${esc(r.location)}</td><td tabindex="-1">${esc(r.skv)}</td><td tabindex="-1">${esc(r.work)}</td><td tabindex="-1">${esc(monthlyExecutor(r))}</td><td tabindex="-1">${esc(r.signature)}</td>
+        <td tabindex="-1" class="actions">${selectControl}<button class="btn orange workspace-operator-only" type="button" title="Таҳрирлаш" onclick="window.KudukWorkflow?.editMonthlyRow(${index})">✏️</button><button class="btn red workspace-operator-only" type="button" title="Ўчириш" onclick="window.KudukWorkflow?.deleteMonthlyRow(${index})">🗑</button></td>
       </tr>`;
       }).join('') : '<tr><td colspan="13" class="kw-empty">Танланган ой учун 📘 ЖУРНАЛ ёзувлари топилмади.</td></tr>';
       updateSelectionUi();
