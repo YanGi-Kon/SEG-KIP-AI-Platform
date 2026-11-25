@@ -700,12 +700,27 @@
     if (!select) return;
     const routes = monthlySearchRegionRoutes();
     select.innerHTML = '<option value="">Hududni tanlang</option>' + routes.map((route) => {
-      const alreadySelected = monthlyState.searchQueries.some((query) => query.field === 'region' && clean(query.value) === clean(route.sheet));
-      const mark = alreadySelected ? '✓ Танланган — ' : '';
-      const style = alreadySelected ? ' class="kw-region-already-selected" disabled style="color:#86efac;background-color:#123329;font-weight:700"' : '';
+      const status = monthlySearchRegionState(route);
+      const mark = status.label ? '✓ ' + status.label + ' — ' : '';
+      const style = status.locked ? ' class="kw-region-already-selected" disabled style="color:#86efac;background-color:#123329;font-weight:700"' : '';
       return '<option value="' + esc(route.sheet) + '"' + style + '>' + mark + esc(route.title || route.sheet) + '</option>';
     }).join('');
     select.value = '';
+  }
+
+  function monthlySearchRegionState(route) {
+    const indexes = monthlyRegionIndexes(route.sheet);
+    const selectable = indexes.filter((index) => !isReportedRow(monthlyRows()[index],index));
+    const querySelected = monthlyState.searchQueries.some((query) => query.field === 'region' && clean(query.value) === clean(route.sheet));
+    const mainTableSelected = selectable.length > 0 && selectable.every((index) => {
+      const row = monthlyRows()[index];
+      return row && monthlyState.selectedKeys.has(monthlyRowKey(row,index));
+    });
+    const alreadyReported = indexes.length > 0 && selectable.length === 0;
+    return {
+      locked: querySelected || mainTableSelected || alreadyReported,
+      label: alreadyReported ? 'Ҳисоботда' : (querySelected || mainTableSelected ? 'Танланган' : '')
+    };
   }
 
   function updateMonthlySearchField() {
@@ -870,6 +885,7 @@
   function openMonthlySearch() {
     if (!document.body.classList.contains('kuduk-analysis-home')) return;
     injectUi();
+    populateMonthlySearchRegions();
     renderMonthlySearchQueries();
     renderMonthlySearchResults();
     $('kudukSearchModal')?.classList.add('show');
@@ -999,6 +1015,7 @@
     else monthlyState.selectedKeys.delete(key);
     syncMonthlyRowSelection(Number(index));
     refreshMonthlySelectionSummary();
+    if ($('kudukSearchModal')?.classList.contains('show')) populateMonthlySearchRegions();
   }
 
   function syncMonthlyRowSelection(index) {

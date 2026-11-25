@@ -57,12 +57,20 @@ test('monthly analysis grid supports row-cell drag and Shift arrow add/remove ra
 
 test('monthly search prevents selecting a region twice and marks chosen regions in the list', () => {
   const populate = functionSource('populateMonthlySearchRegions', 'updateMonthlySearchField');
+  const regionState = functionSource('monthlySearchRegionState', 'updateMonthlySearchField');
   const selectRegion = functionSource('selectMonthlySearchRegion', 'monthlySearchIndexesForQueries');
-  assert.match(populate, /alreadySelected/);
+  assert.match(populate, /monthlySearchRegionState\(route\)/);
   assert.match(populate, /disabled/);
   assert.match(populate, /kw-region-already-selected/);
+  assert.match(regionState, /monthlyState\.selectedKeys\.has\(monthlyRowKey\(row,index\)\)/);
+  assert.match(regionState, /selectable\.every/);
+  assert.match(regionState, /alreadyReported/);
   assert.match(selectRegion, /alreadySelected/);
   assert.match(selectRegion, /searchQueries\.push/);
   assert.doesNotMatch(selectRegion, /searchQueries\s*=\s*\[/);
   assert.match(source, /populateMonthlySearchRegions\(\);\s*monthlyState\.searchHasRun = false/);
+  const openSearch = functionSource('openMonthlySearch', 'closeMonthlySearch');
+  assert.match(openSearch, /populateMonthlySearchRegions\(\)/);
+  const rowSelection = functionSource('setMonthlyRowSelection', 'syncMonthlyRowSelection');
+  assert.match(rowSelection, /kudukSearchModal.*classList\.contains\('show'\).*populateMonthlySearchRegions/);
 });
