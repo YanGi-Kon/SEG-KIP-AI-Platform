@@ -492,14 +492,14 @@
         setMonthlySearchStatus('Сўров ўзгарди. Натижаларни янгилаш учун «Излаш»ни босинг.');
       });
       $('kudukSearchResults')?.addEventListener('change', (event) => {
-        const checkbox = event.target.closest('[data-search-row-index]');
+        const checkbox = event.target.closest('input[type="checkbox"][data-search-row-index]');
         if (!checkbox) return;
+        monthlyState.searchKeyboardRange = null;
         toggleMonthlyRow(Number(checkbox.dataset.searchRowIndex), checkbox.checked);
-        renderMonthlySearchResults();
       });
       $('kudukSearchResults')?.addEventListener('keydown', handleMonthlySearchKeyboard);
       $('kudukSearchResults')?.addEventListener('pointerdown', (event) => {
-        const checkbox = event.target.closest('[data-search-row-index]');
+        const checkbox = event.target.closest('input[type="checkbox"][data-search-row-index]');
         if (!checkbox || checkbox.disabled || event.button !== 0) return;
         const index = Number(checkbox.dataset.searchRowIndex);
         event.preventDefault();
@@ -534,16 +534,19 @@
     const row = monthlyRows()[Number(index)];
     if (!row || isReportedRow(row, Number(index))) return;
     const key = monthlyRowKey(row, Number(index));
+    const checkbox = [...($('kudukSearchResults')?.querySelectorAll('input[type="checkbox"][data-search-row-index]') || [])]
+      .find((item) => Number(item.dataset.searchRowIndex) === Number(index));
+    if (checkbox) checkbox.checked = checked;
     if (monthlyState.selectedKeys.has(key) === checked) return;
     toggleMonthlyRow(Number(index), checked);
-    renderMonthlySearchResults();
   }
 
   function applyMonthlySearchDrag(event) {
     const drag = monthlyState.searchDrag;
     if (!drag || event.pointerId !== drag.pointerId || !(event.buttons & 1)) return;
     const element = document.elementFromPoint(event.clientX, event.clientY);
-    const checkbox = element?.closest?.('#kudukSearchResults [data-search-row-index]');
+    const resultRow = element?.closest?.('#kudukSearchResults tr[data-search-row-index]');
+    const checkbox = resultRow?.querySelector('input[type="checkbox"][data-search-row-index]');
     if (!checkbox || checkbox.disabled) return;
     setMonthlySearchRowSelection(Number(checkbox.dataset.searchRowIndex), drag.checked);
   }
@@ -559,8 +562,16 @@
   }
 
   function focusMonthlySearchCheckbox(index) {
-    const checkboxes = [...($('kudukSearchResults')?.querySelectorAll('[data-search-row-index]') || [])];
+    const checkboxes = [...($('kudukSearchResults')?.querySelectorAll('input[type="checkbox"][data-search-row-index]') || [])];
     checkboxes.find((checkbox) => Number(checkbox.dataset.searchRowIndex) === Number(index))?.focus();
+  }
+
+  function syncMonthlySearchCheckboxes() {
+    $('kudukSearchResults')?.querySelectorAll('input[type="checkbox"][data-search-row-index]').forEach((checkbox) => {
+      const index = Number(checkbox.dataset.searchRowIndex);
+      const row = monthlyRows()[index];
+      checkbox.checked = Boolean(row && !isReportedRow(row,index) && monthlyState.selectedKeys.has(monthlyRowKey(row,index)));
+    });
   }
 
   function handleMonthlySearchKeyboard(event) {
@@ -622,7 +633,7 @@
       else monthlyState.selectedKeys.delete(key);
     });
     renderMonthlyAnalysis();
-    renderMonthlySearchResults();
+    syncMonthlySearchCheckboxes();
     focusMonthlySearchCheckbox(nextIndex);
   }
 
@@ -784,7 +795,7 @@
       const row = monthlyRows()[index] || {};
       const reported = isReportedRow(row,index);
       const checked = !reported && monthlyState.selectedKeys.has(monthlyRowKey(row,index));
-      return '<tr><td><input type="checkbox" data-search-row-index="' + index + '"' + (checked ? ' checked' : '') + (reported ? ' disabled title="Hisobotga avval qoshilgan"' : '') + '></td><td>' + esc(row.date) + '</td><td>' + esc(row.pos) + '</td><td>' + esc(row.name) + '</td><td>' + esc(row.serial) + '</td><td>' + esc(row.skv) + '</td><td>' + esc(row.work) + '</td></tr>';
+      return '<tr data-search-row-index="' + index + '"><td><input type="checkbox" data-search-row-index="' + index + '"' + (checked ? ' checked' : '') + (reported ? ' disabled title="Hisobotga avval qoshilgan"' : '') + '></td><td>' + esc(row.date) + '</td><td>' + esc(row.pos) + '</td><td>' + esc(row.name) + '</td><td>' + esc(row.serial) + '</td><td>' + esc(row.skv) + '</td><td>' + esc(row.work) + '</td></tr>';
     }).join('') + '</tbody></table>';
     box.scrollTop = scrollTop;
   }
